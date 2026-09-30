@@ -1,0 +1,40 @@
+{
+  "ticket_id": "T-100",
+  "parameters": {
+    "scene_ref": {
+      "quality": "KNOWN",
+      "value": "driver_no_pickup@1.0.0",
+      "source_refs": [
+        "synthetic:host-input"
+      ]
+    },
+    "accepted": {
+      "quality": "KNOWN",
+      "value": true,
+      "source_refs": [
+        "synthetic:host-input"
+      ]
+    },
+    "fact_confirmed": {
+      "quality": "KNOWN",
+      "value": true,
+      "source_refs": [
+        "synthetic:host-input"
+      ]
+    },
+    "advice_ready": {
+      "quality": "KNOWN",
+      "value": true,
+      "source_refs": [
+        "synthetic:host-input"
+      ]
+    },
+    "met_driver": {
+      "quality": "UNKNOWN",
+      "value": null,
+      "source_refs": [
+        "synthetic:user-input-pending"
+      ]
+    }
+  }
+}

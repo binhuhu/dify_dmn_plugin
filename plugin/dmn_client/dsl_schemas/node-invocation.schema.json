@@ -1,0 +1,355 @@
+{
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "const": "service-decision-dsl.node-invocation.v2"
+    },
+    "example_only": {
+      "type": "boolean"
+    },
+    "executor": {
+      "enum": [
+        "execute_query",
+        "evaluate_decision",
+        "execute_action"
+      ]
+    },
+    "node_ref": {
+      "type": "object",
+      "properties": {
+        "workflow_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "phase_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "step_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "node_id": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "workflow_id",
+        "phase_id",
+        "step_id",
+        "node_id"
+      ],
+      "additionalProperties": false
+    },
+    "definition_digest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "inputs": {
+      "type": "object"
+    },
+    "execution_context": {
+      "type": "object",
+      "properties": {
+        "workflow_run_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "step_run_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "attempt_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "node_run_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "activation_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "subject_scope_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "authorization_context_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "as_of": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "evaluation_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "business_effect_key": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "workflow_run_id",
+        "step_run_id",
+        "attempt_id",
+        "node_run_id",
+        "activation_ref",
+        "subject_scope_ref",
+        "authorization_context_ref",
+        "as_of"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "schema_version",
+    "executor",
+    "node_ref",
+    "definition_digest",
+    "inputs",
+    "execution_context"
+  ],
+  "additionalProperties": false,
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:service-decision-dsl:node-invocation:v2:core",
+  "$defs": {
+    "parameter": {
+      "type": "object",
+      "properties": {
+        "quality": {
+          "enum": [
+            "KNOWN",
+            "UNKNOWN",
+            "NOT_APPLICABLE",
+            "CONFLICT"
+          ]
+        },
+        "value": {},
+        "source_refs": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "diagnostic_codes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "observed_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "quality",
+        "value",
+        "source_refs"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "executor": {
+            "const": "execute_query"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "inputs": {
+            "type": "object",
+            "properties": {
+              "parameters": {
+                "type": "object"
+              },
+              "source_refs": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            },
+            "required": [
+              "parameters",
+              "source_refs"
+            ],
+            "additionalProperties": false
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "executor": {
+            "const": "evaluate_decision"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "inputs": {
+            "type": "object",
+            "properties": {
+              "parameter_snapshot": {
+                "type": "object",
+                "properties": {
+                  "schema_version": {
+                    "const": "service-decision-dsl.parameter-snapshot.v2"
+                  },
+                  "example_only": {
+                    "type": "boolean"
+                  },
+                  "prepared_for": {
+                    "type": "object",
+                    "properties": {
+                      "workflow_id": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "phase_id": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "step_id": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "node_id": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    },
+                    "required": [
+                      "workflow_id",
+                      "phase_id",
+                      "step_id",
+                      "node_id"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "definition_digest": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  },
+                  "subject_scope_ref": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "as_of": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "parameters": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "$ref": "#/$defs/parameter"
+                    }
+                  },
+                  "provenance": {
+                    "type": "object"
+                  },
+                  "reused_from": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "schema_version",
+                  "prepared_for",
+                  "definition_digest",
+                  "subject_scope_ref",
+                  "as_of",
+                  "parameters",
+                  "provenance"
+                ],
+                "additionalProperties": false
+              },
+              "runtime_snapshot": {
+                "type": "object"
+              }
+            },
+            "required": [
+              "parameter_snapshot",
+              "runtime_snapshot"
+            ],
+            "additionalProperties": false
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "executor": {
+            "const": "execute_action"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "inputs": {
+            "type": "object",
+            "properties": {
+              "action_intent": {
+                "type": "object",
+                "properties": {
+                  "intent_id": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "kind": {
+                    "enum": [
+                      "QUERY",
+                      "INTERACTION",
+                      "BUSINESS"
+                    ]
+                  },
+                  "target_node_id": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "parameters": {
+                    "type": "object"
+                  }
+                },
+                "required": [
+                  "intent_id",
+                  "kind",
+                  "target_node_id",
+                  "parameters"
+                ],
+                "additionalProperties": false
+              },
+              "bound_parameters": {
+                "type": "object"
+              }
+            },
+            "required": [
+              "action_intent",
+              "bound_parameters"
+            ],
+            "additionalProperties": false
+          }
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,51 @@
+{
+  "schema_version": "service-decision-dsl.node-result.v2",
+  "node_ref": {
+    "workflow_id": "demo.solve",
+    "phase_id": "P3",
+    "step_id": "P3.S1",
+    "node_id": "D1"
+  },
+  "node_run_id": "EXPECTED-NOT-EXECUTED-D1",
+  "execution_status": "SUCCEEDED",
+  "output_port": "ok",
+  "outputs": {
+    "decision": {
+      "state": "NEED_USER_INPUT",
+      "data": {
+        "required_parameter": "met_driver"
+      },
+      "actions": [
+        {
+          "intent_id": "ask_meeting",
+          "kind": "INTERACTION",
+          "target_node_id": "A_ASK",
+          "parameters": {
+            "question_ref": "demo.ask_meeting@1",
+            "order_id": "O-100"
+          }
+        },
+        {
+          "intent_id": "control",
+          "kind": "CONTROL",
+          "route_ref": "ASK"
+        }
+      ]
+    }
+  },
+  "diagnostics": [],
+  "trace": {
+    "model_ref": "demo.meeting@1.0.0",
+    "hit_policy": "UNIQUE",
+    "selected_rule_ids": [
+      "unknown"
+    ],
+    "evidence_status": "EXPECTED_NOT_EXECUTED"
+  },
+  "error": null,
+  "run_ref": {
+    "workflow_run_id": "EXAMPLE-WR-001",
+    "step_run_id": "EXAMPLE-SR-P3-001",
+    "attempt_id": "EXAMPLE-ATTEMPT-1"
+  }
+}

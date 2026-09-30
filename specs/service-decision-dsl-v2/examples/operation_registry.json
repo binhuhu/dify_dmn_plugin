@@ -1,0 +1,170 @@
+{
+  "schema_version": "service-decision-dsl.operation-registry.v2",
+  "example_only": true,
+  "operations": {
+    "mock.ticket.read@1": {
+      "read_only": true,
+      "backend": "SYNTHETIC",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "ticket_id": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "ticket_id"
+        ],
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "order_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "user_id": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "order_id",
+          "user_id"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "mock.order.read@1": {
+      "read_only": true,
+      "backend": "SYNTHETIC",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "order_id": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "order_id"
+        ],
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "order_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "trip_id": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "order_id",
+          "trip_id"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "mock.user.read@1": {
+      "read_only": true,
+      "backend": "SYNTHETIC",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "user_id"
+        ],
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "user_id"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "mock.trip.read@1": {
+      "read_only": true,
+      "backend": "SYNTHETIC",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "trip_id": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "trip_id"
+        ],
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "trip_id": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "trip_id"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "mock.interactions.read@1": {
+      "read_only": true,
+      "backend": "SYNTHETIC",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "order_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "user_id": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "order_id",
+          "user_id"
+        ],
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "additionalProperties": false
+      }
+    }
+  }
+}

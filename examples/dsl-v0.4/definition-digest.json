@@ -1,0 +1,7 @@
+{
+  "canonicalization": "RFC8785",
+  "library": "rfc8785==0.1.4",
+  "sha256": "92d5de3e67137fd3528351a234f1a4e9f5a707828ba5d6cfdcd218f12ff7b80b",
+  "environment": "SYNTHETIC",
+  "authority": "NONE_CONTENT_LOCK_ONLY"
+}

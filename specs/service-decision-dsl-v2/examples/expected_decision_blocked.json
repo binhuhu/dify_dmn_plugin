@@ -1,0 +1,33 @@
+{
+  "schema_version": "service-decision-dsl.node-result.v2",
+  "node_ref": {
+    "workflow_id": "demo.solve",
+    "phase_id": "P3",
+    "step_id": "P3.S1",
+    "node_id": "D1"
+  },
+  "node_run_id": "EXPECTED-NOT-EXECUTED-D1",
+  "execution_status": "BLOCKED",
+  "output_port": "blocked",
+  "outputs": {
+    "decision": null
+  },
+  "diagnostics": [],
+  "trace": {
+    "evidence_status": "EXPECTED_NOT_EXECUTED",
+    "engine_called": false
+  },
+  "error": {
+    "code": "INPUT_REQUIRED_MISSING",
+    "stage": "INPUT",
+    "node_id": "D1",
+    "path": "order_id",
+    "retryable": false,
+    "message": "Required order identity unavailable."
+  },
+  "run_ref": {
+    "workflow_run_id": "EXAMPLE-WR-001",
+    "step_run_id": "EXAMPLE-SR-P3-001",
+    "attempt_id": "EXAMPLE-ATTEMPT-1"
+  }
+}

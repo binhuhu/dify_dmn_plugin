@@ -1,0 +1,178 @@
+{
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "const": "service-decision-dsl.query-plan.v2"
+    },
+    "plan_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "example_only": {
+      "type": "boolean"
+    },
+    "read_only": {
+      "const": true
+    },
+    "budget": {
+      "type": "object",
+      "properties": {
+        "max_calls": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "max_pages": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "max_concurrency": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "total_timeout_ms": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "required": [
+        "max_calls",
+        "max_pages",
+        "max_concurrency",
+        "total_timeout_ms"
+      ],
+      "additionalProperties": false
+    },
+    "nodes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "node_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "operation_ref": {
+            "type": "string",
+            "minLength": 1
+          },
+          "depends_on": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "minItems": 0
+          },
+          "input_bindings": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/$defs/binding"
+            }
+          }
+        },
+        "required": [
+          "node_id",
+          "operation_ref",
+          "depends_on",
+          "input_bindings"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 1
+    },
+    "outputs": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/binding"
+      }
+    },
+    "operation_registry_ref": {
+      "type": "string",
+      "minLength": 1
+    }
+  },
+  "required": [
+    "schema_version",
+    "plan_id",
+    "example_only",
+    "read_only",
+    "budget",
+    "nodes",
+    "outputs",
+    "operation_registry_ref"
+  ],
+  "additionalProperties": false,
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "binding": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "literal": {},
+            "source_format": {
+              "enum": [
+                "VALUE",
+                "PARAMETER"
+              ]
+            }
+          },
+          "required": [
+            "literal"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "from": {
+              "type": "object",
+              "properties": {
+                "source": {
+                  "enum": [
+                    "context",
+                    "node",
+                    "event",
+                    "parameters",
+                    "decision",
+                    "inputs",
+                    "api"
+                  ]
+                },
+                "node_id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "path": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "minItems": 0
+                }
+              },
+              "required": [
+                "source",
+                "path"
+              ],
+              "additionalProperties": false
+            },
+            "source_format": {
+              "enum": [
+                "VALUE",
+                "PARAMETER"
+              ]
+            }
+          },
+          "required": [
+            "from"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    }
+  },
+  "$comment": "A bounded read capability. No workflow gateways, user wait, decisions or business writes.",
+  "$id": "urn:service-decision-dsl:query-plan:v2:core"
+}

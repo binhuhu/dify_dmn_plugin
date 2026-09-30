@@ -1,0 +1,121 @@
+{
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "const": "service-decision-dsl.parameter-snapshot.v2"
+    },
+    "example_only": {
+      "type": "boolean"
+    },
+    "prepared_for": {
+      "type": "object",
+      "properties": {
+        "workflow_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "phase_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "step_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "node_id": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "workflow_id",
+        "phase_id",
+        "step_id",
+        "node_id"
+      ],
+      "additionalProperties": false
+    },
+    "definition_digest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "subject_scope_ref": {
+      "type": "string",
+      "minLength": 1
+    },
+    "as_of": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "parameters": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/parameter"
+      }
+    },
+    "provenance": {
+      "type": "object"
+    },
+    "reused_from": {
+      "type": "string",
+      "minLength": 1
+    }
+  },
+  "required": [
+    "schema_version",
+    "prepared_for",
+    "definition_digest",
+    "subject_scope_ref",
+    "as_of",
+    "parameters",
+    "provenance"
+  ],
+  "additionalProperties": false,
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:service-decision-dsl:parameter-snapshot:v2:core",
+  "$defs": {
+    "parameter": {
+      "type": "object",
+      "properties": {
+        "quality": {
+          "enum": [
+            "KNOWN",
+            "UNKNOWN",
+            "NOT_APPLICABLE",
+            "CONFLICT"
+          ]
+        },
+        "value": {},
+        "source_refs": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "diagnostic_codes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "observed_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "quality",
+        "value",
+        "source_refs"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "$comment": "Core shape only; model-specific type, allowed quality, scope and trust checks are required. Hashes are not authorization."
+}

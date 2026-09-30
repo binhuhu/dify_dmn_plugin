@@ -1,0 +1,8 @@
+{
+  "algorithm": "SHA-256",
+  "canonicalization": "RFC8785-compatible restricted fixture subset: ASCII object keys, no floats, safe integers; not a general canonicalizer.",
+  "value": "1e65ec3becb62b4eca18a39bd67373a1c5b065452195cf649ed1633a93782730",
+  "covered_file": "architecture_bundle.json",
+  "authorizes_execution": false,
+  "coverage": "architecture_bundle.json plus asset_locks for QueryPlan, operation registry and host mapping"
+}

@@ -1,0 +1,14 @@
+{
+  "event_id": "SYNTHETIC-EVENT-1",
+  "event_type": "demo.meeting_answer.v1",
+  "request_id": "EXAMPLE-QUESTION-001",
+  "workflow_run_id": "EXAMPLE-WR-001",
+  "step_run_id": "EXAMPLE-SR-P3-001",
+  "attempt_id": "EXAMPLE-ATTEMPT-1",
+  "subject_scope_ref": "synthetic:tenant-demo:order-O-100",
+  "received_at": "2026-10-01T00:00:10Z",
+  "payload": {
+    "met_driver": false
+  },
+  "intent_id": "ask_meeting"
+}

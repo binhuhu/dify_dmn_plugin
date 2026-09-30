@@ -1,0 +1,1256 @@
+{
+  "example_only": true,
+  "environment": "SYNTHETIC",
+  "status": "REFERENCE_HOST_ONLY",
+  "target_host_acceptance": "BLOCKED_TARGET_HOST_NOT_PROVIDED",
+  "runtime_owner": "HOST",
+  "version": "reference-runtime-v0.4",
+  "nodes": [
+    {
+      "node_ref": {
+        "workflow_id": "demo.locate",
+        "phase_id": "LOCATE",
+        "step_id": "LOCATE.S1",
+        "node_id": "S"
+      },
+      "executor": "reference-host",
+      "host_node_id": "demo.locate/LOCATE/LOCATE.S1/S"
+    },
+    {
+      "node_ref": {
+        "workflow_id": "demo.locate",
+        "phase_id": "LOCATE",
+        "step_id": "LOCATE.S1",
+        "node_id": "D"
+      },
+      "executor": "evaluate_decision",
+      "host_node_id": "demo.locate/LOCATE/LOCATE.S1/D"
+    },
+    {
+      "node_ref": {
+        "workflow_id": "demo.locate",
+        "phase_id": "LOCATE",
+        "step_id": "LOCATE.S1",
+        "node_id": "G"
+      },
+      "executor": "reference-host",
+      "host_node_id": "demo.locate/LOCATE/LOCATE.S1/G"
+    },
+    {
+      "node_ref": {
+        "workflow_id": "demo.locate",
+        "phase_id": "LOCATE",
+        "step_id": "LOCATE.S1",
+        "node_id": "E_ERR"
+      },
+      "executor": "reference-host",
+      "host_node_id": "demo.locate/LOCATE/LOCATE.S1/E_ERR"
+    },
+    {
+      "node_ref": {
+        "workflow_id": "demo.locate",
+        "phase_id": "LOCATE",
+        "step_id": "LOCATE.S1",
+        "node_id": "E_LOCATED"
+      },
+      "executor": "reference-host",
+      "host_node_id": "demo.locate/LOCATE/LOCATE.S1/E_LOCATED"
+    },
+    {
+      "node_ref": {
+        "workflow_id": "demo.solve",
+        "phase_id": "P1",
+        "step_id": "P1.S1",
+        "node_id": "S"
+      },
+      "executor": "reference-host",
+      "host_node_id": "demo.solve/P1/P1.S1/S"
+    },
+    {
+      "node_ref": {
+        "workflow_id": "demo.solve",
+        "phase_id": "P1",
+        "step_id": "P1.S1",
+        "node_id": "D"
+      },
+      "executor": "evaluate_decision",
+      "host_node_id": "demo.solve/P1/P1.S1/D"
+    },
+    {
+      "node_ref": {
+        "workflow_id": "demo.solve",
+        "phase_id": "P1",
+        "step_id": "P1.S1",
+        "node_id": "G"
+      },
+      "executor": "reference-host",
+      "host_node_id": "demo.solve/P1/P1.S1/G"
+    },
+    {
+      "node_ref": {
+        "workflow_id": "demo.solve",
+        "phase_id": "P1",
+        "step_id": "P1.S1",
+        "node_id": "E_ERR"
+      },
+      "executor": "reference-host",
+      "host_node_id": "demo.solve/P1/P1.S1/E_ERR"
+    },
+    {
+      "node_ref": {
+        "workflow_id": "demo.solve",
+        "phase_id": "P1",
+        "step_id": "P1.S1",
+        "node_id": "E_YES"
+      },
+      "executor": "reference-host",
+      "host_node_id": "demo.solve/P1/P1.S1/E_YES"
+    },
+    {
+      "node_ref": {
+        "workflow_id": "demo.solve",
+        "phase_id": "P1",
+        "step_id": "P1.S1",
+        "node_id": "E_NO"
+      },
+      "executor": "reference-host",
+      "host_node_id": "demo.solve/P1/P1.S1/E_NO"
+    },
+    {
+      "node_ref": {
+        "workflow_id": "demo.solve",
+        "phase_id": "P2",
+        "step_id": "P2.S1",
+        "node_id": "S"
+      },
+      "executor": "reference-host",
+      "host_node_id": "demo.solve/P2/P2.S1/S"
+    },
+    {
+      "node_ref": {
+        "workflow_id": "demo.solve",
+        "phase_id": "P2",
+        "step_id": "P2.S1",
+        "node_id": "D"
+      },
+      "executor": "evaluate_decision",
+      "host_node_id": "demo.solve/P2/P2.S1/D"
+    },
+    {
+      "node_ref": {
+        "workflow_id": "demo.solve",
+        "phase_id": "P2",
+        "step_id": "P2.S1",
+        "node_id": "G"
+      },
+      "executor": "reference-host",
+      "host_node_id": "demo.solve/P2/P2.S1/G"
+    },
+    {
+      "node_ref": {
+        "workflow_id": "demo.solve",
+        "phase_id": "P2",
+        "step_id": "P2.S1",
+        "node_id": "E_ERR"
+      },
+      "executor": "reference-host",
+      "host_node_id": "demo.solve/P2/P2.S1/E_ERR"
+    },
+    {
+      "node_ref": {
+        "workflow_id": "demo.solve",
+        "phase_id": "P2",
+        "step_id": "P2.S1",
+        "node_id": "E_YES"
+      },
+      "executor": "reference-host",
+      "host_node_id": "demo.solve/P2/P2.S1/E_YES"
+    },
+    {
+      "node_ref": {
+        "workflow_id": "demo.solve",
+        "phase_id": "P2",
+        "step_id": "P2.S1",
+        "node_id": "E_NO"
+      },
+      "executor": "reference-host",
+      "host_node_id": "demo.solve/P2/P2.S1/E_NO"
+    },
+    {
+      "node_ref": {
+        "workflow_id": "demo.solve",
+        "phase_id": "P3",
+        "step_id": "P3.S1",
+        "node_id": "S"
+      },
+      "executor": "reference-host",
+      "host_node_id": "demo.solve/P3/P3.S1/S"
+    },
+    {
+      "node_ref": {
+        "workflow_id": "demo.solve",
+        "phase_id": "P3",
+        "step_id": "P3.S1",
+        "node_id": "F"
+      },
+      "executor": "reference-host",
+      "host_node_id": "demo.solve/P3/P3.S1/F"
+    },
+    {
+      "node_ref": {
+        "workflow_id": "demo.solve",
+        "phase_id": "P3",
+        "step_id": "P3.S1",
+        "node_id": "Q_CONTEXT"
+      },
+      "executor": "execute_query",
+      "host_node_id": "demo.solve/P3/P3.S1/Q_CONTEXT"
+    },
+    {
+      "node_ref": {
+        "workflow_id": "demo.solve",
+        "phase_id": "P3",
+        "step_id": "P3.S1",
+        "node_id": "Q_HISTORY"
+      },
+      "executor": "execute_query",
+      "host_node_id": "demo.solve/P3/P3.S1/Q_HISTORY"
+    },
+    {
+      "node_ref": {
+        "workflow_id": "demo.solve",
+        "phase_id": "P3",
+        "step_id": "P3.S1",
+        "node_id": "J"
+      },
+      "executor": "reference-host",
+      "host_node_id": "demo.solve/P3/P3.S1/J"
+    },
+    {
+      "node_ref": {
+        "workflow_id": "demo.solve",
+        "phase_id": "P3",
+        "step_id": "P3.S1",
+        "node_id": "D1"
+      },
+      "executor": "evaluate_decision",
+      "host_node_id": "demo.solve/P3/P3.S1/D1"
+    },
+    {
+      "node_ref": {
+        "workflow_id": "demo.solve",
+        "phase_id": "P3",
+        "step_id": "P3.S1",
+        "node_id": "G_ROUTE"
+      },
+      "executor": "reference-host",
+      "host_node_id": "demo.solve/P3/P3.S1/G_ROUTE"
+    },
+    {
+      "node_ref": {
+        "workflow_id": "demo.solve",
+        "phase_id": "P3",
+        "step_id": "P3.S1",
+        "node_id": "A_ASK"
+      },
+      "executor": "execute_action",
+      "host_node_id": "demo.solve/P3/P3.S1/A_ASK"
+    },
+    {
+      "node_ref": {
+        "workflow_id": "demo.solve",
+        "phase_id": "P3",
+        "step_id": "P3.S1",
+        "node_id": "W_ANSWER"
+      },
+      "executor": "reference-host",
+      "host_node_id": "demo.solve/P3/P3.S1/W_ANSWER"
+    },
+    {
+      "node_ref": {
+        "workflow_id": "demo.solve",
+        "phase_id": "P3",
+        "step_id": "P3.S1",
+        "node_id": "E_NEXT"
+      },
+      "executor": "reference-host",
+      "host_node_id": "demo.solve/P3/P3.S1/E_NEXT"
+    },
+    {
+      "node_ref": {
+        "workflow_id": "demo.solve",
+        "phase_id": "P3",
+        "step_id": "P3.S1",
+        "node_id": "E_AUTH"
+      },
+      "executor": "reference-host",
+      "host_node_id": "demo.solve/P3/P3.S1/E_AUTH"
+    },
+    {
+      "node_ref": {
+        "workflow_id": "demo.solve",
+        "phase_id": "P3",
+        "step_id": "P3.S1",
+        "node_id": "E_OTHER"
+      },
+      "executor": "reference-host",
+      "host_node_id": "demo.solve/P3/P3.S1/E_OTHER"
+    },
+    {
+      "node_ref": {
+        "workflow_id": "demo.solve",
+        "phase_id": "P3",
+        "step_id": "P3.S1",
+        "node_id": "E_RETRY"
+      },
+      "executor": "reference-host",
+      "host_node_id": "demo.solve/P3/P3.S1/E_RETRY"
+    },
+    {
+      "node_ref": {
+        "workflow_id": "demo.solve",
+        "phase_id": "P3",
+        "step_id": "P3.S1",
+        "node_id": "E_TIMEOUT"
+      },
+      "executor": "reference-host",
+      "host_node_id": "demo.solve/P3/P3.S1/E_TIMEOUT"
+    },
+    {
+      "node_ref": {
+        "workflow_id": "demo.solve",
+        "phase_id": "P3",
+        "step_id": "P3.S1",
+        "node_id": "E_CANCEL"
+      },
+      "executor": "reference-host",
+      "host_node_id": "demo.solve/P3/P3.S1/E_CANCEL"
+    },
+    {
+      "node_ref": {
+        "workflow_id": "demo.solve",
+        "phase_id": "P3",
+        "step_id": "P3.S1",
+        "node_id": "E_FAILED"
+      },
+      "executor": "reference-host",
+      "host_node_id": "demo.solve/P3/P3.S1/E_FAILED"
+    },
+    {
+      "node_ref": {
+        "workflow_id": "demo.solve",
+        "phase_id": "P4",
+        "step_id": "P4.S1",
+        "node_id": "S"
+      },
+      "executor": "reference-host",
+      "host_node_id": "demo.solve/P4/P4.S1/S"
+    },
+    {
+      "node_ref": {
+        "workflow_id": "demo.solve",
+        "phase_id": "P4",
+        "step_id": "P4.S1",
+        "node_id": "D"
+      },
+      "executor": "evaluate_decision",
+      "host_node_id": "demo.solve/P4/P4.S1/D"
+    },
+    {
+      "node_ref": {
+        "workflow_id": "demo.solve",
+        "phase_id": "P4",
+        "step_id": "P4.S1",
+        "node_id": "G"
+      },
+      "executor": "reference-host",
+      "host_node_id": "demo.solve/P4/P4.S1/G"
+    },
+    {
+      "node_ref": {
+        "workflow_id": "demo.solve",
+        "phase_id": "P4",
+        "step_id": "P4.S1",
+        "node_id": "E_ERR"
+      },
+      "executor": "reference-host",
+      "host_node_id": "demo.solve/P4/P4.S1/E_ERR"
+    },
+    {
+      "node_ref": {
+        "workflow_id": "demo.solve",
+        "phase_id": "P4",
+        "step_id": "P4.S1",
+        "node_id": "E_YES"
+      },
+      "executor": "reference-host",
+      "host_node_id": "demo.solve/P4/P4.S1/E_YES"
+    },
+    {
+      "node_ref": {
+        "workflow_id": "demo.solve",
+        "phase_id": "P4",
+        "step_id": "P4.S1",
+        "node_id": "E_NO"
+      },
+      "executor": "reference-host",
+      "host_node_id": "demo.solve/P4/P4.S1/E_NO"
+    },
+    {
+      "node_ref": {
+        "workflow_id": "demo.solve",
+        "phase_id": "P5",
+        "step_id": "P5.S1",
+        "node_id": "S"
+      },
+      "executor": "reference-host",
+      "host_node_id": "demo.solve/P5/P5.S1/S"
+    },
+    {
+      "node_ref": {
+        "workflow_id": "demo.solve",
+        "phase_id": "P5",
+        "step_id": "P5.S1",
+        "node_id": "D"
+      },
+      "executor": "evaluate_decision",
+      "host_node_id": "demo.solve/P5/P5.S1/D"
+    },
+    {
+      "node_ref": {
+        "workflow_id": "demo.solve",
+        "phase_id": "P5",
+        "step_id": "P5.S1",
+        "node_id": "G"
+      },
+      "executor": "reference-host",
+      "host_node_id": "demo.solve/P5/P5.S1/G"
+    },
+    {
+      "node_ref": {
+        "workflow_id": "demo.solve",
+        "phase_id": "P5",
+        "step_id": "P5.S1",
+        "node_id": "E_ERR"
+      },
+      "executor": "reference-host",
+      "host_node_id": "demo.solve/P5/P5.S1/E_ERR"
+    },
+    {
+      "node_ref": {
+        "workflow_id": "demo.solve",
+        "phase_id": "P5",
+        "step_id": "P5.S1",
+        "node_id": "E_YES"
+      },
+      "executor": "reference-host",
+      "host_node_id": "demo.solve/P5/P5.S1/E_YES"
+    },
+    {
+      "node_ref": {
+        "workflow_id": "demo.solve",
+        "phase_id": "P5",
+        "step_id": "P5.S1",
+        "node_id": "E_NO"
+      },
+      "executor": "reference-host",
+      "host_node_id": "demo.solve/P5/P5.S1/E_NO"
+    }
+  ],
+  "edges": [
+    {
+      "workflow_id": "demo.locate",
+      "phase_id": "LOCATE",
+      "step_id": "LOCATE.S1",
+      "edge_id": "S_ok_D",
+      "source": "S",
+      "source_port": "ok",
+      "target": "D",
+      "host_dispatch": "ReferenceRuntime._edge"
+    },
+    {
+      "workflow_id": "demo.locate",
+      "phase_id": "LOCATE",
+      "step_id": "LOCATE.S1",
+      "edge_id": "D_ok_G",
+      "source": "D",
+      "source_port": "ok",
+      "target": "G",
+      "host_dispatch": "ReferenceRuntime._edge"
+    },
+    {
+      "workflow_id": "demo.locate",
+      "phase_id": "LOCATE",
+      "step_id": "LOCATE.S1",
+      "edge_id": "D_blocked_E_ERR",
+      "source": "D",
+      "source_port": "blocked",
+      "target": "E_ERR",
+      "host_dispatch": "ReferenceRuntime._edge"
+    },
+    {
+      "workflow_id": "demo.locate",
+      "phase_id": "LOCATE",
+      "step_id": "LOCATE.S1",
+      "edge_id": "D_error_E_ERR",
+      "source": "D",
+      "source_port": "error",
+      "target": "E_ERR",
+      "host_dispatch": "ReferenceRuntime._edge"
+    },
+    {
+      "workflow_id": "demo.locate",
+      "phase_id": "LOCATE",
+      "step_id": "LOCATE.S1",
+      "edge_id": "G_error_E_ERR",
+      "source": "G",
+      "source_port": "error",
+      "target": "E_ERR",
+      "host_dispatch": "ReferenceRuntime._edge"
+    },
+    {
+      "workflow_id": "demo.locate",
+      "phase_id": "LOCATE",
+      "step_id": "LOCATE.S1",
+      "edge_id": "G_LOCATED_E_LOCATED",
+      "source": "G",
+      "source_port": "LOCATED",
+      "target": "E_LOCATED",
+      "host_dispatch": "ReferenceRuntime._edge"
+    },
+    {
+      "workflow_id": "demo.solve",
+      "phase_id": "P1",
+      "step_id": "P1.S1",
+      "edge_id": "S_ok_D",
+      "source": "S",
+      "source_port": "ok",
+      "target": "D",
+      "host_dispatch": "ReferenceRuntime._edge"
+    },
+    {
+      "workflow_id": "demo.solve",
+      "phase_id": "P1",
+      "step_id": "P1.S1",
+      "edge_id": "D_ok_G",
+      "source": "D",
+      "source_port": "ok",
+      "target": "G",
+      "host_dispatch": "ReferenceRuntime._edge"
+    },
+    {
+      "workflow_id": "demo.solve",
+      "phase_id": "P1",
+      "step_id": "P1.S1",
+      "edge_id": "D_blocked_E_ERR",
+      "source": "D",
+      "source_port": "blocked",
+      "target": "E_ERR",
+      "host_dispatch": "ReferenceRuntime._edge"
+    },
+    {
+      "workflow_id": "demo.solve",
+      "phase_id": "P1",
+      "step_id": "P1.S1",
+      "edge_id": "D_error_E_ERR",
+      "source": "D",
+      "source_port": "error",
+      "target": "E_ERR",
+      "host_dispatch": "ReferenceRuntime._edge"
+    },
+    {
+      "workflow_id": "demo.solve",
+      "phase_id": "P1",
+      "step_id": "P1.S1",
+      "edge_id": "G_error_E_ERR",
+      "source": "G",
+      "source_port": "error",
+      "target": "E_ERR",
+      "host_dispatch": "ReferenceRuntime._edge"
+    },
+    {
+      "workflow_id": "demo.solve",
+      "phase_id": "P1",
+      "step_id": "P1.S1",
+      "edge_id": "G_YES",
+      "source": "G",
+      "source_port": "YES",
+      "target": "E_YES",
+      "host_dispatch": "ReferenceRuntime._edge"
+    },
+    {
+      "workflow_id": "demo.solve",
+      "phase_id": "P1",
+      "step_id": "P1.S1",
+      "edge_id": "G_NO",
+      "source": "G",
+      "source_port": "NO",
+      "target": "E_NO",
+      "host_dispatch": "ReferenceRuntime._edge"
+    },
+    {
+      "workflow_id": "demo.solve",
+      "phase_id": "P2",
+      "step_id": "P2.S1",
+      "edge_id": "S_ok_D",
+      "source": "S",
+      "source_port": "ok",
+      "target": "D",
+      "host_dispatch": "ReferenceRuntime._edge"
+    },
+    {
+      "workflow_id": "demo.solve",
+      "phase_id": "P2",
+      "step_id": "P2.S1",
+      "edge_id": "D_ok_G",
+      "source": "D",
+      "source_port": "ok",
+      "target": "G",
+      "host_dispatch": "ReferenceRuntime._edge"
+    },
+    {
+      "workflow_id": "demo.solve",
+      "phase_id": "P2",
+      "step_id": "P2.S1",
+      "edge_id": "D_blocked_E_ERR",
+      "source": "D",
+      "source_port": "blocked",
+      "target": "E_ERR",
+      "host_dispatch": "ReferenceRuntime._edge"
+    },
+    {
+      "workflow_id": "demo.solve",
+      "phase_id": "P2",
+      "step_id": "P2.S1",
+      "edge_id": "D_error_E_ERR",
+      "source": "D",
+      "source_port": "error",
+      "target": "E_ERR",
+      "host_dispatch": "ReferenceRuntime._edge"
+    },
+    {
+      "workflow_id": "demo.solve",
+      "phase_id": "P2",
+      "step_id": "P2.S1",
+      "edge_id": "G_error_E_ERR",
+      "source": "G",
+      "source_port": "error",
+      "target": "E_ERR",
+      "host_dispatch": "ReferenceRuntime._edge"
+    },
+    {
+      "workflow_id": "demo.solve",
+      "phase_id": "P2",
+      "step_id": "P2.S1",
+      "edge_id": "G_YES",
+      "source": "G",
+      "source_port": "YES",
+      "target": "E_YES",
+      "host_dispatch": "ReferenceRuntime._edge"
+    },
+    {
+      "workflow_id": "demo.solve",
+      "phase_id": "P2",
+      "step_id": "P2.S1",
+      "edge_id": "G_NO",
+      "source": "G",
+      "source_port": "NO",
+      "target": "E_NO",
+      "host_dispatch": "ReferenceRuntime._edge"
+    },
+    {
+      "workflow_id": "demo.solve",
+      "phase_id": "P3",
+      "step_id": "P3.S1",
+      "edge_id": "S_ok_F",
+      "source": "S",
+      "source_port": "ok",
+      "target": "F",
+      "host_dispatch": "ReferenceRuntime._edge"
+    },
+    {
+      "workflow_id": "demo.solve",
+      "phase_id": "P3",
+      "step_id": "P3.S1",
+      "edge_id": "F_context_Q_CONTEXT",
+      "source": "F",
+      "source_port": "context",
+      "target": "Q_CONTEXT",
+      "branch_id": "context",
+      "host_dispatch": "ReferenceRuntime._edge"
+    },
+    {
+      "workflow_id": "demo.solve",
+      "phase_id": "P3",
+      "step_id": "P3.S1",
+      "edge_id": "F_history_Q_HISTORY",
+      "source": "F",
+      "source_port": "history",
+      "target": "Q_HISTORY",
+      "branch_id": "history",
+      "host_dispatch": "ReferenceRuntime._edge"
+    },
+    {
+      "workflow_id": "demo.solve",
+      "phase_id": "P3",
+      "step_id": "P3.S1",
+      "edge_id": "Q_CONTEXT_ok_J",
+      "source": "Q_CONTEXT",
+      "source_port": "ok",
+      "target": "J",
+      "host_dispatch": "ReferenceRuntime._edge"
+    },
+    {
+      "workflow_id": "demo.solve",
+      "phase_id": "P3",
+      "step_id": "P3.S1",
+      "edge_id": "Q_CONTEXT_blocked_J",
+      "source": "Q_CONTEXT",
+      "source_port": "blocked",
+      "target": "J",
+      "host_dispatch": "ReferenceRuntime._edge"
+    },
+    {
+      "workflow_id": "demo.solve",
+      "phase_id": "P3",
+      "step_id": "P3.S1",
+      "edge_id": "Q_CONTEXT_error_J",
+      "source": "Q_CONTEXT",
+      "source_port": "error",
+      "target": "J",
+      "host_dispatch": "ReferenceRuntime._edge"
+    },
+    {
+      "workflow_id": "demo.solve",
+      "phase_id": "P3",
+      "step_id": "P3.S1",
+      "edge_id": "Q_HISTORY_ok_J",
+      "source": "Q_HISTORY",
+      "source_port": "ok",
+      "target": "J",
+      "host_dispatch": "ReferenceRuntime._edge"
+    },
+    {
+      "workflow_id": "demo.solve",
+      "phase_id": "P3",
+      "step_id": "P3.S1",
+      "edge_id": "Q_HISTORY_blocked_J",
+      "source": "Q_HISTORY",
+      "source_port": "blocked",
+      "target": "J",
+      "host_dispatch": "ReferenceRuntime._edge"
+    },
+    {
+      "workflow_id": "demo.solve",
+      "phase_id": "P3",
+      "step_id": "P3.S1",
+      "edge_id": "Q_HISTORY_error_J",
+      "source": "Q_HISTORY",
+      "source_port": "error",
+      "target": "J",
+      "host_dispatch": "ReferenceRuntime._edge"
+    },
+    {
+      "workflow_id": "demo.solve",
+      "phase_id": "P3",
+      "step_id": "P3.S1",
+      "edge_id": "J_ok_D1",
+      "source": "J",
+      "source_port": "ok",
+      "target": "D1",
+      "host_dispatch": "ReferenceRuntime._edge"
+    },
+    {
+      "workflow_id": "demo.solve",
+      "phase_id": "P3",
+      "step_id": "P3.S1",
+      "edge_id": "J_error_E_FAILED",
+      "source": "J",
+      "source_port": "error",
+      "target": "E_FAILED",
+      "host_dispatch": "ReferenceRuntime._edge"
+    },
+    {
+      "workflow_id": "demo.solve",
+      "phase_id": "P3",
+      "step_id": "P3.S1",
+      "edge_id": "D1_ok_G_ROUTE",
+      "source": "D1",
+      "source_port": "ok",
+      "target": "G_ROUTE",
+      "host_dispatch": "ReferenceRuntime._edge"
+    },
+    {
+      "workflow_id": "demo.solve",
+      "phase_id": "P3",
+      "step_id": "P3.S1",
+      "edge_id": "D1_blocked_E_FAILED",
+      "source": "D1",
+      "source_port": "blocked",
+      "target": "E_FAILED",
+      "host_dispatch": "ReferenceRuntime._edge"
+    },
+    {
+      "workflow_id": "demo.solve",
+      "phase_id": "P3",
+      "step_id": "P3.S1",
+      "edge_id": "D1_error_E_FAILED",
+      "source": "D1",
+      "source_port": "error",
+      "target": "E_FAILED",
+      "host_dispatch": "ReferenceRuntime._edge"
+    },
+    {
+      "workflow_id": "demo.solve",
+      "phase_id": "P3",
+      "step_id": "P3.S1",
+      "edge_id": "G_ROUTE_ASK_A_ASK",
+      "source": "G_ROUTE",
+      "source_port": "ASK",
+      "target": "A_ASK",
+      "host_dispatch": "ReferenceRuntime._edge"
+    },
+    {
+      "workflow_id": "demo.solve",
+      "phase_id": "P3",
+      "step_id": "P3.S1",
+      "edge_id": "G_ROUTE_AUTH_E_AUTH",
+      "source": "G_ROUTE",
+      "source_port": "AUTH",
+      "target": "E_AUTH",
+      "host_dispatch": "ReferenceRuntime._edge"
+    },
+    {
+      "workflow_id": "demo.solve",
+      "phase_id": "P3",
+      "step_id": "P3.S1",
+      "edge_id": "G_ROUTE_OTHER_E_OTHER",
+      "source": "G_ROUTE",
+      "source_port": "OTHER",
+      "target": "E_OTHER",
+      "host_dispatch": "ReferenceRuntime._edge"
+    },
+    {
+      "workflow_id": "demo.solve",
+      "phase_id": "P3",
+      "step_id": "P3.S1",
+      "edge_id": "G_ROUTE_CONTINUE_E_NEXT",
+      "source": "G_ROUTE",
+      "source_port": "CONTINUE",
+      "target": "E_NEXT",
+      "host_dispatch": "ReferenceRuntime._edge"
+    },
+    {
+      "workflow_id": "demo.solve",
+      "phase_id": "P3",
+      "step_id": "P3.S1",
+      "edge_id": "G_ROUTE_error_E_FAILED",
+      "source": "G_ROUTE",
+      "source_port": "error",
+      "target": "E_FAILED",
+      "host_dispatch": "ReferenceRuntime._edge"
+    },
+    {
+      "workflow_id": "demo.solve",
+      "phase_id": "P3",
+      "step_id": "P3.S1",
+      "edge_id": "A_ASK_ok_W_ANSWER",
+      "source": "A_ASK",
+      "source_port": "ok",
+      "target": "W_ANSWER",
+      "host_dispatch": "ReferenceRuntime._edge"
+    },
+    {
+      "workflow_id": "demo.solve",
+      "phase_id": "P3",
+      "step_id": "P3.S1",
+      "edge_id": "A_ASK_error_E_FAILED",
+      "source": "A_ASK",
+      "source_port": "error",
+      "target": "E_FAILED",
+      "host_dispatch": "ReferenceRuntime._edge"
+    },
+    {
+      "workflow_id": "demo.solve",
+      "phase_id": "P3",
+      "step_id": "P3.S1",
+      "edge_id": "A_ASK_blocked_E_FAILED",
+      "source": "A_ASK",
+      "source_port": "blocked",
+      "target": "E_FAILED",
+      "host_dispatch": "ReferenceRuntime._edge"
+    },
+    {
+      "workflow_id": "demo.solve",
+      "phase_id": "P3",
+      "step_id": "P3.S1",
+      "edge_id": "W_ANSWER_received_E_RETRY",
+      "source": "W_ANSWER",
+      "source_port": "received",
+      "target": "E_RETRY",
+      "host_dispatch": "ReferenceRuntime._edge"
+    },
+    {
+      "workflow_id": "demo.solve",
+      "phase_id": "P3",
+      "step_id": "P3.S1",
+      "edge_id": "W_ANSWER_timeout_E_TIMEOUT",
+      "source": "W_ANSWER",
+      "source_port": "timeout",
+      "target": "E_TIMEOUT",
+      "host_dispatch": "ReferenceRuntime._edge"
+    },
+    {
+      "workflow_id": "demo.solve",
+      "phase_id": "P3",
+      "step_id": "P3.S1",
+      "edge_id": "W_ANSWER_cancelled_E_CANCEL",
+      "source": "W_ANSWER",
+      "source_port": "cancelled",
+      "target": "E_CANCEL",
+      "host_dispatch": "ReferenceRuntime._edge"
+    },
+    {
+      "workflow_id": "demo.solve",
+      "phase_id": "P3",
+      "step_id": "P3.S1",
+      "edge_id": "W_ANSWER_error_E_FAILED",
+      "source": "W_ANSWER",
+      "source_port": "error",
+      "target": "E_FAILED",
+      "host_dispatch": "ReferenceRuntime._edge"
+    },
+    {
+      "workflow_id": "demo.solve",
+      "phase_id": "P4",
+      "step_id": "P4.S1",
+      "edge_id": "S_ok_D",
+      "source": "S",
+      "source_port": "ok",
+      "target": "D",
+      "host_dispatch": "ReferenceRuntime._edge"
+    },
+    {
+      "workflow_id": "demo.solve",
+      "phase_id": "P4",
+      "step_id": "P4.S1",
+      "edge_id": "D_ok_G",
+      "source": "D",
+      "source_port": "ok",
+      "target": "G",
+      "host_dispatch": "ReferenceRuntime._edge"
+    },
+    {
+      "workflow_id": "demo.solve",
+      "phase_id": "P4",
+      "step_id": "P4.S1",
+      "edge_id": "D_blocked_E_ERR",
+      "source": "D",
+      "source_port": "blocked",
+      "target": "E_ERR",
+      "host_dispatch": "ReferenceRuntime._edge"
+    },
+    {
+      "workflow_id": "demo.solve",
+      "phase_id": "P4",
+      "step_id": "P4.S1",
+      "edge_id": "D_error_E_ERR",
+      "source": "D",
+      "source_port": "error",
+      "target": "E_ERR",
+      "host_dispatch": "ReferenceRuntime._edge"
+    },
+    {
+      "workflow_id": "demo.solve",
+      "phase_id": "P4",
+      "step_id": "P4.S1",
+      "edge_id": "G_error_E_ERR",
+      "source": "G",
+      "source_port": "error",
+      "target": "E_ERR",
+      "host_dispatch": "ReferenceRuntime._edge"
+    },
+    {
+      "workflow_id": "demo.solve",
+      "phase_id": "P4",
+      "step_id": "P4.S1",
+      "edge_id": "G_YES",
+      "source": "G",
+      "source_port": "YES",
+      "target": "E_YES",
+      "host_dispatch": "ReferenceRuntime._edge"
+    },
+    {
+      "workflow_id": "demo.solve",
+      "phase_id": "P4",
+      "step_id": "P4.S1",
+      "edge_id": "G_NO",
+      "source": "G",
+      "source_port": "NO",
+      "target": "E_NO",
+      "host_dispatch": "ReferenceRuntime._edge"
+    },
+    {
+      "workflow_id": "demo.solve",
+      "phase_id": "P5",
+      "step_id": "P5.S1",
+      "edge_id": "S_ok_D",
+      "source": "S",
+      "source_port": "ok",
+      "target": "D",
+      "host_dispatch": "ReferenceRuntime._edge"
+    },
+    {
+      "workflow_id": "demo.solve",
+      "phase_id": "P5",
+      "step_id": "P5.S1",
+      "edge_id": "D_ok_G",
+      "source": "D",
+      "source_port": "ok",
+      "target": "G",
+      "host_dispatch": "ReferenceRuntime._edge"
+    },
+    {
+      "workflow_id": "demo.solve",
+      "phase_id": "P5",
+      "step_id": "P5.S1",
+      "edge_id": "D_blocked_E_ERR",
+      "source": "D",
+      "source_port": "blocked",
+      "target": "E_ERR",
+      "host_dispatch": "ReferenceRuntime._edge"
+    },
+    {
+      "workflow_id": "demo.solve",
+      "phase_id": "P5",
+      "step_id": "P5.S1",
+      "edge_id": "D_error_E_ERR",
+      "source": "D",
+      "source_port": "error",
+      "target": "E_ERR",
+      "host_dispatch": "ReferenceRuntime._edge"
+    },
+    {
+      "workflow_id": "demo.solve",
+      "phase_id": "P5",
+      "step_id": "P5.S1",
+      "edge_id": "G_error_E_ERR",
+      "source": "G",
+      "source_port": "error",
+      "target": "E_ERR",
+      "host_dispatch": "ReferenceRuntime._edge"
+    },
+    {
+      "workflow_id": "demo.solve",
+      "phase_id": "P5",
+      "step_id": "P5.S1",
+      "edge_id": "G_YES",
+      "source": "G",
+      "source_port": "YES",
+      "target": "E_YES",
+      "host_dispatch": "ReferenceRuntime._edge"
+    },
+    {
+      "workflow_id": "demo.solve",
+      "phase_id": "P5",
+      "step_id": "P5.S1",
+      "edge_id": "G_NO",
+      "source": "G",
+      "source_port": "NO",
+      "target": "E_NO",
+      "host_dispatch": "ReferenceRuntime._edge"
+    }
+  ],
+  "bindings": [
+    {
+      "workflow_id": "demo.solve",
+      "phase_id": "P1",
+      "step_id": "P1.S1",
+      "node_id": "D",
+      "parameter": "scene_ref",
+      "binding": {
+        "from": {
+          "source": "context",
+          "path": [
+            "parameters",
+            "scene_ref"
+          ]
+        },
+        "source_format": "PARAMETER"
+      },
+      "host_selector": "NodeIO.bind_inputs over current attempt results/context only"
+    },
+    {
+      "workflow_id": "demo.solve",
+      "phase_id": "P2",
+      "step_id": "P2.S1",
+      "node_id": "D",
+      "parameter": "accepted",
+      "binding": {
+        "from": {
+          "source": "context",
+          "path": [
+            "parameters",
+            "accepted"
+          ]
+        },
+        "source_format": "PARAMETER"
+      },
+      "host_selector": "NodeIO.bind_inputs over current attempt results/context only"
+    },
+    {
+      "workflow_id": "demo.solve",
+      "phase_id": "P3",
+      "step_id": "P3.S1",
+      "node_id": "Q_CONTEXT",
+      "parameter": "ticket_id",
+      "binding": {
+        "from": {
+          "source": "context",
+          "path": [
+            "ticket_id"
+          ]
+        }
+      },
+      "host_selector": "NodeIO.bind_inputs over current attempt results/context only"
+    },
+    {
+      "workflow_id": "demo.solve",
+      "phase_id": "P3",
+      "step_id": "P3.S1",
+      "node_id": "Q_HISTORY",
+      "parameter": "ticket_id",
+      "binding": {
+        "from": {
+          "source": "context",
+          "path": [
+            "ticket_id"
+          ]
+        }
+      },
+      "host_selector": "NodeIO.bind_inputs over current attempt results/context only"
+    },
+    {
+      "workflow_id": "demo.solve",
+      "phase_id": "P3",
+      "step_id": "P3.S1",
+      "node_id": "D1",
+      "parameter": "order_id",
+      "binding": {
+        "from": {
+          "source": "node",
+          "path": [
+            "query",
+            "data",
+            "order_id"
+          ],
+          "node_id": "Q_CONTEXT"
+        },
+        "source_format": "VALUE"
+      },
+      "host_selector": "NodeIO.bind_inputs over current attempt results/context only"
+    },
+    {
+      "workflow_id": "demo.solve",
+      "phase_id": "P3",
+      "step_id": "P3.S1",
+      "node_id": "D1",
+      "parameter": "met_driver",
+      "binding": {
+        "from": {
+          "source": "context",
+          "path": [
+            "parameters",
+            "met_driver"
+          ]
+        },
+        "source_format": "PARAMETER"
+      },
+      "host_selector": "NodeIO.bind_inputs over current attempt results/context only"
+    },
+    {
+      "workflow_id": "demo.solve",
+      "phase_id": "P3",
+      "step_id": "P3.S1",
+      "node_id": "D1",
+      "parameter": "other_information_complete",
+      "binding": {
+        "from": {
+          "source": "node",
+          "node_id": "Q_HISTORY",
+          "path": [
+            "query",
+            "data",
+            "other_information_complete"
+          ]
+        },
+        "source_format": "PARAMETER"
+      },
+      "host_selector": "NodeIO.bind_inputs over current attempt results/context only"
+    },
+    {
+      "workflow_id": "demo.solve",
+      "phase_id": "P3",
+      "step_id": "P3.S1",
+      "node_id": "A_ASK",
+      "parameter": "order_id",
+      "binding": {
+        "from": {
+          "source": "parameters",
+          "path": [
+            "order_id",
+            "value"
+          ]
+        }
+      },
+      "host_selector": "NodeIO.bind_inputs over current attempt results/context only"
+    },
+    {
+      "workflow_id": "demo.solve",
+      "phase_id": "P3",
+      "step_id": "P3.S1",
+      "node_id": "A_ASK",
+      "parameter": "question_ref",
+      "binding": {
+        "literal": "demo.ask_meeting@1"
+      },
+      "host_selector": "NodeIO.bind_inputs over current attempt results/context only"
+    },
+    {
+      "workflow_id": "demo.solve",
+      "phase_id": "P4",
+      "step_id": "P4.S1",
+      "node_id": "D",
+      "parameter": "fact_confirmed",
+      "binding": {
+        "from": {
+          "source": "context",
+          "path": [
+            "parameters",
+            "fact_confirmed"
+          ]
+        },
+        "source_format": "PARAMETER"
+      },
+      "host_selector": "NodeIO.bind_inputs over current attempt results/context only"
+    },
+    {
+      "workflow_id": "demo.solve",
+      "phase_id": "P5",
+      "step_id": "P5.S1",
+      "node_id": "D",
+      "parameter": "advice_ready",
+      "binding": {
+        "from": {
+          "source": "context",
+          "path": [
+            "parameters",
+            "advice_ready"
+          ]
+        },
+        "source_format": "PARAMETER"
+      },
+      "host_selector": "NodeIO.bind_inputs over current attempt results/context only"
+    }
+  ]
+}

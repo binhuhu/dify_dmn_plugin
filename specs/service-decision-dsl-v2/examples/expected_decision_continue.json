@@ -1,0 +1,40 @@
+{
+  "schema_version": "service-decision-dsl.node-result.v2",
+  "node_ref": {
+    "workflow_id": "demo.solve",
+    "phase_id": "P3",
+    "step_id": "P3.S1",
+    "node_id": "D1"
+  },
+  "node_run_id": "EXPECTED-NOT-EXECUTED-D1-A2",
+  "execution_status": "SUCCEEDED",
+  "output_port": "ok",
+  "outputs": {
+    "decision": {
+      "state": "INFORMATION_SUFFICIENT",
+      "data": {},
+      "actions": [
+        {
+          "intent_id": "control",
+          "kind": "CONTROL",
+          "route_ref": "CONTINUE"
+        }
+      ]
+    }
+  },
+  "diagnostics": [],
+  "trace": {
+    "model_ref": "demo.meeting@1.0.0",
+    "hit_policy": "UNIQUE",
+    "selected_rule_ids": [
+      "not_met_ready"
+    ],
+    "evidence_status": "EXPECTED_NOT_EXECUTED"
+  },
+  "error": null,
+  "run_ref": {
+    "workflow_run_id": "EXAMPLE-WR-001",
+    "step_run_id": "EXAMPLE-SR-P3-001",
+    "attempt_id": "EXAMPLE-ATTEMPT-2"
+  }
+}

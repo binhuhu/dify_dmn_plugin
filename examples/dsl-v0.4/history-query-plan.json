@@ -1,0 +1,42 @@
+{
+  "schema_version": "service-decision-dsl.query-plan.v2",
+  "plan_id": "demo.history-plan@1",
+  "example_only": true,
+  "read_only": true,
+  "budget": {
+    "max_calls": 12,
+    "max_pages": 2,
+    "max_concurrency": 2,
+    "total_timeout_ms": 5000
+  },
+  "nodes": [
+    {
+      "node_id": "api_history",
+      "operation_ref": "mock.history.read@1",
+      "depends_on": [],
+      "input_bindings": {
+        "ticket_id": {
+          "from": {
+            "source": "inputs",
+            "path": [
+              "ticket_id"
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "outputs": {
+    "other_information_complete": {
+      "from": {
+        "source": "api",
+        "node_id": "api_history",
+        "path": [
+          "data",
+          "other_information_complete"
+        ]
+      }
+    }
+  },
+  "operation_registry_ref": "demo.operations@1.0.0"
+}

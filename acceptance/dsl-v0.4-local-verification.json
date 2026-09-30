@@ -1,0 +1,385 @@
+{
+  "scope": "LOCAL_PRODUCT_TESTS_NOT_TARGET_ACCEPTANCE",
+  "version": "0.4.0-rc.1",
+  "base_commit": "d39bfde5a08ac9393e6bd97be0b7750f0c5f2182",
+  "python_full_regression": {
+    "tests": 542,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "node_regression": {
+    "tests": 99,
+    "failures": 0,
+    "skipped": 0
+  },
+  "sdk_stdio_calls": {
+    "legacy_three_tools": 14,
+    "new_node_tools": 6,
+    "trusted_configured_query": 5
+  },
+  "acceptance_subset_run": {
+    "index_validation": "PASS",
+    "cases": 67,
+    "v0.4_cases": 60,
+    "v0.5_cases": 7,
+    "unique_test_references": 115,
+    "recorded_offline_status": {
+      "PARTIAL": 33,
+      "PASS": 25,
+      "NOT_RUN": 2,
+      "DEFERRED": 7
+    },
+    "recorded_product_status": {
+      "BLOCKED": 60,
+      "DEFERRED": 7
+    },
+    "current_test_run": "PASS",
+    "release_gate": "BLOCKED",
+    "scope": "Index consistency is not product testing; offline tests are not target acceptance.",
+    "tests_executed": 336,
+    "nonpassing_tests": 0,
+    "unaccepted_v0.4_cases": [
+      "AC-001",
+      "AC-002",
+      "AC-003",
+      "AC-004",
+      "AC-005",
+      "AC-006",
+      "AC-007",
+      "AC-008",
+      "AC-009",
+      "AC-010",
+      "AC-011",
+      "AC-012",
+      "AC-013",
+      "AC-014",
+      "AC-015",
+      "AC-016",
+      "AC-017",
+      "AC-018",
+      "AC-019",
+      "AC-020",
+      "AC-021",
+      "AC-022",
+      "AC-023",
+      "AC-024",
+      "AC-025",
+      "AC-026",
+      "AC-027",
+      "AC-028",
+      "AC-029",
+      "AC-030",
+      "AC-031",
+      "AC-032",
+      "AC-033",
+      "AC-034",
+      "AC-035",
+      "AC-036",
+      "AC-037",
+      "AC-038",
+      "AC-039",
+      "AC-040",
+      "AC-041",
+      "AC-042",
+      "AC-043",
+      "AC-044",
+      "AC-045",
+      "AC-046",
+      "AC-047",
+      "AC-048",
+      "AC-049",
+      "AC-050",
+      "AC-051",
+      "AC-052",
+      "AC-053",
+      "AC-054",
+      "AC-055",
+      "AC-056",
+      "AC-057",
+      "AC-058",
+      "AC-059",
+      "AC-060"
+    ]
+  },
+  "lint": "PASS",
+  "format": "PASS",
+  "official_package": "NOT_RUN",
+  "target_installation": "NOT_RUN",
+  "real_business_api": "BLOCKED",
+  "target_host": "BLOCKED",
+  "files": [
+    {
+      "path": "adapters/host/README.md",
+      "sha256": "e8b214367c026014d3b77018de35d75fe092005fc7a2d2bf8819e94caa03fe18"
+    },
+    {
+      "path": "adapters/host/reference_runtime.py",
+      "sha256": "e0ef9808191b603fbd3ad42af80701e53d765e30da3c908ae080e544fde7766f"
+    },
+    {
+      "path": "builtin/manifest.yaml",
+      "sha256": "d04d7cd972ce29bf33d628b641b28d23f6205289fd6f9587a3bd443a6b47a96b"
+    },
+    {
+      "path": "builtin/provider.py",
+      "sha256": "5e6f0c5e73fe473e50978add5620e657404dabb7588076a34676286b18cf83e9"
+    },
+    {
+      "path": "builtin/provider.yaml",
+      "sha256": "11d4b07888dec732d6efd5844c95b18ad3eb0c99b4e7a3eded1a202a77d31bf0"
+    },
+    {
+      "path": "examples/dsl-v0.4/README.md",
+      "sha256": "8207f5f281c166293884690ea65aa7ccc9a9faf3eb016be93322c0c371fc054f"
+    },
+    {
+      "path": "examples/dsl-v0.4/context-query-plan.json",
+      "sha256": "b776613cc3bca56036b8e5c348ff612c34df24f2f86dcf1d6876b23e9be30c4d"
+    },
+    {
+      "path": "examples/dsl-v0.4/definition-bundle.json",
+      "sha256": "7b1c2c77401541db4f6cb050fbf43a61659feb92505a86b0f57c4d563d529d9c"
+    },
+    {
+      "path": "examples/dsl-v0.4/definition-digest.json",
+      "sha256": "962ae76332ba3a5f4c8e5f81c249cbb96cebfb977e43521f57ee59a8d94a5338"
+    },
+    {
+      "path": "examples/dsl-v0.4/history-query-plan.json",
+      "sha256": "bfbef66bb83459c58e2c1b18bb324334d9636db32f5f8c6e0c8888da91c5ee33"
+    },
+    {
+      "path": "examples/dsl-v0.4/host-mapping.json",
+      "sha256": "9acdf3c55f26bc07a66f228edd9e8faac8a89625bad68159ddcb0c230f1ba11c"
+    },
+    {
+      "path": "examples/dsl-v0.4/operation-registry.json",
+      "sha256": "6d4f4bc890bd2f922f989b8e632f8442d0ccd022345f9079ea68fd08a72d8897"
+    },
+    {
+      "path": "examples/dsl-v0.4/solve-inputs.json",
+      "sha256": "710f425bd1bae5e51c6f72fb0a7751332c134b1e5cfb985553db0afa3acc06a4"
+    },
+    {
+      "path": "plugin/dmn_client/__init__.py",
+      "sha256": "fe42584e9d9924ee2b8529e6dc7f55f846df8d469231aa46ab3b50d3aa3416f5"
+    },
+    {
+      "path": "plugin/dmn_client/bindings.py",
+      "sha256": "7e1f0ba126ab0904cacc8918ae5dae516b9efaed492df0e19d60131255afdf37"
+    },
+    {
+      "path": "plugin/dmn_client/client.py",
+      "sha256": "68ebed266dd7b04d0a9eba798cadf46d269e9a3a408c04b80f6b4b4428dcb85a"
+    },
+    {
+      "path": "plugin/dmn_client/decision_executor.py",
+      "sha256": "45e9f3815c9a8be6b43cbbce51443ebe472db6bec6c0f7d787e23ce328932dc8"
+    },
+    {
+      "path": "plugin/dmn_client/dsl_schemas/architecture.schema.json",
+      "sha256": "e29d9bd8dbbf58d2198acc75057dde4f8baa803b80304c4bea3cc43e00f4b1d6"
+    },
+    {
+      "path": "plugin/dmn_client/dsl_schemas/meeting-event.schema.json",
+      "sha256": "78bd71d1a6311169776044c871f3da8d342b9904b09d0c5c1443fa7aae1daa03"
+    },
+    {
+      "path": "plugin/dmn_client/dsl_schemas/node-invocation.schema.json",
+      "sha256": "d0e8356378155d5d32ef30a6efde837352bdff8a1fcb49e98876b110f2c8b4fb"
+    },
+    {
+      "path": "plugin/dmn_client/dsl_schemas/node-result.schema.json",
+      "sha256": "8b8b4ca3d74dbb329b4bea4ab45746c96e6f63d41ee65bf21ba3a4269a21c176"
+    },
+    {
+      "path": "plugin/dmn_client/dsl_schemas/parameter-snapshot.schema.json",
+      "sha256": "bc783ba215c42a3cd82fbe1b24a1b1457a150f51be38a3fe87c629a358baf9b3"
+    },
+    {
+      "path": "plugin/dmn_client/dsl_schemas/query-plan.schema.json",
+      "sha256": "3465de2fbb28e7311277b59f37d93a6b43aaa0f70b230067e377533ac3aef71b"
+    },
+    {
+      "path": "plugin/dmn_client/flows.py",
+      "sha256": "ba8b4bc2e9b5e50c969244c07d588f5d674977fc4729432af9541261601c01ee"
+    },
+    {
+      "path": "plugin/dmn_client/json_table.py",
+      "sha256": "9b497224b971fe5f777d46323e658597914efa4a9a9d1ae7811d73e9f7c7303f"
+    },
+    {
+      "path": "plugin/dmn_client/local_plan.py",
+      "sha256": "582ee8868fdd9fde6ca1c10f5f0ab148fd55213e70f0eebd1663b39896a9d561"
+    },
+    {
+      "path": "plugin/dmn_client/node_contract.py",
+      "sha256": "0a089315abd5cb136c5987e007201925f0bced4ab2973e57ee274b2e62d7f1c2"
+    },
+    {
+      "path": "plugin/dmn_client/node_tool_outputs.py",
+      "sha256": "6b70f7abd32e822f6f75dd162bca0eee9f5782a8224d9c9756bf40eb016be06a"
+    },
+    {
+      "path": "plugin/dmn_client/query_executor.py",
+      "sha256": "12ed1fdfa0d6eac53d09e752c0c40ec00412bbb6ec07f3822e72fb8afe66fb53"
+    },
+    {
+      "path": "plugin/pyproject.toml",
+      "sha256": "7836a4f0ef183b5b412fb431b2421fc4498e52f6a603f1f35feb323db8d678d7"
+    },
+    {
+      "path": "plugin/requirements.txt",
+      "sha256": "3961d4f806b200c7e52fd413db077cbf6bfc90ba5592f701f5982cba062106b6"
+    },
+    {
+      "path": "plugin/tests/conftest.py",
+      "sha256": "12346bf2678e8e35babf2ea476c3e1d999ee245ec2110d6d86e850285e60788b"
+    },
+    {
+      "path": "plugin/tests/test_bindings.py",
+      "sha256": "20ca29191255cfb216b4d1e284e3350c7880fb5f3d73fbc58cc493e7e4e30443"
+    },
+    {
+      "path": "plugin/tests/test_client.py",
+      "sha256": "d766f33da6938a617ff474770b13ae52582b2763eca5b7e10ef40e0b95acb3fe"
+    },
+    {
+      "path": "plugin/tests/test_decision_executor.py",
+      "sha256": "aee21ee936c38e4690e38612472e605b7ef23102c614745a83670aef1f44eb7b"
+    },
+    {
+      "path": "plugin/tests/test_dsl_reference_flow.py",
+      "sha256": "e88d91e786f97454bfc5ef480428e6c6ffa89e3af62ff619cd0dc851c7d5a217"
+    },
+    {
+      "path": "plugin/tests/test_dsl_sdk.py",
+      "sha256": "2daf0a7ff6fb6d17abb5b9393eb2cbc1b5669e6ba35388016d236c29dd7f50e2"
+    },
+    {
+      "path": "plugin/tests/test_flows.py",
+      "sha256": "9a4d2292fe48583e6d761d6e350935964aa57c53bc653208251eb3aa81b8ebb2"
+    },
+    {
+      "path": "plugin/tests/test_json_table.py",
+      "sha256": "20f760f65ce6d6d6fc560cc359896fafdd8e25e7f4248342514969b2e465db91"
+    },
+    {
+      "path": "plugin/tests/test_live_engine.py",
+      "sha256": "f90fee85560c514cd2263b350cf415fd3674d9095e1e095a2bb9a9a9c1af42a8"
+    },
+    {
+      "path": "plugin/tests/test_local_plan.py",
+      "sha256": "81fafe859b733a17a3c226d4c7a47475df5c6b0390df05eeb4ab1ae244d47add"
+    },
+    {
+      "path": "plugin/tests/test_node_contract.py",
+      "sha256": "2c67e77c32717487607ef1b985dba8ae63f8c454cd0d29ef316662aba8f33faf"
+    },
+    {
+      "path": "plugin/tests/test_query_executor.py",
+      "sha256": "e5a54630c20d33247ee89989bfa144d8ae51d0b58fbb12189228f4da81c3123e"
+    },
+    {
+      "path": "plugin/tests/test_reference_host.py",
+      "sha256": "114b036fd9c28e3b6c9344d65682fcd524809f8feee07613781db1dab6938b76"
+    },
+    {
+      "path": "plugin/tests/test_review_boundaries.py",
+      "sha256": "f46d55d95978160efa73ce618a75781ae4f1cb431abfb8a3e0c3c894d0c0009a"
+    },
+    {
+      "path": "plugin/tests/test_sdk.py",
+      "sha256": "512d5c8a7eff0ddc72fd38c42d6cb6dc404f0334614aa82e1c95d9235f774a61"
+    },
+    {
+      "path": "plugin/tests/tests_data.py",
+      "sha256": "7fdbca920dedfd6f9144dc9b3ee741a345bfadd461c843b8013e87560f6785b0"
+    },
+    {
+      "path": "plugin/tools/evaluate_decision.py",
+      "sha256": "828a7f135588946308fe37739befde64522a23002d330b2c1c01e07674cb8d6e"
+    },
+    {
+      "path": "plugin/tools/evaluate_decision.yaml",
+      "sha256": "ffff631f0556aa020f47d49a8c6c441b77d6aed9b54dd1f3b962f9840b8d6cb3"
+    },
+    {
+      "path": "plugin/tools/evaluate_dmn.py",
+      "sha256": "9196c4feb922cde61da18dc5ce967dd44ae69589e6e7a99b607c909ddff856a1"
+    },
+    {
+      "path": "plugin/tools/evaluate_dmn.yaml",
+      "sha256": "61e1c185cb8f0a9b8020236aab9e9b96fcd5b7056b7b40698baa8e6cc102b494"
+    },
+    {
+      "path": "plugin/tools/evaluate_json_table.py",
+      "sha256": "b23c6262408ade9004c9b60c3fb3f92fcf63608d42a0c4d94b7ad76bd38729bf"
+    },
+    {
+      "path": "plugin/tools/evaluate_json_table.yaml",
+      "sha256": "0d79eb2e717a89a2f9d8bcd1f7b678221151774bd457faa86cc4cf6f9dac0bf1"
+    },
+    {
+      "path": "plugin/tools/execute_json_plan.py",
+      "sha256": "b7eee5a2efc8d2af93bdbd54b555dad9efd08a80f4d5ea999a48da0dd192ac21"
+    },
+    {
+      "path": "plugin/tools/execute_json_plan.yaml",
+      "sha256": "c661dcffeea16ccb9d65655c46551158c2fd7f5e52ddfb068fe2c3ec1275c6ba"
+    },
+    {
+      "path": "plugin/tools/execute_plan.py",
+      "sha256": "84cc9005aeee4e848f02583c3626c43090f70aea59f1c4de639bf8bbb683f154"
+    },
+    {
+      "path": "plugin/tools/execute_plan.yaml",
+      "sha256": "86d2dc18ad022cfa167cc9d045558666748033dade42f5f2003ec0f40393c697"
+    },
+    {
+      "path": "plugin/tools/execute_query.py",
+      "sha256": "b02bb2bab54bb0a35ad487ea726b204fb11c9e3d3888104b698bf890902395e7"
+    },
+    {
+      "path": "plugin/tools/execute_query.yaml",
+      "sha256": "14d69c05bda14166e25c9cf8dd1a3de95455116ce6499c0e4aed5d948803be0e"
+    },
+    {
+      "path": "plugin/tools/query_capability.py",
+      "sha256": "22fc45ad8694c241b8d7916ee6562a0e22a189ff2c786e38db55de0bab107e25"
+    },
+    {
+      "path": "plugin/tools/query_capability.yaml",
+      "sha256": "90366f0c1c9efacda2b4800d70e0c9d7c22ef991cbf427e2ead9155c99495512"
+    },
+    {
+      "path": "plugin/tools/query_local.py",
+      "sha256": "f76cfa566bed735c568a97c35835f7cb387e42249f38069ef8ccf7027a7a5445"
+    },
+    {
+      "path": "plugin/tools/query_local.yaml",
+      "sha256": "f7b24b04c4f985b658590cf0b78741c742a649c4c8eb4cdcd4c12799ad4de86c"
+    },
+    {
+      "path": "plugin/uv.lock",
+      "sha256": "7df4118b62bf21ecf7bbb3fbc43396f7b9062e9e76989d5f94a109eb4a7c5f37"
+    },
+    {
+      "path": "scripts/compatibility/builtin_stdio.py",
+      "sha256": "3f0b9ddfecdfa70bff4da8e6b93230254ba9eb191cd40505dffe1022c5b624a6"
+    },
+    {
+      "path": "scripts/compatibility/dsl_stdio.py",
+      "sha256": "b61b01b5f78004f9cad2939676da08de28be81a5692b39a43f376101dce9d983"
+    },
+    {
+      "path": "scripts/run-reference-dsl.py",
+      "sha256": "77dacee032b14511f065f57bbe87edc35f19cc9b037e3c66f9a22511a7618bd3"
+    },
+    {
+      "path": "scripts/stage-builtin.py",
+      "sha256": "8f91353d6539be7d0ae24598a7a319384394af60147129f44bfd847567367e76"
+    }
+  ]
+}

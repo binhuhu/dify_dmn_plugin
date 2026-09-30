@@ -1,0 +1,41 @@
+{
+  "schema_version": "service-decision-dsl.node-result.v2",
+  "node_ref": {
+    "workflow_id": "demo.solve",
+    "phase_id": "P3",
+    "step_id": "P3.S1",
+    "node_id": "Q_CONTEXT"
+  },
+  "node_run_id": "EXPECTED-NOT-EXECUTED-Q_CONTEXT",
+  "execution_status": "SUCCEEDED",
+  "output_port": "ok",
+  "outputs": {
+    "query": {
+      "outcome": "FOUND",
+      "data": {
+        "order_id": "O-100",
+        "trip": {
+          "trip_id": "TR-100"
+        },
+        "interactions": {
+          "items": []
+        }
+      },
+      "completeness": "COMPLETE",
+      "provenance": {
+        "environment": "SYNTHETIC",
+        "plan_ref": "demo.context@1.0.0"
+      }
+    }
+  },
+  "diagnostics": [],
+  "trace": {
+    "evidence_status": "EXPECTED_NOT_EXECUTED"
+  },
+  "error": null,
+  "run_ref": {
+    "workflow_run_id": "EXAMPLE-WR-001",
+    "step_run_id": "EXAMPLE-SR-P3-001",
+    "attempt_id": "EXAMPLE-ATTEMPT-1"
+  }
+}

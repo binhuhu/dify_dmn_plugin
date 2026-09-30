@@ -1,3 +1,4 @@
 dify-plugin==0.10.2
 httpx==0.28.1
 rfc8785==0.1.4
+jsonschema==4.26.0

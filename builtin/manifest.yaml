@@ -1,4 +1,4 @@
-version: 0.3.0
+version: 0.4.0-rc.1
 type: plugin
 author: hu8627
 name: dmn_json
@@ -6,9 +6,10 @@ label:
   en_US: Built-in JSON Decision Table
   zh_Hans: 内置 JSON 决策表
 description:
-  en_US: Local JSON decisions and plans; SYNTHETIC mock queries. No credentials or
-    external service. Not XML/FEEL.
-  zh_Hans: 本地 JSON 决策与计划、SYNTHETIC 模拟查询；免凭据，不是 XML/FEEL。
+  en_US: >-
+    Local typed decisions and trusted query adapters; legacy SYNTHETIC demos.
+    RC: target host and production API acceptance pending.
+  zh_Hans: 类型化节点决策与受控查询适配；保留旧工具。RC，目标宿主与真实API待验收。
 icon: icon.svg
 resource:
   memory: 268435456

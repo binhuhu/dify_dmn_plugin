@@ -1,0 +1,135 @@
+identity:
+  name: evaluate_decision
+  author: hu8627
+  label:
+    en_US: evaluate_decision
+    zh_Hans: 节点决策
+description:
+  human:
+    en_US: Evaluate exactly one fixed typed service-decision-table-v1 DECISION node
+      locally. UNIQUE/FIRST/COLLECT. No network, graph navigation or action execution.
+    zh_Hans: Evaluate exactly one fixed typed service-decision-table-v1 DECISION node
+      locally. UNIQUE/FIRST/COLLECT. No network, graph navigation or action execution.
+  llm: Evaluate exactly one fixed typed service-decision-table-v1 DECISION node locally.
+    UNIQUE/FIRST/COLLECT. No network, graph navigation or action execution.
+parameters:
+- name: definition_bundle_json
+  type: any
+  required: true
+  form: form
+  label:
+    en_US: definition_bundle_json
+    zh_Hans: definition_bundle_json
+  human_description:
+    en_US: Fixed reviewed service-decision-dsl.node-architecture.v2 definition. Object
+      or one JSON object string.
+    zh_Hans: Fixed reviewed service-decision-dsl.node-architecture.v2 definition.
+      Object or one JSON object string.
+  llm_description: Fixed reviewed service-decision-dsl.node-architecture.v2 definition.
+    Object or one JSON object string.
+- name: node_ref
+  type: any
+  required: true
+  form: form
+  label:
+    en_US: node_ref
+    zh_Hans: node_ref
+  human_description:
+    en_US: Fixed workflow_id/phase_id/step_id/node_id object; not an Agent choice.
+    zh_Hans: Fixed workflow_id/phase_id/step_id/node_id object; not an Agent choice.
+  llm_description: Fixed workflow_id/phase_id/step_id/node_id object; not an Agent
+    choice.
+- name: expected_definition_sha256
+  type: string
+  required: true
+  form: form
+  label:
+    en_US: expected_definition_sha256
+    zh_Hans: expected_definition_sha256
+  human_description:
+    en_US: RFC8785 SHA256 from trusted release configuration. A self-computed hash
+      is not authorization.
+    zh_Hans: RFC8785 SHA256 from trusted release configuration. A self-computed hash
+      is not authorization.
+  llm_description: RFC8785 SHA256 from trusted release configuration. A self-computed
+    hash is not authorization.
+- name: inputs_json
+  type: any
+  required: true
+  form: llm
+  label:
+    en_US: inputs_json
+    zh_Hans: inputs_json
+  human_description:
+    en_US: Bound inputs for this node only. Object or one JSON object string; no nested
+      JSON decoding.
+    zh_Hans: Bound inputs for this node only. Object or one JSON object string; no
+      nested JSON decoding.
+  llm_description: Bound inputs for this node only. Object or one JSON object string;
+    no nested JSON decoding.
+- name: execution_context_json
+  type: any
+  required: true
+  form: llm
+  label:
+    en_US: execution_context_json
+    zh_Hans: execution_context_json
+  human_description:
+    en_US: Host-bound node/run/scope/activation/as_of context. Caller claims do not
+      grant external authority.
+    zh_Hans: Host-bound node/run/scope/activation/as_of context. Caller claims do
+      not grant external authority.
+  llm_description: Host-bound node/run/scope/activation/as_of context. Caller claims
+    do not grant external authority.
+output_schema:
+  type: object
+  properties:
+    results:
+      type: object
+    execution_status:
+      type: string
+      enum:
+      - SUCCEEDED
+      - BLOCKED
+      - FAILED
+      - PENDING
+      - UNKNOWN
+      - CANCELLED
+    output_port:
+      type: string
+      enum:
+      - ok
+      - blocked
+      - error
+      - pending
+      - unknown
+      - cancelled
+    outputs:
+      type: object
+    diagnostics:
+      type: array
+      items:
+        type: object
+    trace:
+      type: object
+    state:
+      type: string
+    data:
+      type: object
+    actions:
+      type: array
+      items:
+        type: object
+  required:
+  - results
+  - execution_status
+  - output_port
+  - outputs
+  - diagnostics
+  - trace
+  - state
+  - data
+  - actions
+extra:
+  python:
+    source: tools/evaluate_decision.py

@@ -1,0 +1,22 @@
+{
+  "example_only": true,
+  "status": "NOT_DEPLOYED",
+  "runtime_owner": "HOST",
+  "execution_contracts": {
+    "QUERY": {
+      "backend": "PLUGIN",
+      "tool": "execute_query"
+    },
+    "DECISION": {
+      "backend": "PLUGIN",
+      "tool": "evaluate_decision"
+    },
+    "ACTION": {
+      "backend": "HOST",
+      "adapter": "execute_action"
+    }
+  },
+  "gateway_event_backend": "HOST_NATIVE_OR_VERIFIED_ADAPTER",
+  "logical_to_physical_mapping_required": true,
+  "supported_profiles_verified": false
+}

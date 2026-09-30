@@ -33,10 +33,10 @@ def stage(destination):
     project.write_text(
         project.read_text()
         .replace('name = "dify-dmn-plugin"', 'name = "dify-dmn-json-plugin"')
-        .replace('version = "0.1.0"', 'version = "0.3.0"')
+        .replace('version = "0.1.0"', 'version = "0.4.0-rc.1"')
         .replace(
             "A strict Dify tool client for a separately deployed DMN/FEEL engine",
-            "Local JSON decisions and plans with SYNTHETIC mock queries",
+            "Local typed node decisions and trusted queries; legacy SYNTHETIC demos",
         )
     )
     return destination

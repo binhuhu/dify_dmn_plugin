@@ -1,0 +1,33 @@
+{
+  "schema_version": "service-decision-dsl.node-result.v2",
+  "node_ref": {
+    "workflow_id": "demo.solve",
+    "phase_id": "P3",
+    "step_id": "P3.S1",
+    "node_id": "A_ASK"
+  },
+  "node_run_id": "EXPECTED-NOT-EXECUTED-A_ASK",
+  "execution_status": "SUCCEEDED",
+  "output_port": "ok",
+  "outputs": {
+    "action_result": {
+      "operation_id": "EXAMPLE-QUESTION-001",
+      "operation_status": "SUCCEEDED",
+      "receipt": {
+        "sent": true
+      },
+      "effect_verified": false
+    }
+  },
+  "diagnostics": [],
+  "trace": {
+    "evidence_status": "EXPECTED_NOT_EXECUTED",
+    "note": "Sending succeeded; this is not user consent or case resolution."
+  },
+  "error": null,
+  "run_ref": {
+    "workflow_run_id": "EXAMPLE-WR-001",
+    "step_run_id": "EXAMPLE-SR-P3-001",
+    "attempt_id": "EXAMPLE-ATTEMPT-1"
+  }
+}

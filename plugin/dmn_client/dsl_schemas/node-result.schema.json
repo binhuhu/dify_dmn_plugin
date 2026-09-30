@@ -1,0 +1,365 @@
+{
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "const": "service-decision-dsl.node-result.v2"
+    },
+    "node_ref": {
+      "$ref": "#/$defs/node_ref"
+    },
+    "node_run_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "execution_status": {
+      "enum": [
+        "SUCCEEDED",
+        "BLOCKED",
+        "FAILED",
+        "PENDING",
+        "UNKNOWN",
+        "CANCELLED",
+        "SKIPPED"
+      ]
+    },
+    "output_port": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "outputs": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "query": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "outcome": {
+                      "enum": [
+                        "FOUND",
+                        "NOT_FOUND",
+                        "UNKNOWN"
+                      ]
+                    },
+                    "data": {
+                      "type": [
+                        "object",
+                        "null"
+                      ]
+                    },
+                    "completeness": {
+                      "enum": [
+                        "COMPLETE",
+                        "PARTIAL",
+                        "UNKNOWN"
+                      ]
+                    },
+                    "provenance": {
+                      "type": "object"
+                    }
+                  },
+                  "required": [
+                    "outcome",
+                    "data",
+                    "completeness",
+                    "provenance"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "query"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "decision": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "state": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "data": {
+                      "type": "object"
+                    },
+                    "actions": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/$defs/action_value"
+                      }
+                    }
+                  },
+                  "required": [
+                    "state",
+                    "data",
+                    "actions"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "decision"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "action_result": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "operation_id": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "operation_status": {
+                      "enum": [
+                        "SUCCEEDED",
+                        "PENDING",
+                        "RUNNING",
+                        "FAILED",
+                        "UNKNOWN",
+                        "CANCELLED"
+                      ]
+                    },
+                    "receipt": {
+                      "type": [
+                        "object",
+                        "null"
+                      ]
+                    },
+                    "effect_verified": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "operation_id",
+                    "operation_status",
+                    "receipt",
+                    "effect_verified"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "action_result"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "diagnostics": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      },
+      "minItems": 0
+    },
+    "trace": {
+      "type": "object"
+    },
+    "error": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "run_ref": {
+      "type": "object",
+      "properties": {
+        "workflow_run_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "step_run_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "attempt_id": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "workflow_run_id",
+        "step_run_id",
+        "attempt_id"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "schema_version",
+    "node_ref",
+    "node_run_id",
+    "execution_status",
+    "output_port",
+    "outputs",
+    "diagnostics",
+    "trace",
+    "error",
+    "run_ref"
+  ],
+  "additionalProperties": false,
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "node_ref": {
+      "type": "object",
+      "properties": {
+        "workflow_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "phase_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "step_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "node_id": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "workflow_id",
+        "phase_id",
+        "step_id",
+        "node_id"
+      ],
+      "additionalProperties": false
+    },
+    "action_value": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "intent_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "kind": {
+              "enum": [
+                "CONTROL"
+              ]
+            },
+            "route_ref": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "intent_id",
+            "kind",
+            "route_ref"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "intent_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "kind": {
+              "enum": [
+                "QUERY",
+                "INTERACTION",
+                "BUSINESS"
+              ]
+            },
+            "target_node_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "parameters": {
+              "type": "object"
+            }
+          },
+          "required": [
+            "intent_id",
+            "kind",
+            "target_node_id",
+            "parameters"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "parameter": {
+      "type": "object",
+      "properties": {
+        "quality": {
+          "enum": [
+            "KNOWN",
+            "UNKNOWN",
+            "NOT_APPLICABLE",
+            "CONFLICT"
+          ]
+        },
+        "value": {},
+        "source_refs": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "diagnostic_codes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "observed_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "quality",
+        "value",
+        "source_refs"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "$comment": "Outer node response. Type-specific constraints are normative in docs and checked partly by the companion validator.",
+  "$id": "urn:service-decision-dsl:node-result:v2:core"
+}

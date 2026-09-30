@@ -1,6 +1,8 @@
 # Dify DMN 插件：显式查询 + 显式决策
 
-新增免 Key 的 [内置 JSON 三工具 0.3.0](builtin/README.md)：决策、SYNTHETIC 查询、JSON 阶段计划均在 Python 插件进程内执行，无需外部决策服务。完整合同和转换边界见 [0.3.0 文档](docs/builtin-0.3.0.md)。为兼容 Dify 1.11.1 的提供商授权限制，使用独立身份 `hu8627/dmn_json`，保留已安装的原外部插件和其他插件。原路径如下。
+当前开发分支为 [0.4.0-rc.1 节点执行候选](docs/dsl-v0.4.md)：保留三个旧工具，新增 execute_query/evaluate_decision 与独立参考宿主。未正式发布，真实 API 与目标宿主验收仍阻断。
+
+此前新增免 Key 的 [内置 JSON 三工具 0.3.0](builtin/README.md)：决策、SYNTHETIC 查询、JSON 阶段计划均在 Python 插件进程内执行，无需外部决策服务。完整合同和转换边界见 [0.3.0 文档](docs/builtin-0.3.0.md)。为兼容 Dify 1.11.1 的提供商授权限制，使用独立身份 `hu8627/dmn_json`，保留已安装的原外部插件和其他插件。原路径如下。
 
 Java-free 候选原型。Dify Python 插件薄封装 → Node.js 执行服务 → 已注册只读查询能力 / DMN 决策。无 Java，不手写 FEEL 解释器，不执行赔付、改票或工单写操作。
 
@@ -18,7 +20,7 @@ Java-free 候选原型。Dify Python 插件薄封装 → Node.js 执行服务 �
 
 ## 0.2.0 历史内置候选交付
 
-- 0.2.0 当时仅注册 `evaluate_json_table`；当前 `builtin/manifest.yaml` 已更新为 0.3.0 三工具。旧 XML/FEEL 三工具及其授权保持兼容。
+- 0.2.0 当时仅注册 `evaluate_json_table`；当前 `builtin/manifest.yaml` 为 0.4.0-rc.1 五工具候选。旧 XML/FEEL 三工具及其授权保持兼容。
 - 当前环境无官方 Dify CLI，尚未生成新的 `.difypkg`；`scripts/stage-builtin.py` 只准备精确候选目录。旧 v0.1.0 Release 保持不动。
 - 免凭据 SDK 注册/校验/调用已验证；新包的目标 UI 安装和真实业务调用未验证。见 [0.2.0 验收记录](docs/builtin-0.2.0.md)。
 

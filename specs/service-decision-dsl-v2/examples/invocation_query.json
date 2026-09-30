@@ -1,0 +1,30 @@
+{
+  "schema_version": "service-decision-dsl.node-invocation.v2",
+  "example_only": true,
+  "executor": "execute_query",
+  "node_ref": {
+    "workflow_id": "demo.solve",
+    "phase_id": "P3",
+    "step_id": "P3.S1",
+    "node_id": "Q_CONTEXT"
+  },
+  "definition_digest": "1e65ec3becb62b4eca18a39bd67373a1c5b065452195cf649ed1633a93782730",
+  "inputs": {
+    "parameters": {
+      "ticket_id": "T-100"
+    },
+    "source_refs": [
+      "context:ticket_id"
+    ]
+  },
+  "execution_context": {
+    "workflow_run_id": "EXAMPLE-WR-001",
+    "step_run_id": "EXAMPLE-SR-P3-001",
+    "attempt_id": "EXAMPLE-ATTEMPT-1",
+    "node_run_id": "EXAMPLE-NR-Q_CONTEXT",
+    "activation_ref": "synthetic:activation-Q_CONTEXT",
+    "subject_scope_ref": "synthetic:tenant-demo:order-O-100",
+    "authorization_context_ref": "synthetic:read-and-interact-only",
+    "as_of": "2026-10-01T00:00:00Z"
+  }
+}

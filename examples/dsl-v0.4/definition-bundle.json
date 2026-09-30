@@ -1,0 +1,2052 @@
+{
+  "schema_version": "service-decision-dsl.node-architecture.v2",
+  "example_only": true,
+  "deployment": {
+    "runtime_owner": "HOST",
+    "action_backend": "HOST",
+    "business_enabled": false,
+    "enabled_node_kinds": [
+      "QUERY",
+      "DECISION",
+      "ACTION",
+      "EXCLUSIVE",
+      "PARALLEL",
+      "START",
+      "WAIT",
+      "END"
+    ]
+  },
+  "workflows": [
+    {
+      "workflow_id": "demo.locate",
+      "version": "1.0.0",
+      "flow_type": "LOCATE",
+      "scope": "EXAMPLE_FRAGMENT",
+      "entry_phase": "LOCATE",
+      "phases": [
+        {
+          "phase_id": "LOCATE",
+          "entry_step": "LOCATE.S1",
+          "steps": [
+            {
+              "step_id": "LOCATE.S1",
+              "name": "合成定位入口；只返回已知演示匹配，不调用解决入口",
+              "purpose": "合成定位入口；只返回已知演示匹配，不调用解决入口",
+              "profile": "decision-step-v2",
+              "entry_node": "S",
+              "main_decision_node": "D",
+              "max_attempts": 1,
+              "graph": {
+                "nodes": [
+                  {
+                    "node_id": "S",
+                    "name": "S",
+                    "category": "EVENT",
+                    "kind": "START",
+                    "ports": [
+                      "ok"
+                    ]
+                  },
+                  {
+                    "node_id": "D",
+                    "name": "D",
+                    "category": "EXECUTION",
+                    "kind": "DECISION",
+                    "ports": [
+                      "ok",
+                      "blocked",
+                      "error"
+                    ],
+                    "model_ref": "demo.locate@1",
+                    "input_bindings": {}
+                  },
+                  {
+                    "node_id": "G",
+                    "name": "G",
+                    "category": "GATEWAY",
+                    "kind": "EXCLUSIVE",
+                    "ports": [
+                      "LOCATED",
+                      "error"
+                    ],
+                    "mode": "SPLIT",
+                    "selector": {
+                      "source": "DECISION_CONTROL",
+                      "node_id": "D"
+                    }
+                  },
+                  {
+                    "node_id": "E_ERR",
+                    "name": "E_ERR",
+                    "category": "EVENT",
+                    "kind": "END",
+                    "ports": [],
+                    "exit_ref": "ERROR"
+                  },
+                  {
+                    "node_id": "E_LOCATED",
+                    "name": "E_LOCATED",
+                    "category": "EVENT",
+                    "kind": "END",
+                    "ports": [],
+                    "exit_ref": "LOCATED"
+                  }
+                ],
+                "edges": [
+                  {
+                    "edge_id": "S_ok_D",
+                    "source": "S",
+                    "source_port": "ok",
+                    "target": "D"
+                  },
+                  {
+                    "edge_id": "D_ok_G",
+                    "source": "D",
+                    "source_port": "ok",
+                    "target": "G"
+                  },
+                  {
+                    "edge_id": "D_blocked_E_ERR",
+                    "source": "D",
+                    "source_port": "blocked",
+                    "target": "E_ERR"
+                  },
+                  {
+                    "edge_id": "D_error_E_ERR",
+                    "source": "D",
+                    "source_port": "error",
+                    "target": "E_ERR"
+                  },
+                  {
+                    "edge_id": "G_error_E_ERR",
+                    "source": "G",
+                    "source_port": "error",
+                    "target": "E_ERR"
+                  },
+                  {
+                    "edge_id": "G_LOCATED_E_LOCATED",
+                    "source": "G",
+                    "source_port": "LOCATED",
+                    "target": "E_LOCATED"
+                  }
+                ]
+              },
+              "exits": {
+                "ERROR": {
+                  "class": "TECHNICAL",
+                  "destination": {
+                    "kind": "RETURN",
+                    "outcome": "ERROR"
+                  }
+                },
+                "LOCATED": {
+                  "class": "RETURN",
+                  "destination": {
+                    "kind": "RETURN",
+                    "outcome": "LOCATED"
+                  }
+                }
+              },
+              "version": "1.0.0",
+              "reentry_exhausted_exit": "ERROR"
+            }
+          ]
+        }
+      ],
+      "domain_id": "cross_domain",
+      "scene_ref": null
+    },
+    {
+      "workflow_id": "demo.solve",
+      "version": "1.0.0",
+      "flow_type": "SOLVE",
+      "scope": "EXAMPLE_FRAGMENT",
+      "entry_phase": "P1",
+      "phases": [
+        {
+          "phase_id": "P1",
+          "entry_step": "P1.S1",
+          "steps": [
+            {
+              "step_id": "P1.S1",
+              "name": "SYNTHETIC P1 decision",
+              "purpose": "Illustrative demo predicate; not approved production policy.",
+              "profile": "decision-step-v2",
+              "entry_node": "S",
+              "main_decision_node": "D",
+              "max_attempts": 1,
+              "graph": {
+                "nodes": [
+                  {
+                    "node_id": "S",
+                    "name": "S",
+                    "category": "EVENT",
+                    "kind": "START",
+                    "ports": [
+                      "ok"
+                    ]
+                  },
+                  {
+                    "node_id": "D",
+                    "name": "D",
+                    "category": "EXECUTION",
+                    "kind": "DECISION",
+                    "ports": [
+                      "ok",
+                      "blocked",
+                      "error"
+                    ],
+                    "model_ref": "demo.p1@1",
+                    "input_bindings": {
+                      "scene_ref": {
+                        "from": {
+                          "source": "context",
+                          "path": [
+                            "parameters",
+                            "scene_ref"
+                          ]
+                        },
+                        "source_format": "PARAMETER"
+                      }
+                    }
+                  },
+                  {
+                    "node_id": "G",
+                    "name": "G",
+                    "category": "GATEWAY",
+                    "kind": "EXCLUSIVE",
+                    "ports": [
+                      "YES",
+                      "NO",
+                      "error"
+                    ],
+                    "mode": "SPLIT",
+                    "selector": {
+                      "source": "DECISION_CONTROL",
+                      "node_id": "D"
+                    }
+                  },
+                  {
+                    "node_id": "E_ERR",
+                    "name": "E_ERR",
+                    "category": "EVENT",
+                    "kind": "END",
+                    "ports": [],
+                    "exit_ref": "ERROR"
+                  },
+                  {
+                    "node_id": "E_YES",
+                    "name": "E_YES",
+                    "category": "EVENT",
+                    "kind": "END",
+                    "ports": [],
+                    "exit_ref": "YES"
+                  },
+                  {
+                    "node_id": "E_NO",
+                    "name": "E_NO",
+                    "category": "EVENT",
+                    "kind": "END",
+                    "ports": [],
+                    "exit_ref": "NO"
+                  }
+                ],
+                "edges": [
+                  {
+                    "edge_id": "S_ok_D",
+                    "source": "S",
+                    "source_port": "ok",
+                    "target": "D"
+                  },
+                  {
+                    "edge_id": "D_ok_G",
+                    "source": "D",
+                    "source_port": "ok",
+                    "target": "G"
+                  },
+                  {
+                    "edge_id": "D_blocked_E_ERR",
+                    "source": "D",
+                    "source_port": "blocked",
+                    "target": "E_ERR"
+                  },
+                  {
+                    "edge_id": "D_error_E_ERR",
+                    "source": "D",
+                    "source_port": "error",
+                    "target": "E_ERR"
+                  },
+                  {
+                    "edge_id": "G_error_E_ERR",
+                    "source": "G",
+                    "source_port": "error",
+                    "target": "E_ERR"
+                  },
+                  {
+                    "edge_id": "G_YES",
+                    "source": "G",
+                    "source_port": "YES",
+                    "target": "E_YES"
+                  },
+                  {
+                    "edge_id": "G_NO",
+                    "source": "G",
+                    "source_port": "NO",
+                    "target": "E_NO"
+                  }
+                ]
+              },
+              "exits": {
+                "ERROR": {
+                  "class": "TECHNICAL",
+                  "destination": {
+                    "kind": "RETURN",
+                    "outcome": "TECHNICAL_FAILURE"
+                  }
+                },
+                "YES": {
+                  "class": "BUSINESS",
+                  "destination": {
+                    "kind": "PHASE",
+                    "phase_id": "P2"
+                  }
+                },
+                "NO": {
+                  "class": "BUSINESS",
+                  "destination": {
+                    "kind": "RETURN",
+                    "outcome": "SCENE_NOT_APPLICABLE"
+                  }
+                }
+              },
+              "version": "1.0.0",
+              "reentry_exhausted_exit": "ERROR"
+            }
+          ]
+        },
+        {
+          "phase_id": "P2",
+          "entry_step": "P2.S1",
+          "steps": [
+            {
+              "step_id": "P2.S1",
+              "name": "SYNTHETIC P2 decision",
+              "purpose": "Illustrative demo predicate; not approved production policy.",
+              "profile": "decision-step-v2",
+              "entry_node": "S",
+              "main_decision_node": "D",
+              "max_attempts": 1,
+              "graph": {
+                "nodes": [
+                  {
+                    "node_id": "S",
+                    "name": "S",
+                    "category": "EVENT",
+                    "kind": "START",
+                    "ports": [
+                      "ok"
+                    ]
+                  },
+                  {
+                    "node_id": "D",
+                    "name": "D",
+                    "category": "EXECUTION",
+                    "kind": "DECISION",
+                    "ports": [
+                      "ok",
+                      "blocked",
+                      "error"
+                    ],
+                    "model_ref": "demo.p2@1",
+                    "input_bindings": {
+                      "accepted": {
+                        "from": {
+                          "source": "context",
+                          "path": [
+                            "parameters",
+                            "accepted"
+                          ]
+                        },
+                        "source_format": "PARAMETER"
+                      }
+                    }
+                  },
+                  {
+                    "node_id": "G",
+                    "name": "G",
+                    "category": "GATEWAY",
+                    "kind": "EXCLUSIVE",
+                    "ports": [
+                      "YES",
+                      "NO",
+                      "error"
+                    ],
+                    "mode": "SPLIT",
+                    "selector": {
+                      "source": "DECISION_CONTROL",
+                      "node_id": "D"
+                    }
+                  },
+                  {
+                    "node_id": "E_ERR",
+                    "name": "E_ERR",
+                    "category": "EVENT",
+                    "kind": "END",
+                    "ports": [],
+                    "exit_ref": "ERROR"
+                  },
+                  {
+                    "node_id": "E_YES",
+                    "name": "E_YES",
+                    "category": "EVENT",
+                    "kind": "END",
+                    "ports": [],
+                    "exit_ref": "YES"
+                  },
+                  {
+                    "node_id": "E_NO",
+                    "name": "E_NO",
+                    "category": "EVENT",
+                    "kind": "END",
+                    "ports": [],
+                    "exit_ref": "NO"
+                  }
+                ],
+                "edges": [
+                  {
+                    "edge_id": "S_ok_D",
+                    "source": "S",
+                    "source_port": "ok",
+                    "target": "D"
+                  },
+                  {
+                    "edge_id": "D_ok_G",
+                    "source": "D",
+                    "source_port": "ok",
+                    "target": "G"
+                  },
+                  {
+                    "edge_id": "D_blocked_E_ERR",
+                    "source": "D",
+                    "source_port": "blocked",
+                    "target": "E_ERR"
+                  },
+                  {
+                    "edge_id": "D_error_E_ERR",
+                    "source": "D",
+                    "source_port": "error",
+                    "target": "E_ERR"
+                  },
+                  {
+                    "edge_id": "G_error_E_ERR",
+                    "source": "G",
+                    "source_port": "error",
+                    "target": "E_ERR"
+                  },
+                  {
+                    "edge_id": "G_YES",
+                    "source": "G",
+                    "source_port": "YES",
+                    "target": "E_YES"
+                  },
+                  {
+                    "edge_id": "G_NO",
+                    "source": "G",
+                    "source_port": "NO",
+                    "target": "E_NO"
+                  }
+                ]
+              },
+              "exits": {
+                "ERROR": {
+                  "class": "TECHNICAL",
+                  "destination": {
+                    "kind": "RETURN",
+                    "outcome": "TECHNICAL_FAILURE"
+                  }
+                },
+                "YES": {
+                  "class": "BUSINESS",
+                  "destination": {
+                    "kind": "PHASE",
+                    "phase_id": "P3"
+                  }
+                },
+                "NO": {
+                  "class": "BUSINESS",
+                  "destination": {
+                    "kind": "RETURN",
+                    "outcome": "NOT_ACCEPTED"
+                  }
+                }
+              },
+              "version": "1.0.0",
+              "reentry_exhausted_exit": "ERROR"
+            }
+          ]
+        },
+        {
+          "phase_id": "P3",
+          "entry_step": "P3.S1",
+          "steps": [
+            {
+              "step_id": "P3.S1",
+              "name": "确认是否碰面（合成结构样板）",
+              "purpose": "示范先查询、单决策、分流、提问等待和重入；不包含完整生产授权政策。",
+              "profile": "decision-step-v2",
+              "entry_node": "S",
+              "main_decision_node": "D1",
+              "max_attempts": 3,
+              "graph": {
+                "nodes": [
+                  {
+                    "node_id": "S",
+                    "name": "S",
+                    "category": "EVENT",
+                    "kind": "START",
+                    "ports": [
+                      "ok"
+                    ]
+                  },
+                  {
+                    "node_id": "F",
+                    "name": "F",
+                    "category": "GATEWAY",
+                    "kind": "PARALLEL",
+                    "ports": [
+                      "context",
+                      "history"
+                    ],
+                    "mode": "SPLIT",
+                    "pair_ref": "J"
+                  },
+                  {
+                    "node_id": "Q_CONTEXT",
+                    "name": "Q_CONTEXT",
+                    "category": "EXECUTION",
+                    "kind": "QUERY",
+                    "ports": [
+                      "ok",
+                      "blocked",
+                      "error"
+                    ],
+                    "capability_ref": "demo.case_context@1.0.0",
+                    "requires_intent": false,
+                    "input_bindings": {
+                      "ticket_id": {
+                        "from": {
+                          "source": "context",
+                          "path": [
+                            "ticket_id"
+                          ]
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "node_id": "Q_HISTORY",
+                    "name": "Q_HISTORY",
+                    "category": "EXECUTION",
+                    "kind": "QUERY",
+                    "ports": [
+                      "ok",
+                      "blocked",
+                      "error"
+                    ],
+                    "capability_ref": "demo.history@1.0.0",
+                    "requires_intent": false,
+                    "input_bindings": {
+                      "ticket_id": {
+                        "from": {
+                          "source": "context",
+                          "path": [
+                            "ticket_id"
+                          ]
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "node_id": "J",
+                    "name": "J",
+                    "category": "GATEWAY",
+                    "kind": "PARALLEL",
+                    "ports": [
+                      "ok",
+                      "error"
+                    ],
+                    "mode": "JOIN",
+                    "pair_ref": "F",
+                    "join_policy": "ALL_SUCCESS",
+                    "failure_policy": "CANCEL_REMAINING"
+                  },
+                  {
+                    "node_id": "D1",
+                    "name": "D1",
+                    "category": "EXECUTION",
+                    "kind": "DECISION",
+                    "ports": [
+                      "ok",
+                      "blocked",
+                      "error"
+                    ],
+                    "model_ref": "demo.meeting@1.0.0",
+                    "input_bindings": {
+                      "order_id": {
+                        "from": {
+                          "source": "node",
+                          "path": [
+                            "query",
+                            "data",
+                            "order_id"
+                          ],
+                          "node_id": "Q_CONTEXT"
+                        },
+                        "source_format": "VALUE"
+                      },
+                      "met_driver": {
+                        "from": {
+                          "source": "context",
+                          "path": [
+                            "parameters",
+                            "met_driver"
+                          ]
+                        },
+                        "source_format": "PARAMETER"
+                      },
+                      "other_information_complete": {
+                        "from": {
+                          "source": "node",
+                          "node_id": "Q_HISTORY",
+                          "path": [
+                            "query",
+                            "data",
+                            "other_information_complete"
+                          ]
+                        },
+                        "source_format": "PARAMETER"
+                      }
+                    }
+                  },
+                  {
+                    "node_id": "G_ROUTE",
+                    "name": "G_ROUTE",
+                    "category": "GATEWAY",
+                    "kind": "EXCLUSIVE",
+                    "ports": [
+                      "ASK",
+                      "AUTH",
+                      "CONTINUE",
+                      "OTHER",
+                      "error"
+                    ],
+                    "mode": "SPLIT",
+                    "selector": {
+                      "source": "DECISION_CONTROL",
+                      "node_id": "D1"
+                    }
+                  },
+                  {
+                    "node_id": "A_ASK",
+                    "name": "A_ASK",
+                    "category": "EXECUTION",
+                    "kind": "ACTION",
+                    "ports": [
+                      "ok",
+                      "blocked",
+                      "error"
+                    ],
+                    "action_ref": "demo.ask_meeting@1",
+                    "action_kind": "INTERACTION",
+                    "input_bindings": {
+                      "order_id": {
+                        "from": {
+                          "source": "parameters",
+                          "path": [
+                            "order_id",
+                            "value"
+                          ]
+                        }
+                      },
+                      "question_ref": {
+                        "literal": "demo.ask_meeting@1"
+                      }
+                    }
+                  },
+                  {
+                    "node_id": "W_ANSWER",
+                    "name": "W_ANSWER",
+                    "category": "EVENT",
+                    "kind": "WAIT",
+                    "ports": [
+                      "received",
+                      "timeout",
+                      "cancelled",
+                      "error"
+                    ],
+                    "event_type": "demo.meeting_answer.v1",
+                    "correlation_fields": [
+                      "workflow_run_id",
+                      "step_run_id",
+                      "attempt_id",
+                      "intent_id"
+                    ],
+                    "timeout_ms": 300000,
+                    "pre_register_before": "A_ASK",
+                    "event_bindings": {
+                      "met_driver": {
+                        "from": {
+                          "source": "event",
+                          "path": [
+                            "met_driver"
+                          ]
+                        },
+                        "source_format": "VALUE"
+                      }
+                    },
+                    "event_schema": {
+                      "type": "object",
+                      "properties": {
+                        "met_driver": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "met_driver"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  {
+                    "node_id": "E_NEXT",
+                    "name": "E_NEXT",
+                    "category": "EVENT",
+                    "kind": "END",
+                    "ports": [],
+                    "exit_ref": "NEXT"
+                  },
+                  {
+                    "node_id": "E_AUTH",
+                    "name": "E_AUTH",
+                    "category": "EVENT",
+                    "kind": "END",
+                    "ports": [],
+                    "exit_ref": "AUTH"
+                  },
+                  {
+                    "node_id": "E_OTHER",
+                    "name": "E_OTHER",
+                    "category": "EVENT",
+                    "kind": "END",
+                    "ports": [],
+                    "exit_ref": "OTHER"
+                  },
+                  {
+                    "node_id": "E_RETRY",
+                    "name": "E_RETRY",
+                    "category": "EVENT",
+                    "kind": "END",
+                    "ports": [],
+                    "exit_ref": "RETRY"
+                  },
+                  {
+                    "node_id": "E_TIMEOUT",
+                    "name": "E_TIMEOUT",
+                    "category": "EVENT",
+                    "kind": "END",
+                    "ports": [],
+                    "exit_ref": "TIMEOUT"
+                  },
+                  {
+                    "node_id": "E_CANCEL",
+                    "name": "E_CANCEL",
+                    "category": "EVENT",
+                    "kind": "END",
+                    "ports": [],
+                    "exit_ref": "CANCEL"
+                  },
+                  {
+                    "node_id": "E_FAILED",
+                    "name": "E_FAILED",
+                    "category": "EVENT",
+                    "kind": "END",
+                    "ports": [],
+                    "exit_ref": "FAILED"
+                  }
+                ],
+                "edges": [
+                  {
+                    "edge_id": "S_ok_F",
+                    "source": "S",
+                    "source_port": "ok",
+                    "target": "F"
+                  },
+                  {
+                    "edge_id": "F_context_Q_CONTEXT",
+                    "source": "F",
+                    "source_port": "context",
+                    "target": "Q_CONTEXT",
+                    "branch_id": "context"
+                  },
+                  {
+                    "edge_id": "F_history_Q_HISTORY",
+                    "source": "F",
+                    "source_port": "history",
+                    "target": "Q_HISTORY",
+                    "branch_id": "history"
+                  },
+                  {
+                    "edge_id": "Q_CONTEXT_ok_J",
+                    "source": "Q_CONTEXT",
+                    "source_port": "ok",
+                    "target": "J"
+                  },
+                  {
+                    "edge_id": "Q_CONTEXT_blocked_J",
+                    "source": "Q_CONTEXT",
+                    "source_port": "blocked",
+                    "target": "J"
+                  },
+                  {
+                    "edge_id": "Q_CONTEXT_error_J",
+                    "source": "Q_CONTEXT",
+                    "source_port": "error",
+                    "target": "J"
+                  },
+                  {
+                    "edge_id": "Q_HISTORY_ok_J",
+                    "source": "Q_HISTORY",
+                    "source_port": "ok",
+                    "target": "J"
+                  },
+                  {
+                    "edge_id": "Q_HISTORY_blocked_J",
+                    "source": "Q_HISTORY",
+                    "source_port": "blocked",
+                    "target": "J"
+                  },
+                  {
+                    "edge_id": "Q_HISTORY_error_J",
+                    "source": "Q_HISTORY",
+                    "source_port": "error",
+                    "target": "J"
+                  },
+                  {
+                    "edge_id": "J_ok_D1",
+                    "source": "J",
+                    "source_port": "ok",
+                    "target": "D1"
+                  },
+                  {
+                    "edge_id": "J_error_E_FAILED",
+                    "source": "J",
+                    "source_port": "error",
+                    "target": "E_FAILED"
+                  },
+                  {
+                    "edge_id": "D1_ok_G_ROUTE",
+                    "source": "D1",
+                    "source_port": "ok",
+                    "target": "G_ROUTE"
+                  },
+                  {
+                    "edge_id": "D1_blocked_E_FAILED",
+                    "source": "D1",
+                    "source_port": "blocked",
+                    "target": "E_FAILED"
+                  },
+                  {
+                    "edge_id": "D1_error_E_FAILED",
+                    "source": "D1",
+                    "source_port": "error",
+                    "target": "E_FAILED"
+                  },
+                  {
+                    "edge_id": "G_ROUTE_ASK_A_ASK",
+                    "source": "G_ROUTE",
+                    "source_port": "ASK",
+                    "target": "A_ASK"
+                  },
+                  {
+                    "edge_id": "G_ROUTE_AUTH_E_AUTH",
+                    "source": "G_ROUTE",
+                    "source_port": "AUTH",
+                    "target": "E_AUTH"
+                  },
+                  {
+                    "edge_id": "G_ROUTE_OTHER_E_OTHER",
+                    "source": "G_ROUTE",
+                    "source_port": "OTHER",
+                    "target": "E_OTHER"
+                  },
+                  {
+                    "edge_id": "G_ROUTE_CONTINUE_E_NEXT",
+                    "source": "G_ROUTE",
+                    "source_port": "CONTINUE",
+                    "target": "E_NEXT"
+                  },
+                  {
+                    "edge_id": "G_ROUTE_error_E_FAILED",
+                    "source": "G_ROUTE",
+                    "source_port": "error",
+                    "target": "E_FAILED"
+                  },
+                  {
+                    "edge_id": "A_ASK_ok_W_ANSWER",
+                    "source": "A_ASK",
+                    "source_port": "ok",
+                    "target": "W_ANSWER"
+                  },
+                  {
+                    "edge_id": "A_ASK_error_E_FAILED",
+                    "source": "A_ASK",
+                    "source_port": "error",
+                    "target": "E_FAILED"
+                  },
+                  {
+                    "edge_id": "A_ASK_blocked_E_FAILED",
+                    "source": "A_ASK",
+                    "source_port": "blocked",
+                    "target": "E_FAILED"
+                  },
+                  {
+                    "edge_id": "W_ANSWER_received_E_RETRY",
+                    "source": "W_ANSWER",
+                    "source_port": "received",
+                    "target": "E_RETRY"
+                  },
+                  {
+                    "edge_id": "W_ANSWER_timeout_E_TIMEOUT",
+                    "source": "W_ANSWER",
+                    "source_port": "timeout",
+                    "target": "E_TIMEOUT"
+                  },
+                  {
+                    "edge_id": "W_ANSWER_cancelled_E_CANCEL",
+                    "source": "W_ANSWER",
+                    "source_port": "cancelled",
+                    "target": "E_CANCEL"
+                  },
+                  {
+                    "edge_id": "W_ANSWER_error_E_FAILED",
+                    "source": "W_ANSWER",
+                    "source_port": "error",
+                    "target": "E_FAILED"
+                  }
+                ]
+              },
+              "exits": {
+                "NEXT": {
+                  "class": "BUSINESS",
+                  "destination": {
+                    "kind": "PHASE",
+                    "phase_id": "P4"
+                  }
+                },
+                "AUTH": {
+                  "class": "BUSINESS",
+                  "destination": {
+                    "kind": "RETURN",
+                    "outcome": "NEED_AUTHORIZATION_REVIEW"
+                  }
+                },
+                "OTHER": {
+                  "class": "BUSINESS",
+                  "destination": {
+                    "kind": "RETURN",
+                    "outcome": "NEED_OTHER_INFORMATION"
+                  }
+                },
+                "RETRY": {
+                  "class": "REENTRY",
+                  "destination": {
+                    "kind": "REENTER_STEP"
+                  }
+                },
+                "TIMEOUT": {
+                  "class": "TECHNICAL",
+                  "destination": {
+                    "kind": "RETURN",
+                    "outcome": "WAIT_TIMEOUT"
+                  }
+                },
+                "CANCEL": {
+                  "class": "TECHNICAL",
+                  "destination": {
+                    "kind": "RETURN",
+                    "outcome": "CANCELLED"
+                  }
+                },
+                "FAILED": {
+                  "class": "TECHNICAL",
+                  "destination": {
+                    "kind": "RETURN",
+                    "outcome": "TECHNICAL_FAILURE"
+                  }
+                }
+              },
+              "version": "1.0.0",
+              "reentry_exhausted_exit": "FAILED"
+            }
+          ]
+        },
+        {
+          "phase_id": "P4",
+          "entry_step": "P4.S1",
+          "steps": [
+            {
+              "step_id": "P4.S1",
+              "name": "SYNTHETIC P4 decision",
+              "purpose": "Illustrative demo predicate; not approved production policy.",
+              "profile": "decision-step-v2",
+              "entry_node": "S",
+              "main_decision_node": "D",
+              "max_attempts": 1,
+              "graph": {
+                "nodes": [
+                  {
+                    "node_id": "S",
+                    "name": "S",
+                    "category": "EVENT",
+                    "kind": "START",
+                    "ports": [
+                      "ok"
+                    ]
+                  },
+                  {
+                    "node_id": "D",
+                    "name": "D",
+                    "category": "EXECUTION",
+                    "kind": "DECISION",
+                    "ports": [
+                      "ok",
+                      "blocked",
+                      "error"
+                    ],
+                    "model_ref": "demo.p4@1",
+                    "input_bindings": {
+                      "fact_confirmed": {
+                        "from": {
+                          "source": "context",
+                          "path": [
+                            "parameters",
+                            "fact_confirmed"
+                          ]
+                        },
+                        "source_format": "PARAMETER"
+                      }
+                    }
+                  },
+                  {
+                    "node_id": "G",
+                    "name": "G",
+                    "category": "GATEWAY",
+                    "kind": "EXCLUSIVE",
+                    "ports": [
+                      "YES",
+                      "NO",
+                      "error"
+                    ],
+                    "mode": "SPLIT",
+                    "selector": {
+                      "source": "DECISION_CONTROL",
+                      "node_id": "D"
+                    }
+                  },
+                  {
+                    "node_id": "E_ERR",
+                    "name": "E_ERR",
+                    "category": "EVENT",
+                    "kind": "END",
+                    "ports": [],
+                    "exit_ref": "ERROR"
+                  },
+                  {
+                    "node_id": "E_YES",
+                    "name": "E_YES",
+                    "category": "EVENT",
+                    "kind": "END",
+                    "ports": [],
+                    "exit_ref": "YES"
+                  },
+                  {
+                    "node_id": "E_NO",
+                    "name": "E_NO",
+                    "category": "EVENT",
+                    "kind": "END",
+                    "ports": [],
+                    "exit_ref": "NO"
+                  }
+                ],
+                "edges": [
+                  {
+                    "edge_id": "S_ok_D",
+                    "source": "S",
+                    "source_port": "ok",
+                    "target": "D"
+                  },
+                  {
+                    "edge_id": "D_ok_G",
+                    "source": "D",
+                    "source_port": "ok",
+                    "target": "G"
+                  },
+                  {
+                    "edge_id": "D_blocked_E_ERR",
+                    "source": "D",
+                    "source_port": "blocked",
+                    "target": "E_ERR"
+                  },
+                  {
+                    "edge_id": "D_error_E_ERR",
+                    "source": "D",
+                    "source_port": "error",
+                    "target": "E_ERR"
+                  },
+                  {
+                    "edge_id": "G_error_E_ERR",
+                    "source": "G",
+                    "source_port": "error",
+                    "target": "E_ERR"
+                  },
+                  {
+                    "edge_id": "G_YES",
+                    "source": "G",
+                    "source_port": "YES",
+                    "target": "E_YES"
+                  },
+                  {
+                    "edge_id": "G_NO",
+                    "source": "G",
+                    "source_port": "NO",
+                    "target": "E_NO"
+                  }
+                ]
+              },
+              "exits": {
+                "ERROR": {
+                  "class": "TECHNICAL",
+                  "destination": {
+                    "kind": "RETURN",
+                    "outcome": "TECHNICAL_FAILURE"
+                  }
+                },
+                "YES": {
+                  "class": "BUSINESS",
+                  "destination": {
+                    "kind": "PHASE",
+                    "phase_id": "P5"
+                  }
+                },
+                "NO": {
+                  "class": "BUSINESS",
+                  "destination": {
+                    "kind": "RETURN",
+                    "outcome": "NEEDS_MANUAL_REVIEW"
+                  }
+                }
+              },
+              "version": "1.0.0",
+              "reentry_exhausted_exit": "ERROR"
+            }
+          ]
+        },
+        {
+          "phase_id": "P5",
+          "entry_step": "P5.S1",
+          "steps": [
+            {
+              "step_id": "P5.S1",
+              "name": "SYNTHETIC P5 decision",
+              "purpose": "Illustrative demo predicate; not approved production policy.",
+              "profile": "decision-step-v2",
+              "entry_node": "S",
+              "main_decision_node": "D",
+              "max_attempts": 1,
+              "graph": {
+                "nodes": [
+                  {
+                    "node_id": "S",
+                    "name": "S",
+                    "category": "EVENT",
+                    "kind": "START",
+                    "ports": [
+                      "ok"
+                    ]
+                  },
+                  {
+                    "node_id": "D",
+                    "name": "D",
+                    "category": "EXECUTION",
+                    "kind": "DECISION",
+                    "ports": [
+                      "ok",
+                      "blocked",
+                      "error"
+                    ],
+                    "model_ref": "demo.p5@1",
+                    "input_bindings": {
+                      "advice_ready": {
+                        "from": {
+                          "source": "context",
+                          "path": [
+                            "parameters",
+                            "advice_ready"
+                          ]
+                        },
+                        "source_format": "PARAMETER"
+                      }
+                    }
+                  },
+                  {
+                    "node_id": "G",
+                    "name": "G",
+                    "category": "GATEWAY",
+                    "kind": "EXCLUSIVE",
+                    "ports": [
+                      "YES",
+                      "NO",
+                      "error"
+                    ],
+                    "mode": "SPLIT",
+                    "selector": {
+                      "source": "DECISION_CONTROL",
+                      "node_id": "D"
+                    }
+                  },
+                  {
+                    "node_id": "E_ERR",
+                    "name": "E_ERR",
+                    "category": "EVENT",
+                    "kind": "END",
+                    "ports": [],
+                    "exit_ref": "ERROR"
+                  },
+                  {
+                    "node_id": "E_YES",
+                    "name": "E_YES",
+                    "category": "EVENT",
+                    "kind": "END",
+                    "ports": [],
+                    "exit_ref": "YES"
+                  },
+                  {
+                    "node_id": "E_NO",
+                    "name": "E_NO",
+                    "category": "EVENT",
+                    "kind": "END",
+                    "ports": [],
+                    "exit_ref": "NO"
+                  }
+                ],
+                "edges": [
+                  {
+                    "edge_id": "S_ok_D",
+                    "source": "S",
+                    "source_port": "ok",
+                    "target": "D"
+                  },
+                  {
+                    "edge_id": "D_ok_G",
+                    "source": "D",
+                    "source_port": "ok",
+                    "target": "G"
+                  },
+                  {
+                    "edge_id": "D_blocked_E_ERR",
+                    "source": "D",
+                    "source_port": "blocked",
+                    "target": "E_ERR"
+                  },
+                  {
+                    "edge_id": "D_error_E_ERR",
+                    "source": "D",
+                    "source_port": "error",
+                    "target": "E_ERR"
+                  },
+                  {
+                    "edge_id": "G_error_E_ERR",
+                    "source": "G",
+                    "source_port": "error",
+                    "target": "E_ERR"
+                  },
+                  {
+                    "edge_id": "G_YES",
+                    "source": "G",
+                    "source_port": "YES",
+                    "target": "E_YES"
+                  },
+                  {
+                    "edge_id": "G_NO",
+                    "source": "G",
+                    "source_port": "NO",
+                    "target": "E_NO"
+                  }
+                ]
+              },
+              "exits": {
+                "ERROR": {
+                  "class": "TECHNICAL",
+                  "destination": {
+                    "kind": "RETURN",
+                    "outcome": "TECHNICAL_FAILURE"
+                  }
+                },
+                "YES": {
+                  "class": "BUSINESS",
+                  "destination": {
+                    "kind": "RETURN",
+                    "outcome": "ADVISORY_COMPLETED"
+                  }
+                },
+                "NO": {
+                  "class": "BUSINESS",
+                  "destination": {
+                    "kind": "RETURN",
+                    "outcome": "NEEDS_MANUAL_REVIEW"
+                  }
+                }
+              },
+              "version": "1.0.0",
+              "reentry_exhausted_exit": "ERROR"
+            }
+          ]
+        }
+      ],
+      "domain_id": "fulfilment",
+      "scene_ref": "driver_no_pickup@1.0.0"
+    }
+  ],
+  "models": {
+    "demo.meeting@1.0.0": {
+      "profile": "service-decision-table-v1",
+      "version": "1.0.0",
+      "hit_policy": "UNIQUE",
+      "parameters": {
+        "order_id": {
+          "type": "string",
+          "record_required": true,
+          "nullable": false,
+          "allowed_quality": [
+            "KNOWN"
+          ]
+        },
+        "met_driver": {
+          "type": "boolean",
+          "record_required": true,
+          "nullable": false,
+          "allowed_quality": [
+            "KNOWN",
+            "UNKNOWN"
+          ]
+        },
+        "other_information_complete": {
+          "type": "boolean",
+          "record_required": true,
+          "nullable": false,
+          "allowed_quality": [
+            "KNOWN"
+          ]
+        }
+      },
+      "rules": [
+        {
+          "rule_id": "unknown",
+          "when": [
+            {
+              "path": [
+                "parameters",
+                "met_driver",
+                "quality"
+              ],
+              "op": "eq",
+              "value": "UNKNOWN"
+            }
+          ],
+          "output_template_ref": "ask"
+        },
+        {
+          "rule_id": "met",
+          "when": [
+            {
+              "path": [
+                "parameters",
+                "met_driver",
+                "quality"
+              ],
+              "op": "eq",
+              "value": "KNOWN"
+            },
+            {
+              "path": [
+                "parameters",
+                "met_driver",
+                "value"
+              ],
+              "op": "eq",
+              "value": true
+            }
+          ],
+          "output_template_ref": "auth"
+        },
+        {
+          "rule_id": "not_met_ready",
+          "when": [
+            {
+              "path": [
+                "parameters",
+                "met_driver",
+                "quality"
+              ],
+              "op": "eq",
+              "value": "KNOWN"
+            },
+            {
+              "path": [
+                "parameters",
+                "met_driver",
+                "value"
+              ],
+              "op": "eq",
+              "value": false
+            },
+            {
+              "path": [
+                "parameters",
+                "other_information_complete",
+                "value"
+              ],
+              "op": "eq",
+              "value": true
+            }
+          ],
+          "output_template_ref": "ready"
+        },
+        {
+          "rule_id": "not_met_other_gap",
+          "when": [
+            {
+              "path": [
+                "parameters",
+                "met_driver",
+                "quality"
+              ],
+              "op": "eq",
+              "value": "KNOWN"
+            },
+            {
+              "path": [
+                "parameters",
+                "met_driver",
+                "value"
+              ],
+              "op": "eq",
+              "value": false
+            },
+            {
+              "path": [
+                "parameters",
+                "other_information_complete",
+                "value"
+              ],
+              "op": "eq",
+              "value": false
+            }
+          ],
+          "output_template_ref": "other"
+        }
+      ],
+      "result_templates": {
+        "ask": {
+          "state": "NEED_USER_INPUT",
+          "data": {
+            "required_parameter": {
+              "literal": "met_driver"
+            }
+          },
+          "actions": [
+            {
+              "intent_id": "ask_meeting",
+              "kind": "INTERACTION",
+              "target_node_id": "A_ASK"
+            },
+            {
+              "intent_id": "control",
+              "kind": "CONTROL",
+              "route_ref": "ASK"
+            }
+          ]
+        },
+        "auth": {
+          "state": "NEED_AUTHORIZATION_REVIEW",
+          "data": {},
+          "actions": [
+            {
+              "intent_id": "control",
+              "kind": "CONTROL",
+              "route_ref": "AUTH"
+            }
+          ]
+        },
+        "ready": {
+          "state": "INFORMATION_SUFFICIENT",
+          "data": {},
+          "actions": [
+            {
+              "intent_id": "control",
+              "kind": "CONTROL",
+              "route_ref": "CONTINUE"
+            }
+          ]
+        },
+        "other": {
+          "state": "NEED_OTHER_INFORMATION",
+          "data": {},
+          "actions": [
+            {
+              "intent_id": "control",
+              "kind": "CONTROL",
+              "route_ref": "OTHER"
+            }
+          ]
+        }
+      },
+      "on_no_match": "ERROR"
+    },
+    "demo.locate@1": {
+      "profile": "service-decision-table-v1",
+      "version": "1.0.0",
+      "hit_policy": "FIRST",
+      "parameters": {},
+      "rules": [
+        {
+          "rule_id": "demo_only",
+          "when": [],
+          "output_template_ref": "located"
+        }
+      ],
+      "result_templates": {
+        "located": {
+          "state": "LOCATED",
+          "data": {
+            "matches": {
+              "literal": [
+                {
+                  "domain_id": "fulfilment",
+                  "scene_id": "driver_no_pickup",
+                  "target": {
+                    "type": "Order",
+                    "id": "O-100"
+                  }
+                }
+              ]
+            },
+            "candidates": {
+              "literal": []
+            }
+          },
+          "actions": [
+            {
+              "intent_id": "control",
+              "kind": "CONTROL",
+              "route_ref": "LOCATED"
+            }
+          ]
+        }
+      },
+      "on_no_match": "ERROR"
+    },
+    "demo.p1@1": {
+      "profile": "service-decision-table-v1",
+      "version": "1.0.0",
+      "hit_policy": "UNIQUE",
+      "parameters": {
+        "scene_ref": {
+          "type": "string",
+          "record_required": true,
+          "nullable": false,
+          "allowed_quality": [
+            "KNOWN"
+          ]
+        }
+      },
+      "rules": [
+        {
+          "rule_id": "yes",
+          "when": [
+            {
+              "path": [
+                "parameters",
+                "scene_ref",
+                "value"
+              ],
+              "op": "eq",
+              "value": "driver_no_pickup@1.0.0"
+            }
+          ],
+          "output_template_ref": "yes"
+        },
+        {
+          "rule_id": "no",
+          "when": [
+            {
+              "path": [
+                "parameters",
+                "scene_ref",
+                "value"
+              ],
+              "op": "ne",
+              "value": "driver_no_pickup@1.0.0"
+            }
+          ],
+          "output_template_ref": "no"
+        }
+      ],
+      "result_templates": {
+        "yes": {
+          "state": "SCENE_APPLICABLE",
+          "data": {
+            "environment": {
+              "literal": "SYNTHETIC"
+            }
+          },
+          "actions": [
+            {
+              "intent_id": "control",
+              "kind": "CONTROL",
+              "route_ref": "YES"
+            }
+          ]
+        },
+        "no": {
+          "state": "SCENE_NOT_APPLICABLE",
+          "data": {
+            "environment": {
+              "literal": "SYNTHETIC"
+            }
+          },
+          "actions": [
+            {
+              "intent_id": "control",
+              "kind": "CONTROL",
+              "route_ref": "NO"
+            }
+          ]
+        }
+      },
+      "on_no_match": "ERROR"
+    },
+    "demo.p2@1": {
+      "profile": "service-decision-table-v1",
+      "version": "1.0.0",
+      "hit_policy": "UNIQUE",
+      "parameters": {
+        "accepted": {
+          "type": "boolean",
+          "record_required": true,
+          "nullable": false,
+          "allowed_quality": [
+            "KNOWN"
+          ]
+        }
+      },
+      "rules": [
+        {
+          "rule_id": "yes",
+          "when": [
+            {
+              "path": [
+                "parameters",
+                "accepted",
+                "value"
+              ],
+              "op": "eq",
+              "value": true
+            }
+          ],
+          "output_template_ref": "yes"
+        },
+        {
+          "rule_id": "no",
+          "when": [
+            {
+              "path": [
+                "parameters",
+                "accepted",
+                "value"
+              ],
+              "op": "ne",
+              "value": true
+            }
+          ],
+          "output_template_ref": "no"
+        }
+      ],
+      "result_templates": {
+        "yes": {
+          "state": "ACCEPTED",
+          "data": {
+            "environment": {
+              "literal": "SYNTHETIC"
+            }
+          },
+          "actions": [
+            {
+              "intent_id": "control",
+              "kind": "CONTROL",
+              "route_ref": "YES"
+            }
+          ]
+        },
+        "no": {
+          "state": "NOT_ACCEPTED",
+          "data": {
+            "environment": {
+              "literal": "SYNTHETIC"
+            }
+          },
+          "actions": [
+            {
+              "intent_id": "control",
+              "kind": "CONTROL",
+              "route_ref": "NO"
+            }
+          ]
+        }
+      },
+      "on_no_match": "ERROR"
+    },
+    "demo.p4@1": {
+      "profile": "service-decision-table-v1",
+      "version": "1.0.0",
+      "hit_policy": "UNIQUE",
+      "parameters": {
+        "fact_confirmed": {
+          "type": "boolean",
+          "record_required": true,
+          "nullable": false,
+          "allowed_quality": [
+            "KNOWN"
+          ]
+        }
+      },
+      "rules": [
+        {
+          "rule_id": "yes",
+          "when": [
+            {
+              "path": [
+                "parameters",
+                "fact_confirmed",
+                "value"
+              ],
+              "op": "eq",
+              "value": true
+            }
+          ],
+          "output_template_ref": "yes"
+        },
+        {
+          "rule_id": "no",
+          "when": [
+            {
+              "path": [
+                "parameters",
+                "fact_confirmed",
+                "value"
+              ],
+              "op": "ne",
+              "value": true
+            }
+          ],
+          "output_template_ref": "no"
+        }
+      ],
+      "result_templates": {
+        "yes": {
+          "state": "FACT_CONFIRMED",
+          "data": {
+            "environment": {
+              "literal": "SYNTHETIC"
+            }
+          },
+          "actions": [
+            {
+              "intent_id": "control",
+              "kind": "CONTROL",
+              "route_ref": "YES"
+            }
+          ]
+        },
+        "no": {
+          "state": "NEEDS_MANUAL_REVIEW",
+          "data": {
+            "environment": {
+              "literal": "SYNTHETIC"
+            }
+          },
+          "actions": [
+            {
+              "intent_id": "control",
+              "kind": "CONTROL",
+              "route_ref": "NO"
+            }
+          ]
+        }
+      },
+      "on_no_match": "ERROR"
+    },
+    "demo.p5@1": {
+      "profile": "service-decision-table-v1",
+      "version": "1.0.0",
+      "hit_policy": "UNIQUE",
+      "parameters": {
+        "advice_ready": {
+          "type": "boolean",
+          "record_required": true,
+          "nullable": false,
+          "allowed_quality": [
+            "KNOWN"
+          ]
+        }
+      },
+      "rules": [
+        {
+          "rule_id": "yes",
+          "when": [
+            {
+              "path": [
+                "parameters",
+                "advice_ready",
+                "value"
+              ],
+              "op": "eq",
+              "value": true
+            }
+          ],
+          "output_template_ref": "yes"
+        },
+        {
+          "rule_id": "no",
+          "when": [
+            {
+              "path": [
+                "parameters",
+                "advice_ready",
+                "value"
+              ],
+              "op": "ne",
+              "value": true
+            }
+          ],
+          "output_template_ref": "no"
+        }
+      ],
+      "result_templates": {
+        "yes": {
+          "state": "ADVISORY_COMPLETED",
+          "data": {
+            "environment": {
+              "literal": "SYNTHETIC"
+            },
+            "recommendation": {
+              "literal": "SYNTHETIC: recommend human review; no business effect performed."
+            }
+          },
+          "actions": [
+            {
+              "intent_id": "control",
+              "kind": "CONTROL",
+              "route_ref": "YES"
+            }
+          ]
+        },
+        "no": {
+          "state": "NEEDS_MANUAL_REVIEW",
+          "data": {
+            "environment": {
+              "literal": "SYNTHETIC"
+            }
+          },
+          "actions": [
+            {
+              "intent_id": "control",
+              "kind": "CONTROL",
+              "route_ref": "NO"
+            }
+          ]
+        }
+      },
+      "on_no_match": "ERROR"
+    }
+  },
+  "capabilities": {
+    "demo.case_context@1.0.0": {
+      "kind": "QUERY",
+      "read_only": true,
+      "implementation": "QUERY_PLAN",
+      "query_plan_ref": "demo.context@1.0.0",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "ticket_id": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "ticket_id"
+        ],
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "order_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "trip": {
+            "type": "object"
+          },
+          "interactions": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "order_id",
+          "trip",
+          "interactions"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "demo.history@1.0.0": {
+      "kind": "QUERY",
+      "read_only": true,
+      "implementation": "QUERY_PLAN",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "ticket_id": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "ticket_id"
+        ],
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "other_information_complete": {
+            "type": "object",
+            "properties": {
+              "quality": {
+                "enum": [
+                  "KNOWN",
+                  "UNKNOWN",
+                  "NOT_APPLICABLE",
+                  "CONFLICT"
+                ]
+              },
+              "value": {},
+              "source_refs": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "diagnostic_codes": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "observed_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "version": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "quality",
+              "value",
+              "source_refs"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "other_information_complete"
+        ],
+        "additionalProperties": false
+      },
+      "query_plan_ref": "demo.history-plan@1"
+    },
+    "demo.ask_meeting@1": {
+      "kind": "INTERACTION",
+      "read_only": false,
+      "implementation": "HOST",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "question_ref": {
+            "type": "string"
+          },
+          "order_id": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "question_ref",
+          "order_id"
+        ],
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "operation_id": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "asset_locks": {
+    "demo.context@1.0.0": {
+      "kind": "QUERY_PLAN",
+      "path": "examples/dsl-v0.4/context-query-plan.json",
+      "digest_kind": "SHA256_BYTES",
+      "sha256": "b776613cc3bca56036b8e5c348ff612c34df24f2f86dcf1d6876b23e9be30c4d"
+    },
+    "demo.history-plan@1": {
+      "kind": "QUERY_PLAN",
+      "path": "examples/dsl-v0.4/history-query-plan.json",
+      "digest_kind": "SHA256_BYTES",
+      "sha256": "bfbef66bb83459c58e2c1b18bb324334d9636db32f5f8c6e0c8888da91c5ee33"
+    },
+    "demo.operations@1.0.0": {
+      "kind": "OPERATION_REGISTRY",
+      "path": "examples/dsl-v0.4/operation-registry.json",
+      "digest_kind": "SHA256_BYTES",
+      "sha256": "6d4f4bc890bd2f922f989b8e632f8442d0ccd022345f9079ea68fd08a72d8897"
+    },
+    "demo.host-mapping@1.0.0": {
+      "kind": "HOST_MAPPING",
+      "path": "examples/dsl-v0.4/host-mapping.json",
+      "digest_kind": "SHA256_BYTES",
+      "sha256": "9acdf3c55f26bc07a66f228edd9e8faac8a89625bad68159ddcb0c230f1ba11c"
+    }
+  }
+}

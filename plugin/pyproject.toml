@@ -3,7 +3,12 @@ name = "dify-dmn-plugin"
 version = "0.1.0"
 description = "A strict Dify tool client for a separately deployed DMN/FEEL engine"
 requires-python = ">=3.12,<3.13"
-dependencies = ["dify-plugin==0.10.2", "httpx==0.28.1", "rfc8785==0.1.4"]
+dependencies = [
+    "dify-plugin==0.10.2",
+    "httpx==0.28.1",
+    "jsonschema==4.26.0",
+    "rfc8785==0.1.4",
+]
 
 [dependency-groups]
 dev = ["pytest==9.0.2", "jsonschema==4.26.0", "ruff==0.15.7"]

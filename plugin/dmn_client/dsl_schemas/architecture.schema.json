@@ -1,0 +1,1114 @@
+{
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "const": "service-decision-dsl.node-architecture.v2"
+    },
+    "example_only": {
+      "type": "boolean"
+    },
+    "deployment": {
+      "type": "object",
+      "properties": {
+        "runtime_owner": {
+          "const": "HOST"
+        },
+        "action_backend": {
+          "const": "HOST"
+        },
+        "business_enabled": {
+          "type": "boolean"
+        },
+        "enabled_node_kinds": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1
+        }
+      },
+      "required": [
+        "runtime_owner",
+        "action_backend",
+        "business_enabled",
+        "enabled_node_kinds"
+      ],
+      "additionalProperties": false
+    },
+    "workflows": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/workflow"
+      },
+      "minItems": 1
+    },
+    "models": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/model"
+      }
+    },
+    "capabilities": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/capability"
+      }
+    },
+    "asset_locks": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "enum": [
+              "QUERY_PLAN",
+              "OPERATION_REGISTRY",
+              "HOST_MAPPING"
+            ]
+          },
+          "path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "digest_kind": {
+            "const": "SHA256_BYTES"
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          }
+        },
+        "required": [
+          "kind",
+          "path",
+          "digest_kind",
+          "sha256"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "schema_version",
+    "example_only",
+    "deployment",
+    "workflows",
+    "models",
+    "capabilities",
+    "asset_locks"
+  ],
+  "additionalProperties": false,
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:service-decision-dsl:architecture:v2:core",
+  "$defs": {
+    "binding": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "literal": {},
+            "source_format": {
+              "enum": [
+                "VALUE",
+                "PARAMETER"
+              ]
+            }
+          },
+          "required": [
+            "literal"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "from": {
+              "type": "object",
+              "properties": {
+                "source": {
+                  "enum": [
+                    "context",
+                    "node",
+                    "event",
+                    "parameters",
+                    "decision",
+                    "inputs",
+                    "api"
+                  ]
+                },
+                "node_id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "path": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "minItems": 0
+                }
+              },
+              "required": [
+                "source",
+                "path"
+              ],
+              "additionalProperties": false
+            },
+            "source_format": {
+              "enum": [
+                "VALUE",
+                "PARAMETER"
+              ]
+            }
+          },
+          "required": [
+            "from"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "node_ref": {
+      "type": "object",
+      "properties": {
+        "workflow_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "phase_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "step_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "node_id": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "workflow_id",
+        "phase_id",
+        "step_id",
+        "node_id"
+      ],
+      "additionalProperties": false
+    },
+    "action_template": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "intent_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "kind": {
+              "enum": [
+                "CONTROL"
+              ]
+            },
+            "route_ref": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "intent_id",
+            "kind",
+            "route_ref"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "intent_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "kind": {
+              "enum": [
+                "QUERY",
+                "INTERACTION",
+                "BUSINESS"
+              ]
+            },
+            "target_node_id": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "intent_id",
+            "kind",
+            "target_node_id"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "action_value": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "intent_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "kind": {
+              "enum": [
+                "CONTROL"
+              ]
+            },
+            "route_ref": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "intent_id",
+            "kind",
+            "route_ref"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "intent_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "kind": {
+              "enum": [
+                "QUERY",
+                "INTERACTION",
+                "BUSINESS"
+              ]
+            },
+            "target_node_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "parameters": {
+              "type": "object"
+            }
+          },
+          "required": [
+            "intent_id",
+            "kind",
+            "target_node_id",
+            "parameters"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "node": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "node_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "name": {
+              "type": "string",
+              "minLength": 1
+            },
+            "category": {
+              "const": "EXECUTION"
+            },
+            "kind": {
+              "const": "QUERY"
+            },
+            "ports": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "minItems": 0,
+              "uniqueItems": true
+            },
+            "input_bindings": {
+              "type": "object",
+              "additionalProperties": {
+                "$ref": "#/$defs/binding"
+              }
+            },
+            "capability_ref": {
+              "type": "string",
+              "minLength": 1
+            },
+            "requires_intent": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "node_id",
+            "name",
+            "category",
+            "kind",
+            "ports",
+            "capability_ref",
+            "input_bindings",
+            "requires_intent"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "node_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "name": {
+              "type": "string",
+              "minLength": 1
+            },
+            "category": {
+              "const": "EXECUTION"
+            },
+            "kind": {
+              "const": "DECISION"
+            },
+            "ports": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "minItems": 0,
+              "uniqueItems": true
+            },
+            "input_bindings": {
+              "type": "object",
+              "additionalProperties": {
+                "$ref": "#/$defs/binding"
+              }
+            },
+            "model_ref": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "node_id",
+            "name",
+            "category",
+            "kind",
+            "ports",
+            "model_ref",
+            "input_bindings"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "node_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "name": {
+              "type": "string",
+              "minLength": 1
+            },
+            "category": {
+              "const": "EXECUTION"
+            },
+            "kind": {
+              "const": "ACTION"
+            },
+            "ports": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "minItems": 0,
+              "uniqueItems": true
+            },
+            "input_bindings": {
+              "type": "object",
+              "additionalProperties": {
+                "$ref": "#/$defs/binding"
+              }
+            },
+            "action_ref": {
+              "type": "string",
+              "minLength": 1
+            },
+            "action_kind": {
+              "enum": [
+                "INTERACTION",
+                "BUSINESS"
+              ]
+            }
+          },
+          "required": [
+            "node_id",
+            "name",
+            "category",
+            "kind",
+            "ports",
+            "action_ref",
+            "action_kind",
+            "input_bindings"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "node_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "name": {
+              "type": "string",
+              "minLength": 1
+            },
+            "category": {
+              "const": "GATEWAY"
+            },
+            "kind": {
+              "enum": [
+                "EXCLUSIVE",
+                "PARALLEL",
+                "INCLUSIVE"
+              ]
+            },
+            "ports": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "minItems": 0,
+              "uniqueItems": true
+            },
+            "input_bindings": {
+              "type": "object",
+              "additionalProperties": {
+                "$ref": "#/$defs/binding"
+              }
+            },
+            "mode": {
+              "enum": [
+                "SPLIT",
+                "MERGE",
+                "JOIN"
+              ]
+            },
+            "pair_ref": {
+              "type": "string",
+              "minLength": 1
+            },
+            "selector": {
+              "type": "object",
+              "properties": {
+                "source": {
+                  "enum": [
+                    "DECISION_CONTROL",
+                    "NODE_PORT"
+                  ]
+                },
+                "node_id": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "required": [
+                "source",
+                "node_id"
+              ],
+              "additionalProperties": false
+            },
+            "join_policy": {
+              "enum": [
+                "ALL_SUCCESS",
+                "ALL_SETTLED"
+              ]
+            },
+            "failure_policy": {
+              "enum": [
+                "CANCEL_REMAINING"
+              ]
+            }
+          },
+          "required": [
+            "node_id",
+            "name",
+            "category",
+            "kind",
+            "ports",
+            "mode"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "node_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "name": {
+              "type": "string",
+              "minLength": 1
+            },
+            "category": {
+              "const": "EVENT"
+            },
+            "kind": {
+              "enum": [
+                "START",
+                "WAIT",
+                "END"
+              ]
+            },
+            "ports": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "minItems": 0,
+              "uniqueItems": true
+            },
+            "input_bindings": {
+              "type": "object",
+              "additionalProperties": {
+                "$ref": "#/$defs/binding"
+              }
+            },
+            "exit_ref": {
+              "type": "string",
+              "minLength": 1
+            },
+            "event_type": {
+              "type": "string",
+              "minLength": 1
+            },
+            "correlation_fields": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "minItems": 1
+            },
+            "timeout_ms": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "pre_register_before": {
+              "type": "string",
+              "minLength": 1
+            },
+            "event_bindings": {
+              "type": "object",
+              "additionalProperties": {
+                "$ref": "#/$defs/binding"
+              }
+            },
+            "event_schema": {
+              "type": "object"
+            }
+          },
+          "required": [
+            "node_id",
+            "name",
+            "category",
+            "kind",
+            "ports"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "edge": {
+      "type": "object",
+      "properties": {
+        "edge_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_port": {
+          "type": "string",
+          "minLength": 1
+        },
+        "target": {
+          "type": "string",
+          "minLength": 1
+        },
+        "branch_id": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "edge_id",
+        "source",
+        "source_port",
+        "target"
+      ],
+      "additionalProperties": false
+    },
+    "exit": {
+      "type": "object",
+      "properties": {
+        "class": {
+          "enum": [
+            "BUSINESS",
+            "TECHNICAL",
+            "REENTRY",
+            "RETURN"
+          ]
+        },
+        "destination": {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "enum": [
+                "STEP",
+                "PHASE",
+                "RETURN",
+                "END_WORKFLOW",
+                "REENTER_STEP"
+              ]
+            },
+            "phase_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "step_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "outcome": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "class",
+        "destination"
+      ],
+      "additionalProperties": false
+    },
+    "step": {
+      "type": "object",
+      "properties": {
+        "step_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "purpose": {
+          "type": "string",
+          "minLength": 1
+        },
+        "profile": {
+          "const": "decision-step-v2"
+        },
+        "entry_node": {
+          "type": "string",
+          "minLength": 1
+        },
+        "main_decision_node": {
+          "type": "string",
+          "minLength": 1
+        },
+        "max_attempts": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "graph": {
+          "type": "object",
+          "properties": {
+            "nodes": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/node"
+              },
+              "minItems": 1
+            },
+            "edges": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/edge"
+              },
+              "minItems": 0
+            }
+          },
+          "required": [
+            "nodes",
+            "edges"
+          ],
+          "additionalProperties": false
+        },
+        "exits": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/exit"
+          }
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "reentry_exhausted_exit": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "step_id",
+        "name",
+        "purpose",
+        "profile",
+        "entry_node",
+        "main_decision_node",
+        "max_attempts",
+        "graph",
+        "exits",
+        "version",
+        "reentry_exhausted_exit"
+      ],
+      "additionalProperties": false
+    },
+    "phase": {
+      "type": "object",
+      "properties": {
+        "phase_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "entry_step": {
+          "type": "string",
+          "minLength": 1
+        },
+        "steps": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/step"
+          },
+          "minItems": 1
+        }
+      },
+      "required": [
+        "phase_id",
+        "entry_step",
+        "steps"
+      ],
+      "additionalProperties": false
+    },
+    "workflow": {
+      "type": "object",
+      "properties": {
+        "workflow_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "flow_type": {
+          "enum": [
+            "LOCATE",
+            "SOLVE"
+          ]
+        },
+        "scope": {
+          "enum": [
+            "EXAMPLE_FRAGMENT",
+            "DEPLOYABLE"
+          ]
+        },
+        "entry_phase": {
+          "type": "string",
+          "minLength": 1
+        },
+        "phases": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/phase"
+          },
+          "minItems": 1
+        },
+        "domain_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "scene_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "workflow_id",
+        "version",
+        "flow_type",
+        "scope",
+        "entry_phase",
+        "phases",
+        "domain_id",
+        "scene_ref"
+      ],
+      "additionalProperties": false
+    },
+    "condition": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1
+        },
+        "op": {
+          "enum": [
+            "eq",
+            "ne",
+            "lt",
+            "lte",
+            "gt",
+            "gte",
+            "in",
+            "exists",
+            "is_null"
+          ]
+        },
+        "value": {}
+      },
+      "required": [
+        "path",
+        "op",
+        "value"
+      ],
+      "additionalProperties": false
+    },
+    "parameter_contract": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "enum": [
+            "string",
+            "boolean",
+            "integer",
+            "number",
+            "object",
+            "array"
+          ]
+        },
+        "record_required": {
+          "type": "boolean"
+        },
+        "nullable": {
+          "type": "boolean"
+        },
+        "allowed_quality": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "KNOWN",
+              "UNKNOWN",
+              "NOT_APPLICABLE",
+              "CONFLICT"
+            ]
+          },
+          "minItems": 1
+        }
+      },
+      "required": [
+        "type",
+        "record_required",
+        "nullable",
+        "allowed_quality"
+      ],
+      "additionalProperties": false
+    },
+    "rule": {
+      "type": "object",
+      "properties": {
+        "rule_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "when": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/condition"
+          },
+          "minItems": 0
+        },
+        "output_template_ref": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "rule_id",
+        "when",
+        "output_template_ref"
+      ],
+      "additionalProperties": false
+    },
+    "result_template": {
+      "type": "object",
+      "properties": {
+        "state": {
+          "type": "string",
+          "minLength": 1
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/binding"
+          }
+        },
+        "actions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/action_template"
+          },
+          "minItems": 0
+        }
+      },
+      "required": [
+        "state",
+        "data",
+        "actions"
+      ],
+      "additionalProperties": false
+    },
+    "model": {
+      "type": "object",
+      "properties": {
+        "profile": {
+          "const": "service-decision-table-v1"
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "hit_policy": {
+          "enum": [
+            "UNIQUE",
+            "FIRST",
+            "COLLECT"
+          ]
+        },
+        "parameters": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/parameter_contract"
+          }
+        },
+        "rules": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/rule"
+          },
+          "minItems": 1
+        },
+        "result_templates": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/result_template"
+          }
+        },
+        "on_no_match": {
+          "enum": [
+            "ERROR",
+            "RESULT_TEMPLATE"
+          ]
+        },
+        "empty_template_ref": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "profile",
+        "version",
+        "hit_policy",
+        "parameters",
+        "rules",
+        "result_templates",
+        "on_no_match"
+      ],
+      "additionalProperties": false
+    },
+    "capability": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "enum": [
+            "QUERY",
+            "INTERACTION",
+            "BUSINESS"
+          ]
+        },
+        "read_only": {
+          "type": "boolean"
+        },
+        "implementation": {
+          "enum": [
+            "QUERY_PLAN",
+            "HOST",
+            "MOCK"
+          ]
+        },
+        "query_plan_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "input_schema": {
+          "type": "object"
+        },
+        "output_schema": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "kind",
+        "read_only",
+        "implementation",
+        "input_schema",
+        "output_schema"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "$comment": "Core, offline structural projection of Service Decision DSL v2.0. Semantic/runtime obligations remain normative in docs. Not Dify import DSL; no network execution."
+}

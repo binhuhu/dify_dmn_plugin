@@ -1,0 +1,147 @@
+{
+  "schema_version": "service-decision-dsl.query-plan.v2",
+  "plan_id": "demo.context@1.0.0",
+  "example_only": true,
+  "read_only": true,
+  "budget": {
+    "max_calls": 12,
+    "max_pages": 2,
+    "max_concurrency": 2,
+    "total_timeout_ms": 5000
+  },
+  "nodes": [
+    {
+      "node_id": "api_ticket",
+      "operation_ref": "mock.ticket.read@1",
+      "depends_on": [],
+      "input_bindings": {
+        "ticket_id": {
+          "from": {
+            "source": "inputs",
+            "path": [
+              "ticket_id"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "node_id": "api_order",
+      "operation_ref": "mock.order.read@1",
+      "depends_on": [
+        "api_ticket"
+      ],
+      "input_bindings": {
+        "order_id": {
+          "from": {
+            "source": "api",
+            "path": [
+              "data",
+              "order_id"
+            ],
+            "node_id": "api_ticket"
+          }
+        }
+      }
+    },
+    {
+      "node_id": "api_user",
+      "operation_ref": "mock.user.read@1",
+      "depends_on": [
+        "api_ticket"
+      ],
+      "input_bindings": {
+        "user_id": {
+          "from": {
+            "source": "api",
+            "path": [
+              "data",
+              "user_id"
+            ],
+            "node_id": "api_ticket"
+          }
+        }
+      }
+    },
+    {
+      "node_id": "api_trip",
+      "operation_ref": "mock.trip.read@1",
+      "depends_on": [
+        "api_order"
+      ],
+      "input_bindings": {
+        "trip_id": {
+          "from": {
+            "source": "api",
+            "path": [
+              "data",
+              "trip_id"
+            ],
+            "node_id": "api_order"
+          }
+        }
+      }
+    },
+    {
+      "node_id": "api_interactions",
+      "operation_ref": "mock.interactions.read@1",
+      "depends_on": [
+        "api_order",
+        "api_user"
+      ],
+      "input_bindings": {
+        "order_id": {
+          "from": {
+            "source": "api",
+            "path": [
+              "data",
+              "order_id"
+            ],
+            "node_id": "api_order"
+          }
+        },
+        "user_id": {
+          "from": {
+            "source": "api",
+            "path": [
+              "data",
+              "user_id"
+            ],
+            "node_id": "api_user"
+          }
+        }
+      }
+    }
+  ],
+  "outputs": {
+    "order_id": {
+      "from": {
+        "source": "api",
+        "path": [
+          "data",
+          "order_id"
+        ],
+        "node_id": "api_order"
+      }
+    },
+    "trip": {
+      "from": {
+        "source": "api",
+        "path": [
+          "data"
+        ],
+        "node_id": "api_trip"
+      }
+    },
+    "interactions": {
+      "from": {
+        "source": "api",
+        "path": [
+          "data"
+        ],
+        "node_id": "api_interactions"
+      }
+    }
+  },
+  "operation_registry_ref": "demo.operations@1.0.0"
+}
