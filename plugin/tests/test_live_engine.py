@@ -126,6 +126,7 @@ def test_real_query_tool(engine_credentials, ticket_id, status, outcome):
     [
         ("locate-request.json", "locate_problem", 1),
         ("solve-request.json", "solve_problem", 7),
+        ("solve-p1-p5-request.json", "solve_problem", 5),
     ],
 )
 def test_real_phase_plan_tool(engine_credentials, filename, flow, phase_count):
@@ -147,7 +148,13 @@ def test_real_phase_plan_tool(engine_credentials, filename, flow, phase_count):
         assert result["outputs"]["diagnosis"]["focal_conclusion"] == "CONFIRMED_ABSENT"
     else:
         assert result["outputs"]["strategy"] == "CHECK_RECOVERY_OPTIONS"
-        assert result["outputs"]["action_recommendations"][0]["execution_mode"] == "ADVISORY_ONLY"
+        if phase_count == 7:
+            assert (
+                result["outputs"]["action_recommendations"][0]["execution_mode"] == "ADVISORY_ONLY"
+            )
+        else:
+            assert "action_recommendations" not in result["outputs"]
+            assert "ticket_recommendations" not in result["outputs"]
 
 
 def test_real_plan_deep_validation_error_preserved(engine_credentials):
@@ -217,3 +224,14 @@ def test_native_object_matches_json_string_through_sdk(engine_credentials, kind)
     )
     assert native == encoded
     assert native["status"] == "SUCCEEDED"
+
+
+def test_real_p5_scope_terminal_handoff(engine_credentials):
+    request = example("solve-p1-p5-request.json")
+    request["inputs"]["ticket_id"] = "T-MISSING"
+    result = invoke(ExecutePlanTool, {"request_json": request}, engine_credentials)
+    assert result["status"] == "SUCCEEDED", result
+    assert len(result["phases"]) == 5
+    assert result["outputs"]["handoff_advice"] == "REFER_TO_HUMAN"
+    assert result["steps"][-1]["step_id"] == "p5"
+    assert result["steps"][-1]["status"] == "SKIPPED"

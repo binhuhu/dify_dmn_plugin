@@ -49,7 +49,7 @@ Never substitute missing or unknown evidence with false or null.
 - `inputs`: input data object
 - `include_trace`: optional boolean, default false
 
-It calls `POST /execute_plan`. Locate is one Phase with query and decision Steps. Solve is P1 through P7, each with query and decision Steps. Query and DMN steps remain interleaved according to the explicit plan; Dify owns the surrounding workflow.
+It calls `POST /execute_plan`. Locate is one Phase with query and decision Steps. Solve currently needs only P1 through P5, ending in disposition advice; the optional full P1 through P7 profile remains supported. The exact phase list selects the profile. Locate and solve are independent callable workflow capabilities, optionally composed; neither requires the other. Query and DMN steps remain interleaved according to the explicit plan; Dify owns the surrounding workflow.
 
 The separate `query-dmn-plan-result.candidate.v1` result remains `CANDIDATE`, `ADVISORY_ONLY`, and `production_compatibility: UNVERIFIED`. The current adapters are mock queries. This is not a claim of `scene-result.v2` compatibility. No disposition, payment, ticket mutation, or other business action is performed.
 

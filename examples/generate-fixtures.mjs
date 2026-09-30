@@ -407,3 +407,18 @@ await writeFile(
   join(root, "solve-request.json"),
   JSON.stringify(solve, null, 2) + "\n",
 );
+
+// Current solve scope ends with disposition advice at P5. P6/P7 are deferred.
+const solveP5 = structuredClone(solve);
+solveP5.plan.plan_id += "-p1-p5";
+solveP5.plan.phases = solveP5.plan.phases.slice(0, 5);
+delete solveP5.plan.outputs.action_recommendations;
+delete solveP5.plan.outputs.ticket_recommendations;
+const earlyOutputs = solveP5.plan.phases[1].steps[1].terminate_when.outputs;
+delete earlyOutputs.action_recommendations;
+delete earlyOutputs.ticket_recommendations;
+earlyOutputs.handoff_advice = literal("REFER_TO_HUMAN");
+await writeFile(
+  join(root, "solve-p1-p5-request.json"),
+  JSON.stringify(solveP5, null, 2) + "\n",
+);

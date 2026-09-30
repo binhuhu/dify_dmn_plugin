@@ -7,7 +7,7 @@ This is an executable **candidate protocol and synthetic demonstration**, not th
 The implementation follows the latest requested structure:
 
 - **定位问题 / locate_problem**: one `LOCATE` Phase with multiple explicit query and decision Steps
-- **解决问题 / solve_problem**: ordered P1–P7; each active Phase may contain multiple query and DMN Steps, including interleaving query → decision → query → decision
+- **解决问题 / solve_problem**: current scope ordered P1–P5, with optional full P1–P7; each active Phase may contain multiple query and DMN Steps, including interleaving query → decision → query → decision
 - No extra selector, routing tier or runtime solution catalog is invented
 - P6/P7 emit recommendations. No payment, action invocation, ticket creation/update or other external write is implemented
 
@@ -23,7 +23,7 @@ Request fixtures: `examples/locate-request.json` and `examples/solve-request.jso
 
 Required fields: `schema_version: "query-dmn-plan.candidate.v1"`, `plan_id`, `version`, `flow`, exact `engine` pins, `phases`, `outputs`. `models` maps a stable model ID to `{dmn_xml, sha256}`. SHA-256 hashes the exact UTF-8 XML bytes; even whitespace changes require an updated pin. The engine pin is the complete exported engine identity including the strict profile.
 
-`locate_problem` has exactly `LOCATE`. `solve_problem` has exactly P1–P7 in that order. An empty Phase must have a nonempty `skip_reason`; the synthetic coupon P3 uses this to make its justified omission visible. An active Phase must contain at least one explicit DMN decision. Maximums: 128 Steps per Phase, 256 Steps overall.
+`locate_problem` has exactly `LOCATE`. `solve_problem` accepts exactly ordered P1–P5 or P1–P7. The explicit `phases` list selects the allowed profile; other prefixes, gaps and reorderings are rejected. P1–P5 ends with P5 disposition advice and requires no P6/P7 placeholder or acceptance. `examples/solve-p1-p5-request.json` is the current-scope fixture; the full demo remains supported. Locate and solve are independent callable workflow capabilities: composition is optional, never a required combined chain. An empty Phase must have a nonempty `skip_reason`; the synthetic coupon P3 uses this to make its justified omission visible. An active Phase must contain at least one explicit DMN decision. Maximums: 128 Steps per Phase, 256 Steps overall.
 
 ### Explicit Steps
 
@@ -34,7 +34,7 @@ Every Step declares `id`, `kind`, and `depends_on`.
 
 Table policies are only `UNIQUE`, `FIRST`, `COLLECT`. `LITERAL` is a **Step logic marker**, not a DMN hit policy. It pins a separate literal FEEL expression, including explicit post-COLLECT priority resolution. `PRIORITY`, `ANY`, output order and rule order table policies are not admitted by the evaluator profile.
 
-In this candidate profile (not universal DMN rules), P1 decision tables require UNIQUE and at most 10 rows; P5 requires FIRST. Optional `FEATURE`, `REALITY`, `PRIORITY` annotations lint UNIQUE, non-aggregating COLLECT, and literal logic respectively. These role checks are **partial semantic lint**, not a complete FMS validator. In particular, authoring review must establish P2's acceptance/compensation-limit separation, P3's user-evidence-only purpose, P4's full fact ontology and priority vocabulary, one focal conclusion, P6/P7 recommendation semantics, and business correctness. A role omitted from P4 does not receive role-specific lint.
+In this candidate profile (not universal DMN rules), P1 decision tables require UNIQUE and at most 10 rows; P5 requires FIRST. Optional `FEATURE`, `REALITY`, `PRIORITY` annotations lint UNIQUE, non-aggregating COLLECT, and literal logic respectively. These role checks are **partial semantic lint**, not a complete FMS validator. In particular, authoring review must establish P2's acceptance/compensation-limit separation, P3's user-evidence-only purpose, P4's full fact ontology and priority vocabulary, one focal conclusion, P6/P7 recommendation semantics only when included, and business correctness. A role omitted from P4 does not receive role-specific lint.
 
 No custom adapter, JavaScript module, URL, HTTP header, action Step or executable code can be supplied in the request. Only DMN-safe FEEL is evaluated. The server runs this operation in its bounded worker process with a 5-second whole-plan execution budget; this is not a per-Step timeout or a durable background workflow.
 

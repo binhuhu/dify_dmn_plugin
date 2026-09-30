@@ -30,3 +30,11 @@ Validation:
 No live Dify/AgentHub Object flow, Docker deployment, production capability transport, private workflow migration, production rules or historical business acceptance was run. Queries remain synthetic mocks. No service deployment, main change or security setting change is included.
 
 Packaging remains pending in this executor: official Dify CLI 0.6.10 is not installed; the official public binary fetch returned a restricted-URL tool error. No substitute package was built. The old package is superseded as a pending candidate and must not be published for this source revision. Supported next step: make the official CLI available in the executor, then run the documented `dify plugin package ./plugin -o ./dist/hu8627-dmn-0.1.0.difypkg` and checksum commands. Release publication remains paused; no denied Release API was retried.
+
+## Scope correction: independent locate and solve, optional P6/P7
+
+The explicit phase list now selects LOCATE, P1–P5 or P1–P7. Locate and solve are independent callable workflow capabilities; composition is optional. Current solve acceptance ends with P5 disposition advice. Deferred P6/P7 need no placeholders or action implementation. The original full demonstration remains compatible.
+
+Added `examples/solve-p1-p5-request.json`, generated from the same public synthetic fixture with its own output projection. Normal and UNKNOWN cases end at P5; missing-ticket early completion emits handoff advice and skips only the remaining declared steps. No private workflow rules were ingested.
+
+Latest full checks: **Node 99/99**, **Python 215/215**, including **21 local SDK→HTTP→isolated Node tests**. Lint, format, syntax, all three fixture schemas and whitespace checks passed. Invalid P1–P4/P1–P6 scopes and reordered phases are rejected. Packaging, actual Dify/AgentHub and Release limitations above remain unchanged.

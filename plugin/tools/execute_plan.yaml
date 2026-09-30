@@ -10,7 +10,7 @@ description:
       and DMN decision steps. Advisory outputs only.
     zh_Hans: 执行显式 locate_problem 或 solve_problem 计划，交替执行查询与 DMN 决策步骤；输出仅供决策建议。
   llm: Execute an explicit versioned phase plan. locate_problem is one Phase with
-    query and decision Steps; solve_problem is P1 through P7, each with query and
+    query and decision Steps; solve_problem independently accepts P1 through P5 or optional P1 through P7, each with query and
     decision Steps. This tool only returns advisory decisions and read-only query
     data; Dify owns the surrounding workflow. Candidate contract, not scene-result.v2.
 parameters:

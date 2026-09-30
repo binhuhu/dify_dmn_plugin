@@ -394,18 +394,26 @@ async function validatePlan(request) {
       bad("ENGINE_PIN_MISMATCH", `Engine ${k} pin mismatch`);
   if (!["locate_problem", "solve_problem"].includes(p.flow))
     bad("INVALID_PLAN", "flow must be locate_problem or solve_problem");
-  const expected =
+  // The explicit phase list selects one of these bounded candidate profiles.
+  // Locate and solve are independent calls; neither requires the other.
+  const allowed =
     p.flow === "locate_problem"
-      ? ["LOCATE"]
-      : ["P1", "P2", "P3", "P4", "P5", "P6", "P7"];
+      ? [["LOCATE"]]
+      : [
+          ["P1", "P2", "P3", "P4", "P5"],
+          ["P1", "P2", "P3", "P4", "P5", "P6", "P7"],
+        ];
   if (
     !Array.isArray(p.phases) ||
-    p.phases.length !== expected.length ||
-    p.phases.some((x, i) => x.id !== expected[i])
+    !allowed.some(
+      (expected) =>
+        p.phases.length === expected.length &&
+        p.phases.every((x, i) => x?.id === expected[i]),
+    )
   )
     bad(
       "INVALID_PHASES",
-      "Flow phases must exactly match LOCATE or ordered P1 through P7",
+      "Flow phases must exactly match LOCATE, P1–P5 or P1–P7",
     );
   mappings(p.outputs, "plan.outputs");
   const steps = new Map(),

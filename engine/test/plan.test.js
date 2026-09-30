@@ -300,3 +300,48 @@ test("external L1 calculator never treats NOT_FOUND as confirmed business absenc
     "UNKNOWN",
   );
 });
+
+test("independent P1–P5 solve ends with advice without P6/P7 placeholders", async () => {
+  const req = await fixture("solve-p1-p5");
+  for (const id of ["T-100", "T-MISSING", "T-300"]) {
+    req.inputs.ticket_id = id;
+    if (id === "T-300")
+      req.inputs.availability_fact = calculateAvailabilityFact(
+        await queryCapability({
+          capability_id: "demo.order_lookup",
+          parameters: { order_id: "O-300" },
+        }),
+      );
+    const result = await executePlan(req);
+    assert.equal(result.status, "SUCCEEDED", JSON.stringify(result.error));
+    assert.deepEqual(
+      result.phases.map((p) => p.phase_id),
+      ["P1", "P2", "P3", "P4", "P5"],
+    );
+    assert.ok(
+      result.steps.every((s) => !["P6", "P7", "LOCATE"].includes(s.phase_id)),
+    );
+    assert.equal(
+      result.outputs.strategy,
+      id === "T-100" ? "CHECK_RECOVERY_OPTIONS" : "MANUAL_REVIEW",
+    );
+    assert.equal(result.outputs.action_recommendations, undefined);
+    assert.equal(result.outputs.ticket_recommendations, undefined);
+    if (id === "T-MISSING")
+      assert.equal(result.outputs.handoff_advice, "REFER_TO_HUMAN");
+  }
+});
+for (const phases of [
+  ["P1", "P2", "P3", "P4"],
+  ["P1", "P2", "P3", "P4", "P5", "P6"],
+  ["P1", "P2", "P4", "P3", "P5"],
+])
+  test(`reject undeclared solve scope ${phases}`, async () => {
+    const req = await fixture("solve");
+    req.plan.phases = phases.map((id) =>
+      req.plan.phases.find((p) => p.id === id),
+    );
+    const result = await executePlan(req);
+    assert.equal(result.error.code, "INVALID_PHASES");
+    assert.equal(result.steps.length, 0);
+  });

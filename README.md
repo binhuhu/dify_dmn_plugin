@@ -5,7 +5,7 @@ Java-free 候选原型。Dify Python 插件薄封装 → Node.js 执行服务 �
 ## 结构
 
 - **定位问题**：一个 Phase，里面可以有多个查询 Step、多个 DMN 决策 Step
-- **解决问题**：P1–P7，每个 Phase 同样由多个查询/决策 Step 组成
+- **解决问题**：当前 P1–P5 即可，在 P5 输出处置建议；P6/P7 可暂缓，原 P1–P7 完整示例仍兼容
 - 查询和决策可交错，例如 查询工单 → DMN 定位 → 查询关联订单 → DMN 确认
 - 查询 Step 引用 capability_id、输入/输出合同和参数映射；决策 Step 引用模型、decision_id、Hit Policy
 - Step 显式依赖、按确定性顺序运行；无需把所有查询放在所有决策之前
@@ -13,6 +13,8 @@ Java-free 候选原型。Dify Python 插件薄封装 → Node.js 执行服务 �
 - 当前查询注册表只有 SYNTHETIC mock；没有连接真实客服数据、身份闸、底层能力库或千帆宿主
 
 这是可测试的运行基础，不是现有生产方案迁移或 scene-result.v2 接入验收。实际身份/绑定/结果合同、生产模型和独立历史案例尚未提供；候选格式名称明确带 candidate，不能冒充已冻结合同。
+
+定位与解决是两个独立可调用的流程能力，可按需要组合，不要求先定位再解决。`examples/solve-p1-p5-request.json` 演示当前解决范围，无需伪造 P6/P7 节点或接受其动作验收。
 
 ## 目录
 
