@@ -1,0 +1,19 @@
+identity:
+  author: hu8627
+  name: dmn_json
+  label:
+    en_US: Built-in JSON Decision Table
+    zh_Hans: 内置 JSON 决策表
+  description:
+    en_US: Local FIRST/COLLECT literal JSON tables. No external service. Not DMN XML
+      or FEEL.
+    zh_Hans: 本地 FIRST/COLLECT JSON 决策表，无需外部服务，不是 DMN XML/FEEL。
+  icon: icon.svg
+  tags:
+  - utilities
+credentials_for_provider: {}
+tools:
+- tools/evaluate_json_table.yaml
+extra:
+  python:
+    source: provider/dmn.py

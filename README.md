@@ -1,5 +1,7 @@
 # Dify DMN 插件：显式查询 + 显式决策
 
+新增免 Key 的 [内置 JSON 决策表 0.2.0 候选](builtin/README.md)：FIRST/COLLECT 在 Python 插件进程内执行，无需外部决策服务。为兼容 Dify 1.11.1 的提供商授权限制，使用独立身份 `hu8627/dmn_json`，保留已安装的原外部插件和其他插件。原路径如下。
+
 Java-free 候选原型。Dify Python 插件薄封装 → Node.js 执行服务 → 已注册只读查询能力 / DMN 决策。无 Java，不手写 FEEL 解释器，不执行赔付、改票或工单写操作。
 
 ## 当前交付状态（2026-09-30）
@@ -10,9 +12,15 @@ Java-free 候选原型。Dify Python 插件薄封装 → Node.js 执行服务 �
 - SHA-256：`122e68ef2627d9371eb6cae1d7ee9cfb51b50bcedab59c7e6afa58c3b1776fbf`
 - Dify checksum：`d720592666104edb8c86951dbeabf7233a41e8412b17a8e71d0bbd51f25028be`
 - 源码测试：**99 Node + 230 Python**，包含 26 次真实 SDK → 本地 HTTP → 隔离 Node 集成测试。
-- Dify 1.11.1 原始模型解析、真实 SDK stdio、全新 Python 3.12 依赖安装已通过；daemon Go 包解码、目标 UI 安装和目标 DMN 调用尚未验证。详见[兼容性证据](docs/compatibility-1.11.1.md)。
+- Dify 1.11.1 原始模型解析、真实 SDK stdio、全新 Python 3.12 依赖安装已通过；daemon Go 包解码和目标 DMN 调用尚未验证；旧包 UI 安装由用户后续确认成功。详见[兼容性证据](docs/compatibility-1.11.1.md)。
 
-**用户已发布公开 [v0.1.0 Release](https://github.com/hu8627/dify_dmn_plugin/releases/tag/v0.1.0)**（2026-09-30 11:23:49 UTC，非草稿、非预发布）；授权 GitHub 连接器已核验资产名称、53,718 字节及 SHA-256 与上述候选一致。[安装包链接](https://github.com/hu8627/dify_dmn_plugin/releases/download/v0.1.0/hu8627-dmn-0.1.0-d04f51c.difypkg)。目标 From GitHub 安装正在重试，尚未确认成功。安装包未签名、未经 Marketplace 审核；本地安装需符合工作区策略，若企业策略禁用则需管理员提供批准的安装渠道，不能关闭安全校验。安装后仍需独立、可达且配置鉴权的 Node 服务；目标服务尚未部署，目标 DMN 调用尚未验证。见[发布核对清单](docs/release-checklist.md)。
+**用户已发布公开 [v0.1.0 Release](https://github.com/hu8627/dify_dmn_plugin/releases/tag/v0.1.0)**（2026-09-30 11:23:49 UTC，非草稿、非预发布）；授权 GitHub 连接器已核验资产名称、53,718 字节及 SHA-256 与上述候选一致。[安装包链接](https://github.com/hu8627/dify_dmn_plugin/releases/download/v0.1.0/hu8627-dmn-0.1.0-d04f51c.difypkg)。用户已确认经旧版插件管理页面上传安装成功；新版工具页选择器不再排查。此安装反馈不代表目标真实 DMN 调用验收。安装包未签名、未经 Marketplace 审核；本地安装需符合工作区策略，若企业策略禁用则需管理员提供批准的安装渠道，不能关闭安全校验。安装后仍需独立、可达且配置鉴权的 Node 服务；目标服务尚未部署，目标 DMN 调用尚未验证。见[发布核对清单](docs/release-checklist.md)。
+
+## 0.2.0 内置候选交付
+
+- 新包声明：`builtin/manifest.yaml`，工具：`evaluate_json_table`。旧 XML/FEEL 三工具及其授权保持兼容。
+- 当前环境无官方 Dify CLI，尚未生成新的 `.difypkg`；`scripts/stage-builtin.py` 只准备精确候选目录。旧 v0.1.0 Release 保持不动。
+- 免凭据 SDK 注册/校验/调用已验证；新包的目标 UI 安装和真实业务调用未验证。见 [0.2.0 验收记录](docs/builtin-0.2.0.md)。
 
 ## 结构
 

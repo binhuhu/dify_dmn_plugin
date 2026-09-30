@@ -1,0 +1,61 @@
+identity:
+  name: evaluate_json_table
+  author: hu8627
+  label:
+    en_US: Evaluate JSON Table
+    zh_Hans: 内置 JSON 决策表
+description:
+  human:
+    en_US: Local bounded FIRST/COLLECT JSON table; no credentials or service. Not
+      DMN XML/FEEL.
+    zh_Hans: 本地 FIRST/COLLECT JSON 决策表，无需密钥或服务；不支持 DMN XML/FEEL。
+  llm: Execute json-table-v1 literal comparisons locally. No code, XML or FEEL. Inspect
+    status and trace.
+parameters:
+- name: table_json
+  type: any
+  required: true
+  form: form
+  label:
+    en_US: table_json
+    zh_Hans: table_json
+  human_description:
+    en_US: Static json-table-v1 model; object or JSON object string, max 256 KiB.
+      Pin reviewed model in production workflow.
+    zh_Hans: Static json-table-v1 model; object or JSON object string, max 256 KiB.
+      Pin reviewed model in production workflow.
+  llm_description: Static json-table-v1 model; object or JSON object string, max 256
+    KiB. Pin reviewed model in production workflow.
+- name: inputs_json
+  type: any
+  required: true
+  form: llm
+  label:
+    en_US: inputs_json
+    zh_Hans: inputs_json
+  human_description:
+    en_US: Input object or JSON object string, max 256 KiB.
+    zh_Hans: Input object or JSON object string, max 256 KiB.
+  llm_description: Input object or JSON object string, max 256 KiB.
+- name: expected_sha256
+  type: string
+  required: false
+  form: form
+  label:
+    en_US: expected_sha256
+    zh_Hans: expected_sha256
+  human_description:
+    en_US: Optional exact RFC8785 canonical table SHA256 pin.
+    zh_Hans: Optional exact RFC8785 canonical table SHA256 pin.
+  llm_description: Optional exact RFC8785 canonical table SHA256 pin.
+output_schema:
+  type: object
+  properties:
+    results:
+      type: object
+      description: Candidate response contract. Inspect status before using outputs.
+  required:
+  - results
+extra:
+  python:
+    source: tools/evaluate_json_table.py
