@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import xml.etree.ElementTree as ET
 from collections.abc import Mapping
 from typing import Any
 
@@ -24,6 +25,46 @@ from dmn_client.client import (
 
 QUERY_SCHEMA = "query-capability.candidate.v1"
 PLAN_SCHEMA = "query-dmn-plan-result.candidate.v1"
+
+
+def _validate_decisions(actual: dict[str, Any], xml: str) -> None:
+    # The request model fixes policy semantics; returned trace cannot choose them.
+    if re.search(r"<!\s*(?:DOCTYPE|ENTITY)\b", xml, re.IGNORECASE):
+        raise ValueError("Unsafe model")
+    ns = "{https://www.omg.org/spec/DMN/20191111/MODEL/}"
+    try:
+        model = ET.fromstring(xml)
+    except ET.ParseError as exc:
+        raise ValueError("Invalid model") from exc
+    declared = {d.get("id"): d for d in model.findall(ns + "decision")}
+    seen = set()
+    for decision in actual["decisions"]:
+        did = decision["decision_id"]
+        if did not in declared or did in seen or decision["status"] != "SUCCEEDED":
+            raise ValueError("Invalid internal decision identity or status")
+        seen.add(did)
+        if decision["outcome"] not in ("MATCHED", "NO_MATCH", "DEFAULT", "VALUE"):
+            raise ValueError("Invalid internal decision outcome")
+        if decision["outcome"] == "NO_MATCH":
+            table = declared[did].find(ns + "decisionTable")
+            if table is None:
+                raise ValueError("NO_MATCH requires a decision table")
+            empty = None
+            if table.get("hitPolicy", "UNIQUE") == "COLLECT":
+                aggregation = table.get("aggregation")
+                if not aggregation:
+                    empty = []
+                elif aggregation == "COUNT":
+                    empty = 0
+            if not _same(decision["result"], empty):
+                raise ValueError("NO_MATCH result contradicts model policy")
+        if did == actual["decision_id"] and not (
+            decision["outcome"] == actual["outcome"]
+            and _same(decision["result"], actual["outputs"]["result"])
+        ):
+            raise ValueError("Target decision contradicts step result")
+    if actual["decision_id"] not in seen:
+        raise ValueError("Missing target decision")
 
 
 def _error_valid(error: Any) -> bool:
@@ -365,8 +406,7 @@ def _validate_execution(value: dict, request: dict) -> None:
                     isinstance(actual["outputs"], dict) and set(actual["outputs"]) == {"result"}
                 ):
                     raise ValueError("Inconsistent execution record")
-                if actual["outcome"] == "NO_MATCH" and actual["outputs"]["result"] is not None:
-                    raise ValueError("NO_MATCH must preserve null result")
+                _validate_decisions(actual, request["models"][expected["model_id"]]["dmn_xml"])
                 if actual["outcome"] not in ("MATCHED", "NO_MATCH", "DEFAULT", "VALUE"):
                     raise ValueError("Inconsistent execution record")
             else:

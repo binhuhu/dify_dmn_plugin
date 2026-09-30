@@ -38,3 +38,33 @@ The explicit phase list now selects LOCATE, P1–P5 or P1–P7. Locate and solve
 Added `examples/solve-p1-p5-request.json`, generated from the same public synthetic fixture with its own output projection. Normal and UNKNOWN cases end at P5; missing-ticket early completion emits handoff advice and skips only the remaining declared steps. No private workflow rules were ingested.
 
 Latest full checks: **Node 99/99**, **Python 215/215**, including **21 local SDK→HTTP→isolated Node tests**. Lint, format, syntax, all three fixture schemas and whitespace checks passed. Invalid P1–P4/P1–P6 scopes and reordered phases are rejected. Packaging, actual Dify/AgentHub and Release limitations above remain unchanged.
+
+### Additional response-boundary review
+
+Reproduced against commit `600aeef`: a real isolated Node COLLECT table with no
+matching rules returns `SUCCEEDED/NO_MATCH` with `[]`, and COUNT returns `0`;
+the previous Python plan validator rejected both as `INVALID_RESPONSE`.
+The validator now uses the pinned request XML to select the allowed empty value:
+COLLECT list `[]`, COUNT `0`, SUM/MIN/MAX `null`; UNIQUE/FIRST remain `null`.
+Tests reject alternative empty shapes, even if the server forges all projections
+consistently. These are candidate engine semantics, not universal DMN claims.
+
+A successful Step must contain unique, declared successful decision records and
+exactly one requested decision with the same outcome and strictly equal result.
+Regression mutations cover failed status, forged result, empty/duplicate/unknown
+records, conflicting outcomes, and boolean/number confusion. Legitimate model
+dependency decision records remain supported.
+
+A 400-digit HTTP JSON integer reproduced an unstructured `OverflowError` before
+the correction. Integers now undergo the safe-integer bound check before any
+float conversion. The HTTP boundary returns `INVALID_RESPONSE`; both native and
+JSON-string invalid inputs retain the existing `INVALID_JSON` input-validation
+code and never reach the network.
+
+Validation after these corrections: **99 Node tests and 230 Python tests passed**,
+including **26 actual SDK → authenticated local HTTP → isolated Node tests**.
+Ruff lint/format and git whitespace checks passed. Existing SDK/deprecation and
+subprocess warnings remain. Target Dify/AgentHub installation was not tested.
+No corrected `.difypkg` was produced: official CLI remains unavailable and its
+binary download was restricted. The old package is superseded and must not be
+published as this source revision. Release publication remains paused.

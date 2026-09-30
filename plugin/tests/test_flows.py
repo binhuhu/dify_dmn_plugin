@@ -5,7 +5,7 @@ import json
 import httpx
 import pytest
 import rfc8785
-from tests_data import CREDENTIALS, DIGEST, ENGINE, XML
+from tests_data import CREDENTIALS, ENGINE
 
 from dmn_client.flows import (
     PLAN_SCHEMA,
@@ -15,6 +15,9 @@ from dmn_client.flows import (
 )
 from tools.execute_plan import ExecutePlanTool
 from tools.query_capability import QueryCapabilityTool
+
+XML = '<definitions xmlns="https://www.omg.org/spec/DMN/20191111/MODEL/"><decision id="decision_1"><decisionTable hitPolicy="UNIQUE"/></decision></definitions>'
+DIGEST = hashlib.sha256(XML.encode()).hexdigest()
 
 CAPABILITY = "demo.ticket_lookup"
 PROVENANCE = {
@@ -91,7 +94,14 @@ def plan_response(**overrides):
                 "decision_id": "decision_1",
                 "hit_policy": "UNIQUE",
                 "model_sha256": DIGEST,
-                "decisions": [],
+                "decisions": [
+                    {
+                        "decision_id": "decision_1",
+                        "status": "SUCCEEDED",
+                        "result": True,
+                        "outcome": "MATCHED",
+                    }
+                ],
                 "trace": [],
             }
         ],
@@ -304,6 +314,7 @@ def test_no_match_null_is_legal_success():
     from dmn_client.flows import validate_plan_response
 
     response = plan_response()
+    response["steps"][0]["decisions"][0].update(outcome="NO_MATCH", result=None)
     response["steps"][0]["outcome"] = "NO_MATCH"
     response["steps"][0]["outputs"]["result"] = None
     response["outputs"]["eligible"] = None

@@ -433,3 +433,27 @@ def test_preparation_does_not_mutate_parameters():
     original = copy.deepcopy(PARAMETERS)
     prepare_request(PARAMETERS)
     assert PARAMETERS == original
+
+
+def test_huge_integer_engine_response_is_structured():
+    client = EngineClient(
+        CREDENTIALS,
+        transport=httpx.MockTransport(
+            lambda _: httpx.Response(
+                200, content='{"x":' + "9" * 400 + "}", headers={"content-type": "application/json"}
+            )
+        ),
+    )
+    with pytest.raises(EngineError) as error:
+        client.post_json("/evaluate", {})
+    assert error.value.code == "INVALID_RESPONSE"
+
+
+@pytest.mark.parametrize("native", [False, True])
+def test_huge_integer_input_is_structured(native):
+    parameters = {
+        **PARAMETERS,
+        "inputs_json": {"x": 10**400} if native else '{"x":' + "9" * 400 + "}",
+    }
+    result = invoke(lambda _: pytest.fail("invalid input reached network"), parameters)
+    assert result["error"]["code"] == "INVALID_JSON"

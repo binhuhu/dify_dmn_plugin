@@ -106,7 +106,10 @@ def _check_json_tree(value: Any) -> None:
         elif type(item) is str:
             item.encode("utf-8")
         elif type(item) in (int, float):
-            if not math.isfinite(item) or (item == int(item) and abs(item) > 2**53 - 1):
+            if (type(item) is int and abs(item) > 2**53 - 1) or (
+                type(item) is float
+                and (not math.isfinite(item) or (item.is_integer() and abs(item) > 2**53 - 1))
+            ):
                 raise ValueError("Non-finite or unsafe JSON number")
         elif item is not None and type(item) is not bool:
             raise ValueError("Only native JSON types are supported")

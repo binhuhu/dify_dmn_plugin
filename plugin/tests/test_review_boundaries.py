@@ -232,3 +232,31 @@ def test_executed_failure_cannot_drop_plan_identity(records):
     v["plan_id"] = None
     with pytest.raises(EngineError):
         validate(v, requests["T-ERROR"])
+
+
+@pytest.mark.parametrize(
+    "mutation", ["failed", "forged", "empty", "duplicate", "unknown", "outcome", "strict_type"]
+)
+def test_nested_decision_records_rejected(records, mutation):
+    requests, values = records
+    value = copy.deepcopy(values["T-100"])
+    step = next(s for s in value["steps"] if s["kind"] == "decision")
+    target = next(d for d in step["decisions"] if d["decision_id"] == step["decision_id"])
+    if mutation == "failed":
+        target["status"] = "FAILED"
+    elif mutation == "forged":
+        target["result"] = "FORGED"
+    elif mutation == "empty":
+        step["decisions"] = []
+    elif mutation == "unknown":
+        target["decision_id"] = "not_declared"
+    elif mutation == "outcome":
+        target["outcome"] = "VALUE"
+    elif mutation == "strict_type":
+        target["result"] = 1
+        step["outputs"]["result"] = True
+    else:
+        step["decisions"].append(copy.deepcopy(target))
+    with pytest.raises(EngineError) as error:
+        validate(value, requests["T-100"])
+    assert error.value.code == "INVALID_RESPONSE"

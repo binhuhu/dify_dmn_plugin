@@ -235,3 +235,73 @@ def test_real_p5_scope_terminal_handoff(engine_credentials):
     assert result["outputs"]["handoff_advice"] == "REFER_TO_HUMAN"
     assert result["steps"][-1]["step_id"] == "p5"
     assert result["steps"][-1]["status"] == "SKIPPED"
+
+
+@pytest.mark.parametrize(
+    "aggregation,empty", [("", []), ("COUNT", 0), ("SUM", None), ("MIN", None), ("MAX", None)]
+)
+def test_real_locate_collect_zero_match(engine_credentials, aggregation, empty):
+    import hashlib
+
+    xml = subprocess.run(
+        [
+            "node",
+            "--input-type=module",
+            "-e",
+            "import {table} from './test/helpers.js';console.log(table({policy:'COLLECT',aggregation:process.argv[1],type:'number',outputs:['1']}));",
+            aggregation,
+        ],
+        cwd=ENGINE_DIR,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.strip()
+    request = example("locate-request.json")
+    request["models"] = {
+        "collect": {"dmn_xml": xml, "sha256": hashlib.sha256(xml.encode()).hexdigest()}
+    }
+    request["plan"]["phases"] = [
+        {
+            "id": "LOCATE",
+            "steps": [
+                {
+                    "id": "collect",
+                    "kind": "decision",
+                    "depends_on": [],
+                    "model_id": "collect",
+                    "decision_id": "decision",
+                    "hit_policy": "COLLECT",
+                    "inputs": {"x": {"literal": 0}},
+                }
+            ],
+        }
+    ]
+    request["plan"]["outputs"] = {"result": {"from": "steps.collect.outputs.result"}}
+    result = invoke(ExecutePlanTool, {"request_json": request}, engine_credentials)
+    assert result["status"] == "SUCCEEDED", result
+    assert result["steps"][0]["outcome"] == "NO_MATCH"
+    assert type(result["outputs"]["result"]) is type(empty)
+    assert result["outputs"]["result"] == empty
+    # The same real result must reject a different empty shape, even if every
+    # returned projection is forged consistently.
+    import copy
+
+    from dmn_client.flows import validate_plan_response
+
+    forged = copy.deepcopy(result)
+    wrong = None if empty is not None else []
+    forged["outputs"]["result"] = wrong
+    forged["steps"][0]["outputs"]["result"] = wrong
+    forged["steps"][0]["decisions"][0]["result"] = wrong
+    from dmn_client.client import EngineError
+
+    with pytest.raises(EngineError) as error:
+        validate_plan_response(
+            forged,
+            request["plan"]["plan_id"],
+            request["plan"]["flow"],
+            request["plan"]["version"],
+            result["plan_sha256"],
+            request,
+        )
+    assert error.value.code == "INVALID_RESPONSE"
