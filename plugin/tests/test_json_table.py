@@ -7,6 +7,7 @@ from pathlib import Path
 
 import httpx
 import pytest
+import yaml
 
 from dmn_client.json_table import evaluate_table
 from tools.evaluate_json_table import EvaluateJsonTableTool
@@ -172,6 +173,15 @@ def test_staged_sdk_registration_no_authorization_schema(tmp_path):
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     dest = module.stage(tmp_path / "staged")
+    # Keep a string scalar: PyYAML datetime dumping otherwise inserts a space,
+    # which the official CLI's RFC3339 time parser rejects.
+    source_manifest = (root / "builtin/manifest.yaml").read_bytes()
+    assert (dest / "manifest.yaml").read_bytes() == source_manifest
+    manifest = yaml.safe_load(source_manifest)
+    assert type(manifest["created_at"]) is str
+    assert manifest["created_at"] == "2026-09-30T00:00:00Z"
+    round_trip = yaml.safe_load(yaml.safe_dump(manifest))
+    assert round_trip["created_at"] == "2026-09-30T00:00:00Z"
     code = """from dify_plugin import DifyPluginEnv
 from dify_plugin.core.plugin_registration import PluginRegistration
 from provider.dmn import JsonTableProvider
