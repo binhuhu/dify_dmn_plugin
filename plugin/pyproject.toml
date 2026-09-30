@@ -1,0 +1,20 @@
+[project]
+name = "dify-dmn-plugin"
+version = "0.1.0"
+description = "A strict Dify tool client for a separately deployed DMN/FEEL engine"
+requires-python = ">=3.12,<3.13"
+dependencies = ["dify-plugin==0.10.2", "httpx==0.28.1", "rfc8785==0.1.4"]
+
+[dependency-groups]
+dev = ["pytest==9.0.2", "jsonschema==4.26.0", "ruff==0.15.7"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I"]

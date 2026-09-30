@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:synthetic:query-dmn-plan-request:candidate:v1",
+  "title": "Candidate query-DMN plan request (not a production contract)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["plan", "models", "inputs"],
+  "properties": {
+    "plan": {"$ref": "#/$defs/plan"},
+    "models": {"type": "object", "additionalProperties": {"$ref": "#/$defs/model"}},
+    "inputs": {"type": "object"},
+    "include_trace": {"type": "boolean", "default": false}
+  },
+  "$defs": {
+    "id": {"type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,127}$"},
+    "binding": {
+      "oneOf": [
+        {"type": "object", "required": ["from"], "additionalProperties": false, "properties": {"from": {"type": "string", "minLength": 1, "maxLength": 1024}}},
+        {"type": "object", "required": ["literal"], "additionalProperties": false, "properties": {"literal": {}}}
+      ]
+    },
+    "mappings": {"type": "object", "additionalProperties": {"$ref": "#/$defs/binding"}},
+    "dependencies": {"type": "array", "maxItems": 128, "uniqueItems": true, "items": {"$ref": "#/$defs/id"}},
+    "engine": {
+      "type": "object", "additionalProperties": false,
+      "required": ["name", "version", "feel", "profile"],
+      "properties": {"name": {"const": "dmn-elements"}, "version": {"const": "0.3.0"}, "feel": {"const": "feelin@8.2.0"}, "profile": {"const": "dmn13-safe-v1"}}
+    },
+    "model": {
+      "type": "object", "additionalProperties": false, "required": ["dmn_xml", "sha256"],
+      "properties": {"dmn_xml": {"type": "string", "minLength": 1}, "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"}}
+    },
+    "query": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "kind", "depends_on", "capability_id", "input_contract", "output_contract", "parameters"],
+      "properties": {
+        "id": {"$ref": "#/$defs/id"}, "kind": {"const": "query"}, "depends_on": {"$ref": "#/$defs/dependencies"},
+        "capability_id": {"enum": ["demo.ticket_lookup", "demo.order_lookup"]},
+        "input_contract": {"type": "string"}, "output_contract": {"type": "string"}, "parameters": {"$ref": "#/$defs/mappings"}
+      }
+    },
+    "decision": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "kind", "depends_on", "model_id", "decision_id", "hit_policy", "inputs"],
+      "properties": {
+        "id": {"$ref": "#/$defs/id"}, "kind": {"const": "decision"}, "depends_on": {"$ref": "#/$defs/dependencies"},
+        "model_id": {"$ref": "#/$defs/id"}, "decision_id": {"type": "string", "minLength": 1, "maxLength": 2048},
+        "hit_policy": {"enum": ["UNIQUE", "FIRST", "COLLECT", "LITERAL"]},
+        "inputs": {"$ref": "#/$defs/mappings"}, "role": {"enum": ["FEATURE", "REALITY", "PRIORITY", "ADVICE"]}
+      }
+    },
+    "phase": {
+      "type": "object", "additionalProperties": false, "required": ["id", "steps"],
+      "properties": {
+        "id": {"enum": ["LOCATE", "P1", "P2", "P3", "P4", "P5", "P6", "P7"]},
+        "steps": {"type": "array", "maxItems": 128, "items": {"oneOf": [{"$ref": "#/$defs/query"}, {"$ref": "#/$defs/decision"}]}},
+        "skip_reason": {"type": "string", "minLength": 1, "maxLength": 2048}
+      },
+      "allOf": [
+        {"if": {"properties": {"steps": {"maxItems": 0}}}, "then": {"required": ["skip_reason"]}, "else": {"not": {"required": ["skip_reason"]}}}
+      ]
+    },
+    "plan": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schema_version", "plan_id", "version", "flow", "engine", "phases", "outputs"],
+      "properties": {
+        "schema_version": {"const": "query-dmn-plan.candidate.v1"}, "plan_id": {"$ref": "#/$defs/id"},
+        "version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?$"},
+        "flow": {"enum": ["locate_problem", "solve_problem"]}, "engine": {"$ref": "#/$defs/engine"},
+        "phases": {"type": "array", "minItems": 1, "maxItems": 7, "items": {"$ref": "#/$defs/phase"}},
+        "outputs": {"$ref": "#/$defs/mappings"}
+      }
+    }
+  },
+  "$comment": "Runtime additionally validates exact phase order, 256 total steps, acyclic references, mapping paths and transitive dependencies, matching registry contracts, byte/depth limits, model/engine pins, XML/FEEL profile and phase policy constraints. JSON Schema is an authoring aid, not the execution validator."
+}

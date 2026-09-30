@@ -1,0 +1,104 @@
+identity:
+  name: evaluate_dmn
+  author: hu8627
+  label:
+    en_US: Evaluate DMN
+    zh_Hans: 执行 DMN
+description:
+  human:
+    en_US: Evaluate a decision in inline DMN XML using strict JSON inputs. Inspect results.status before consuming the decision result.
+    zh_Hans: 使用严格 JSON 输入执行内联 DMN XML 中的决策。使用决策结果前须检查 results.status。
+  llm: Evaluate an explicitly supplied DMN XML model and decision ID using a JSON object encoded in inputs_json. This tool never fetches a model URL. Always check results.status; FAILED is never a successful decision.
+parameters:
+  - name: dmn_xml
+    type: string
+    required: true
+    form: llm
+    label:
+      en_US: DMN XML
+      zh_Hans: DMN XML
+    human_description:
+      en_US: Complete inline DMN XML, at most 1 MiB UTF-8. DTD and entity declarations are forbidden.
+      zh_Hans: 完整内联 DMN XML，UTF-8 不超过 1 MiB，禁止 DTD 与实体声明。
+    llm_description: Complete DMN XML source, never a URL or file path.
+  - name: inputs_json
+    type: string
+    required: true
+    form: llm
+    label:
+      en_US: Inputs JSON
+      zh_Hans: 输入 JSON
+    human_description:
+      en_US: A strict JSON object encoded as a string, at most 256 KiB UTF-8. Duplicate keys and non-finite numbers are rejected.
+      zh_Hans: 编码为字符串的严格 JSON 对象，UTF-8 不超过 256 KiB，禁止重复键与非有限数。
+    llm_description: A JSON object encoded as a string containing named input variables, for example an object with an age field. Do not send a JSON array.
+  - name: decision_id
+    type: string
+    required: true
+    form: llm
+    label:
+      en_US: Decision ID
+      zh_Hans: 决策 ID
+    human_description:
+      en_US: Exact ID of the decision to evaluate in the model.
+      zh_Hans: 模型中待执行决策的精确 ID。
+    llm_description: The exact DMN decision element ID to evaluate.
+  - name: include_trace
+    type: boolean
+    required: false
+    default: false
+    form: form
+    label:
+      en_US: Include trace
+      zh_Hans: 包含执行轨迹
+    human_description:
+      en_US: Include engine evaluation trace when available; trace can contain input and decision values.
+      zh_Hans: 返回引擎可提供的执行轨迹，可能包含输入与决策值。
+    llm_description: Whether to request the engine evaluation trace.
+output_schema:
+  type: object
+  properties:
+    results:
+      type: object
+      description: Versioned evaluation envelope. Always inspect status before result.
+      properties:
+        schema_version:
+          type: string
+        status:
+          type: string
+          enum: [SUCCEEDED, FAILED]
+        decision_id:
+          type: string
+        result_state:
+          type: string
+          enum: [VALUE, "NULL", UNAVAILABLE]
+        outcome:
+          description: MATCHED, NO_MATCH, DEFAULT, VALUE, or null on failure.
+        result:
+          description: Engine decision value, or null on failure.
+        decisions:
+          type: array
+          items: {}
+        trace:
+          type: array
+          items: {}
+        diagnostics:
+          type: array
+          items: {}
+        error:
+          description: Null on success; code and message object on failure.
+        engine:
+          type: object
+          properties:
+            name:
+              type: string
+            version:
+              type: string
+          required: [name, version]
+        model_sha256:
+          description: SHA-256 of the UTF-8 model, or null before a model is accepted.
+      required: [schema_version, status, decision_id, result, outcome, result_state, decisions, trace, diagnostics, error, engine, model_sha256]
+  required: [results]
+extra:
+  python:
+    source: tools/evaluate_dmn.py

@@ -1,0 +1,44 @@
+identity:
+  name: execute_plan
+  author: hu8627
+  label:
+    en_US: Execute Phase Plan
+    zh_Hans: 执行阶段计划
+description:
+  human:
+    en_US: Run an explicit locate_problem or solve_problem plan with interleaved query
+      and DMN decision steps. Advisory outputs only.
+    zh_Hans: 执行显式 locate_problem 或 solve_problem 计划，交替执行查询与 DMN 决策步骤；输出仅供决策建议。
+  llm: Execute an explicit versioned phase plan. locate_problem is one Phase with
+    query and decision Steps; solve_problem is P1 through P7, each with query and
+    decision Steps. This tool only returns advisory decisions and read-only query
+    data; Dify owns the surrounding workflow. Candidate contract, not scene-result.v2.
+parameters:
+- name: request_json
+  type: string
+  required: true
+  form: llm
+  label:
+    en_US: Plan request JSON
+    zh_Hans: 计划请求 JSON
+  human_description:
+    en_US: Strict JSON object containing plan, models, inputs and optional include_trace
+      (default false). Models are inline DMN XML; no model URLs or executable JavaScript
+      are accepted.
+    zh_Hans: Strict JSON object containing plan, models, inputs and optional include_trace
+      (default false). Models are inline DMN XML; no model URLs or executable JavaScript
+      are accepted.
+  llm_description: Strict JSON object containing plan, models, inputs and optional
+    include_trace (default false). Models are inline DMN XML; no model URLs or executable
+    JavaScript are accepted.
+output_schema:
+  type: object
+  properties:
+    results:
+      type: object
+      description: Candidate response contract. Inspect status before using outputs.
+  required:
+  - results
+extra:
+  python:
+    source: tools/execute_plan.py

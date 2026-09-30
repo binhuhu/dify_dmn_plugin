@@ -1,0 +1,55 @@
+identity:
+  author: hu8627
+  name: dmn
+  label:
+    en_US: DMN Decision Engine
+    zh_Hans: DMN 决策引擎
+  description:
+    en_US: A strict client for your separately deployed DMN engine.
+    zh_Hans: 连接您独立部署的 DMN 引擎。
+  icon: icon.svg
+  tags:
+  - utilities
+credentials_for_provider:
+  engine_url:
+    type: text-input
+    required: true
+    label:
+      en_US: Engine service URL
+      zh_Hans: 引擎服务地址
+    placeholder:
+      en_US: https://dmn-engine.example.com
+      zh_Hans: https://dmn-engine.example.com
+    help:
+      en_US: Trusted service base URL. DMN models and inputs are sent to this service.
+        Never use a workflow-controlled URL.
+      zh_Hans: 可信服务基础地址；DMN 模型与输入将发送至此服务，禁止使用工作流控制的地址。
+  api_key:
+    type: secret-input
+    required: true
+    label:
+      en_US: Engine API key
+      zh_Hans: 引擎 API 密钥
+    help:
+      en_US: Bearer token configured on the engine service. Stored as a Dify provider
+        credential.
+      zh_Hans: 引擎服务的 Bearer 令牌，保存为 Dify 提供商凭据。
+  allow_insecure_http:
+    type: boolean
+    required: false
+    default: false
+    label:
+      en_US: Allow HTTP on trusted internal network
+      zh_Hans: 允许可信内网使用 HTTP
+    help:
+      en_US: Disabled by default. Enable only on a trusted isolated network, such
+        as an internal Docker network. HTTP exposes the API key and submitted data
+        to that network.
+      zh_Hans: 默认关闭。仅在可信隔离网络（如内部 Docker 网络）启用；HTTP 会向该网络暴露密钥与提交数据。
+tools:
+- tools/evaluate_dmn.yaml
+- tools/query_capability.yaml
+- tools/execute_plan.yaml
+extra:
+  python:
+    source: provider/dmn.py

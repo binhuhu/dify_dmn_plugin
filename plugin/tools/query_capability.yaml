@@ -1,0 +1,48 @@
+identity:
+  name: query_capability
+  author: hu8627
+  label:
+    en_US: Query Capability
+    zh_Hans: 查询能力
+description:
+  human:
+    en_US: Run a registered read-only capability query. Preserve UNKNOWN, NOT_FOUND
+      and FAILED separately.
+    zh_Hans: 执行已注册的只读能力查询，分别保留 UNKNOWN、NOT_FOUND 与 FAILED 状态。
+  llm: Query a registered read-only capability by capability_id. No arbitrary URL,
+    method, code or write capability is accepted. Inspect the returned status; unknown
+    is not false and not null.
+parameters:
+- name: capability_id
+  type: string
+  required: true
+  form: llm
+  label:
+    en_US: Capability ID
+    zh_Hans: 能力 ID
+  human_description:
+    en_US: Exact ID of a registered, allowlisted read-only capability.
+    zh_Hans: Exact ID of a registered, allowlisted read-only capability.
+  llm_description: Exact ID of a registered, allowlisted read-only capability.
+- name: parameters_json
+  type: string
+  required: true
+  form: llm
+  label:
+    en_US: Parameters JSON
+    zh_Hans: 参数 JSON
+  human_description:
+    en_US: Strict JSON object encoded as a string, at most 256 KiB UTF-8.
+    zh_Hans: Strict JSON object encoded as a string, at most 256 KiB UTF-8.
+  llm_description: Strict JSON object encoded as a string, at most 256 KiB UTF-8.
+output_schema:
+  type: object
+  properties:
+    results:
+      type: object
+      description: Candidate response contract. Inspect status before using outputs.
+  required:
+  - results
+extra:
+  python:
+    source: tools/query_capability.py

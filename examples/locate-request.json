@@ -1,0 +1,100 @@
+{
+  "plan": {
+    "schema_version": "query-dmn-plan.candidate.v1",
+    "plan_id": "synthetic_locate",
+    "version": "0.1.0",
+    "flow": "locate_problem",
+    "engine": {
+      "name": "dmn-elements",
+      "version": "0.3.0",
+      "feel": "feelin@8.2.0",
+      "profile": "dmn13-safe-v1"
+    },
+    "phases": [
+      {
+        "id": "LOCATE",
+        "steps": [
+          {
+            "id": "ticket",
+            "kind": "query",
+            "depends_on": [],
+            "capability_id": "demo.ticket_lookup",
+            "input_contract": "demo.ticket_lookup.input.v1",
+            "output_contract": "demo.ticket_lookup.output.v1",
+            "parameters": {
+              "ticket_id": {
+                "from": "inputs.ticket_id"
+              }
+            }
+          },
+          {
+            "id": "order_id",
+            "kind": "decision",
+            "depends_on": [
+              "ticket"
+            ],
+            "model_id": "locator",
+            "decision_id": "identify_order",
+            "hit_policy": "UNIQUE",
+            "inputs": {
+              "ticket_order_id": {
+                "from": "steps.ticket.outputs.order_id"
+              },
+              "category_code": {
+                "from": "steps.ticket.outputs.category_code"
+              }
+            }
+          },
+          {
+            "id": "order",
+            "kind": "query",
+            "depends_on": [
+              "order_id"
+            ],
+            "capability_id": "demo.order_lookup",
+            "input_contract": "demo.order_lookup.input.v1",
+            "output_contract": "demo.order_lookup.output.v1",
+            "parameters": {
+              "order_id": {
+                "from": "steps.order_id.outputs.result"
+              }
+            }
+          },
+          {
+            "id": "diagnosis",
+            "kind": "decision",
+            "depends_on": [
+              "order"
+            ],
+            "model_id": "locator",
+            "decision_id": "locate_problem",
+            "hit_policy": "UNIQUE",
+            "inputs": {
+              "availability_state": {
+                "from": "steps.order.outputs.availability_state"
+              }
+            }
+          }
+        ]
+      }
+    ],
+    "outputs": {
+      "diagnosis": {
+        "from": "steps.diagnosis.outputs.result"
+      },
+      "query_outcome": {
+        "from": "steps.order.outcome"
+      }
+    }
+  },
+  "models": {
+    "locator": {
+      "dmn_xml": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<definitions xmlns=\"https://www.omg.org/spec/DMN/20191111/MODEL/\" id=\"SyntheticDefinitions\" name=\"SyntheticOnly\" namespace=\"urn:synthetic:query-dmn-example\">\n<inputData id=\"i_ticket_order_id\" name=\"ticket_order_id\"><variable name=\"ticket_order_id\" typeRef=\"Any\"/></inputData>\n<inputData id=\"i_category_code\" name=\"category_code\"><variable name=\"category_code\" typeRef=\"Any\"/></inputData>\n<inputData id=\"i_availability_state\" name=\"availability_state\"><variable name=\"availability_state\" typeRef=\"Any\"/></inputData>\n<decision id=\"identify_order\" name=\"identify_order\"><variable name=\"identify_order\" typeRef=\"Any\"/><informationRequirement><requiredInput href=\"#i_ticket_order_id\"/></informationRequirement><informationRequirement><requiredInput href=\"#i_category_code\"/></informationRequirement><decisionTable id=\"t_identify_order\" hitPolicy=\"UNIQUE\"><input id=\"x1\"><inputExpression typeRef=\"Any\"><text>category_code</text></inputExpression></input><output id=\"x2\" name=\"result\" typeRef=\"Any\"/><rule id=\"identify_order_r1\"><inputEntry id=\"x3\"><text>&quot;DEMO&quot;</text></inputEntry><outputEntry id=\"x4\"><text>ticket_order_id</text></outputEntry></rule></decisionTable></decision>\n<decision id=\"locate_problem\" name=\"locate_problem\"><variable name=\"locate_problem\" typeRef=\"Any\"/><informationRequirement><requiredInput href=\"#i_availability_state\"/></informationRequirement><decisionTable id=\"t_locate_problem\" hitPolicy=\"UNIQUE\"><input id=\"x5\"><inputExpression typeRef=\"Any\"><text>availability_state</text></inputExpression></input><output id=\"x6\" name=\"result\" typeRef=\"Any\"/><rule id=\"locate_problem_r1\"><inputEntry id=\"x7\"><text>&quot;CONFIRMED_ABSENT&quot;</text></inputEntry><outputEntry id=\"x8\"><text>{scene_id:&quot;synthetic_coupon_availability&quot;, focal_conclusion:&quot;CONFIRMED_ABSENT&quot;, knowledge_state:&quot;KNOWN&quot;}</text></outputEntry></rule><rule id=\"locate_problem_r2\"><inputEntry id=\"x9\"><text>&quot;CONFIRMED_PRESENT&quot;</text></inputEntry><outputEntry id=\"x10\"><text>{scene_id:&quot;synthetic_coupon_availability&quot;, focal_conclusion:&quot;CONFIRMED_PRESENT&quot;, knowledge_state:&quot;KNOWN&quot;}</text></outputEntry></rule><rule id=\"locate_problem_r3\"><inputEntry id=\"x11\"><text>&quot;UNKNOWN&quot;</text></inputEntry><outputEntry id=\"x12\"><text>{scene_id:null, focal_conclusion:&quot;UNKNOWN&quot;, knowledge_state:&quot;UNKNOWN&quot;}</text></outputEntry></rule></decisionTable></decision>\n</definitions>\n",
+      "sha256": "6f4df571ee517fcf28197578898c9b8f8e98a3e9d161f151c89f6f5613afc166"
+    }
+  },
+  "inputs": {
+    "ticket_id": "T-100"
+  },
+  "include_trace": false
+}

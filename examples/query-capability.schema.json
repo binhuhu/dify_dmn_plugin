@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:synthetic:query-capability:candidate:v1",
+  "title": "Candidate standalone read-only query request",
+  "type": "object", "additionalProperties": false,
+  "required": ["capability_id", "parameters"],
+  "properties": {
+    "capability_id": {"enum": ["demo.ticket_lookup", "demo.order_lookup"]},
+    "parameters": {"type": "object"}
+  },
+  "allOf": [
+    {"if": {"properties": {"capability_id": {"const": "demo.ticket_lookup"}}}, "then": {"properties": {"parameters": {"type": "object", "additionalProperties": false, "properties": {"ticket_id": {"type": ["string", "null"], "maxLength": 128}}}}}},
+    {"if": {"properties": {"capability_id": {"const": "demo.order_lookup"}}}, "then": {"properties": {"parameters": {"type": "object", "additionalProperties": false, "properties": {"order_id": {"type": ["string", "null"], "maxLength": 128}}}}}}
+  ],
+  "$comment": "Missing/null/empty key is accepted as WAITING_INPUT/UNKNOWN, never as authoritative NOT_FOUND. No URL, headers or credentials are accepted."
+}

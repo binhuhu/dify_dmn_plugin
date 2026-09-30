@@ -1,0 +1,29 @@
+services:
+  dmn:
+    build: ./engine
+    environment:
+      DMN_API_TOKEN: ${DMN_API_TOKEN:?Set DMN_API_TOKEN to a secret of at least 32 characters}
+      DMN_HOST: 0.0.0.0
+      DMN_TIMEOUT_MS: "5000"
+      DMN_CONCURRENCY: "2"
+      TZ: UTC
+    ports:
+      - "127.0.0.1:8787:8787"
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 512m
+    cpus: 1.0
+    pids_limit: 64
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8787/health',{headers:{Authorization:'Bearer '+process.env.DMN_API_TOKEN}}).then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 3s
+      retries: 3
+    networks: [dmn_private]
+networks:
+  dmn_private:
+    internal: true
