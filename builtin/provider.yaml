@@ -5,15 +5,16 @@ identity:
     en_US: Built-in JSON Decision Table
     zh_Hans: 内置 JSON 决策表
   description:
-    en_US: Local FIRST/COLLECT literal JSON tables. No external service. Not DMN XML
-      or FEEL.
-    zh_Hans: 本地 FIRST/COLLECT JSON 决策表，无需外部服务，不是 DMN XML/FEEL。
+    en_US: Local JSON decisions and plans; SYNTHETIC mock queries. No credentials.
+    zh_Hans: 本地 JSON 决策与计划；SYNTHETIC 模拟查询。无需凭据。
   icon: icon.svg
   tags:
   - utilities
 credentials_for_provider: {}
 tools:
 - tools/evaluate_json_table.yaml
+- tools/query_local.yaml
+- tools/execute_json_plan.yaml
 extra:
   python:
     source: provider/dmn.py

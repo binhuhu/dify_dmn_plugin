@@ -1,0 +1,40 @@
+identity:
+  name: query_local
+  author: hu8627
+  label:
+    en_US: query_local
+    zh_Hans: query_local
+description:
+  human:
+    en_US: 'SYNTHETIC mock lookup only: demo.ticket_lookup / demo.order_lookup. No
+      live business data.'
+    zh_Hans: 'SYNTHETIC mock lookup only: demo.ticket_lookup / demo.order_lookup.
+      No live business data.'
+  llm: 'SYNTHETIC mock lookup only: demo.ticket_lookup / demo.order_lookup. No live
+    business data.'
+parameters:
+- name: request_json
+  type: any
+  required: true
+  form: form
+  label:
+    en_US: request_json
+    zh_Hans: request_json
+  human_description:
+    en_US: 'Object or JSON string: capability_id and parameters. Max 256 KiB. SYNTHETIC
+      ONLY.'
+    zh_Hans: 'Object or JSON string: capability_id and parameters. Max 256 KiB. SYNTHETIC
+      ONLY.'
+  llm_description: 'Object or JSON string: capability_id and parameters. Max 256 KiB.
+    SYNTHETIC ONLY.'
+output_schema:
+  type: object
+  properties:
+    results:
+      type: object
+      description: Candidate response contract. Inspect status before using outputs.
+  required:
+  - results
+extra:
+  python:
+    source: tools/query_local.py

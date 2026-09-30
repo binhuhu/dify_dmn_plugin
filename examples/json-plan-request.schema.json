@@ -1,0 +1,370 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "dmn_json 0.3.0 json-plan-v1 request",
+  "type": "object",
+  "properties": {
+    "plan": {
+      "type": "object",
+      "properties": {
+        "format": {
+          "const": "json-plan-v1"
+        },
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,127}$"
+        },
+        "version": {
+          "const": "0.3.0"
+        },
+        "flow": {
+          "enum": [
+            "locate_problem",
+            "solve_problem"
+          ]
+        },
+        "phases": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "enum": [
+                  "LOCATE",
+                  "P1",
+                  "P2",
+                  "P3",
+                  "P4",
+                  "P5"
+                ]
+              },
+              "steps": {
+                "type": "array",
+                "items": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/$defs/query"
+                    },
+                    {
+                      "$ref": "#/$defs/decision"
+                    }
+                  ]
+                },
+                "maxItems": 64,
+                "minItems": 0
+              },
+              "skip_reason": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              }
+            },
+            "required": [
+              "id",
+              "steps"
+            ],
+            "additionalProperties": false
+          },
+          "maxItems": 5,
+          "minItems": 1
+        },
+        "outputs": {
+          "$ref": "#/$defs/mapping"
+        }
+      },
+      "required": [
+        "format",
+        "id",
+        "version",
+        "flow",
+        "phases",
+        "outputs"
+      ],
+      "additionalProperties": false
+    },
+    "models": {
+      "type": "object",
+      "minProperties": 1,
+      "maxProperties": 64,
+      "propertyNames": {
+        "type": "string",
+        "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,127}$"
+      },
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "table": {
+            "$ref": "#/$defs/table"
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          }
+        },
+        "required": [
+          "table",
+          "sha256"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "inputs": {
+      "type": "object"
+    }
+  },
+  "required": [
+    "plan",
+    "models",
+    "inputs"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "binding": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "literal": {}
+          },
+          "required": [
+            "literal"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "from": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "maxItems": 16,
+              "minItems": 2
+            }
+          },
+          "required": [
+            "from"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "mapping": {
+      "type": "object",
+      "maxProperties": 128,
+      "additionalProperties": {
+        "$ref": "#/$defs/binding"
+      }
+    },
+    "query": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,127}$"
+        },
+        "kind": {
+          "const": "query"
+        },
+        "depends_on": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,127}$"
+          },
+          "maxItems": 128,
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "capability_id": {
+          "enum": [
+            "demo.ticket_lookup",
+            "demo.order_lookup"
+          ]
+        },
+        "input_contract": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "output_contract": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "parameters": {
+          "$ref": "#/$defs/mapping"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "depends_on",
+        "capability_id",
+        "input_contract",
+        "output_contract",
+        "parameters"
+      ],
+      "additionalProperties": false
+    },
+    "decision": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,127}$"
+        },
+        "kind": {
+          "const": "decision"
+        },
+        "depends_on": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,127}$"
+          },
+          "maxItems": 128,
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "model_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,127}$"
+        },
+        "hit_policy": {
+          "enum": [
+            "FIRST",
+            "COLLECT"
+          ]
+        },
+        "inputs": {
+          "$ref": "#/$defs/mapping"
+        },
+        "terminate_when": {
+          "type": "object",
+          "properties": {
+            "value": {
+              "$ref": "#/$defs/binding"
+            },
+            "equals": {},
+            "outputs": {
+              "$ref": "#/$defs/mapping"
+            }
+          },
+          "required": [
+            "value",
+            "equals",
+            "outputs"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "depends_on",
+        "model_id",
+        "hit_policy",
+        "inputs"
+      ],
+      "additionalProperties": false
+    },
+    "table": {
+      "type": "object",
+      "properties": {
+        "format": {
+          "const": "json-table-v1"
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "hit_policy": {
+          "enum": [
+            "FIRST",
+            "COLLECT"
+          ]
+        },
+        "rules": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "when": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "path": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 128
+                      },
+                      "maxItems": 16,
+                      "minItems": 1
+                    },
+                    "op": {
+                      "enum": [
+                        "eq",
+                        "ne",
+                        "lt",
+                        "lte",
+                        "gt",
+                        "gte",
+                        "in",
+                        "exists",
+                        "is_null"
+                      ]
+                    },
+                    "value": {}
+                  },
+                  "required": [
+                    "path",
+                    "op",
+                    "value"
+                  ],
+                  "additionalProperties": false
+                },
+                "maxItems": 32,
+                "minItems": 0
+              },
+              "output": {}
+            },
+            "required": [
+              "id",
+              "when",
+              "output"
+            ],
+            "additionalProperties": false
+          },
+          "maxItems": 128,
+          "minItems": 1
+        }
+      },
+      "required": [
+        "format",
+        "id",
+        "version",
+        "hit_policy",
+        "rules"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "$comment": "Runtime additionally enforces exact phase order, query contract pins, unique IDs, DAG and dependency mappings, table semantics and RFC8785 digests. Strict JSON/byte/depth/numeric limits also apply."
+}

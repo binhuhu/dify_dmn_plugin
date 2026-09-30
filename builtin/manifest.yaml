@@ -1,4 +1,4 @@
-version: 0.2.0
+version: 0.3.0
 type: plugin
 author: hu8627
 name: dmn_json
@@ -6,9 +6,9 @@ label:
   en_US: Built-in JSON Decision Table
   zh_Hans: 内置 JSON 决策表
 description:
-  en_US: Local FIRST/COLLECT literal JSON tables. No external service. Not DMN XML
-    or FEEL.
-  zh_Hans: 本地 FIRST/COLLECT JSON 决策表，无需外部服务，不是 DMN XML/FEEL。
+  en_US: Local JSON decisions and plans; SYNTHETIC mock queries. No credentials or
+    external service. Not XML/FEEL.
+  zh_Hans: 本地 JSON 决策与计划、SYNTHETIC 模拟查询；免凭据，不是 XML/FEEL。
 icon: icon.svg
 resource:
   memory: 268435456
@@ -27,6 +27,6 @@ meta:
     entrypoint: main
 created_at: '2026-09-30T00:00:00Z'
 privacy: PRIVACY.md
-repo: https://github.com/hu8627/dify_dmn_plugin
+repo: https://github.com/binhuhu/dify_dmn_plugin
 tags:
 - utilities

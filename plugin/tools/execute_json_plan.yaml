@@ -1,0 +1,51 @@
+identity:
+  name: execute_json_plan
+  author: hu8627
+  label:
+    en_US: execute_json_plan
+    zh_Hans: execute_json_plan
+description:
+  human:
+    en_US: Local json-plan-v1 LOCATE or P1-P5 advisory plan; SYNTHETIC queries. No
+      XML/FEEL.
+    zh_Hans: Local json-plan-v1 LOCATE or P1-P5 advisory plan; SYNTHETIC queries.
+      No XML/FEEL.
+  llm: Local json-plan-v1 LOCATE or P1-P5 advisory plan; SYNTHETIC queries. No XML/FEEL.
+parameters:
+- name: request_json
+  type: any
+  required: true
+  form: form
+  label:
+    en_US: request_json
+    zh_Hans: request_json
+  human_description:
+    en_US: Strict JSON request object or string. See json-plan-v1 examples; max 1600000
+      bytes.
+    zh_Hans: Strict JSON request object or string. See json-plan-v1 examples; max
+      1600000 bytes.
+  llm_description: Strict JSON request object or string. See json-plan-v1 examples;
+    max 1600000 bytes.
+- name: expected_sha256
+  type: string
+  required: false
+  form: form
+  label:
+    en_US: expected_sha256
+    zh_Hans: expected_sha256
+  human_description:
+    en_US: Optional RFC8785 SHA256 of the entire request, including models and inputs.
+    zh_Hans: 整个请求（包括模型及输入）的可选 RFC8785 SHA256。
+  llm_description: Optional RFC8785 SHA256 of the entire request, including models
+    and inputs.
+output_schema:
+  type: object
+  properties:
+    results:
+      type: object
+      description: Candidate response contract. Inspect status before using outputs.
+  required:
+  - results
+extra:
+  python:
+    source: tools/execute_json_plan.py

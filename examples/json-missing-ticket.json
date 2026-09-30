@@ -1,0 +1,195 @@
+{
+  "plan": {
+    "format": "json-plan-v1",
+    "id": "demo",
+    "version": "0.3.0",
+    "flow": "locate_problem",
+    "phases": [
+      {
+        "id": "LOCATE",
+        "steps": [
+          {
+            "id": "ticket",
+            "kind": "query",
+            "depends_on": [],
+            "capability_id": "demo.ticket_lookup",
+            "input_contract": "demo.ticket_lookup.input.v1",
+            "output_contract": "demo.ticket_lookup.output.v1",
+            "parameters": {
+              "ticket_id": {
+                "from": [
+                  "inputs",
+                  "ticket_id"
+                ]
+              }
+            }
+          },
+          {
+            "id": "gate",
+            "kind": "decision",
+            "depends_on": [
+              "ticket"
+            ],
+            "model_id": "gate",
+            "hit_policy": "FIRST",
+            "inputs": {
+              "outcome": {
+                "from": [
+                  "steps",
+                  "ticket",
+                  "outcome"
+                ]
+              }
+            },
+            "terminate_when": {
+              "value": {
+                "from": [
+                  "steps",
+                  "gate",
+                  "result",
+                  "route"
+                ]
+              },
+              "equals": "HUMAN",
+              "outputs": {
+                "route": {
+                  "literal": "HUMAN"
+                },
+                "reason": {
+                  "literal": "TICKET_NOT_FOUND"
+                }
+              }
+            }
+          },
+          {
+            "id": "order",
+            "kind": "query",
+            "depends_on": [
+              "gate"
+            ],
+            "capability_id": "demo.order_lookup",
+            "input_contract": "demo.order_lookup.input.v1",
+            "output_contract": "demo.order_lookup.output.v1",
+            "parameters": {
+              "order_id": {
+                "from": [
+                  "steps",
+                  "ticket",
+                  "outputs",
+                  "order_id"
+                ]
+              }
+            }
+          },
+          {
+            "id": "locate",
+            "kind": "decision",
+            "depends_on": [
+              "order"
+            ],
+            "model_id": "locate",
+            "hit_policy": "FIRST",
+            "inputs": {
+              "state": {
+                "from": [
+                  "steps",
+                  "order",
+                  "outputs",
+                  "availability_state"
+                ]
+              }
+            }
+          }
+        ]
+      }
+    ],
+    "outputs": {
+      "scene": {
+        "from": [
+          "steps",
+          "locate",
+          "result"
+        ]
+      },
+      "outcome": {
+        "from": [
+          "steps",
+          "locate",
+          "outcome"
+        ]
+      }
+    }
+  },
+  "models": {
+    "gate": {
+      "table": {
+        "format": "json-table-v1",
+        "id": "gate",
+        "version": "0.3.0",
+        "hit_policy": "FIRST",
+        "rules": [
+          {
+            "id": "missing",
+            "when": [
+              {
+                "path": [
+                  "outcome"
+                ],
+                "op": "eq",
+                "value": "NOT_FOUND"
+              }
+            ],
+            "output": {
+              "route": "HUMAN"
+            }
+          },
+          {
+            "id": "found",
+            "when": [
+              {
+                "path": [
+                  "outcome"
+                ],
+                "op": "eq",
+                "value": "FOUND"
+              }
+            ],
+            "output": {
+              "route": "CONTINUE"
+            }
+          }
+        ]
+      },
+      "sha256": "b6f088cff36a0bb00d2d0f77b6c03b130811eb2772f27e4298cced1aefc3dee3"
+    },
+    "locate": {
+      "table": {
+        "format": "json-table-v1",
+        "id": "locate",
+        "version": "0.3.0",
+        "hit_policy": "FIRST",
+        "rules": [
+          {
+            "id": "absent",
+            "when": [
+              {
+                "path": [
+                  "state"
+                ],
+                "op": "eq",
+                "value": "CONFIRMED_ABSENT"
+              }
+            ],
+            "output": {
+              "scene": "DEMO_ABSENT"
+            }
+          }
+        ]
+      },
+      "sha256": "539009a79f140cd98831290ef3986298cf0c4bca3fe86aba0c510ed09fb02005"
+    }
+  },
+  "inputs": {
+    "ticket_id": "T-MISSING"
+  }
+}

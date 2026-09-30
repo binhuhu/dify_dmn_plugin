@@ -1,8 +1,12 @@
-# 内置 JSON 决策表 0.2.0
+# 内置 JSON 三工具 0.3.0
 
 这是同一仓库的独立免凭据安装包 `hu8627/dmn_json`。原有 `hu8627/dmn` 外部 XML 插件和其他已安装插件保留，不卸载、不替换。新建“内置 JSON 决策表 / evaluate_json_table”节点无需 Key、引擎地址或外部服务。现有外部工具仍通过原插件配置 Node 服务，未配置时返回 INVALID_CONFIGURATION。两个包的模型格式和语义不能互换。
 
 采用独立包是为保留旧凭据接口：Dify 1.11.1 对任何非空 credentials_schema 都要求授权，required:false 不能解除；daemon 0.5.1 解码多个 provider 文件时仅保留最后一个。因此不在单包内伪装两套授权模式。此版本是 JSON 能力新增发布，不自动迁移旧 XML 节点。已有 JSON companion 后续版本可按相同身份升级。
+
+## 0.3.0 新增工具
+
+同一 `hu8627/dmn_json` 身份新增 `query_local`（仅 SYNTHETIC mock 查询）和 `execute_json_plan`（本地 LOCATE / P1–P5），三个工具均无需凭据。完整合同、JSON 示例、策略差异与测试方法见 [0.3.0 合同](https://github.com/binhuhu/dify_dmn_plugin/blob/feat/dmn-tool-plugin/docs/builtin-0.3.0.md)。旧 XML/FEEL 计划必须显式转换；P1/FEATURE UNIQUE 与 PRIORITY FEEL 不被 FIRST/COLLECT 自动等价替代。
 
 ## 调用
 
@@ -28,6 +32,6 @@ AND 中 FALSE 优先于 UNKNOWN。FIRST 的已选规则之前存在 UNKNOWN 或 
 
 ## 构建与验收
 
-从仓库根目录运行 `python scripts/stage-builtin.py /tmp/dmn-json-0.2.0`，然后用已安装的官方 Dify CLI：`dify plugin package /tmp/dmn-json-0.2.0 -o hu8627-dmn_json-0.2.0.difypkg`。没有 CLI 时 staging 目录不是安装包，不用普通 zip 冒充 difypkg。不重试已拒绝的下载/API，不修改旧 Release。包未签名，遵循平台签名策略。
+从仓库根目录运行 `python scripts/stage-builtin.py /tmp/dmn-json-0.3.0`，然后用已安装的官方 Dify CLI：`dify plugin package /tmp/dmn-json-0.3.0 -o hu8627-dmn_json-0.3.0.difypkg`。没有 CLI 时 staging 目录不是安装包，不用普通 zip 冒充 difypkg。不重试已拒绝的下载/API，不修改旧 Release。包未签名，遵循平台签名策略。
 
 依赖沿用仓库固定 requirements.txt；首次安装仍需要平台正常解析 Python 依赖。免 Key/无外部决策服务指工具调用路径，不是离线安装保证。目标 UI 安装与真实调用仍需验收。
