@@ -2,6 +2,18 @@
 
 Java-free 候选原型。Dify Python 插件薄封装 → Node.js 执行服务 → 已注册只读查询能力 / DMN 决策。无 Java，不手写 FEEL 解释器，不执行赔付、改票或工单写操作。
 
+## 当前交付状态（2026-09-30）
+
+修正版候选安装包已在原授权打包工作区用官方 Dify CLI **0.6.10** 生成，对应源码 [`d04f51c`](https://github.com/hu8627/dify_dmn_plugin/commit/d04f51ccdb67cb8c375f0c2900984c3a8bd7386c)，20 个包内文件已逐字节核对。后续文档提交不改变该安装包的源码归属。
+
+- 文件：`hu8627-dmn-0.1.0-d04f51c.difypkg`，**53,718 bytes**
+- SHA-256：`122e68ef2627d9371eb6cae1d7ee9cfb51b50bcedab59c7e6afa58c3b1776fbf`
+- Dify checksum：`d720592666104edb8c86951dbeabf7233a41e8412b17a8e71d0bbd51f25028be`
+- 源码测试：**99 Node + 230 Python**，包含 26 次真实 SDK → 本地 HTTP → 隔离 Node 集成测试。
+- Dify 1.11.1 原始模型解析、真实 SDK stdio、全新 Python 3.12 依赖安装已通过；daemon Go 包解码、目标 UI 安装和目标 DMN 调用尚未验证。详见[兼容性证据](docs/compatibility-1.11.1.md)。
+
+**公开 Release 尚未发布，因此目前不能通过 From GitHub 选择该安装包。** 源码分支或仓库中存在包文件不等同于 Release 资产。安装包未签名、未经 Marketplace 审核；本地安装需符合工作区策略，若企业策略禁用则需管理员提供批准的安装渠道，不能关闭安全校验。安装后仍需独立、可达且配置鉴权的 Node 服务。见[发布核对清单](docs/release-checklist.md)。
+
 ## 结构
 
 - **定位问题**：一个 Phase，里面可以有多个查询 Step、多个 DMN 决策 Step
@@ -60,7 +72,7 @@ Dify 运行在容器时，它的 `127.0.0.1` 不是宿主机。需由部署人�
 
 ## Dify 安装
 
-1. 在 Dify 插件管理中本地安装已生成 `.difypkg`，或按 `plugin/README.md` 用官方 CLI 打包
+1. 工作区策略允许时，本地安装上述修正版 `.difypkg`；From GitHub 需先有公开 Release 安装包资产（目前未发布）。自行打包见 `plugin/README.md`
 2. 配置 Engine URL 和相同 API Token。公网使用 HTTPS。仅受控内网调试可显式启用 insecure HTTP
 3. 工具 `query_capability` 展示查询，`evaluate_dmn` 展示一个决策，`execute_plan` 执行一条显式多 Step 计划
 4. 输入和输出均为结构化 JSON。技术成功仍须检查业务结论，NOT_FOUND 不代表可继续；状态不是成功就不能继续执行实际业务动作；`WAITING_INPUT` 进入补证或人工分支

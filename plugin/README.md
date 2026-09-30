@@ -81,11 +81,13 @@ ruff check .
 ruff format --check .
 ```
 
-For a repeatable development environment, run `uv sync --locked` using the committed `uv.lock`.
+For a repeatable development environment, run `uv sync --locked` using the committed `uv.lock`. Daemon 0.5.1 installation instead installs `requirements.txt`; it does not consume `uv.lock`. The three direct dependencies are pinned, but transitive dependency resolution can change. A fresh Python 3.12 install and 37-package consistency check passed on 2026-09-30; this does not verify the target dependency mirror or platform.
 
 Tests instantiate the actual SDK registration loader against the manifest/provider/tool files, check emitted Dify message types, and mock the HTTP boundary for success, failure, unknown, limits, TLS settings, redirects, deadlines, and schema validation. Run the real cross-language checks with `DMN_ENGINE_DIR=../engine python -m pytest -q` after installing the Node engine dependencies. Those checks start and clean up a local server using a disposable token. They do not prove installation in a live Dify workspace.
 
 Optional Dify remote debugging uses `.env.example`, workspace-provided debugging credentials, and `python -m main`. Never commit a real debug key or engine token.
+
+The corrected artifact and its exact source/hash are recorded in the [repository delivery status](../README.md#当前交付状态2026-09-30). Public Release publication remains pending.
 
 ## Packaging
 

@@ -29,7 +29,7 @@ Validation:
 
 No live Dify/AgentHub Object flow, Docker deployment, production capability transport, private workflow migration, production rules or historical business acceptance was run. Queries remain synthetic mocks. No service deployment, main change or security setting change is included.
 
-Packaging remains pending in this executor: official Dify CLI 0.6.10 is not installed; the official public binary fetch returned a restricted-URL tool error. No substitute package was built. The old package is superseded as a pending candidate and must not be published for this source revision. Supported next step: make the official CLI available in the executor, then run the documented `dify plugin package ./plugin -o ./dist/hu8627-dmn-0.1.0.difypkg` and checksum commands. Release publication remains paused; no denied Release API was retried.
+At this earlier checkpoint packaging was blocked in this executor. The dated packaging follow-up below supersedes that status; the original package must not be used for the corrected source.
 
 ## Scope correction: independent locate and solve, optional P6/P7
 
@@ -37,7 +37,7 @@ The explicit phase list now selects LOCATE, P1–P5 or P1–P7. Locate and solve
 
 Added `examples/solve-p1-p5-request.json`, generated from the same public synthetic fixture with its own output projection. Normal and UNKNOWN cases end at P5; missing-ticket early completion emits handoff advice and skips only the remaining declared steps. No private workflow rules were ingested.
 
-Latest full checks: **Node 99/99**, **Python 215/215**, including **21 local SDK→HTTP→isolated Node tests**. Lint, format, syntax, all three fixture schemas and whitespace checks passed. Invalid P1–P4/P1–P6 scopes and reordered phases are rejected. Packaging, actual Dify/AgentHub and Release limitations above remain unchanged.
+Latest full checks: **Node 99/99**, **Python 215/215**, including **21 local SDK→HTTP→isolated Node tests**. Lint, format, syntax, all three fixture schemas and whitespace checks passed. Invalid P1–P4/P1–P6 scopes and reordered phases are rejected. Actual target installation and Release publication remained unverified at that checkpoint; see the later packaging update below.
 
 ### Additional response-boundary review
 
@@ -65,6 +65,24 @@ Validation after these corrections: **99 Node tests and 230 Python tests passed*
 including **26 actual SDK → authenticated local HTTP → isolated Node tests**.
 Ruff lint/format and git whitespace checks passed. Existing SDK/deprecation and
 subprocess warnings remain. Target Dify/AgentHub installation was not tested.
-No corrected `.difypkg` was produced: official CLI remains unavailable and its
-binary download was restricted. The old package is superseded and must not be
-published as this source revision. Release publication remains paused.
+
+## Packaging and compatibility follow-up — 2026-09-30
+
+The original authorized packaging workspace subsequently built the corrected
+candidate with its installed official Dify CLI 0.6.10. The coordinating workspace
+reported bytewise verification of all 20 package files against source
+`d04f51ccdb67cb8c375f0c2900984c3a8bd7386c`. This executor did not repeat that build
+or decode the corrected package; its earlier restricted binary fetch is not a
+current claim that no corrected package exists.
+
+- File: `hu8627-dmn-0.1.0-d04f51c.difypkg`
+- Size: 53,718 bytes
+- SHA-256: `122e68ef2627d9371eb6cae1d7ee9cfb51b50bcedab59c7e6afa58c3b1776fbf`
+- Dify checksum: `d720592666104edb8c86951dbeabf7233a41e8412b17a8e71d0bbd51f25028be`
+
+This artifact supersedes the earlier pending package. Public Release publication
+is still pending; the restricted Release API was not retried or bypassed.
+[Compatibility checks](compatibility-1.11.1.md) passed for actual Dify 1.11.1
+Python models, SDK stdio and a fresh 37-package dependency installation.
+Daemon Go package decoding and target UI installation/call remain NOT RUN.
+See the [release checklist](release-checklist.md) before publication.
