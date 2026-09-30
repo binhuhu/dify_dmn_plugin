@@ -1,4 +1,4 @@
-# 0.4.0-rc.1：节点执行与参考宿主
+# 0.4.0-rc1：节点执行与参考宿主
 
 这是 `hu8627/dmn_json` 的候选源码版本，保留 0.3.0 三工具及其合同，新增 `execute_query`、`evaluate_decision`。不是正式 0.4 发布，也不是目标 Dify/业务接口生产验收。逐条范围、产品证据与外部缺口见 [67项验收记录](dsl-v0.4-acceptance.md)。原外部 `hu8627/dmn` XML/Node 插件保持独立。
 
@@ -33,9 +33,9 @@ PYTHONPATH=plugin plugin/.venv/bin/python scripts/run-reference-dsl.py --help
 ## 构建、兼容与验收
 
 ```bash
-python scripts/stage-builtin.py /tmp/dmn-json-0.4.0-rc.1
+python scripts/stage-builtin.py /tmp/dmn-json-0.4.0-rc1
 # 在已有官方 CLI 的授权打包环境运行：
-dify plugin package /tmp/dmn-json-0.4.0-rc.1 -o hu8627-dmn_json-0.4.0-rc.1.difypkg
+dify plugin package /tmp/dmn-json-0.4.0-rc1 -o hu8627-dmn_json-0.4.0-rc1.difypkg
 ```
 
 manifest 保持 author/name，created_at 是带引号的 RFC3339 字符串。staging 不等于官方包，也不等于宿主安装。依赖正常安装后纯决策调用可断网；首次依赖解析并非离线安装保证。不要以普通 zip 代替 difypkg。
@@ -44,4 +44,10 @@ manifest 保持 author/name，created_at 是带引号的 RFC3339 字符串。sta
 
 官方打包/解包/安装、真实只读多 API、目标宿主分支交互等待恢复、审核生产规则、历史 shadow 对比及真实回滚记录均需独立验收。证据脚本的 release gate 会保持阻断，不把离线测试升级成生产 PASS。
 
-本次源码验证：99 Node + 542 Python，全通过、无跳过；67项索引引用的336个参数化测试另行实跑通过（属于上述测试的子集，不累加）。真实 SDK stdio 为旧工具14、新节点6、可信配置查询5次。lint/format通过。可复核文件摘要和结果见 [本地验证记录](../acceptance/dsl-v0.4-local-verification.json)。
+本次源码验证：99 Node + 574 Python，全通过、无跳过；67项索引的引用测试另行实跑（属于上述测试的子集，不累加，计数见验证记录）。真实 SDK stdio 为旧工具14、新节点6、可信配置查询5次。lint/format通过。可复核文件摘要和结果见 [本地验证记录](../acceptance/dsl-v0.4-local-verification.json)。
+
+官方 CLI 0.6.10 已实际拒绝旧候选 `0.4.0-rc.1`（未产包）。核对其固定提交 [1310a18 version.go](https://github.com/langgenius/dify-plugin-daemon/blob/1310a18b2f6bc6f18768a0a6265484830891433c/pkg/entities/manifest_entities/version.go) 后改为支持的 `0.4.0-rc1`；后缀仅允许 word 字符，不允许点号。显示标签保留 RC；若另获授权创建 GitHub Release，必须设 prerelease，不能据此宣称正式验收。
+
+独立审查区分本地实现缺口与外部环境缺口，见 [逐项审查表](dsl-v0.4-independent-review.md)。SDK 纯决策默认仍是 CONTENT_ONLY，不认证来源/最大年龄/旧快照复用；Python trusted_policy 与参考宿主绑定一致性校验已实现，但生产SDK策略接线尚缺。查询签名在有限有效期内允许只读重放，不是在线宿主激活/撤销账本。
+
+需求传输记录澄清：Library 官方 helper 的正常 materialization 请求先前失败；随后平台 `download_file` 使用用户已给定的 file_id 成功将授权附件下载到本环境。没有猜测下载 URL、替换凭据或读取令牌。核验的是原 ZIP 哈希及43个文本逐项哈希；未解码 Base64 tar，也未声称验证该 tar 的独立哈希。

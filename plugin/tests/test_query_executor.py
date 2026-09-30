@@ -640,3 +640,160 @@ def test_later_operation_invalid_bindings_rejected_before_first_io(case, server,
     result = run(case, d)
     assert result["execution_status"] != "SUCCEEDED"
     assert not server[1]["calls"]
+
+
+@pytest.mark.parametrize("mutation", ["missing", "wrong_kind"])
+def test_registry_asset_lock_required_even_when_trusted_bytes_exist(case, server, mutation):
+    d = deploy(case, server)
+    registry_ref = case[2]["operation_registry_ref"]
+    if mutation == "missing":
+        del case[0]["asset_locks"][registry_ref]
+    else:
+        case[0]["asset_locks"][registry_ref]["kind"] = "HOST_MAPPING"
+    d.definition_sha256 = definition_digest(case[0])
+    result = run(case, d)
+    assert result["error"]["code"] == "DEFINITION_DIGEST_MISMATCH", result
+    assert not server[1]["calls"]
+
+
+def test_optional_query_gap_binds_and_decides_unknown(case, server):
+    from dmn_client.bindings import bind_inputs
+    from dmn_client.decision_executor import evaluate_decision
+
+    d = deploy(case, server)
+    d.capabilities["demo.case_context@1.0.0"]["optional_outputs"] = ["trip"]
+    server[1]["change"] = lambda kind, answer: "redirect" if kind == "trip" else answer
+    query = run(case, d)
+    assert query["execution_status"] == "SUCCEEDED"
+    bound = bind_inputs(
+        {
+            "kind": "DECISION",
+            "input_bindings": {
+                "met_driver": {
+                    "source_format": "PARAMETER",
+                    "from": {
+                        "source": "node",
+                        "node_id": "Q_CONTEXT",
+                        "path": ["query", "data", "trip"],
+                    },
+                }
+            },
+        },
+        {"node": {"Q_CONTEXT": query}},
+    )
+    record = bound["met_driver"]
+    assert record["quality"] == "UNKNOWN" and record["value"] is None
+    assert record["source_refs"] == [f"query:{query['node_run_id']}:api:api_trip"]
+    assert (
+        next(c for c in query["trace"]["api_calls"] if c["api_node_id"] == "api_trip")["status"]
+        == "FAILED"
+    )
+    decision = json.loads((SOURCE / "invocation_decision.json").read_text())
+    decision["inputs"]["parameter_snapshot"]["parameters"]["met_driver"] = record
+    decision["inputs"]["parameter_snapshot"]["definition_digest"] = definition_digest(case[0])
+    result = evaluate_decision(
+        case[0],
+        decision["node_ref"],
+        definition_digest(case[0]),
+        decision["inputs"],
+        decision["execution_context"],
+    )
+    assert result["execution_status"] == "SUCCEEDED", result
+    assert result["outputs"]["decision"]["state"] == "NEED_USER_INPUT"
+
+
+def test_drip_headers_share_total_deadline(case):
+    calls, stopped = [], threading.Event()
+
+    class DripHandler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            calls.append(self.path)
+            chunks = (
+                [b"HTTP/1.1 200 OK\r\n"]
+                + [b"X-Padding: yes\r\n"] * 100
+                + [b"Content-Length: 2\r\n\r\n{}"]
+            )
+            try:
+                for chunk in chunks:
+                    self.wfile.write(chunk)
+                    self.wfile.flush()
+                    time.sleep(0.01)
+            except (BrokenPipeError, ConnectionResetError):
+                pass
+            finally:
+                stopped.set()
+
+        def log_message(self, *_):
+            pass
+
+    httpd = ThreadingHTTPServer(("127.0.0.1", 0), DripHandler)
+    thread = threading.Thread(target=httpd.serve_forever, daemon=True)
+    thread.start()
+    try:
+        d = deploy(case, (f"http://127.0.0.1:{httpd.server_port}", {}))
+        case[2]["budget"]["total_timeout_ms"] = 40
+        relock(case, d)
+        started = time.monotonic()
+        result = run(case, d)
+        elapsed = time.monotonic() - started
+        assert result["error"]["code"] == "QUERY_TIMEOUT", result
+        # Includes pure schema/definition preflight. Unbounded drip would exceed 1s.
+        assert elapsed < 0.35, elapsed
+        assert len(calls) == 1
+        assert stopped.wait(timeout=1), "Client must close the timed-out connection"
+    finally:
+        httpd.shutdown()
+        thread.join()
+        httpd.server_close()
+
+
+def test_tcp_and_tls_setup_share_capability_deadline(case, monkeypatch):
+    """Controlled transport clock: TCP consumes 80 ms, TLS gets only remaining 20."""
+    import http.client
+    import socket
+    import ssl
+
+    from dmn_client import query_executor
+
+    clock, observed, sockets = [0.0], {}, []
+
+    class Socket:
+        timeout = None
+        closed = False
+
+        def settimeout(self, value):
+            self.timeout = value
+
+        def close(self):
+            self.closed = True
+
+    def tcp_connect(connection):
+        observed["tcp_timeout"] = connection.timeout
+        clock[0] += 0.08
+        connection.sock = Socket()
+        sockets.append(connection.sock)
+
+    def stalled_tls(context, sock, *, server_hostname):
+        observed["tls_timeout"] = sock.timeout
+        observed["hostname"] = server_hostname
+        clock[0] += sock.timeout
+        raise socket.timeout("controlled TLS handshake timeout")
+
+    def no_request(*args, **kwargs):
+        pytest.fail("An expired TLS handshake must not send an HTTP request")
+
+    monkeypatch.setattr(query_executor.time, "monotonic", lambda: clock[0])
+    monkeypatch.setattr(http.client.HTTPConnection, "connect", tcp_connect)
+    monkeypatch.setattr(http.client.HTTPConnection, "request", no_request)
+    monkeypatch.setattr(ssl.SSLContext, "wrap_socket", stalled_tls)
+    deployment = deploy(case, ("https://8.8.8.8", {}))
+    case[2]["budget"]["total_timeout_ms"] = 100
+    relock(case, deployment)
+    result = run(case, deployment)
+    assert result["error"]["code"] == "QUERY_TIMEOUT", result
+    assert observed["tcp_timeout"] == pytest.approx(0.1)
+    assert observed["tls_timeout"] == pytest.approx(0.02)
+    assert observed["hostname"] == "8.8.8.8"
+    assert clock[0] == pytest.approx(0.1)
+    assert len(sockets) == 1 and sockets[0].closed
+    assert len(result["trace"]["api_calls"]) == 1

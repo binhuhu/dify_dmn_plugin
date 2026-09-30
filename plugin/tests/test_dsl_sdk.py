@@ -115,7 +115,7 @@ from provider.dmn import JsonTableProvider
 r=PluginRegistration(DifyPluginEnv())
 assert r.configuration.author == "hu8627"
 assert r.configuration.name == "dmn_json"
-assert r.configuration.version == "0.4.0-rc.1"
+assert r.configuration.version == "0.4.0-rc1"
 c=r.tools_configuration[0]
 assert not c.credentials_schema
 assert [t.identity.name for t in c.tools] == ["evaluate_json_table", "query_local", "execute_json_plan", "execute_query", "evaluate_decision"]
@@ -146,4 +146,17 @@ def test_staged_node_sdk_stdio(tmp_path):
     )
     evidence = json.loads((tmp_path / "evidence.json").read_text())
     assert evidence["node_calls"] == 6
-    assert evidence["manifest"]["version"] == "0.4.0-rc.1"
+    assert evidence["manifest"]["version"] == "0.4.0-rc1"
+
+
+def test_manifest_matches_official_cli_0610_version_format():
+    # langgenius/dify-plugin-daemon tag 0.6.10, commit 1310a18,
+    # pkg/entities/manifest_entities/version.go:25 VERSION_PATTERN.
+    import re
+
+    pattern = r"\d{1,4}(\.\d{1,4}){2}(-\w{1,16})?"
+    manifest = yaml.safe_load((ROOT / "builtin/manifest.yaml").read_text())
+    assert re.fullmatch(pattern, manifest["version"], flags=re.ASCII)
+    assert manifest["version"] == "0.4.0-rc1"
+    assert not re.fullmatch(pattern, "0.4.0-rc.1", flags=re.ASCII)
+    assert "RC" in manifest["label"]["en_US"]

@@ -1,9 +1,9 @@
 {
   "scope": "LOCAL_PRODUCT_TESTS_NOT_TARGET_ACCEPTANCE",
-  "version": "0.4.0-rc.1",
-  "base_commit": "d39bfde5a08ac9393e6bd97be0b7750f0c5f2182",
+  "version": "0.4.0-rc1",
+  "base_commit": "7c9d2d479705da8048023c198cfc46ffdd0a13d5",
   "python_full_regression": {
-    "tests": 542,
+    "tests": 574,
     "failures": 0,
     "errors": 0,
     "skipped": 0
@@ -23,7 +23,7 @@
     "cases": 67,
     "v0.4_cases": 60,
     "v0.5_cases": 7,
-    "unique_test_references": 115,
+    "unique_test_references": 126,
     "recorded_offline_status": {
       "PARTIAL": 33,
       "PASS": 25,
@@ -37,7 +37,7 @@
     "current_test_run": "PASS",
     "release_gate": "BLOCKED",
     "scope": "Index consistency is not product testing; offline tests are not target acceptance.",
-    "tests_executed": 336,
+    "tests_executed": 359,
     "nonpassing_tests": 0,
     "unaccepted_v0.4_cases": [
       "AC-001",
@@ -110,16 +110,20 @@
   "target_host": "BLOCKED",
   "files": [
     {
+      "path": "acceptance/dsl-v0.4-evidence.json",
+      "sha256": "0580ae88ad63a76586781e8940e74564689fa464387d23136632b4597dcfdd50"
+    },
+    {
       "path": "adapters/host/README.md",
       "sha256": "e8b214367c026014d3b77018de35d75fe092005fc7a2d2bf8819e94caa03fe18"
     },
     {
       "path": "adapters/host/reference_runtime.py",
-      "sha256": "e0ef9808191b603fbd3ad42af80701e53d765e30da3c908ae080e544fde7766f"
+      "sha256": "523d3bf6c29f2712552651abe4f48f3e7e2c5ffe89d7d2f8fd11bbb71eb99c94"
     },
     {
       "path": "builtin/manifest.yaml",
-      "sha256": "d04d7cd972ce29bf33d628b641b28d23f6205289fd6f9587a3bd443a6b47a96b"
+      "sha256": "47ac231d3dee85af14d9def185d609e363913bcbb29d843d47c71804aeb89f19"
     },
     {
       "path": "builtin/provider.py",
@@ -128,6 +132,18 @@
     {
       "path": "builtin/provider.yaml",
       "sha256": "11d4b07888dec732d6efd5844c95b18ad3eb0c99b4e7a3eded1a202a77d31bf0"
+    },
+    {
+      "path": "docs/dsl-v0.4-acceptance.md",
+      "sha256": "fbe95ee413c81555796de1350024079841669111e09f767855947965bbccc0d0"
+    },
+    {
+      "path": "docs/dsl-v0.4-independent-review.md",
+      "sha256": "96dd70042e958acb42ed56c2cde3153acf660e78eec15c7f04bcd60a44dd9f7f"
+    },
+    {
+      "path": "docs/dsl-v0.4.md",
+      "sha256": "4b1ddd3d5b34e967c4bde8733562414cafdbdc36a5613565e575d924169f84e0"
     },
     {
       "path": "examples/dsl-v0.4/README.md",
@@ -175,7 +191,7 @@
     },
     {
       "path": "plugin/dmn_client/decision_executor.py",
-      "sha256": "45e9f3815c9a8be6b43cbbce51443ebe472db6bec6c0f7d787e23ce328932dc8"
+      "sha256": "bbc4ae5ee5a95fd3d65fc54a8fe0fdc972a61a4743c3b3ca563bec07d3c2e8ce"
     },
     {
       "path": "plugin/dmn_client/dsl_schemas/architecture.schema.json",
@@ -223,7 +239,7 @@
     },
     {
       "path": "plugin/dmn_client/query_executor.py",
-      "sha256": "12ed1fdfa0d6eac53d09e752c0c40ec00412bbb6ec07f3822e72fb8afe66fb53"
+      "sha256": "0193e5cc7883eaf6e42b41b7a56482a651fe90a9e4a26afb10835e537f1060d5"
     },
     {
       "path": "plugin/pyproject.toml",
@@ -247,15 +263,15 @@
     },
     {
       "path": "plugin/tests/test_decision_executor.py",
-      "sha256": "aee21ee936c38e4690e38612472e605b7ef23102c614745a83670aef1f44eb7b"
+      "sha256": "00d2739450eef06f2e11abcf0ddf12f8a731f0809c9ec4ae695e4a9c10af58b5"
     },
     {
       "path": "plugin/tests/test_dsl_reference_flow.py",
-      "sha256": "e88d91e786f97454bfc5ef480428e6c6ffa89e3af62ff619cd0dc851c7d5a217"
+      "sha256": "056071041548179261fc658b3c1de979d460c9fda051ef1c95e32303d275b4b5"
     },
     {
       "path": "plugin/tests/test_dsl_sdk.py",
-      "sha256": "2daf0a7ff6fb6d17abb5b9393eb2cbc1b5669e6ba35388016d236c29dd7f50e2"
+      "sha256": "ea46636373b300068b68ab9e762b25e906e1d166f02063a9ba7ec963042c8f19"
     },
     {
       "path": "plugin/tests/test_flows.py",
@@ -263,7 +279,7 @@
     },
     {
       "path": "plugin/tests/test_json_table.py",
-      "sha256": "20f760f65ce6d6d6fc560cc359896fafdd8e25e7f4248342514969b2e465db91"
+      "sha256": "12e36338844e387e67b7f2a24a45cd5aa730d99d404f06e3131ee5577ec6c029"
     },
     {
       "path": "plugin/tests/test_live_engine.py",
@@ -279,11 +295,11 @@
     },
     {
       "path": "plugin/tests/test_query_executor.py",
-      "sha256": "e5a54630c20d33247ee89989bfa144d8ae51d0b58fbb12189228f4da81c3123e"
+      "sha256": "95cb670d526b20c477489ef945efc4e18f605ab165c182949746c598129d08e4"
     },
     {
       "path": "plugin/tests/test_reference_host.py",
-      "sha256": "114b036fd9c28e3b6c9344d65682fcd524809f8feee07613781db1dab6938b76"
+      "sha256": "cda54e72937f5090b8526e546f1ce7a4f2889c12b35a711be5f190460b5281d7"
     },
     {
       "path": "plugin/tests/test_review_boundaries.py",
@@ -366,20 +382,37 @@
       "sha256": "7df4118b62bf21ecf7bbb3fbc43396f7b9062e9e76989d5f94a109eb4a7c5f37"
     },
     {
+      "path": "scripts/check-dsl-evidence.py",
+      "sha256": "b53769eb74efebaf343461819c1a392a0f086cb6e1e0c7ac6ebb3a303e8a6ed9"
+    },
+    {
       "path": "scripts/compatibility/builtin_stdio.py",
-      "sha256": "3f0b9ddfecdfa70bff4da8e6b93230254ba9eb191cd40505dffe1022c5b624a6"
+      "sha256": "d0e72645a3a739856cbc456f508c151b9355ddff8db0d5a1d0e92c80409e7471"
     },
     {
       "path": "scripts/compatibility/dsl_stdio.py",
-      "sha256": "b61b01b5f78004f9cad2939676da08de28be81a5692b39a43f376101dce9d983"
+      "sha256": "92de088609c5da1c6d2f432933834b398d68b01fc0008d730db23a6175eb191c"
     },
     {
       "path": "scripts/run-reference-dsl.py",
-      "sha256": "77dacee032b14511f065f57bbe87edc35f19cc9b037e3c66f9a22511a7618bd3"
+      "sha256": "b057419f2ac6cda658564e00907780698115f2b70b7c38e885767596895a0606"
     },
     {
       "path": "scripts/stage-builtin.py",
-      "sha256": "8f91353d6539be7d0ae24598a7a319384394af60147129f44bfd847567367e76"
+      "sha256": "224474f07e04263c4bac099508fe5ece4024985648e9a20909e5bbad32e39c52"
     }
-  ]
+  ],
+  "implementation_status": {
+    "IMPLEMENTED": 46,
+    "LIMITED": 12,
+    "MISSING": 2,
+    "DEFERRED": 7
+  },
+  "official_cli_version_format": {
+    "version": "0.6.10",
+    "source_commit": "1310a18b2f6bc6f18768a0a6265484830891433c",
+    "candidate": "0.4.0-rc1",
+    "format_regression": "PASS",
+    "actual_candidate_packaging": "NOT_RUN"
+  }
 }

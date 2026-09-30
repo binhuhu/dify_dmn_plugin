@@ -27,7 +27,9 @@
       "evidence": [],
       "product_status": "BLOCKED",
       "remaining_evidence": "Target host/version, canvas mapping and durable deployed runtime evidence not supplied; reference-host tests are offline evidence only.",
-      "offline_scope": "Reference single-owner SQLite host / SYNTHETIC flow only; bounded serial branches, no nested PARALLEL/WAIT support, no target Dify mapping or production interaction."
+      "offline_scope": "Reference single-owner SQLite host / SYNTHETIC flow only; bounded serial branches, no nested PARALLEL/WAIT support, no target Dify mapping or production interaction.",
+      "implementation_status": "IMPLEMENTED",
+      "implementation_gap": ""
     },
     {
       "id": "AC-002",
@@ -49,7 +51,9 @@
       "evidence": [],
       "product_status": "BLOCKED",
       "remaining_evidence": "Cited local product tests passed in the recorded run. Target integration/installation and trusted-source acceptance are separately unverified.",
-      "offline_scope": "Actual production validator/NodeIO/SDK entry over SYNTHETIC fixtures; no target deployment acceptance implied."
+      "offline_scope": "Actual production validator/NodeIO/SDK entry over SYNTHETIC fixtures; no target deployment acceptance implied.",
+      "implementation_status": "IMPLEMENTED",
+      "implementation_gap": ""
     },
     {
       "id": "AC-003",
@@ -68,7 +72,9 @@
       "evidence": [],
       "product_status": "BLOCKED",
       "remaining_evidence": "Cited local product tests passed in the recorded run. Target integration/installation and trusted-source acceptance are separately unverified.",
-      "offline_scope": "Actual production validator/NodeIO/SDK entry over SYNTHETIC fixtures; no target deployment acceptance implied."
+      "offline_scope": "Actual production validator/NodeIO/SDK entry over SYNTHETIC fixtures; no target deployment acceptance implied.",
+      "implementation_status": "IMPLEMENTED",
+      "implementation_gap": ""
     },
     {
       "id": "AC-004",
@@ -88,7 +94,9 @@
       "evidence": [],
       "product_status": "BLOCKED",
       "remaining_evidence": "Target host/version, canvas mapping and durable deployed runtime evidence not supplied; reference-host tests are offline evidence only.",
-      "offline_scope": "Reference single-owner SQLite host / SYNTHETIC flow only; bounded serial branches, no nested PARALLEL/WAIT support, no target Dify mapping or production interaction."
+      "offline_scope": "Reference single-owner SQLite host / SYNTHETIC flow only; bounded serial branches, no nested PARALLEL/WAIT support, no target Dify mapping or production interaction.",
+      "implementation_status": "IMPLEMENTED",
+      "implementation_gap": ""
     },
     {
       "id": "AC-005",
@@ -107,7 +115,9 @@
       "evidence": [],
       "product_status": "BLOCKED",
       "remaining_evidence": "Cited local product tests passed in the recorded run. Target integration/installation and trusted-source acceptance are separately unverified.",
-      "offline_scope": "Actual production validator/NodeIO/SDK entry over SYNTHETIC fixtures; no target deployment acceptance implied."
+      "offline_scope": "Actual production validator/NodeIO/SDK entry over SYNTHETIC fixtures; no target deployment acceptance implied.",
+      "implementation_status": "LIMITED",
+      "implementation_gap": "支持的图节点可验证，但额外拒绝 PARALLEL 内 WAIT/嵌套 PARALLEL；这比 v2 明确排除的 INCLUSIVE 范围更窄。"
     },
     {
       "id": "AC-006",
@@ -126,12 +136,15 @@
         "plugin/tests/test_dsl_sdk.py::test_node_tools_outer_json_once",
         "plugin/tests/test_dsl_sdk.py::test_new_provider_registration_and_fixed_forms",
         "plugin/tests/test_query_executor.py::test_configured_staged_sdk_stdio_and_invalid_tokens",
-        "plugin/tests/test_query_executor.py::test_later_operation_invalid_bindings_rejected_before_first_io"
+        "plugin/tests/test_query_executor.py::test_later_operation_invalid_bindings_rejected_before_first_io",
+        "plugin/tests/test_query_executor.py::test_registry_asset_lock_required_even_when_trusted_bytes_exist"
       ],
       "evidence": [],
       "product_status": "BLOCKED",
       "remaining_evidence": "Cited local product tests passed in the recorded run. Target integration/installation and trusted-source acceptance are separately unverified.",
-      "offline_scope": "Actual production validator/NodeIO/SDK entry over SYNTHETIC fixtures; no target deployment acceptance implied."
+      "offline_scope": "Actual production validator/NodeIO/SDK entry over SYNTHETIC fixtures; no target deployment acceptance implied.",
+      "implementation_status": "IMPLEMENTED",
+      "implementation_gap": ""
     },
     {
       "id": "AC-007",
@@ -153,7 +166,9 @@
       "evidence": [],
       "product_status": "BLOCKED",
       "remaining_evidence": "Cited local product tests passed in the recorded run. Target integration/installation and trusted-source acceptance are separately unverified.",
-      "offline_scope": "Actual production validator/NodeIO/SDK entry over SYNTHETIC fixtures; no target deployment acceptance implied."
+      "offline_scope": "Actual production validator/NodeIO/SDK entry over SYNTHETIC fixtures; no target deployment acceptance implied.",
+      "implementation_status": "IMPLEMENTED",
+      "implementation_gap": ""
     },
     {
       "id": "AC-008",
@@ -177,7 +192,9 @@
       "evidence": [],
       "product_status": "BLOCKED",
       "remaining_evidence": "Cited local product tests passed in the recorded run. Target integration/installation and trusted-source acceptance are separately unverified.",
-      "offline_scope": "Actual production validator/NodeIO/SDK entry over SYNTHETIC fixtures; no target deployment acceptance implied."
+      "offline_scope": "Actual production validator/NodeIO/SDK entry over SYNTHETIC fixtures; no target deployment acceptance implied.",
+      "implementation_status": "IMPLEMENTED",
+      "implementation_gap": ""
     },
     {
       "id": "AC-009",
@@ -196,12 +213,16 @@
         "plugin/tests/test_bindings.py::test_parameter_payload_cannot_upgrade_unknown",
         "plugin/tests/test_bindings.py::test_unknown_value_cannot_be_stripped_into_action_arguments",
         "plugin/tests/test_decision_executor.py::test_dynamic_runtime_claims_do_not_supply_trusted_output_sources",
-        "plugin/tests/test_decision_executor.py::test_unknown_data_binding_cannot_strip_quality"
+        "plugin/tests/test_decision_executor.py::test_unknown_data_binding_cannot_strip_quality",
+        "plugin/tests/test_reference_host.py::test_host_value_projection_cannot_erase_unknown_quality",
+        "plugin/tests/test_reference_host.py::test_wait_parameter_binding_preserves_unknown_on_new_attempt"
       ],
       "evidence": [],
       "product_status": "BLOCKED",
       "remaining_evidence": "Cited local product tests passed in the recorded run. Target integration/installation and trusted-source acceptance are separately unverified.",
-      "offline_scope": "Actual production validator/NodeIO/SDK entry over SYNTHETIC fixtures; no target deployment acceptance implied."
+      "offline_scope": "Actual production validator/NodeIO/SDK entry over SYNTHETIC fixtures; no target deployment acceptance implied.",
+      "implementation_status": "IMPLEMENTED",
+      "implementation_gap": ""
     },
     {
       "id": "AC-010",
@@ -220,7 +241,9 @@
       "evidence": [],
       "product_status": "BLOCKED",
       "remaining_evidence": "Cited local product tests passed in the recorded run. Target integration/installation and trusted-source acceptance are separately unverified.",
-      "offline_scope": "Actual production validator/NodeIO/SDK entry over SYNTHETIC fixtures; no target deployment acceptance implied."
+      "offline_scope": "Actual production validator/NodeIO/SDK entry over SYNTHETIC fixtures; no target deployment acceptance implied.",
+      "implementation_status": "IMPLEMENTED",
+      "implementation_gap": ""
     },
     {
       "id": "AC-011",
@@ -239,7 +262,9 @@
       "evidence": [],
       "product_status": "BLOCKED",
       "remaining_evidence": "Real read API, trusted authorization/scopes and sanitized receipts not supplied; local HTTP/SYNTHETIC tests are not real integration.",
-      "offline_scope": "Registered local HTTP SYNTHETIC transport; serial bounded DAG and fixed IP endpoint subset. No real API, tenant authorization or production freshness acceptance."
+      "offline_scope": "Registered local HTTP SYNTHETIC transport; serial bounded DAG and fixed IP endpoint subset. No real API, tenant authorization or production freshness acceptance.",
+      "implementation_status": "IMPLEMENTED",
+      "implementation_gap": ""
     },
     {
       "id": "AC-012",
@@ -259,7 +284,9 @@
       "evidence": [],
       "product_status": "BLOCKED",
       "remaining_evidence": "Real read API, trusted authorization/scopes and sanitized receipts not supplied; local HTTP/SYNTHETIC tests are not real integration.",
-      "offline_scope": "Registered local HTTP SYNTHETIC transport; serial bounded DAG and fixed IP endpoint subset. No real API, tenant authorization or production freshness acceptance."
+      "offline_scope": "Registered local HTTP SYNTHETIC transport; serial bounded DAG and fixed IP endpoint subset. No real API, tenant authorization or production freshness acceptance.",
+      "implementation_status": "IMPLEMENTED",
+      "implementation_gap": ""
     },
     {
       "id": "AC-013",
@@ -279,7 +306,9 @@
       "evidence": [],
       "product_status": "BLOCKED",
       "remaining_evidence": "Real read API, trusted authorization/scopes and sanitized receipts not supplied; local HTTP/SYNTHETIC tests are not real integration.",
-      "offline_scope": "Registered local HTTP SYNTHETIC transport; serial bounded DAG and fixed IP endpoint subset. No real API, tenant authorization or production freshness acceptance."
+      "offline_scope": "Registered local HTTP SYNTHETIC transport; serial bounded DAG and fixed IP endpoint subset. No real API, tenant authorization or production freshness acceptance.",
+      "implementation_status": "IMPLEMENTED",
+      "implementation_gap": ""
     },
     {
       "id": "AC-014",
@@ -298,7 +327,9 @@
       "evidence": [],
       "product_status": "BLOCKED",
       "remaining_evidence": "Real read API, trusted authorization/scopes and sanitized receipts not supplied; local HTTP/SYNTHETIC tests are not real integration.",
-      "offline_scope": "Registered local HTTP SYNTHETIC transport; serial bounded DAG and fixed IP endpoint subset. No real API, tenant authorization or production freshness acceptance."
+      "offline_scope": "Registered local HTTP SYNTHETIC transport; serial bounded DAG and fixed IP endpoint subset. No real API, tenant authorization or production freshness acceptance.",
+      "implementation_status": "IMPLEMENTED",
+      "implementation_gap": ""
     },
     {
       "id": "AC-015",
@@ -319,7 +350,9 @@
       "evidence": [],
       "product_status": "BLOCKED",
       "remaining_evidence": "Real read API, trusted authorization/scopes and sanitized receipts not supplied; local HTTP/SYNTHETIC tests are not real integration.",
-      "offline_scope": "Registered local HTTP SYNTHETIC transport; serial bounded DAG and fixed IP endpoint subset. No real API, tenant authorization or production freshness acceptance."
+      "offline_scope": "Registered local HTTP SYNTHETIC transport; serial bounded DAG and fixed IP endpoint subset. No real API, tenant authorization or production freshness acceptance.",
+      "implementation_status": "LIMITED",
+      "implementation_gap": "分页、batch、截断和预算分别实现；可信适配器拒绝分页与 batch 组合，固定 literal-IP 传输子集未覆盖通用多 API 适配。"
     },
     {
       "id": "AC-016",
@@ -339,7 +372,9 @@
       "evidence": [],
       "product_status": "BLOCKED",
       "remaining_evidence": "Real read API, trusted authorization/scopes and sanitized receipts not supplied; local HTTP/SYNTHETIC tests are not real integration.",
-      "offline_scope": "Registered local HTTP SYNTHETIC transport; serial bounded DAG and fixed IP endpoint subset. No real API, tenant authorization or production freshness acceptance."
+      "offline_scope": "Registered local HTTP SYNTHETIC transport; serial bounded DAG and fixed IP endpoint subset. No real API, tenant authorization or production freshness acceptance.",
+      "implementation_status": "IMPLEMENTED",
+      "implementation_gap": ""
     },
     {
       "id": "AC-017",
@@ -355,12 +390,16 @@
       "tests": [
         "plugin/tests/test_decision_executor.py::test_snapshot_boundaries",
         "plugin/tests/test_decision_executor.py::test_policy_authentication_and_age_rejection_have_no_decision",
-        "plugin/tests/test_query_executor.py::test_scope_source_freshness_no_reuse"
+        "plugin/tests/test_query_executor.py::test_scope_source_freshness_no_reuse",
+        "plugin/tests/test_decision_executor.py::test_trusted_sources_rebound_reject_forged_snapshot",
+        "plugin/tests/test_dsl_reference_flow.py::test_trusted_host_rebind_rejects_tampered_decision_snapshot"
       ],
       "evidence": [],
       "product_status": "BLOCKED",
       "remaining_evidence": "Real read API, trusted authorization/scopes and sanitized receipts not supplied; local HTTP/SYNTHETIC tests are not real integration.",
-      "offline_scope": "Registered local HTTP SYNTHETIC transport; serial bounded DAG and fixed IP endpoint subset. No real API, tenant authorization or production freshness acceptance."
+      "offline_scope": "Registered local HTTP SYNTHETIC transport; serial bounded DAG and fixed IP endpoint subset. No real API, tenant authorization or production freshness acceptance.",
+      "implementation_status": "LIMITED",
+      "implementation_gap": "已有主体/租户/授权签名检查及可信宿主重绑定，但默认 SDK 决策为 CONTENT_ONLY；尚无 SDK 可信 policy 配置入口或完整来源最大年龄/跨调用复用治理。"
     },
     {
       "id": "AC-018",
@@ -382,7 +421,9 @@
       "evidence": [],
       "product_status": "BLOCKED",
       "remaining_evidence": "Real read API, trusted authorization/scopes and sanitized receipts not supplied; local HTTP/SYNTHETIC tests are not real integration.",
-      "offline_scope": "Registered local HTTP SYNTHETIC transport; serial bounded DAG and fixed IP endpoint subset. No real API, tenant authorization or production freshness acceptance."
+      "offline_scope": "Registered local HTTP SYNTHETIC transport; serial bounded DAG and fixed IP endpoint subset. No real API, tenant authorization or production freshness acceptance.",
+      "implementation_status": "IMPLEMENTED",
+      "implementation_gap": ""
     },
     {
       "id": "AC-019",
@@ -404,7 +445,9 @@
       "evidence": [],
       "product_status": "BLOCKED",
       "remaining_evidence": "Real read API, trusted authorization/scopes and sanitized receipts not supplied; local HTTP/SYNTHETIC tests are not real integration.",
-      "offline_scope": "Registered local HTTP SYNTHETIC transport; serial bounded DAG and fixed IP endpoint subset. No real API, tenant authorization or production freshness acceptance."
+      "offline_scope": "Registered local HTTP SYNTHETIC transport; serial bounded DAG and fixed IP endpoint subset. No real API, tenant authorization or production freshness acceptance.",
+      "implementation_status": "LIMITED",
+      "implementation_gap": "默认 SDK 查询 HMAC loader 验证签名与最多 300 秒时效，但只读 token 有效期可重放；未接宿主持久 activation ledger 核验当前激活/撤销，不能等同在线状态授权。"
     },
     {
       "id": "AC-020",
@@ -425,7 +468,9 @@
       "evidence": [],
       "product_status": "BLOCKED",
       "remaining_evidence": "Real read API, trusted authorization/scopes and sanitized receipts not supplied; local HTTP/SYNTHETIC tests are not real integration.",
-      "offline_scope": "Registered local HTTP SYNTHETIC transport; serial bounded DAG and fixed IP endpoint subset. No real API, tenant authorization or production freshness acceptance."
+      "offline_scope": "Registered local HTTP SYNTHETIC transport; serial bounded DAG and fixed IP endpoint subset. No real API, tenant authorization or production freshness acceptance.",
+      "implementation_status": "IMPLEMENTED",
+      "implementation_gap": ""
     },
     {
       "id": "AC-021",
@@ -440,12 +485,15 @@
       "offline_status": "PARTIAL",
       "tests": [
         "plugin/tests/test_query_executor.py::test_required_partial_and_http_redirect_not_empty_success",
-        "plugin/tests/test_query_executor.py::test_optional_gap_retains_unknown"
+        "plugin/tests/test_query_executor.py::test_optional_gap_retains_unknown",
+        "plugin/tests/test_query_executor.py::test_optional_query_gap_binds_and_decides_unknown"
       ],
       "evidence": [],
       "product_status": "BLOCKED",
       "remaining_evidence": "Real read API, trusted authorization/scopes and sanitized receipts not supplied; local HTTP/SYNTHETIC tests are not real integration.",
-      "offline_scope": "Registered local HTTP SYNTHETIC transport; serial bounded DAG and fixed IP endpoint subset. No real API, tenant authorization or production freshness acceptance."
+      "offline_scope": "Registered local HTTP SYNTHETIC transport; serial bounded DAG and fixed IP endpoint subset. No real API, tenant authorization or production freshness acceptance.",
+      "implementation_status": "IMPLEMENTED",
+      "implementation_gap": ""
     },
     {
       "id": "AC-022",
@@ -461,12 +509,16 @@
       "tests": [
         "plugin/tests/test_query_executor.py::test_preflight_rejection_zero_io",
         "plugin/tests/test_query_executor.py::test_timeout_stops_new_calls",
-        "plugin/tests/test_query_executor.py::test_cumulative_call_budget_exhaustion"
+        "plugin/tests/test_query_executor.py::test_cumulative_call_budget_exhaustion",
+        "plugin/tests/test_query_executor.py::test_drip_headers_share_total_deadline",
+        "plugin/tests/test_query_executor.py::test_tcp_and_tls_setup_share_capability_deadline"
       ],
       "evidence": [],
       "product_status": "BLOCKED",
       "remaining_evidence": "Real read API, trusted authorization/scopes and sanitized receipts not supplied; local HTTP/SYNTHETIC tests are not real integration.",
-      "offline_scope": "Registered local HTTP SYNTHETIC transport; serial bounded DAG and fixed IP endpoint subset. No real API, tenant authorization or production freshness acceptance."
+      "offline_scope": "Registered local HTTP SYNTHETIC transport; serial bounded DAG and fixed IP endpoint subset. No real API, tenant authorization or production freshness acceptance.",
+      "implementation_status": "IMPLEMENTED",
+      "implementation_gap": ""
     },
     {
       "id": "AC-023",
@@ -485,7 +537,9 @@
       "evidence": [],
       "product_status": "BLOCKED",
       "remaining_evidence": "Cited local product tests passed in the recorded run. Target integration/installation and trusted-source acceptance are separately unverified.",
-      "offline_scope": "Actual pure decision executor with typed SYNTHETIC records; no external source authenticity or production policy approval claimed."
+      "offline_scope": "Actual pure decision executor with typed SYNTHETIC records; no external source authenticity or production policy approval claimed.",
+      "implementation_status": "IMPLEMENTED",
+      "implementation_gap": ""
     },
     {
       "id": "AC-024",
@@ -504,7 +558,9 @@
       "evidence": [],
       "product_status": "BLOCKED",
       "remaining_evidence": "Cited local product tests passed in the recorded run. Target integration/installation and trusted-source acceptance are separately unverified.",
-      "offline_scope": "Actual pure decision executor with typed SYNTHETIC records; no external source authenticity or production policy approval claimed."
+      "offline_scope": "Actual pure decision executor with typed SYNTHETIC records; no external source authenticity or production policy approval claimed.",
+      "implementation_status": "IMPLEMENTED",
+      "implementation_gap": ""
     },
     {
       "id": "AC-025",
@@ -523,7 +579,9 @@
       "evidence": [],
       "product_status": "BLOCKED",
       "remaining_evidence": "Cited local product tests passed in the recorded run. Target integration/installation and trusted-source acceptance are separately unverified.",
-      "offline_scope": "Actual pure decision executor with typed SYNTHETIC records; no external source authenticity or production policy approval claimed."
+      "offline_scope": "Actual pure decision executor with typed SYNTHETIC records; no external source authenticity or production policy approval claimed.",
+      "implementation_status": "IMPLEMENTED",
+      "implementation_gap": ""
     },
     {
       "id": "AC-026",
@@ -543,7 +601,9 @@
       "evidence": [],
       "product_status": "BLOCKED",
       "remaining_evidence": "Cited local product tests passed in the recorded run. Target integration/installation and trusted-source acceptance are separately unverified.",
-      "offline_scope": "Actual pure decision executor with typed SYNTHETIC records; no external source authenticity or production policy approval claimed."
+      "offline_scope": "Actual pure decision executor with typed SYNTHETIC records; no external source authenticity or production policy approval claimed.",
+      "implementation_status": "IMPLEMENTED",
+      "implementation_gap": ""
     },
     {
       "id": "AC-027",
@@ -562,7 +622,9 @@
       "evidence": [],
       "product_status": "BLOCKED",
       "remaining_evidence": "Cited local product tests passed in the recorded run. Target integration/installation and trusted-source acceptance are separately unverified.",
-      "offline_scope": "Actual pure decision executor with typed SYNTHETIC records; no external source authenticity or production policy approval claimed."
+      "offline_scope": "Actual pure decision executor with typed SYNTHETIC records; no external source authenticity or production policy approval claimed.",
+      "implementation_status": "IMPLEMENTED",
+      "implementation_gap": ""
     },
     {
       "id": "AC-028",
@@ -581,7 +643,9 @@
       "evidence": [],
       "product_status": "BLOCKED",
       "remaining_evidence": "Cited local product tests passed in the recorded run. Target integration/installation and trusted-source acceptance are separately unverified.",
-      "offline_scope": "Actual pure decision executor with typed SYNTHETIC records; no external source authenticity or production policy approval claimed."
+      "offline_scope": "Actual pure decision executor with typed SYNTHETIC records; no external source authenticity or production policy approval claimed.",
+      "implementation_status": "IMPLEMENTED",
+      "implementation_gap": ""
     },
     {
       "id": "AC-029",
@@ -603,7 +667,9 @@
       "evidence": [],
       "product_status": "BLOCKED",
       "remaining_evidence": "Cited local product tests passed in the recorded run. Target integration/installation and trusted-source acceptance are separately unverified. Static subset requires each CONTROL template to carry its route-required intents; action-only cross-template route composition is not supported.",
-      "offline_scope": "Actual pure decision executor with typed SYNTHETIC records; no external source authenticity or production policy approval claimed."
+      "offline_scope": "Actual pure decision executor with typed SYNTHETIC records; no external source authenticity or production policy approval claimed.",
+      "implementation_status": "LIMITED",
+      "implementation_gap": "COLLECT 支持 data-only 与 route/actions 行组合；不支持把 CONTROL 路线及其必要 action-only 意图拆在不同模板。"
     },
     {
       "id": "AC-030",
@@ -622,7 +688,9 @@
       "evidence": [],
       "product_status": "BLOCKED",
       "remaining_evidence": "Cited local product tests passed in the recorded run. Target integration/installation and trusted-source acceptance are separately unverified.",
-      "offline_scope": "Actual pure decision executor with typed SYNTHETIC records; no external source authenticity or production policy approval claimed."
+      "offline_scope": "Actual pure decision executor with typed SYNTHETIC records; no external source authenticity or production policy approval claimed.",
+      "implementation_status": "IMPLEMENTED",
+      "implementation_gap": ""
     },
     {
       "id": "AC-031",
@@ -641,7 +709,9 @@
       "evidence": [],
       "product_status": "BLOCKED",
       "remaining_evidence": "Cited local product tests passed in the recorded run. Target integration/installation and trusted-source acceptance are separately unverified.",
-      "offline_scope": "Actual pure decision executor with typed SYNTHETIC records; no external source authenticity or production policy approval claimed."
+      "offline_scope": "Actual pure decision executor with typed SYNTHETIC records; no external source authenticity or production policy approval claimed.",
+      "implementation_status": "LIMITED",
+      "implementation_gap": "状态/控制/数据冲突安全拒绝；C 归约受自包含 route/actions 模板限制，复杂事实集合仅保守冲突，不是完整业务实体归约。"
     },
     {
       "id": "AC-032",
@@ -661,7 +731,9 @@
       "evidence": [],
       "product_status": "BLOCKED",
       "remaining_evidence": "Cited local product tests passed in the recorded run. Target integration/installation and trusted-source acceptance are separately unverified.",
-      "offline_scope": "Actual pure decision executor with typed SYNTHETIC records; no external source authenticity or production policy approval claimed."
+      "offline_scope": "Actual pure decision executor with typed SYNTHETIC records; no external source authenticity or production policy approval claimed.",
+      "implementation_status": "IMPLEMENTED",
+      "implementation_gap": ""
     },
     {
       "id": "AC-033",
@@ -683,7 +755,9 @@
       "evidence": [],
       "product_status": "BLOCKED",
       "remaining_evidence": "Cited local product tests passed in the recorded run. Target integration/installation and trusted-source acceptance are separately unverified.",
-      "offline_scope": "Actual pure decision executor with typed SYNTHETIC records; no external source authenticity or production policy approval claimed."
+      "offline_scope": "Actual pure decision executor with typed SYNTHETIC records; no external source authenticity or production policy approval claimed.",
+      "implementation_status": "IMPLEMENTED",
+      "implementation_gap": ""
     },
     {
       "id": "AC-034",
@@ -703,7 +777,9 @@
       "evidence": [],
       "product_status": "BLOCKED",
       "remaining_evidence": "Cited local product tests passed in the recorded run. Target integration/installation and trusted-source acceptance are separately unverified.",
-      "offline_scope": "Actual pure decision executor with typed SYNTHETIC records; no external source authenticity or production policy approval claimed."
+      "offline_scope": "Actual pure decision executor with typed SYNTHETIC records; no external source authenticity or production policy approval claimed.",
+      "implementation_status": "IMPLEMENTED",
+      "implementation_gap": ""
     },
     {
       "id": "AC-035",
@@ -722,7 +798,9 @@
       "evidence": [],
       "product_status": "BLOCKED",
       "remaining_evidence": "Cited local product tests passed in the recorded run. Target integration/installation and trusted-source acceptance are separately unverified.",
-      "offline_scope": "Actual pure decision executor with typed SYNTHETIC records; no external source authenticity or production policy approval claimed."
+      "offline_scope": "Actual pure decision executor with typed SYNTHETIC records; no external source authenticity or production policy approval claimed.",
+      "implementation_status": "IMPLEMENTED",
+      "implementation_gap": ""
     },
     {
       "id": "AC-036",
@@ -744,7 +822,9 @@
       "evidence": [],
       "product_status": "BLOCKED",
       "remaining_evidence": "Target host/version, canvas mapping and durable deployed runtime evidence not supplied; reference-host tests are offline evidence only.",
-      "offline_scope": "Reference single-owner SQLite host / SYNTHETIC flow only; bounded serial branches, no nested PARALLEL/WAIT support, no target Dify mapping or production interaction."
+      "offline_scope": "Reference single-owner SQLite host / SYNTHETIC flow only; bounded serial branches, no nested PARALLEL/WAIT support, no target Dify mapping or production interaction.",
+      "implementation_status": "LIMITED",
+      "implementation_gap": "参考宿主执行控制激活与意图选择双条件；默认 SDK 无 trusted policy 注入，合法 context/node 输出绑定不能仅凭自报 runtime_snapshot 完成。 默认 SDK 查询 HMAC loader 验证签名与最多 300 秒时效，但只读 token 有效期可重放；未接宿主持久 activation ledger 核验当前激活/撤销，不能等同在线状态授权。"
     },
     {
       "id": "AC-037",
@@ -764,7 +844,9 @@
       "evidence": [],
       "product_status": "BLOCKED",
       "remaining_evidence": "Target host/version, canvas mapping and durable deployed runtime evidence not supplied; reference-host tests are offline evidence only.",
-      "offline_scope": "Reference single-owner SQLite host / SYNTHETIC flow only; bounded serial branches, no nested PARALLEL/WAIT support, no target Dify mapping or production interaction."
+      "offline_scope": "Reference single-owner SQLite host / SYNTHETIC flow only; bounded serial branches, no nested PARALLEL/WAIT support, no target Dify mapping or production interaction.",
+      "implementation_status": "IMPLEMENTED",
+      "implementation_gap": ""
     },
     {
       "id": "AC-038",
@@ -784,7 +866,9 @@
       "evidence": [],
       "product_status": "BLOCKED",
       "remaining_evidence": "Target host/version, canvas mapping and durable deployed runtime evidence not supplied; reference-host tests are offline evidence only.",
-      "offline_scope": "Reference single-owner SQLite host / SYNTHETIC flow only; bounded serial branches, no nested PARALLEL/WAIT support, no target Dify mapping or production interaction."
+      "offline_scope": "Reference single-owner SQLite host / SYNTHETIC flow only; bounded serial branches, no nested PARALLEL/WAIT support, no target Dify mapping or production interaction.",
+      "implementation_status": "IMPLEMENTED",
+      "implementation_gap": ""
     },
     {
       "id": "AC-039",
@@ -804,7 +888,9 @@
       "evidence": [],
       "product_status": "BLOCKED",
       "remaining_evidence": "Target host/version, canvas mapping and durable deployed runtime evidence not supplied; reference-host tests are offline evidence only.",
-      "offline_scope": "Reference single-owner SQLite host / SYNTHETIC flow only; bounded serial branches, no nested PARALLEL/WAIT support, no target Dify mapping or production interaction."
+      "offline_scope": "Reference single-owner SQLite host / SYNTHETIC flow only; bounded serial branches, no nested PARALLEL/WAIT support, no target Dify mapping or production interaction.",
+      "implementation_status": "IMPLEMENTED",
+      "implementation_gap": ""
     },
     {
       "id": "AC-040",
@@ -823,7 +909,9 @@
       "evidence": [],
       "product_status": "BLOCKED",
       "remaining_evidence": "Target host/version, canvas mapping and durable deployed runtime evidence not supplied; reference-host tests are offline evidence only.",
-      "offline_scope": "Reference single-owner SQLite host / SYNTHETIC flow only; bounded serial branches, no nested PARALLEL/WAIT support, no target Dify mapping or production interaction."
+      "offline_scope": "Reference single-owner SQLite host / SYNTHETIC flow only; bounded serial branches, no nested PARALLEL/WAIT support, no target Dify mapping or production interaction.",
+      "implementation_status": "IMPLEMENTED",
+      "implementation_gap": ""
     },
     {
       "id": "AC-041",
@@ -842,7 +930,9 @@
       "evidence": [],
       "product_status": "BLOCKED",
       "remaining_evidence": "Target host/version, canvas mapping and durable deployed runtime evidence not supplied; reference-host tests are offline evidence only.",
-      "offline_scope": "Reference single-owner SQLite host / SYNTHETIC flow only; bounded serial branches, no nested PARALLEL/WAIT support, no target Dify mapping or production interaction."
+      "offline_scope": "Reference single-owner SQLite host / SYNTHETIC flow only; bounded serial branches, no nested PARALLEL/WAIT support, no target Dify mapping or production interaction.",
+      "implementation_status": "LIMITED",
+      "implementation_gap": "参考宿主按 fork_run_id/branch_id JOIN；嵌套 PARALLEL 和分支 WAIT 尚未实现。"
     },
     {
       "id": "AC-042",
@@ -862,7 +952,9 @@
       "evidence": [],
       "product_status": "BLOCKED",
       "remaining_evidence": "Target host/version, canvas mapping and durable deployed runtime evidence not supplied; reference-host tests are offline evidence only.",
-      "offline_scope": "Reference single-owner SQLite host / SYNTHETIC flow only; bounded serial branches, no nested PARALLEL/WAIT support, no target Dify mapping or production interaction."
+      "offline_scope": "Reference single-owner SQLite host / SYNTHETIC flow only; bounded serial branches, no nested PARALLEL/WAIT support, no target Dify mapping or production interaction.",
+      "implementation_status": "LIMITED",
+      "implementation_gap": "参考宿主失败出口一次、取消未开始分支、晚到不重开；仅无嵌套/无分支 WAIT 子集。"
     },
     {
       "id": "AC-043",
@@ -882,7 +974,9 @@
       "evidence": [],
       "product_status": "BLOCKED",
       "remaining_evidence": "Target host/version, canvas mapping and durable deployed runtime evidence not supplied; reference-host tests are offline evidence only.",
-      "offline_scope": "Reference single-owner SQLite host / SYNTHETIC flow only; bounded serial branches, no nested PARALLEL/WAIT support, no target Dify mapping or production interaction."
+      "offline_scope": "Reference single-owner SQLite host / SYNTHETIC flow only; bounded serial branches, no nested PARALLEL/WAIT support, no target Dify mapping or production interaction.",
+      "implementation_status": "LIMITED",
+      "implementation_gap": "参考宿主 ALL_SUCCESS、重复分支结果不重复完成；仅无嵌套/无分支 WAIT 子集。"
     },
     {
       "id": "AC-044",
@@ -901,7 +995,9 @@
       "evidence": [],
       "product_status": "BLOCKED",
       "remaining_evidence": "Target host/version, canvas mapping and durable deployed runtime evidence not supplied; reference-host tests are offline evidence only.",
-      "offline_scope": "Actual production validator/NodeIO/SDK entry over SYNTHETIC fixtures; no target deployment acceptance implied."
+      "offline_scope": "Actual production validator/NodeIO/SDK entry over SYNTHETIC fixtures; no target deployment acceptance implied.",
+      "implementation_status": "IMPLEMENTED",
+      "implementation_gap": ""
     },
     {
       "id": "AC-045",
@@ -925,7 +1021,9 @@
       "evidence": [],
       "product_status": "BLOCKED",
       "remaining_evidence": "Target host/version, canvas mapping and durable deployed runtime evidence not supplied; reference-host tests are offline evidence only.",
-      "offline_scope": "Actual production validator/NodeIO/SDK entry over SYNTHETIC fixtures; no target deployment acceptance implied."
+      "offline_scope": "Actual production validator/NodeIO/SDK entry over SYNTHETIC fixtures; no target deployment acceptance implied.",
+      "implementation_status": "IMPLEMENTED",
+      "implementation_gap": ""
     },
     {
       "id": "AC-046",
@@ -946,7 +1044,9 @@
       "evidence": [],
       "product_status": "BLOCKED",
       "remaining_evidence": "Target host/version, canvas mapping and durable deployed runtime evidence not supplied; reference-host tests are offline evidence only.",
-      "offline_scope": "Reference single-owner SQLite host / SYNTHETIC flow only; bounded serial branches, no nested PARALLEL/WAIT support, no target Dify mapping or production interaction."
+      "offline_scope": "Reference single-owner SQLite host / SYNTHETIC flow only; bounded serial branches, no nested PARALLEL/WAIT support, no target Dify mapping or production interaction.",
+      "implementation_status": "IMPLEMENTED",
+      "implementation_gap": ""
     },
     {
       "id": "AC-047",
@@ -965,7 +1065,9 @@
       "evidence": [],
       "product_status": "BLOCKED",
       "remaining_evidence": "Target host/version, canvas mapping and durable deployed runtime evidence not supplied; reference-host tests are offline evidence only.",
-      "offline_scope": "Reference single-owner SQLite host / SYNTHETIC flow only; bounded serial branches, no nested PARALLEL/WAIT support, no target Dify mapping or production interaction."
+      "offline_scope": "Reference single-owner SQLite host / SYNTHETIC flow only; bounded serial branches, no nested PARALLEL/WAIT support, no target Dify mapping or production interaction.",
+      "implementation_status": "IMPLEMENTED",
+      "implementation_gap": ""
     },
     {
       "id": "AC-048",
@@ -980,12 +1082,16 @@
       "offline_status": "PARTIAL",
       "tests": [
         "plugin/tests/test_reference_host.py::test_wrong_event_correlation_rejected",
-        "plugin/tests/test_dsl_reference_flow.py::test_wait_rejects_wrong_subject_before_valid_resume"
+        "plugin/tests/test_dsl_reference_flow.py::test_wait_rejects_wrong_subject_before_valid_resume",
+        "plugin/tests/test_reference_host.py::test_wait_declared_tenant_correlation_is_enforced_after_restart",
+        "plugin/tests/test_reference_host.py::test_wait_missing_declared_correlation_fails_before_send"
       ],
       "evidence": [],
       "product_status": "BLOCKED",
       "remaining_evidence": "Target host/version, canvas mapping and durable deployed runtime evidence not supplied; reference-host tests are offline evidence only.",
-      "offline_scope": "Reference single-owner SQLite host / SYNTHETIC flow only; bounded serial branches, no nested PARALLEL/WAIT support, no target Dify mapping or production interaction."
+      "offline_scope": "Reference single-owner SQLite host / SYNTHETIC flow only; bounded serial branches, no nested PARALLEL/WAIT support, no target Dify mapping or production interaction.",
+      "implementation_status": "IMPLEMENTED",
+      "implementation_gap": "旧轮次、错主体及全部声明关联字段被拒绝；WAIT关联持久化后重启仍有效。目标宿主事件认证另待验收。"
     },
     {
       "id": "AC-049",
@@ -1005,7 +1111,9 @@
       "evidence": [],
       "product_status": "BLOCKED",
       "remaining_evidence": "Target host/version, canvas mapping and durable deployed runtime evidence not supplied; reference-host tests are offline evidence only.",
-      "offline_scope": "Reference single-owner SQLite host / SYNTHETIC flow only; bounded serial branches, no nested PARALLEL/WAIT support, no target Dify mapping or production interaction."
+      "offline_scope": "Reference single-owner SQLite host / SYNTHETIC flow only; bounded serial branches, no nested PARALLEL/WAIT support, no target Dify mapping or production interaction.",
+      "implementation_status": "IMPLEMENTED",
+      "implementation_gap": ""
     },
     {
       "id": "AC-050",
@@ -1025,7 +1133,9 @@
       "evidence": [],
       "product_status": "BLOCKED",
       "remaining_evidence": "Target host/version, canvas mapping and durable deployed runtime evidence not supplied; reference-host tests are offline evidence only.",
-      "offline_scope": "Reference single-owner SQLite host / SYNTHETIC flow only; bounded serial branches, no nested PARALLEL/WAIT support, no target Dify mapping or production interaction."
+      "offline_scope": "Reference single-owner SQLite host / SYNTHETIC flow only; bounded serial branches, no nested PARALLEL/WAIT support, no target Dify mapping or production interaction.",
+      "implementation_status": "IMPLEMENTED",
+      "implementation_gap": ""
     },
     {
       "id": "AC-051",
@@ -1045,7 +1155,9 @@
       "evidence": [],
       "product_status": "BLOCKED",
       "remaining_evidence": "Target host/version, canvas mapping and durable deployed runtime evidence not supplied; reference-host tests are offline evidence only.",
-      "offline_scope": "Reference single-owner SQLite host / SYNTHETIC flow only; bounded serial branches, no nested PARALLEL/WAIT support, no target Dify mapping or production interaction."
+      "offline_scope": "Reference single-owner SQLite host / SYNTHETIC flow only; bounded serial branches, no nested PARALLEL/WAIT support, no target Dify mapping or production interaction.",
+      "implementation_status": "IMPLEMENTED",
+      "implementation_gap": ""
     },
     {
       "id": "AC-052",
@@ -1064,7 +1176,9 @@
       "evidence": [],
       "product_status": "BLOCKED",
       "remaining_evidence": "Target host/version, canvas mapping and durable deployed runtime evidence not supplied; reference-host tests are offline evidence only.",
-      "offline_scope": "Reference single-owner SQLite host / SYNTHETIC flow only; bounded serial branches, no nested PARALLEL/WAIT support, no target Dify mapping or production interaction."
+      "offline_scope": "Reference single-owner SQLite host / SYNTHETIC flow only; bounded serial branches, no nested PARALLEL/WAIT support, no target Dify mapping or production interaction.",
+      "implementation_status": "LIMITED",
+      "implementation_gap": "唯一 owner 校验及参考宿主映射存在；目标宿主原生画布、交互、检查点适配尚未实现。"
     },
     {
       "id": "AC-053",
@@ -1083,7 +1197,9 @@
       "evidence": [],
       "product_status": "BLOCKED",
       "remaining_evidence": "Target host/version, canvas mapping and durable deployed runtime evidence not supplied; reference-host tests are offline evidence only.",
-      "offline_scope": "Reference single-owner SQLite host / SYNTHETIC flow only; bounded serial branches, no nested PARALLEL/WAIT support, no target Dify mapping or production interaction."
+      "offline_scope": "Reference single-owner SQLite host / SYNTHETIC flow only; bounded serial branches, no nested PARALLEL/WAIT support, no target Dify mapping or production interaction.",
+      "implementation_status": "IMPLEMENTED",
+      "implementation_gap": ""
     },
     {
       "id": "AC-054",
@@ -1137,7 +1253,9 @@
       "evidence": [],
       "product_status": "BLOCKED",
       "remaining_evidence": "Cited local product tests passed in the recorded run. Target integration/installation and trusted-source acceptance are separately unverified.",
-      "offline_scope": "Legacy local-table/local-plan/response-boundary regression, including original Node synthetic adapter records. Target upgrade remains untested."
+      "offline_scope": "Legacy local-table/local-plan/response-boundary regression, including original Node synthetic adapter records. Target upgrade remains untested.",
+      "implementation_status": "IMPLEMENTED",
+      "implementation_gap": ""
     },
     {
       "id": "AC-055",
@@ -1160,7 +1278,9 @@
       "evidence": [],
       "product_status": "BLOCKED",
       "remaining_evidence": "Cited local product tests passed in the recorded run. Target integration/installation and trusted-source acceptance are separately unverified.",
-      "offline_scope": "Actual SDK without provider credentials: pure decision and legacy tools work; new query explicitly unconfigured. Target optional-connection install untested."
+      "offline_scope": "Actual SDK without provider credentials: pure decision and legacy tools work; new query explicitly unconfigured. Target optional-connection install untested.",
+      "implementation_status": "IMPLEMENTED",
+      "implementation_gap": ""
     },
     {
       "id": "AC-056",
@@ -1176,12 +1296,15 @@
       "tests": [
         "plugin/tests/test_dsl_sdk.py::test_new_provider_registration_and_fixed_forms",
         "plugin/tests/test_dsl_sdk.py::test_staged_node_sdk_stdio",
-        "plugin/tests/test_query_executor.py::test_configured_staged_sdk_stdio_and_invalid_tokens"
+        "plugin/tests/test_query_executor.py::test_configured_staged_sdk_stdio_and_invalid_tokens",
+        "plugin/tests/test_dsl_sdk.py::test_manifest_matches_official_cli_0610_version_format"
       ],
       "evidence": [],
       "product_status": "BLOCKED",
       "remaining_evidence": "Official fixed-commit difypkg unpacking and target install/upgrade not yet executed.",
-      "offline_scope": "Actual provider registration, staging and SDK stdio. Official difypkg generation/unpack and target install not run."
+      "offline_scope": "Actual provider registration, staging and SDK stdio. Official difypkg generation/unpack and target install not run.",
+      "implementation_status": "LIMITED",
+      "implementation_gap": "实际 Provider 注册、SDK 调用及 staging 已实现；官方包/安装/目标升级验收尚不完整。rc.1 被官方 CLI 拒绝后改 rc1，不能据改名声称打包成功。"
     },
     {
       "id": "AC-057",
@@ -1198,7 +1321,9 @@
       "evidence": [],
       "product_status": "BLOCKED",
       "remaining_evidence": "Approved historical business cases/policies and authorized shadow-comparison differences not supplied.",
-      "offline_scope": "No executable local acceptance evidence claimed."
+      "offline_scope": "No executable local acceptance evidence claimed.",
+      "implementation_status": "MISSING",
+      "implementation_gap": "尚无历史案例结构影子比对执行器/结果证据；SYNTHETIC 流程和原包静态检查不可替代。"
     },
     {
       "id": "AC-058",
@@ -1215,7 +1340,9 @@
       "evidence": [],
       "product_status": "BLOCKED",
       "remaining_evidence": "Target Workflow/definition/tool rollback execution record not supplied; software rollback cannot undo business effects.",
-      "offline_scope": "No executable local acceptance evidence claimed."
+      "offline_scope": "No executable local acceptance evidence claimed.",
+      "implementation_status": "MISSING",
+      "implementation_gap": "只有回退说明，无目标宿主版本恢复、定义恢复及回滚后实际调用验证。"
     },
     {
       "id": "AC-059",
@@ -1235,7 +1362,9 @@
       "evidence": [],
       "product_status": "BLOCKED",
       "remaining_evidence": "Cited local product tests passed in the recorded run. Target integration/installation and trusted-source acceptance are separately unverified.",
-      "offline_scope": "Reference single-owner SQLite host / SYNTHETIC flow only; bounded serial branches, no nested PARALLEL/WAIT support, no target Dify mapping or production interaction."
+      "offline_scope": "Reference single-owner SQLite host / SYNTHETIC flow only; bounded serial branches, no nested PARALLEL/WAIT support, no target Dify mapping or production interaction.",
+      "implementation_status": "IMPLEMENTED",
+      "implementation_gap": ""
     },
     {
       "id": "AC-060",
@@ -1254,7 +1383,9 @@
       "evidence": [],
       "product_status": "BLOCKED",
       "remaining_evidence": "Cited local product tests passed in the recorded run. Target integration/installation and trusted-source acceptance are separately unverified.",
-      "offline_scope": "Reference single-owner SQLite host / SYNTHETIC flow only; bounded serial branches, no nested PARALLEL/WAIT support, no target Dify mapping or production interaction."
+      "offline_scope": "Reference single-owner SQLite host / SYNTHETIC flow only; bounded serial branches, no nested PARALLEL/WAIT support, no target Dify mapping or production interaction.",
+      "implementation_status": "IMPLEMENTED",
+      "implementation_gap": ""
     },
     {
       "id": "AC-061",
@@ -1271,7 +1402,9 @@
       "evidence": [],
       "product_status": "DEFERRED",
       "remaining_evidence": "Deferred to v0.5; BUSINESS/P6/P7 not implemented or accepted in v0.4.",
-      "offline_scope": "v0.5 BUSINESS/P6/P7 not implemented or product-tested."
+      "offline_scope": "v0.5 BUSINESS/P6/P7 not implemented or product-tested.",
+      "implementation_status": "DEFERRED",
+      "implementation_gap": "v0.5 写动作/效果授权生命周期不在本次 v0.4 实施范围。"
     },
     {
       "id": "AC-062",
@@ -1288,7 +1421,9 @@
       "evidence": [],
       "product_status": "DEFERRED",
       "remaining_evidence": "Deferred to v0.5; BUSINESS/P6/P7 not implemented or accepted in v0.4.",
-      "offline_scope": "v0.5 BUSINESS/P6/P7 not implemented or product-tested."
+      "offline_scope": "v0.5 BUSINESS/P6/P7 not implemented or product-tested.",
+      "implementation_status": "DEFERRED",
+      "implementation_gap": "v0.5 写动作/效果授权生命周期不在本次 v0.4 实施范围。"
     },
     {
       "id": "AC-063",
@@ -1305,7 +1440,9 @@
       "evidence": [],
       "product_status": "DEFERRED",
       "remaining_evidence": "Deferred to v0.5; BUSINESS/P6/P7 not implemented or accepted in v0.4.",
-      "offline_scope": "v0.5 BUSINESS/P6/P7 not implemented or product-tested."
+      "offline_scope": "v0.5 BUSINESS/P6/P7 not implemented or product-tested.",
+      "implementation_status": "DEFERRED",
+      "implementation_gap": "v0.5 写动作/效果授权生命周期不在本次 v0.4 实施范围。"
     },
     {
       "id": "AC-064",
@@ -1322,7 +1459,9 @@
       "evidence": [],
       "product_status": "DEFERRED",
       "remaining_evidence": "Deferred to v0.5; BUSINESS/P6/P7 not implemented or accepted in v0.4.",
-      "offline_scope": "v0.5 BUSINESS/P6/P7 not implemented or product-tested."
+      "offline_scope": "v0.5 BUSINESS/P6/P7 not implemented or product-tested.",
+      "implementation_status": "DEFERRED",
+      "implementation_gap": "v0.5 写动作/效果授权生命周期不在本次 v0.4 实施范围。"
     },
     {
       "id": "AC-065",
@@ -1339,7 +1478,9 @@
       "evidence": [],
       "product_status": "DEFERRED",
       "remaining_evidence": "Deferred to v0.5; BUSINESS/P6/P7 not implemented or accepted in v0.4.",
-      "offline_scope": "v0.5 BUSINESS/P6/P7 not implemented or product-tested."
+      "offline_scope": "v0.5 BUSINESS/P6/P7 not implemented or product-tested.",
+      "implementation_status": "DEFERRED",
+      "implementation_gap": "v0.5 写动作/效果授权生命周期不在本次 v0.4 实施范围。"
     },
     {
       "id": "AC-066",
@@ -1356,7 +1497,9 @@
       "evidence": [],
       "product_status": "DEFERRED",
       "remaining_evidence": "Deferred to v0.5; BUSINESS/P6/P7 not implemented or accepted in v0.4.",
-      "offline_scope": "v0.5 BUSINESS/P6/P7 not implemented or product-tested."
+      "offline_scope": "v0.5 BUSINESS/P6/P7 not implemented or product-tested.",
+      "implementation_status": "DEFERRED",
+      "implementation_gap": "v0.5 写动作/效果授权生命周期不在本次 v0.4 实施范围。"
     },
     {
       "id": "AC-067",
@@ -1373,18 +1516,20 @@
       "evidence": [],
       "product_status": "DEFERRED",
       "remaining_evidence": "Deferred to v0.5; BUSINESS/P6/P7 not implemented or accepted in v0.4.",
-      "offline_scope": "v0.5 BUSINESS/P6/P7 not implemented or product-tested."
+      "offline_scope": "v0.5 BUSINESS/P6/P7 not implemented or product-tested.",
+      "implementation_status": "DEFERRED",
+      "implementation_gap": "v0.5 写动作/效果授权生命周期不在本次 v0.4 实施范围。"
     }
   ],
   "local_test_run": {
     "status": "PASS",
-    "command": "DMN_ENGINE_DIR=\"$PWD/engine\" plugin/.venv/bin/python scripts/check-dsl-evidence.py --run --report /tmp/dsl-v0.4-evidence-final-run.json",
-    "unique_test_references": 110,
-    "tests_executed": 326,
+    "command": "DMN_ENGINE_DIR=\"$PWD/engine\" plugin/.venv/bin/python scripts/check-dsl-evidence.py --run --report /tmp/dsl-v0.4-review-final-evidence.json",
+    "unique_test_references": 126,
+    "tests_executed": 359,
     "failed": 0,
     "skipped": 0,
-    "duration_seconds": 29.3,
-    "tested_tree": "v0.4.0-rc.1 candidate worktree based on d39bfde5a08ac9393e6bd97be0b7750f0c5f2182; final commit assigned by integrator after review",
+    "duration_seconds": 34.96,
+    "tested_tree": "0.4.0-rc1 review fix tree based on 7c9d2d479705da8048023c198cfc46ffdd0a13d5; exact fix commit is the commit containing this record",
     "scope": "Cited tests only, not the complete repository suite or target acceptance."
   }
 }

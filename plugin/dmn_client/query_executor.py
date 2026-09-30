@@ -15,6 +15,7 @@ import copy
 import hashlib
 import hmac
 import http.client
+import io
 import ipaddress
 import json
 import os
@@ -316,14 +317,70 @@ def _guard(deployment, deadline):
     return remaining
 
 
+class _DeadlineReader(io.RawIOBase):
+    """Apply the single deadline to EACH recv, including status line and headers."""
+
+    def __init__(self, sock, deployment, deadline):
+        self.sock = sock
+        self.raw = sock.makefile("rb", buffering=0)
+        self.deployment, self.deadline = deployment, deadline
+
+    def readable(self):
+        return True
+
+    def readinto(self, buffer):
+        self.sock.settimeout(_guard(self.deployment, self.deadline))
+        return self.raw.readinto(buffer)
+
+    def close(self):
+        self.raw.close()
+        super().close()
+
+
+class _DeadlineSocket:
+    def __init__(self, sock, deployment, deadline):
+        self.sock, self.deployment, self.deadline = sock, deployment, deadline
+
+    def __getattr__(self, name):
+        return getattr(self.sock, name)
+
+    def makefile(self, mode, buffering=None):
+        if mode != "rb":
+            _fail("QUERY_CONNECTION_ERROR")
+        return io.BufferedReader(_DeadlineReader(self.sock, self.deployment, self.deadline))
+
+    def sendall(self, data):
+        self.sock.settimeout(_guard(self.deployment, self.deadline))
+        return self.sock.sendall(data)
+
+
+class _DeadlineHTTPSConnection(http.client.HTTPSConnection):
+    """TCP and TLS are separate waits but share the capability's deadline."""
+
+    def __init__(self, *args, deployment, deadline, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.deployment, self.deadline = deployment, deadline
+
+    def connect(self):
+        # This adapter has no proxy/tunnel configuration. Do not use the standard
+        # HTTPS connect, which would reuse the TCP timeout for the TLS handshake.
+        self.timeout = _guard(self.deployment, self.deadline)
+        http.client.HTTPConnection.connect(self)
+        self.sock.settimeout(_guard(self.deployment, self.deadline))
+        self.sock = self._context.wrap_socket(self.sock, server_hostname=self.host)
+        _guard(self.deployment, self.deadline)
+
+
 def _http(operation, parameters, deployment, deadline):
     """Synchronous transport: no proxy, redirect, DNS lookup or background task."""
     url = _endpoint(operation, deployment)
     timeout = _guard(deployment, deadline)
-    cls = http.client.HTTPSConnection if url.scheme == "https" else http.client.HTTPConnection
+    cls = _DeadlineHTTPSConnection if url.scheme == "https" else http.client.HTTPConnection
     kwargs = {"timeout": timeout}
     if url.scheme == "https":
-        kwargs["context"] = ssl.create_default_context()
+        kwargs.update(
+            context=ssl.create_default_context(), deployment=deployment, deadline=deadline
+        )
     connection = cls(url.hostname, url.port, **kwargs)
     method = operation.get("method", "GET")
     headers = dict(operation.get("headers", {}))
@@ -334,7 +391,12 @@ def _http(operation, parameters, deployment, deadline):
     else:
         body = json.dumps(parameters, ensure_ascii=False, allow_nan=False).encode()
         headers["Content-Type"] = "application/json"
+    response = None
     try:
+        connection.timeout = _guard(deployment, deadline)
+        connection.connect()
+        _guard(deployment, deadline)
+        connection.sock = _DeadlineSocket(connection.sock, deployment, deadline)
         connection.request(method, target, body, headers)
         response = connection.getresponse()
         if response.status != 200:
@@ -367,6 +429,8 @@ def _http(operation, parameters, deployment, deadline):
     except (OSError, http.client.HTTPException):
         _fail("QUERY_CONNECTION_ERROR", "Read adapter transport failed")
     finally:
+        if response is not None:
+            response.close()
         connection.close()
 
 
@@ -452,7 +516,17 @@ def execute_query(
         plan = cap["plan"]
         if definition.get("query_plan_ref") != plan.get("plan_id"):
             _fail("UNREGISTERED_REFERENCE")
-        for asset_ref, lock in invocation["bundle"]["asset_locks"].items():
+        locks = invocation["bundle"]["asset_locks"]
+        for required_ref, required_kind in (
+            (plan.get("plan_id"), "QUERY_PLAN"),
+            (plan.get("operation_registry_ref"), "OPERATION_REGISTRY"),
+        ):
+            if required_ref not in locks or locks[required_ref]["kind"] != required_kind:
+                _fail(
+                    "DEFINITION_DIGEST_MISMATCH",
+                    "Required query asset lock is missing or has the wrong kind",
+                )
+        for asset_ref, lock in locks.items():
             raw = deployment.assets.get(asset_ref)
             if (
                 not isinstance(raw, str)
@@ -610,7 +684,7 @@ def execute_query(
                 data[name] = {
                     "quality": "UNKNOWN",
                     "value": None,
-                    "source_refs": [],
+                    "source_refs": [f"query:{context['node_run_id']}:api:{source}"],
                     "diagnostic_codes": [gaps[source]],
                 }
             else:

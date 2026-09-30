@@ -100,6 +100,19 @@ def validate_index(data: dict) -> list[str]:
             )
         if case["offline_status"] in {"PASS", "PARTIAL"} and not case["tests"]:
             raise ValueError(f"Local claim without test references: {case['id']}")
+        if case.get("implementation_status") not in {
+            "IMPLEMENTED",
+            "LIMITED",
+            "MISSING",
+            "DEFERRED",
+        }:
+            raise ValueError(f"Missing implementation classification: {case['id']}")
+        if case["implementation_status"] in {
+            "LIMITED",
+            "MISSING",
+            "DEFERRED",
+        } and not case.get("implementation_gap"):
+            raise ValueError(f"Missing concrete implementation gap: {case['id']}")
         for ref in case["tests"]:
             validate_test(ref)
             refs.add(ref)

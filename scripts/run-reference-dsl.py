@@ -117,6 +117,7 @@ def make_runtime(db_path, base_url, *, fast_answer=None, bundle=None):
     def decision_policy(invocation):
         if not authorized(invocation):
             raise ContractError("NODE_NOT_ACTIVE", "Reference host activation required")
+        return holder["runtime"]._sources()
 
     registry = read_json("operation-registry.json")
     operations = {}

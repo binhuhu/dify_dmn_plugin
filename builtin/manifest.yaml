@@ -1,10 +1,10 @@
-version: 0.4.0-rc.1
+version: 0.4.0-rc1
 type: plugin
 author: hu8627
 name: dmn_json
 label:
-  en_US: Built-in JSON Decision Table
-  zh_Hans: 内置 JSON 决策表
+  en_US: JSON Decision Tools (RC)
+  zh_Hans: JSON 决策工具（RC）
 description:
   en_US: >-
     Local typed decisions and trusted query adapters; legacy SYNTHETIC demos.

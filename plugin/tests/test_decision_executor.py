@@ -33,6 +33,29 @@ def run(case, policy=None):
     )
 
 
+def trusted_sources(case):
+    """Host-side evidence captured independently before the request is mutated."""
+    params = deepcopy(case[1]["inputs"]["parameter_snapshot"]["parameters"])
+    return {
+        "context": {"parameters": {"met_driver": params["met_driver"]}},
+        "node": {
+            "Q_CONTEXT": {
+                "execution_status": "SUCCEEDED",
+                "outputs": {"query": {"data": {"order_id": params["order_id"]["value"]}}},
+            },
+            "Q_HISTORY": {
+                "execution_status": "SUCCEEDED",
+                "outputs": {
+                    "query": {
+                        "data": {"other_information_complete": params["other_information_complete"]}
+                    }
+                },
+            },
+        },
+        "available_values": {("node", "Q_CONTEXT", ("query", "data", "order_id"))},
+    }
+
+
 def table(case):
     return case[0]["models"]["demo.meeting@1.0.0"]
 
@@ -293,7 +316,9 @@ def test_dynamic_runtime_claims_do_not_supply_trusted_output_sources(case):
     target["input_bindings"]["channel"] = {"from": {"source": "context", "path": ["channel"]}}
     case[1]["inputs"]["runtime_snapshot"]["context"] = {"channel": "self-approved"}
     assert_failure(run(case), "INPUT_REQUIRED_MISSING", "BLOCKED")
-    result = run(case, lambda prepared: {"context": {"channel": "host-verified"}})
+    sources = trusted_sources(case)
+    sources["context"]["channel"] = "host-verified"
+    result = run(case, lambda prepared: sources)
     assert result["outputs"]["decision"]["actions"][0]["parameters"]["channel"] == "host-verified"
     assert result["trace"]["trust"] == "DEPLOYMENT_POLICY_CHECKED"
 
@@ -346,3 +371,91 @@ def test_collect_final_result_requires_control_route(case, include_route):
         assert len(result["outputs"]["decision"]["actions"]) == 1
     else:
         assert_failure(result, "CONTROL_ROUTE_REQUIRED")
+
+
+@pytest.mark.parametrize(
+    "mutation", ["upgrade_unknown", "other_subject", "wrong_source", "value_type"]
+)
+def test_trusted_sources_rebound_reject_forged_snapshot(case, mutation):
+    sources = trusted_sources(case)
+    if mutation == "upgrade_unknown":
+        record(case).update(quality="KNOWN", value=False)
+    elif mutation == "other_subject":
+        record(case, "order_id")["value"] = "OTHER-ORDER"
+    elif mutation == "wrong_source":
+        record(case, "order_id")["source_refs"] = ["self-attested"]
+    else:
+        record(case).update(quality="KNOWN", value=1)
+    result = run(case, lambda prepared: sources)
+    assert_failure(
+        result, "INPUT_TYPE_MISMATCH" if mutation == "value_type" else "INPUT_BINDING_MISMATCH"
+    )
+    assert result["trace"]["engine_called"] is False
+    assert result["trace"]["trust"] == "CONTENT_ONLY_NOT_AUTHORIZATION"
+
+
+def test_trusted_sources_matching_snapshot_preserves_unknown(case):
+    result = run(case, lambda prepared: trusted_sources(case))
+    assert result["execution_status"] == "SUCCEEDED"
+    assert result["outputs"]["decision"]["state"] == "NEED_USER_INPUT"
+    assert result["trace"]["trust"] == "DEPLOYMENT_POLICY_CHECKED"
+
+
+def test_policy_none_does_not_claim_source_verification(case):
+    result = run(case, lambda prepared: None)
+    assert result["execution_status"] == "SUCCEEDED"
+    assert result["trace"]["trust"] == "CONTENT_ONLY_NOT_AUTHORIZATION"
+
+
+def test_policy_empty_sources_cannot_attest_bound_inputs(case):
+    result = run(case, lambda prepared: {})
+    assert_failure(result, "INPUT_REQUIRED_MISSING", "BLOCKED")
+    assert result["trace"]["trust"] == "CONTENT_ONLY_NOT_AUTHORIZATION"
+
+
+def test_trusted_value_requires_field_availability_even_with_policy(case):
+    sources = trusted_sources(case)
+    sources["available_values"] = set()
+    result = run(case, lambda prepared: sources)
+    assert_failure(result, "SOURCE_VALUE_NOT_VERIFIED")
+
+
+def test_sdk_trusted_binding_failure_clears_previous_success(case, monkeypatch):
+    # Test a trusted deployment wrapper at the actual SDK boundary; policy is not
+    # exposed as an additional dynamic tool parameter.
+    from functools import partial
+
+    import tools.evaluate_decision as sdk_module
+    from tools.evaluate_decision import EvaluateDecisionTool
+
+    sources = trusted_sources(case)
+    monkeypatch.setattr(
+        sdk_module,
+        "evaluate_decision",
+        partial(evaluate_decision, trusted_policy=lambda prepared: sources),
+    )
+    tool = EvaluateDecisionTool.from_credentials({})
+
+    def invoke():
+        bundle, invocation = case
+        messages = list(
+            tool.invoke(
+                {
+                    "definition_bundle_json": bundle,
+                    "node_ref": invocation["node_ref"],
+                    "expected_definition_sha256": definition_digest(bundle),
+                    "inputs_json": invocation["inputs"],
+                    "execution_context_json": invocation["execution_context"],
+                }
+            )
+        )
+        return messages[0].message.json_object, {
+            m.message.variable_name: m.message.variable_value for m in messages[1:]
+        }
+
+    success, _ = invoke()
+    assert success["execution_status"] == "SUCCEEDED"
+    record(case).update(quality="KNOWN", value=False)
+    failed, outputs = invoke()
+    assert_failure(failed, "INPUT_BINDING_MISMATCH")
+    assert outputs["state"] == "" and outputs["data"] == {} and outputs["actions"] == []

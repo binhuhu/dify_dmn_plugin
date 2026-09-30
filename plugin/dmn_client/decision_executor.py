@@ -260,7 +260,9 @@ def evaluate_decision(
 ):
     """Evaluate only the fixed DECISION node. trusted_policy is a Python adapter,
     never a user JSON flag; absence confers no source or execution authority.
-    The policy may return a trusted NodeIO sources mapping for output bindings.
+    The policy may return trusted NodeIO sources. Fixed input bindings are then
+    recomputed and must exactly match snapshot records before evaluation. Returning
+    None does not attest sources and retains the content-only trust classification.
     """
     ref = node_ref if isinstance(node_ref, dict) else {}
     context = execution_context_json if isinstance(execution_context_json, dict) else {}
@@ -289,8 +291,15 @@ def evaluate_decision(
                         "Deployment policy returned invalid source evidence.",
                     )
                 prepared["trusted_sources"] = sources
-            trace["trust"] = "DEPLOYMENT_POLICY_CHECKED"
         model, params = validate_snapshot(prepared)
+        if "trusted_sources" in prepared:
+            rebound = bind_inputs(prepared["node"], prepared["trusted_sources"])
+            if not equal(rebound, params):
+                fail(
+                    "INPUT_BINDING_MISMATCH",
+                    "Snapshot records do not match the fixed bindings over trusted sources.",
+                )
+            trace["trust"] = "DEPLOYMENT_POLICY_CHECKED"
         trace.update(
             model_ref=prepared["node"]["model_ref"],
             model_version=model["version"],

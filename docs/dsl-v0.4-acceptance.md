@@ -39,7 +39,7 @@ The supplied v2 core schemas intentionally do not encode every semantic obligati
 
 The machine-readable index is authoritative for test references and individual gaps. The following inventory retains every acceptance gate; local results are updated only after actual execution.
 
-Recorded audit run: **326 passed, zero failed or skipped**, across 110 cited test functions (including parametrizations). This is the cited-test subset, not the complete repository regression count. The complete regression and final Git commit are reported by the integrator. SDK staging was exercised; an official package was not produced in this environment.
+Recorded audit run: **359 passed, zero failed or skipped**, across 126 cited test functions (including parametrizations). This is the cited-test subset, not the complete repository regression count. The complete regression and final Git commit are reported by the integrator. SDK staging was exercised; an official package was not produced in this environment.
 
 | Case | Requirement / name | Local evidence | Target gate |
 |---|---|---|---|

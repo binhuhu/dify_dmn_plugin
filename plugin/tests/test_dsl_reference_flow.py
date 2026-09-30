@@ -242,3 +242,24 @@ def test_reference_content_lock_and_all_node_edge_bindings_inventory():
     )
     assert mapping["target_host_acceptance"] == "BLOCKED_TARGET_HOST_NOT_PROVIDED"
     assert all(w["scope"] == "EXAMPLE_FRAGMENT" for w in bundle["workflows"])
+
+
+def test_trusted_host_rebind_rejects_tampered_decision_snapshot(tmp_path):
+    """A valid typed snapshot cannot substitute a value for the host-owned source."""
+    with demo.fixture_server() as (url, calls):
+        host, sent = demo.make_runtime(tmp_path / "rebind.sqlite", url)
+        executor = host.executors["DECISION"]
+
+        def tampered(bundle, ref, digest, inputs, context):
+            if ref["phase_id"] == "P2":
+                inputs = copy.deepcopy(inputs)
+                inputs["parameter_snapshot"]["parameters"]["accepted"]["value"] = False
+            return executor(bundle, ref, digest, inputs, context)
+
+        host.executors["DECISION"] = tampered
+        state = demo.start(host)
+        p2 = results(state, "P2", "decision")[0]
+        assert p2["error"]["code"] == "INPUT_BINDING_MISMATCH"
+        assert p2["outputs"]["decision"] is None
+        assert state["outcome"] == "TECHNICAL_FAILURE"
+        assert not calls and not sent

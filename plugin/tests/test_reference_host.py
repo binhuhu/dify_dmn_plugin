@@ -430,3 +430,190 @@ def test_trace_uses_identifiers_not_raw_inputs(bundle, tmp_path):
     )
     assert "SENSITIVE-NEVER-IN-TRACE" not in json.dumps(host.state["trace"])
     assert all("step_id" in t and "attempt_id" in t for t in host.state["trace"])
+
+
+@pytest.mark.parametrize("quality", ["UNKNOWN", "CONFLICT", "NOT_APPLICABLE"])
+@pytest.mark.parametrize("projection", ["value", "record", "parent"])
+def test_host_value_projection_cannot_erase_unknown_quality(bundle, tmp_path, quality, projection):
+    step = bundle["workflows"][1]["phases"][0]["steps"][0]
+    decision = next(n for n in step["graph"]["nodes"] if n["node_id"] == "D1")
+    path = ["query", "data"]
+    if projection != "parent":
+        path.append("other_information_complete")
+    if projection == "value":
+        path.append("value")
+    decision["input_bindings"]["other_information_complete"] = {
+        "source_format": "VALUE",
+        "from": {"source": "node", "node_id": "Q_HISTORY", "path": path},
+    }
+    model = bundle["models"]["demo.meeting@1.0.0"]
+    model["parameters"]["other_information_complete"].update(
+        nullable=True, type="boolean" if projection == "value" else "object"
+    )
+    model["rules"] = [{"rule_id": "unsafe_catchall", "when": [], "output_template_ref": "ready"}]
+
+    def unavailable_query(*args):
+        result = query(*args)
+        if args[1]["node_id"] == "Q_HISTORY":
+            result["outputs"]["query"]["data"]["other_information_complete"].update(
+                quality=quality, value=None
+            )
+        return result
+
+    host = runtime(bundle, tmp_path, execute_query=unavailable_query)
+    state = start(host, False)
+    result = next(r for r in state["history"].values() if r["node_ref"]["node_id"] == "D1")
+    assert state["outcome"] == "TECHNICAL_FAILURE"
+    assert result["outputs"]["decision"] is None
+    assert result["error"]["code"] == "SOURCE_VALUE_NOT_VERIFIED"
+
+
+@pytest.mark.parametrize("diagnostic", ["STALE", "TYPE_MISMATCH", "MISSING"])
+def test_host_value_projection_does_not_drop_parameter_diagnostics(bundle, tmp_path, diagnostic):
+    step = bundle["workflows"][1]["phases"][0]["steps"][0]
+    decision = next(n for n in step["graph"]["nodes"] if n["node_id"] == "D1")
+    decision["input_bindings"]["other_information_complete"] = {
+        "source_format": "VALUE",
+        "from": {
+            "source": "node",
+            "node_id": "Q_HISTORY",
+            "path": ["query", "data", "other_information_complete", "value"],
+        },
+    }
+
+    def diagnosed_query(*args):
+        result = query(*args)
+        if args[1]["node_id"] == "Q_HISTORY":
+            result["outputs"]["query"]["data"]["other_information_complete"]["diagnostic_codes"] = [
+                diagnostic
+            ]
+        return result
+
+    state = start(runtime(bundle, tmp_path, execute_query=diagnosed_query), False)
+    result = next(r for r in state["history"].values() if r["node_ref"]["node_id"] == "D1")
+    assert result["error"]["code"] == "SOURCE_VALUE_NOT_VERIFIED"
+    assert result["outputs"]["decision"] is None
+
+
+def test_host_value_projection_of_known_null_remains_valid(bundle, tmp_path):
+    step = bundle["workflows"][1]["phases"][0]["steps"][0]
+    decision = next(n for n in step["graph"]["nodes"] if n["node_id"] == "D1")
+    decision["input_bindings"]["other_information_complete"] = {
+        "source_format": "VALUE",
+        "from": {
+            "source": "node",
+            "node_id": "Q_HISTORY",
+            "path": ["query", "data", "other_information_complete", "value"],
+        },
+    }
+    model = bundle["models"]["demo.meeting@1.0.0"]
+    model["parameters"]["other_information_complete"]["nullable"] = True
+    model["rules"] = [
+        {
+            "rule_id": "known_null",
+            "when": [
+                {
+                    "path": ["parameters", "other_information_complete", "value"],
+                    "op": "is_null",
+                    "value": True,
+                }
+            ],
+            "output_template_ref": "ready",
+        }
+    ]
+
+    def known_null_query(*args):
+        result = query(*args)
+        if args[1]["node_id"] == "Q_HISTORY":
+            result["outputs"]["query"]["data"]["other_information_complete"]["value"] = None
+        return result
+
+    state = start(runtime(bundle, tmp_path, execute_query=known_null_query), False)
+    decision = next(r for r in state["history"].values() if r["node_ref"]["node_id"] == "D1")
+    assert decision["execution_status"] == "SUCCEEDED"
+    assert decision["trace"]["selected_rule_ids"] == ["known_null"]
+
+
+def test_wait_declared_tenant_correlation_is_enforced_after_restart(bundle, tmp_path):
+    wait = next(
+        n
+        for n in bundle["workflows"][1]["phases"][0]["steps"][0]["graph"]["nodes"]
+        if n["kind"] == "WAIT"
+    )
+    wait["correlation_fields"].append("tenant_scope_ref")
+    host = runtime(bundle, tmp_path)
+    state = host.run(
+        "demo.solve",
+        {
+            "tenant_scope_ref": "SYNTHETIC-TENANT-A",
+            "ticket_id": "SYNTHETIC-T",
+            "parameters": {
+                "met_driver": {"quality": "UNKNOWN", "value": None, "source_refs": ["SYNTHETIC"]}
+            },
+        },
+        subject_scope_ref="synthetic:order-O-100",
+        authorization_context_ref="synthetic:read-and-interact",
+        as_of="2026-10-01T00:00:00Z",
+    )
+    original_event = event(host, tenant_scope_ref="OTHER-TENANT")
+    restored = runtime(bundle, tmp_path)
+    restored.restore(state["workflow_run_id"])
+    for wrong in ["OTHER-TENANT", None, True, 1, ""]:
+        original_event["tenant_scope_ref"] = wrong
+        with pytest.raises(ContractError) as caught:
+            restored.receive(original_event)
+        assert caught.value.code == "RESUME_EVENT_MISMATCH"
+    original_event.pop("tenant_scope_ref")
+    with pytest.raises(ContractError) as caught:
+        restored.receive(original_event)
+    assert caught.value.code == "RESUME_EVENT_MISMATCH"
+    assert restored.restore(state["workflow_run_id"])["status"] == "WAITING"
+    original_event["tenant_scope_ref"] = "SYNTHETIC-TENANT-A"
+    assert restored.receive(original_event)
+    assert restored.restore(state["workflow_run_id"])["outcome"] == "DEMO_FRAGMENT_COMPLETED"
+
+
+def test_wait_missing_declared_correlation_fails_before_send(bundle, tmp_path):
+    wait = next(
+        n
+        for n in bundle["workflows"][1]["phases"][0]["steps"][0]["graph"]["nodes"]
+        if n["kind"] == "WAIT"
+    )
+    wait["correlation_fields"].append("tenant_scope_ref")
+    sends = []
+    host = runtime(bundle, tmp_path, send_interaction=lambda *args: sends.append(args))
+    state = start(host)
+    assert state["outcome"] == "TECHNICAL_FAILURE" and sends == []
+    assert not state["waits"]
+    assert state["results"]["A_ASK"]["error"]["code"] == "RESUME_EVENT_MISMATCH"
+
+
+def test_wait_parameter_binding_preserves_unknown_on_new_attempt(bundle, tmp_path):
+    wait = next(
+        n
+        for n in bundle["workflows"][1]["phases"][0]["steps"][0]["graph"]["nodes"]
+        if n["kind"] == "WAIT"
+    )
+    wait["event_schema"]["properties"]["met_driver"] = {
+        "type": "object",
+        "properties": {
+            "quality": {"enum": ["UNKNOWN"]},
+            "value": {"type": "null"},
+            "source_refs": {"type": "array", "items": {"type": "string"}},
+        },
+        "required": ["quality", "value", "source_refs"],
+        "additionalProperties": False,
+    }
+    wait["event_bindings"]["met_driver"]["source_format"] = "PARAMETER"
+    host = runtime(bundle, tmp_path)
+    state = start(host)
+    unknown = {"quality": "UNKNOWN", "value": None, "source_refs": ["SYNTHETIC:unknown-answer"]}
+    assert host.receive(event(host, payload={"met_driver": unknown}))
+    restored = host.restore(state["workflow_run_id"])
+    assert restored["status"] == "WAITING" and restored["attempt"] == 2
+    assert restored["step_run_id"] == state["step_run_id"]
+    assert restored["context"]["parameters"]["met_driver"] == unknown
+    decisions = [r for r in restored["history"].values() if r["node_ref"]["node_id"] == "D1"]
+    assert len(decisions) == 2
+    assert all(r["execution_status"] == "SUCCEEDED" for r in decisions)
+    assert all(r["outputs"]["decision"]["state"] == "NEED_USER_INPUT" for r in decisions)

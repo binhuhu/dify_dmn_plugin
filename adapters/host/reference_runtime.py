@@ -35,6 +35,51 @@ PORTS = {
 }
 
 
+def verified_value_paths(value, path=()):
+    """Prove individual raw values without erasing embedded Parameter quality.
+
+    A COMPLETE query proves transport coverage, not KNOWN for every field.
+    Unavailable records taint their containers too, so projecting a parent object
+    cannot bypass the field guard. Metadata remains inspectable explicitly.
+    """
+    paths = set()
+
+    def visit(item, current):
+        if isinstance(item, dict):
+            if {"quality", "value"} <= item.keys():
+                refs = item.get("source_refs")
+                diagnostics = item.get("diagnostic_codes", [])
+                usable = (
+                    item["quality"] == "KNOWN"
+                    and isinstance(refs, list)
+                    and bool(refs)
+                    and all(isinstance(ref, str) and ref for ref in refs)
+                    and isinstance(diagnostics, list)
+                    and all(isinstance(code, str) for code in diagnostics)
+                    and not set(diagnostics) & {"MISSING", "STALE", "TYPE_MISMATCH"}
+                )
+                if not usable:
+                    for key in ("quality", "diagnostic_codes", "source_refs"):
+                        if key in item:
+                            visit(item[key], current + (key,))
+                    return False
+            children = [visit(child, current + (key,)) for key, child in item.items()]
+            usable = all(children)
+        elif isinstance(item, list):
+            # Arrays are bound whole, but unknown records inside still taint them.
+            usable = all(
+                [visit(child, current + (str(i),)) for i, child in enumerate(item)]
+            )
+        else:
+            usable = True
+        if usable:
+            paths.add(current)
+        return usable
+
+    visit(value, tuple(path))
+    return paths
+
+
 def uid(prefix):
     return prefix + "-" + uuid.uuid4().hex
 
@@ -318,13 +363,10 @@ class ReferenceRuntime:
             cap = self.bundle["capabilities"][node["capability_ref"]]
             Draft202012Validator(cap["output_schema"]).validate(query["data"])
 
-            def visit(value, path):
-                available.add(("node", node_id, tuple(path)))
-                if isinstance(value, dict):
-                    for key, child in value.items():
-                        visit(child, path + [key])
-
-            visit(query["data"], ["query", "data"])
+            available.update(
+                ("node", node_id, path)
+                for path in verified_value_paths(query["data"], ("query", "data"))
+            )
         return {
             "context": s["context"],
             "node": s["results"],
@@ -530,8 +572,21 @@ class ReferenceRuntime:
             )
         }
         correlation.update(intent_id=intent["intent_id"], request_id=uid("request"))
+        # Every declared correlation is frozen from trusted host context before
+        # sending; an absent field fails closed instead of being ignored.
+        for wait_node in waits:
+            for field in wait_node["correlation_fields"]:
+                if field not in correlation:
+                    value = trusted_context.get(field, self.state["context"].get(field))
+                    if not isinstance(value, str) or not value:
+                        raise ContractError(
+                            "RESUME_EVENT_MISMATCH",
+                            "Declared host correlation is unavailable",
+                        )
+                    correlation[field] = value
         for wait_node in waits:
             wait = correlation | {
+                "correlation_values": copy.deepcopy(correlation),
                 "event_type": wait_node["event_type"],
                 "node_id": wait_node["node_id"],
                 "event_schema": wait_node["event_schema"],
@@ -651,7 +706,18 @@ class ReferenceRuntime:
             "subject_scope_ref",
             "intent_id",
         )
-        if any(event.get(k) != wait[k] for k in fields) or not event.get("event_id"):
+        correlations = wait.get("correlation_values")
+        if not isinstance(correlations, dict) or not correlations:
+            raise ContractError(
+                "RESUME_EVENT_MISMATCH",
+                "Checkpoint lacks verified correlation bindings",
+            )
+        expected = {k: wait[k] for k in fields}
+        expected.update(correlations)
+        if any(
+            k not in event or not equal(event[k], value)
+            for k, value in expected.items()
+        ) or not event.get("event_id"):
             raise ContractError(
                 "RESUME_EVENT_MISMATCH", "Event does not match host correlation"
             )
@@ -701,15 +767,19 @@ class ReferenceRuntime:
         if winner["port"] == "received":
             self.state["event"] = winner["payload"]
             bound = bind_inputs(
-                {"kind": "QUERY", "input_bindings": node["event_bindings"]},
-                {"event": winner["payload"]},
+                {"kind": "DECISION", "input_bindings": node["event_bindings"]},
+                {
+                    "event": winner["payload"],
+                    "available_values": {
+                        ("event", None, path)
+                        for path in verified_value_paths(winner["payload"])
+                    },
+                },
             )
-            for key, value in bound.items():
-                self.state["context"].setdefault("parameters", {})[key] = {
-                    "quality": "KNOWN",
-                    "value": value,
-                    "source_refs": [winner["event_id"]],
-                }
+            for key, record in bound.items():
+                if node["event_bindings"][key]["source_format"] == "VALUE":
+                    record["source_refs"] = [winner["event_id"]]
+                self.state["context"].setdefault("parameters", {})[key] = record
         self._record(
             "WAIT_RESOLVED",
             node_id=node["node_id"],
