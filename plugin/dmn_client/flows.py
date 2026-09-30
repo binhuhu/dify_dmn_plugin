@@ -19,7 +19,7 @@ from dmn_client.client import (
     EngineClient,
     EngineError,
     _valid_engine,
-    strict_json_loads,
+    json_object,
 )
 
 QUERY_SCHEMA = "query-capability.candidate.v1"
@@ -34,20 +34,6 @@ def _error_valid(error: Any) -> bool:
 
 def _identifier(value: Any) -> bool:
     return isinstance(value, str) and bool(re.fullmatch(r"[A-Za-z0-9_.:-]{1,128}", value))
-
-
-def _json_object(raw: Any, label: str, limit: int) -> dict[str, Any]:
-    if not isinstance(raw, str):
-        raise EngineError("INVALID_INPUT", f"{label} must be a JSON object encoded as a string.")
-    try:
-        if len(raw.encode("utf-8")) > limit:
-            raise EngineError("INPUT_TOO_LARGE", f"{label} exceeds its UTF-8 byte limit.")
-        value = strict_json_loads(raw)
-    except (ValueError, UnicodeError, RecursionError) as exc:
-        raise EngineError("INVALID_JSON", f"{label} must be valid strict JSON.") from exc
-    if not isinstance(value, dict):
-        raise EngineError("INVALID_INPUT", f"{label} must encode a JSON object.")
-    return value
 
 
 def query_failure(capability_id: str | None, error: EngineError) -> dict[str, Any]:
@@ -145,7 +131,12 @@ def validate_query_response(value: Any, capability_id: str) -> dict[str, Any]:
 
 
 def validate_plan_response(
-    value: Any, plan_id: str, flow: str, plan_version: str | None, plan_digest: str
+    value: Any,
+    plan_id: str,
+    flow: str,
+    plan_version: str | None,
+    plan_digest: str,
+    request: dict[str, Any],
 ) -> dict[str, Any]:
     fields = {
         "schema_version",
@@ -200,11 +191,273 @@ def validate_plan_response(
         raise EngineError(
             "INVALID_RESPONSE", "The engine returned an incompatible phase-plan response."
         )
-    return {key: value[key] for key in fields}
+    try:
+        _validate_execution(value, request)
+    except (KeyError, TypeError, ValueError, IndexError, AssertionError) as exc:
+        raise EngineError("INVALID_RESPONSE", "Plan execution does not match the request.") from exc
+    return {
+        **{key: value[key] for key in fields},
+        **({"termination": value["termination"]} if "termination" in value else {}),
+    }
+
+
+def _same(left: Any, right: Any) -> bool:
+    # Strict JSON equality: Python True must not equal the JSON number 1.
+    return rfc8785.dumps(left) == rfc8785.dumps(right)
+
+
+def _project(scope: dict, bindings: dict) -> dict:
+    result = {}
+    for key, binding in bindings.items():
+        if set(binding) == {"literal"}:
+            result[key] = binding["literal"]
+        else:
+            if not set(binding) == {"from"}:
+                raise ValueError("Inconsistent execution record")
+            value = scope
+            for part in binding["from"].split("."):
+                if isinstance(value, dict) and part in value:
+                    value = value[part]
+                elif isinstance(value, list) and part == "length":
+                    value = len(value)
+                elif (
+                    isinstance(value, list)
+                    and re.fullmatch(r"0|[1-9][0-9]*", part)
+                    and int(part) < len(value)
+                ):
+                    value = value[int(part)]
+                else:
+                    raise ValueError("Inconsistent execution record")
+            result[key] = value
+    return result
+
+
+def _validate_execution(value: dict, request: dict) -> None:
+    phases, steps = (value["phases"], value["steps"])
+    if value["plan_sha256"] is None:
+        if not (value["status"] == "FAILED" and (not phases) and (not steps)):
+            raise ValueError("Inconsistent execution record")
+        if "termination" in value:
+            raise ValueError("Inconsistent execution record")
+        return
+    plan = request["plan"]
+    for key, expected in (
+        ("plan_id", plan["plan_id"]),
+        ("flow", plan["flow"]),
+        ("plan_version", plan["version"]),
+    ):
+        if value[key] != expected:
+            raise ValueError("Mismatched executed plan identity")
+    expected_phases = plan["phases"]
+    if not expected_phases:
+        raise ValueError("Inconsistent execution record")
+    if not len(phases) == len(expected_phases):
+        raise ValueError("Inconsistent execution record")
+    ordered, done, phase_for = ([], set(), {})
+    for expected, actual in zip(expected_phases, phases, strict=True):
+        if not actual["phase_id"] == expected["id"]:
+            raise ValueError("Inconsistent execution record")
+        if not actual["step_ids"] == [s["id"] for s in expected["steps"]]:
+            raise ValueError("Inconsistent execution record")
+        pending = list(expected["steps"])
+        while pending:
+            ready = next((s for s in pending if set(s["depends_on"]) <= done), None)
+            if not (ready is not None and ready["id"] not in done):
+                raise ValueError("Inconsistent execution record")
+            pending.remove(ready)
+            ordered.append(ready)
+            done.add(ready["id"])
+            phase_for[ready["id"]] = expected["id"]
+    if not (ordered and 0 < len(steps) <= len(ordered)):
+        raise ValueError("Inconsistent execution record")
+    scope = {"inputs": request["inputs"], "steps": {}}
+    terminal = None
+    failure = None
+    expected_outputs = None
+    projection_error = False
+    for index, actual in enumerate(steps):
+        expected = ordered[index]
+        sid = expected["id"]
+        if not actual["step_id"] == sid:
+            raise ValueError("Inconsistent execution record")
+        if not actual["phase_id"] == phase_for[sid]:
+            raise ValueError("Inconsistent execution record")
+        if not actual["kind"] == expected["kind"]:
+            raise ValueError("Inconsistent execution record")
+        if not actual["depends_on"] == expected["depends_on"]:
+            raise ValueError("Inconsistent execution record")
+        if terminal:
+            if not actual == {
+                "step_id": sid,
+                "phase_id": phase_for[sid],
+                "kind": expected["kind"],
+                "depends_on": expected["depends_on"],
+                "status": "SKIPPED",
+                "outcome": None,
+                "outputs": None,
+                "error": None,
+                "skip_reason": "PLAN_TERMINATED",
+                "terminated_by": terminal,
+            }:
+                raise ValueError("Inconsistent execution record")
+            continue
+        if "skip_reason" in actual or "terminated_by" in actual:
+            raise ValueError("Unexpected termination metadata")
+        if failure is not None:
+            raise ValueError("Inconsistent execution record")
+        if not all(
+            (
+                dep in scope["steps"] and scope["steps"][dep]["status"] == "SUCCEEDED"
+                for dep in expected["depends_on"]
+            )
+        ):
+            raise ValueError("Inconsistent execution record")
+        bindings = expected["parameters" if expected["kind"] == "query" else "inputs"]
+        if not actual["input_bindings"] == {
+            k: {"from": v["from"]} if "from" in v else {"literal": "[REDACTED]"}
+            for k, v in bindings.items()
+        }:
+            raise ValueError("Inconsistent execution record")
+        # Missing-input records may omit evaluation metadata, but any supplied
+        # identity must still match; an error wrapper cannot hide forged IDs.
+        identities = (
+            {"capability_id": expected["capability_id"]}
+            if expected["kind"] == "query"
+            else {
+                **{k: expected[k] for k in ("model_id", "decision_id", "hit_policy")},
+                "model_sha256": request["models"][expected["model_id"]]["sha256"],
+            }
+        )
+        for key, identity in identities.items():
+            if key in actual and actual[key] != identity:
+                raise ValueError("Mismatched execution identity")
+        status = actual["status"]
+        if status not in ("SUCCEEDED", "WAITING_INPUT", "FAILED"):
+            raise ValueError("Inconsistent execution record")
+        try:
+            _project(scope, bindings)
+            missing = False
+        except (KeyError, TypeError, ValueError):
+            missing = True
+        if missing:
+            if not (status == "WAITING_INPUT" and actual["outcome"] == "UNKNOWN"):
+                raise ValueError("Inconsistent execution record")
+            if not actual["error"]["code"] == "MISSING_STEP_INPUT":
+                raise ValueError("Inconsistent execution record")
+        elif expected["kind"] == "query":
+            validate_query_response(actual, expected["capability_id"])
+            provenance = actual["provenance"]
+            if provenance is None:
+                raise ValueError("Inconsistent execution record")
+            for key in ("input_contract", "output_contract"):
+                if not provenance[key] == expected[key]:
+                    raise ValueError("Inconsistent execution record")
+        else:
+            for key in ("model_id", "decision_id", "hit_policy"):
+                if not actual[key] == expected[key]:
+                    raise ValueError("Inconsistent execution record")
+            if not actual["model_sha256"] == request["models"][expected["model_id"]]["sha256"]:
+                raise ValueError("Inconsistent execution record")
+            if not (isinstance(actual["decisions"], list) and isinstance(actual["trace"], list)):
+                raise ValueError("Inconsistent execution record")
+            if status == "SUCCEEDED":
+                if not (
+                    isinstance(actual["outputs"], dict) and set(actual["outputs"]) == {"result"}
+                ):
+                    raise ValueError("Inconsistent execution record")
+                if actual["outcome"] == "NO_MATCH" and actual["outputs"]["result"] is not None:
+                    raise ValueError("NO_MATCH must preserve null result")
+                if actual["outcome"] not in ("MATCHED", "NO_MATCH", "DEFAULT", "VALUE"):
+                    raise ValueError("Inconsistent execution record")
+            else:
+                if actual["outcome"] is not None:
+                    raise ValueError("Inconsistent execution record")
+                if status == "WAITING_INPUT":
+                    if not actual["error"]["code"] == "UNKNOWN_INPUT":
+                        raise ValueError("Inconsistent execution record")
+        scope["steps"][sid] = actual
+        if status != "SUCCEEDED":
+            if not (actual["outputs"] is None and _error_valid(actual["error"])):
+                raise ValueError("Inconsistent execution record")
+            failure = actual
+        else:
+            if actual["error"] is not None:
+                raise ValueError("Inconsistent execution record")
+            condition = expected.get("terminate_when")
+            try:
+                matches = condition and _same(
+                    _project(scope, {"value": condition["value"]})["value"], condition["equals"]
+                )
+                if matches:
+                    expected_outputs = _project(scope, condition["outputs"])
+                    terminal = sid
+            except (KeyError, TypeError, ValueError):
+                projection_error = True
+                if not index == len(steps) - 1:
+                    raise ValueError("Inconsistent execution record")
+    if not failure and (not terminal) and (len(steps) == len(ordered)) and (not projection_error):
+        try:
+            expected_outputs = _project(scope, plan["outputs"])
+        except (KeyError, TypeError, ValueError):
+            projection_error = True
+    if projection_error:
+        if not value["status"] == "WAITING_INPUT":
+            raise ValueError("Inconsistent execution record")
+        if not value["error"]["code"] == "MISSING_STEP_INPUT":
+            raise ValueError("Inconsistent execution record")
+        if "termination" in value:
+            raise ValueError("Inconsistent execution record")
+    elif failure:
+        if not (value["status"] == failure["status"] and value["error"] == failure["error"]):
+            raise ValueError("Inconsistent execution record")
+        if "termination" in value:
+            raise ValueError("Inconsistent execution record")
+    else:
+        if not (len(steps) == len(ordered) and value["status"] == "SUCCEEDED"):
+            raise ValueError("Inconsistent execution record")
+        if terminal:
+            if not value.get("termination") == {"step_id": terminal}:
+                raise ValueError("Inconsistent execution record")
+        elif "termination" in value:
+            raise ValueError("Inconsistent execution record")
+        if not _same(value["outputs"], expected_outputs):
+            raise ValueError("Inconsistent execution record")
+    for expected, actual in zip(expected_phases, phases, strict=True):
+        members = [s for s in steps if s["phase_id"] == expected["id"]]
+        if not expected["steps"]:
+            if not actual["status"] == "SKIPPED":
+                raise ValueError("Inconsistent execution record")
+            if not actual["skip_reason"] == expected["skip_reason"]:
+                raise ValueError("Inconsistent execution record")
+            if "terminated_by" in actual:
+                raise ValueError("Inconsistent execution record")
+        elif any((s["status"] == "SKIPPED" for s in members)):
+            all_skipped = all((s["status"] == "SKIPPED" for s in members))
+            if not actual["status"] == ("SKIPPED" if all_skipped else "TERMINATED"):
+                raise ValueError("Inconsistent execution record")
+            if not actual["terminated_by"] == terminal:
+                raise ValueError("Inconsistent execution record")
+            if all_skipped:
+                if not actual["skip_reason"] == "PLAN_TERMINATED":
+                    raise ValueError("Inconsistent execution record")
+        elif not members:
+            if not ((failure or projection_error) and actual["status"] == "BLOCKED"):
+                raise ValueError("Inconsistent execution record")
+        elif members[-1]["status"] != "SUCCEEDED":
+            if not actual["status"] == members[-1]["status"]:
+                raise ValueError("Inconsistent execution record")
+        elif len(members) == len(expected["steps"]):
+            if not actual["status"] == "SUCCEEDED":
+                raise ValueError("Inconsistent execution record")
+        elif not (projection_error and actual["status"] == "WAITING_INPUT"):
+            raise ValueError("Inconsistent execution record")
+        if actual["status"] not in ("SKIPPED", "TERMINATED"):
+            if not ("skip_reason" not in actual and "terminated_by" not in actual):
+                raise ValueError("Inconsistent execution record")
 
 
 def prepare_plan_request(parameters: Mapping[str, Any]) -> dict[str, Any]:
-    request = _json_object(parameters.get("request_json"), "request_json", MAX_REQUEST_BYTES)
+    request = json_object(parameters.get("request_json"), "request_json", MAX_REQUEST_BYTES)
     if set(request) - {"plan", "models", "inputs", "include_trace"}:
         raise EngineError("INVALID_INPUT", "The plan request contains unsupported fields.")
     if not all(isinstance(request.get(k), dict) for k in ("plan", "models", "inputs")):
@@ -263,7 +516,7 @@ def query_capability_parameters(
             raise EngineError(
                 "INVALID_INPUT", "capability_id must be a registered capability identifier."
             )
-        query_parameters = _json_object(
+        query_parameters = json_object(
             parameters.get("parameters_json"), "parameters_json", MAX_INPUT_BYTES
         )
         value = EngineClient(credentials, transport=transport).post_json(
@@ -293,7 +546,7 @@ def execute_plan_parameters(
             ) from exc
         value = EngineClient(credentials, transport=transport).post_json("/execute_plan", request)
         return validate_plan_response(
-            value, plan_id, flow, request["plan"].get("version"), plan_digest
+            value, plan_id, flow, request["plan"].get("version"), plan_digest, request
         )
     except EngineError as exc:
         return plan_failure(plan_id, flow, exc)

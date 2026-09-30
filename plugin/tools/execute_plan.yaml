@@ -15,20 +15,20 @@ description:
     data; Dify owns the surrounding workflow. Candidate contract, not scene-result.v2.
 parameters:
 - name: request_json
-  type: string
+  type: any
   required: true
   form: llm
   label:
     en_US: Plan request JSON
     zh_Hans: 计划请求 JSON
   human_description:
-    en_US: Strict JSON object containing plan, models, inputs and optional include_trace
+    en_US: Native object or JSON object string containing plan, models, inputs and optional include_trace
       (default false). Models are inline DMN XML; no model URLs or executable JavaScript
       are accepted.
-    zh_Hans: Strict JSON object containing plan, models, inputs and optional include_trace
+    zh_Hans: Native object or JSON object string containing plan, models, inputs and optional include_trace
       (default false). Models are inline DMN XML; no model URLs or executable JavaScript
       are accepted.
-  llm_description: Strict JSON object containing plan, models, inputs and optional
+  llm_description: Pin plan and models in trusted Workflow configuration, never agent-generated. Native object or JSON object string containing plan, models, inputs and optional
     include_trace (default false). Models are inline DMN XML; no model URLs or executable
     JavaScript are accepted.
 output_schema:

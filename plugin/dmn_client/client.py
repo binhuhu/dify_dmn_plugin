@@ -90,14 +90,26 @@ def _check_json_tree(value: Any) -> None:
         item, depth = stack.pop()
         if depth > MAX_JSON_DEPTH:
             raise ValueError("JSON nesting limit exceeded")
-        if isinstance(item, dict):
+        if type(item) is dict:
             for key, child in item.items():
+                if type(key) is not str or key in {
+                    "__proto__",
+                    "prototype",
+                    "constructor",
+                    "services",
+                }:
+                    raise ValueError("Unsafe JSON object key")
                 key.encode("utf-8")
                 stack.append((child, depth + 1))
-        elif isinstance(item, list):
+        elif type(item) is list:
             stack.extend((child, depth + 1) for child in item)
-        elif isinstance(item, str):
+        elif type(item) is str:
             item.encode("utf-8")
+        elif type(item) in (int, float):
+            if not math.isfinite(item) or (item == int(item) and abs(item) > 2**53 - 1):
+                raise ValueError("Non-finite or unsafe JSON number")
+        elif item is not None and type(item) is not bool:
+            raise ValueError("Only native JSON types are supported")
 
 
 def strict_json_loads(raw: str | bytes) -> Any:
@@ -110,6 +122,23 @@ def strict_json_loads(raw: str | bytes) -> Any:
         object_pairs_hook=_unique_pairs,
     )
     _check_json_tree(value)
+    return value
+
+
+def json_object(raw: Any, label: str, limit: int) -> dict[str, Any]:
+    if type(raw) not in (str, dict):
+        raise EngineError("INVALID_INPUT", f"{label} must be an object or JSON object string.")
+    try:
+        if type(raw) is dict:
+            _check_json_tree(raw)
+            raw = json.dumps(raw, ensure_ascii=False, separators=(",", ":"), allow_nan=False)
+        if len(raw.encode("utf-8")) > limit:
+            raise EngineError("INPUT_TOO_LARGE", f"{label} exceeds its UTF-8 byte limit.")
+        value = strict_json_loads(raw)
+    except (ValueError, TypeError, OverflowError, UnicodeError, RecursionError) as exc:
+        raise EngineError("INVALID_JSON", f"{label} must be safe strict JSON.") from exc
+    if type(value) is not dict:
+        raise EngineError("INVALID_INPUT", f"{label} must encode a JSON object.")
     return value
 
 
@@ -135,24 +164,7 @@ def prepare_request(parameters: Mapping[str, Any]) -> tuple[dict[str, Any], str]
         raise EngineError(
             "UNSAFE_XML", "DMN documents containing DTDs or entity declarations are forbidden."
         )
-    raw_inputs = parameters.get("inputs_json")
-    if not isinstance(raw_inputs, str):
-        raise EngineError("INVALID_INPUT", "inputs_json must be a JSON object encoded as a string.")
-    try:
-        input_bytes = raw_inputs.encode("utf-8")
-    except UnicodeError as exc:
-        raise EngineError("INVALID_INPUT", "inputs_json must contain valid Unicode.") from exc
-    if len(input_bytes) > MAX_INPUT_BYTES:
-        raise EngineError("INPUT_TOO_LARGE", "inputs_json exceeds the 256 KiB UTF-8 limit.")
-    try:
-        inputs = strict_json_loads(raw_inputs)
-    except (ValueError, UnicodeError, RecursionError) as exc:
-        raise EngineError(
-            "INVALID_JSON",
-            "inputs_json must be strict JSON without duplicate keys, non-finite numbers, or excessive nesting.",
-        ) from exc
-    if not isinstance(inputs, dict):
-        raise EngineError("INVALID_INPUT", "inputs_json must encode a JSON object.")
+    inputs = json_object(parameters.get("inputs_json"), "inputs_json", MAX_INPUT_BYTES)
     include_trace = parameters.get("include_trace", False)
     if type(include_trace) is not bool:
         raise EngineError("INVALID_INPUT", "include_trace must be a boolean.")

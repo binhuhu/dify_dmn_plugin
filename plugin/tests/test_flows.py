@@ -25,7 +25,22 @@ PROVENANCE = {
     "input_contract": CAPABILITY + ".input.v1",
     "output_contract": CAPABILITY + ".output.v1",
 }
-PLAN = {"plan_id": "example-plan", "version": "0.1.0", "flow": "locate_problem"}
+STEP = {
+    "id": "decide",
+    "kind": "decision",
+    "depends_on": [],
+    "model_id": "model1",
+    "decision_id": "decision_1",
+    "hit_policy": "UNIQUE",
+    "inputs": {"age": {"literal": 21}},
+}
+PLAN = {
+    "plan_id": "example-plan",
+    "version": "0.1.0",
+    "flow": "locate_problem",
+    "phases": [{"id": "LOCATE", "steps": [STEP]}],
+    "outputs": {"eligible": {"from": "steps.decide.outputs.result"}},
+}
 REQUEST = {
     "plan": PLAN,
     "models": {"model1": {"dmn_xml": XML, "sha256": DIGEST}},
@@ -60,8 +75,26 @@ def plan_response(**overrides):
         "mock_queries": True,
         "production_compatibility": "UNVERIFIED",
         "outputs": {"eligible": True},
-        "phases": [],
-        "steps": [],
+        "phases": [{"phase_id": "LOCATE", "status": "SUCCEEDED", "step_ids": ["decide"]}],
+        "steps": [
+            {
+                "step_id": "decide",
+                "phase_id": "LOCATE",
+                "kind": "decision",
+                "depends_on": [],
+                "input_bindings": {"age": {"literal": "[REDACTED]"}},
+                "status": "SUCCEEDED",
+                "outcome": "MATCHED",
+                "outputs": {"result": True},
+                "error": None,
+                "model_id": "model1",
+                "decision_id": "decision_1",
+                "hit_policy": "UNIQUE",
+                "model_sha256": DIGEST,
+                "decisions": [],
+                "trace": [],
+            }
+        ],
         "error": None,
         "evidence_gaps": [],
         "engine": ENGINE,
@@ -193,6 +226,12 @@ def test_plan_posts_request_with_false_trace_default():
 )
 def test_plan_preserves_waiting_and_failed(state):
     response = plan_response(**state)
+    response["steps"][0].update(
+        status=state["status"], outcome=None, outputs=None, error=state["error"]
+    )
+    if state["status"] == "WAITING_INPUT":
+        response["error"]["code"] = "UNKNOWN_INPUT"
+    response["phases"][0]["status"] = state["status"]
     assert plan(lambda _: httpx.Response(200, json=response)) == response
 
 
@@ -259,3 +298,23 @@ def test_candidate_tools_emit_json_and_results_object(tool_class, parameters, sc
     assert messages[0].message.json_object["status"] == "FAILED"
     assert messages[1].message.variable_name == "results"
     assert messages[1].message.variable_value == messages[0].message.json_object
+
+
+def test_no_match_null_is_legal_success():
+    from dmn_client.flows import validate_plan_response
+
+    response = plan_response()
+    response["steps"][0]["outcome"] = "NO_MATCH"
+    response["steps"][0]["outputs"]["result"] = None
+    response["outputs"]["eligible"] = None
+    assert (
+        validate_plan_response(
+            response,
+            PLAN["plan_id"],
+            PLAN["flow"],
+            PLAN["version"],
+            response["plan_sha256"],
+            REQUEST,
+        )["status"]
+        == "SUCCEEDED"
+    )

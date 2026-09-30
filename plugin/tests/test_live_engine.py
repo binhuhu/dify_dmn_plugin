@@ -188,3 +188,32 @@ def test_real_cross_language_canonical_plan_hash(engine_credentials, literal):
     assert result["status"] == "FAILED", result
     assert result["error"]["code"] == "QUERY_CONTRACT_MISMATCH", result
     assert isinstance(result["plan_sha256"], str) and len(result["plan_sha256"]) == 64
+
+
+@pytest.mark.parametrize("kind", ["query", "evaluate", "plan"])
+def test_native_object_matches_json_string_through_sdk(engine_credentials, kind):
+    request = example("solve-request.json")
+    if kind == "query":
+        cls = QueryCapabilityTool
+        key = "parameters_json"
+        params = {"capability_id": "demo.ticket_lookup", key: {"ticket_id": "T-100"}}
+    elif kind == "evaluate":
+        cls = EvaluateDmnTool
+        key = "inputs_json"
+        model = example("locate-request.json")["models"]["locator"]
+        params = {
+            "dmn_xml": model["dmn_xml"],
+            "decision_id": "locate_problem",
+            key: {"availability_state": "UNKNOWN"},
+        }
+    else:
+        cls = ExecutePlanTool
+        key = "request_json"
+        request["inputs"]["ticket_id"] = "T-MISSING"
+        params = {key: request}
+    native = invoke(cls, params, engine_credentials)
+    encoded = invoke(
+        cls, {**params, key: json.dumps(params[key], ensure_ascii=False)}, engine_credentials
+    )
+    assert native == encoded
+    assert native["status"] == "SUCCEEDED"

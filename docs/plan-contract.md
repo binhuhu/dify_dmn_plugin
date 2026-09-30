@@ -34,7 +34,7 @@ Every Step declares `id`, `kind`, and `depends_on`.
 
 Table policies are only `UNIQUE`, `FIRST`, `COLLECT`. `LITERAL` is a **Step logic marker**, not a DMN hit policy. It pins a separate literal FEEL expression, including explicit post-COLLECT priority resolution. `PRIORITY`, `ANY`, output order and rule order table policies are not admitted by the evaluator profile.
 
-P1 decision tables require UNIQUE and at most 10 rows; P5 requires FIRST. Optional `FEATURE`, `REALITY`, `PRIORITY` annotations lint UNIQUE, non-aggregating COLLECT, and literal logic respectively. These role checks are **partial semantic lint**, not a complete FMS validator. In particular, authoring review must establish P2's acceptance/compensation-limit separation, P3's user-evidence-only purpose, P4's full fact ontology and priority vocabulary, one focal conclusion, P6/P7 recommendation semantics, and business correctness. A role omitted from P4 does not receive role-specific lint.
+In this candidate profile (not universal DMN rules), P1 decision tables require UNIQUE and at most 10 rows; P5 requires FIRST. Optional `FEATURE`, `REALITY`, `PRIORITY` annotations lint UNIQUE, non-aggregating COLLECT, and literal logic respectively. These role checks are **partial semantic lint**, not a complete FMS validator. In particular, authoring review must establish P2's acceptance/compensation-limit separation, P3's user-evidence-only purpose, P4's full fact ontology and priority vocabulary, one focal conclusion, P6/P7 recommendation semantics, and business correctness. A role omitted from P4 does not receive role-specific lint.
 
 No custom adapter, JavaScript module, URL, HTTP header, action Step or executable code can be supplied in the request. Only DMN-safe FEEL is evaluated. The server runs this operation in its bounded worker process with a 5-second whole-plan execution budget; this is not a per-Step timeout or a durable background workflow.
 
@@ -122,3 +122,17 @@ Byte bounds: request 1,600,000; inputs/query parameters 262,144; each XML 1,048,
 Run `cd engine && npm test`. Regenerate synthetic request/XML pairs with `node examples/generate-fixtures.mjs` from the repository root. Fixture hashes are generated from the exact XML bytes.
 
 Tests cover interleaving, P1–P7/skipped P3, explicit business unknown, missing-input halt, NOT_FOUND versus confirmed absence, timeouts, registry/prototype rejection, contract/engine/model pins, DAG safety, Unicode data mappings, phase policy lint and trace presence. These are wiring/security/semantic-boundary tests, not independent historical/golden quality evidence. Production readiness still needs the actual three contracts, verified adapters, production models, real-case independent regression, hosting acceptance and approval to deploy.
+
+## Bounded declarative business termination
+
+An optional decision field `terminate_when` contains `value: {from: "steps.<decision>.outputs.<path>"}`, `equals` (non-null string, boolean or number), and `outputs` (the alternate final projection). The referenced decision must be the current step or a declared transitive dependency. Output mappings may reference only already executed steps, inputs or literal values. There is no expression interpreter, loop, retry or arbitrary conditional routing.
+
+After a technically successful step, strict scalar equality selects this terminal projection. A nonmatching type, null or different value does not match. A missing condition path or terminal output path returns WAITING_INPUT/MISSING_STEP_INPUT. Technical query/decision failures cannot trigger business success. The normal `plan.outputs` projection is not read on a terminal path.
+
+The response adds `termination: {step_id}` and a SKIPPED placeholder for every remaining step (`skip_reason: PLAN_TERMINATED`, `terminated_by`). Entire remaining active phases are SKIPPED; a partially completed phase is TERMINATED. Previously completed phases stay SUCCEEDED; declared empty phases retain their own skip reason. Skipped decisions were not evaluated.
+
+The synthetic T-MISSING case reaches NOT_ESTABLISHED and MANUAL_REVIEW, then terminates after P2 limit evaluation with explicit advisory human-handoff outputs. P4–P7 are skipped, including the order lookup; the handoff is the terminal mapping, not a fabricated P7 execution. T-100 and T-300 continue through normal business processing. Dify may instead implement its own reviewed if/else gates and early End nodes using the individual tools.
+
+The Python boundary checks expected phase/step coverage, order, dependencies, kind, capability/decision/model identity, model SHA-256, wrapper consistency, declared skipping/termination and final projections against the sent request. Preexecution FAILED responses may have empty internals and null hashes; FAILED does not exempt returned execution records from validation. A successful DMN NO_MATCH may legitimately project null.
+
+`plan_sha256` excludes `models` and runtime inputs. Keep all requested model SHA-256 pins alongside the plan; neither this digest nor a terminal result alone identifies or approves the complete execution configuration.

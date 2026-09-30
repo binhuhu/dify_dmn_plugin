@@ -20,18 +20,18 @@ parameters:
     human_description:
       en_US: Complete inline DMN XML, at most 1 MiB UTF-8. DTD and entity declarations are forbidden.
       zh_Hans: 完整内联 DMN XML，UTF-8 不超过 1 MiB，禁止 DTD 与实体声明。
-    llm_description: Complete DMN XML source, never a URL or file path.
+    llm_description: Reviewed DMN XML fixed in trusted Workflow configuration; never an agent-generated model, URL or file path.
   - name: inputs_json
-    type: string
+    type: any
     required: true
     form: llm
     label:
       en_US: Inputs JSON
       zh_Hans: 输入 JSON
     human_description:
-      en_US: A strict JSON object encoded as a string, at most 256 KiB UTF-8. Duplicate keys and non-finite numbers are rejected.
-      zh_Hans: 编码为字符串的严格 JSON 对象，UTF-8 不超过 256 KiB，禁止重复键与非有限数。
-    llm_description: A JSON object encoded as a string containing named input variables, for example an object with an age field. Do not send a JSON array.
+      en_US: A strict JSON object or JSON object string, at most 256 KiB UTF-8. Duplicate keys and non-finite numbers are rejected.
+      zh_Hans: 原生 Object 或严格 JSON 对象字符串，UTF-8 不超过 256 KiB，禁止重复键与非有限数。
+    llm_description: A JSON object or JSON object string containing named input variables, for example an object with an age field. Do not send a JSON array.
   - name: decision_id
     type: string
     required: true

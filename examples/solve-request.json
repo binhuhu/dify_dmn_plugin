@@ -66,7 +66,8 @@
             "id": "p2_limit",
             "kind": "decision",
             "depends_on": [
-              "p1"
+              "p1",
+              "p2_accept"
             ],
             "model_id": "solution",
             "decision_id": "compensation_limit",
@@ -74,6 +75,39 @@
             "inputs": {
               "scene_status": {
                 "from": "steps.p1.outputs.result"
+              }
+            },
+            "terminate_when": {
+              "value": {
+                "from": "steps.p2_accept.outputs.result"
+              },
+              "equals": "MANUAL_REVIEW",
+              "outputs": {
+                "scene_status": {
+                  "from": "steps.p1.outputs.result"
+                },
+                "strategy": {
+                  "from": "steps.p2_accept.outputs.result"
+                },
+                "focal_conclusion": {
+                  "literal": "UNKNOWN"
+                },
+                "reality": {
+                  "literal": []
+                },
+                "action_recommendations": {
+                  "literal": []
+                },
+                "ticket_recommendations": {
+                  "literal": [
+                    {
+                      "recommendation_type": "REFER_TO_HUMAN",
+                      "target": "SYNTHETIC_SECOND_LINE_TICKET",
+                      "binding_status": "GAP",
+                      "execution_mode": "ADVISORY_ONLY"
+                    }
+                  ]
+                }
               }
             }
           }

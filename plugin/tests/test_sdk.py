@@ -30,6 +30,9 @@ def test_sdk_registers_manifest_provider_tool_and_icon(monkeypatch):
         "decision_id",
         "include_trace",
     }
+    for tool in config.tools:
+        parameter = next(p for p in tool.parameters if p.name.endswith("_json"))
+        assert parameter.type.value == "any"
     assert {credential.name for credential in config.credentials_schema} == {
         "engine_url",
         "api_key",

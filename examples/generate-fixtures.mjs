@@ -375,6 +375,28 @@ const solve = {
   },
   include_trace: false,
 };
+// Explicit advisory completion: no P4 lookup or normal output projection on this route.
+const terminal = solve.plan.phases[1].steps[1];
+terminal.depends_on.push("p2_accept");
+terminal.terminate_when = {
+  value: from("steps.p2_accept.outputs.result"),
+  equals: "MANUAL_REVIEW",
+  outputs: {
+    scene_status: from("steps.p1.outputs.result"),
+    strategy: from("steps.p2_accept.outputs.result"),
+    focal_conclusion: literal("UNKNOWN"),
+    reality: literal([]),
+    action_recommendations: literal([]),
+    ticket_recommendations: literal([
+      {
+        recommendation_type: "REFER_TO_HUMAN",
+        target: "SYNTHETIC_SECOND_LINE_TICKET",
+        binding_status: "GAP",
+        execution_mode: "ADVISORY_ONLY",
+      },
+    ]),
+  },
+};
 await writeFile(join(root, "locate-problem.dmn"), locatorXml);
 await writeFile(join(root, "solve-problem.dmn"), solveXml);
 await writeFile(

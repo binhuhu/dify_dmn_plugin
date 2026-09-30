@@ -61,7 +61,7 @@ Dify 运行在容器时，它的 `127.0.0.1` 不是宿主机。需由部署人�
 1. 在 Dify 插件管理中本地安装已生成 `.difypkg`，或按 `plugin/README.md` 用官方 CLI 打包
 2. 配置 Engine URL 和相同 API Token。公网使用 HTTPS。仅受控内网调试可显式启用 insecure HTTP
 3. 工具 `query_capability` 展示查询，`evaluate_dmn` 展示一个决策，`execute_plan` 执行一条显式多 Step 计划
-4. 输入和输出均为结构化 JSON。状态不是成功就不能继续执行实际业务动作；`WAITING_INPUT` 进入补证或人工分支
+4. 输入和输出均为结构化 JSON。技术成功仍须检查业务结论，NOT_FOUND 不代表可继续；状态不是成功就不能继续执行实际业务动作；`WAITING_INPUT` 进入补证或人工分支
 5. 客服 UI 按实际结果合同渲染，不能把工具返回的业务数据直接展示给客户。默认关闭 trace；trace 只含规则/决策元数据，不含原始查询参数
 
 目前完成的是 SDK/工具单测、服务本地集成和打包验证；没有在你的真实 Dify 实例导入执行，也没有 Marketplace 发布。

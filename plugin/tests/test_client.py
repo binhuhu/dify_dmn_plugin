@@ -136,7 +136,7 @@ def test_inputs_must_be_json_object(raw):
 @pytest.mark.parametrize(
     "overrides",
     [
-        {"inputs_json": {}},
+        {"inputs_json": []},
         {"decision_id": None},
         {"decision_id": " "},
         {"decision_id": "x\n"},

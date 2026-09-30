@@ -19,7 +19,7 @@ HTTP exposes the token and evaluation data to the network. TLS verification cann
 `evaluate_dmn` accepts:
 
 - `dmn_xml`: inline DMN XML string, at most 1 MiB UTF-8
-- `inputs_json`: strict JSON object encoded as a string, at most 256 KiB UTF-8
+- `inputs_json`: native object or strict JSON object string, at most 256 KiB UTF-8
 - `decision_id`: exact decision ID, at most 256 characters
 - `include_trace`: boolean, default false
 
@@ -29,7 +29,7 @@ This release's server is authoritative for its restricted supported DMN/FEEL pro
 
 ### Query Capability
 
-`query_capability` accepts `capability_id` and `parameters_json` (a strict JSON object encoded as a string), calling `POST /query`. Only server-registered read-only capabilities are available. Initial demo adapters are synthetic mocks and are labeled in provenance. No arbitrary endpoint, JavaScript, or write operation can be supplied.
+`query_capability` accepts `capability_id` and `parameters_json` (a native object or strict JSON object string), calling `POST /query`. Only server-registered read-only capabilities are available. Initial demo adapters are synthetic mocks and are labeled in provenance. No arbitrary endpoint, JavaScript, or write operation can be supplied.
 
 The separate `query-capability.candidate.v1` response distinguishes:
 
@@ -42,7 +42,7 @@ Never substitute missing or unknown evidence with false or null.
 
 ### Execute Phase Plan
 
-`execute_plan` accepts `request_json`, a strict JSON object encoded as a string containing:
+`execute_plan` accepts `request_json`, a native object or strict JSON object string containing:
 
 - `plan`: an explicit versioned plan with `plan_id` and flow `locate_problem` or `solve_problem`
 - `models`: `{model_id: {dmn_xml: "...", sha256: "..."}}`; hashes must match the exact UTF-8 XML
@@ -53,7 +53,7 @@ It calls `POST /execute_plan`. Locate is one Phase with query and decision Steps
 
 The separate `query-dmn-plan-result.candidate.v1` result remains `CANDIDATE`, `ADVISORY_ONLY`, and `production_compatibility: UNVERIFIED`. The current adapters are mock queries. This is not a claim of `scene-result.v2` compatibility. No disposition, payment, ticket mutation, or other business action is performed.
 
-Successful and waiting plan responses retain the plan version and verify the server plan hash against RFC 8785 canonical JSON, including JavaScript-compatible number formatting and UTF-16 key ordering. A hash identifies the evaluated plan; it is not release approval.
+Successful and waiting plan responses retain the plan version and verify the server plan hash against RFC 8785 canonical JSON, including JavaScript-compatible number formatting and UTF-16 key ordering. The plan hash excludes `models` and runtime inputs. Every executed decision also verifies its exact requested model SHA-256; retain the full model map with the plan for replay. The plan hash alone is not the complete execution identity or release approval.
 
 ## Safety and transport
 
@@ -106,3 +106,11 @@ The package excludes tests, caches, virtual environments, and `.env` files. Pack
 - [Tool development guide](https://docs.dify.ai/en/develop-plugin/dev-guides-and-walkthroughs/tool-plugin)
 - [CLI scaffold implementation](https://github.com/langgenius/dify-plugin-daemon/blob/0.6.10/cmd/commandline/plugin/init.go)
 - [Python provider and tool templates](https://github.com/langgenius/dify-plugin-daemon/tree/0.6.10/cmd/commandline/plugin/templates/python)
+
+## Workflow configuration boundary
+
+The three `*_json` parameters use SDK `type: any` for native Object or JSON-string variables. Both forms pass the same strict UTF-8, byte/depth, safe-number, string-key and forbidden-key checks; string duplicate keys remain rejected. Objects are copied before defaults are added. SDK registration is tested; actual AgentHub Object propagation is not verified.
+
+In production Workflow configuration, pin inline `dmn_xml`, decision IDs, `plan`, model XML/digests and bindings as reviewed constants. Assemble only data inputs from validated Workflow variables. Do not expose model/plan creation to an agent or customer through the flexible `llm` form. That form is not an authorization boundary; no model registry is provided. Keep existing Dify if/else and early End nodes. Technical `SUCCEEDED` alone does not authorize business continuation.
+
+Small candidate plans may declare `terminate_when` on a decision, with strict scalar equality against an already executed dependent DMN output and a separate output projection. Remaining steps are explicitly skipped. See `docs/plan-contract.md` in the repository. This is not a replacement for Dify workflow branching.

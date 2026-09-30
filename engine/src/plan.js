@@ -463,7 +463,7 @@ async function validatePlan(request) {
         shape(
           s,
           [...common, "model_id", "decision_id", "hit_policy", "inputs"],
-          ["role"],
+          ["role", "terminate_when"],
           "decision step",
         );
         id(s.model_id, "model_id");
@@ -486,6 +486,25 @@ async function validatePlan(request) {
           "INVALID_STEP",
           "Only read-only query and DMN decision steps are supported",
         );
+      if (own(s, "terminate_when")) {
+        const t = s.terminate_when;
+        shape(t, ["value", "equals", "outputs"], [], "terminate_when");
+        const ref = parseBinding(t.value, "terminate_when.value");
+        if (!ref?.step || ref.parts[2] !== "outputs")
+          bad(
+            "INVALID_MAPPING",
+            "Termination must inspect a declared decision output",
+          );
+        if (
+          t.equals === null ||
+          !["string", "number", "boolean"].includes(typeof t.equals)
+        )
+          bad(
+            "INVALID_PLAN",
+            "Termination equals must be a non-null JSON scalar",
+          );
+        mappings(t.outputs, "terminate_when.outputs");
+      }
       id(s.id, "step.id");
       if (steps.has(s.id))
         bad("INVALID_STEP", "Step IDs must be globally unique");
@@ -526,6 +545,26 @@ async function validatePlan(request) {
   }
   for (const s of steps.values()) {
     const deps = ancestors(s.id);
+    if (s.terminate_when) {
+      const t = s.terminate_when;
+      const ref = parseBinding(t.value, "termination");
+      if (
+        steps.get(ref.step)?.kind !== "decision" ||
+        (ref.step !== s.id && !deps.has(ref.step))
+      )
+        bad(
+          "UNDECLARED_DEPENDENCY",
+          "Termination requires this or an ancestor decision",
+        );
+      for (const binding of Object.values(t.outputs)) {
+        const output = parseBinding(binding, "termination output");
+        if (output?.step && output.step !== s.id && !deps.has(output.step))
+          bad(
+            "UNDECLARED_DEPENDENCY",
+            "Termination outputs require executed dependencies",
+          );
+      }
+    }
     for (const binding of Object.values(
       s.kind === "query" ? s.parameters : s.inputs,
     )) {
@@ -612,8 +651,10 @@ export async function executePlan(request) {
     planHash = null;
   const results = [],
     phaseResults = [];
+  let termination = null;
   const envelope = (status, outputs, error = null) => ({
     schema_version: "query-dmn-plan-result.candidate.v1",
+    ...(termination ? { termination } : {}),
     plan_id: typeof plan?.plan_id === "string" ? plan.plan_id : null,
     plan_version: typeof plan?.version === "string" ? plan.version : null,
     plan_sha256: planHash,
@@ -746,12 +787,53 @@ export async function executePlan(request) {
       }
       if (phase.step_ids.every((x) => own(scope.steps, x)))
         phase.status = "SUCCEEDED";
+      if (
+        s.terminate_when &&
+        readPath(scope, s.terminate_when.value) === s.terminate_when.equals
+      ) {
+        const outputs = resolve(scope, s.terminate_when.outputs);
+        termination = { step_id: s.id };
+        for (const remaining of ordered.slice(results.length)) {
+          results.push({
+            step_id: remaining.id,
+            phase_id: phaseResults[phaseIndexes.get(remaining.id)].phase_id,
+            kind: remaining.kind,
+            depends_on: [...remaining.depends_on],
+            status: "SKIPPED",
+            outcome: null,
+            outputs: null,
+            error: null,
+            skip_reason: "PLAN_TERMINATED",
+            terminated_by: s.id,
+          });
+        }
+        for (const item of phaseResults) {
+          if (item.status === "NOT_STARTED") {
+            item.status = "SKIPPED";
+            item.skip_reason = "PLAN_TERMINATED";
+            item.terminated_by = s.id;
+          } else if (item.status === "RUNNING") {
+            item.status = "TERMINATED";
+            item.terminated_by = s.id;
+          }
+        }
+        const answer = envelope("SUCCEEDED", outputs);
+        if (Buffer.byteLength(JSON.stringify(answer)) > LIMITS.response)
+          bad("RESULT_TOO_LARGE", "Plan response exceeds 2 MiB");
+        return answer;
+      }
     }
     const answer = envelope("SUCCEEDED", resolve(scope, plan.outputs));
     if (Buffer.byteLength(JSON.stringify(answer)) > LIMITS.response)
       bad("RESULT_TOO_LARGE", "Plan response exceeds 2 MiB");
     return answer;
   } catch (e) {
+    for (const phase of phaseResults) {
+      if (phase.status === "NOT_STARTED") phase.status = "BLOCKED";
+      if (phase.status === "RUNNING")
+        phase.status =
+          e.code === "MISSING_STEP_INPUT" ? "WAITING_INPUT" : "FAILED";
+    }
     return envelope(
       e.code === "MISSING_STEP_INPUT" ? "WAITING_INPUT" : "FAILED",
       null,

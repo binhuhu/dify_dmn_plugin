@@ -46,6 +46,13 @@
         "id": {"$ref": "#/$defs/id"}, "kind": {"const": "decision"}, "depends_on": {"$ref": "#/$defs/dependencies"},
         "model_id": {"$ref": "#/$defs/id"}, "decision_id": {"type": "string", "minLength": 1, "maxLength": 2048},
         "hit_policy": {"enum": ["UNIQUE", "FIRST", "COLLECT", "LITERAL"]},
+        "terminate_when": {
+          "type": "object", "additionalProperties": false, "required": ["value", "equals", "outputs"],
+          "properties": {
+            "value": {"$ref": "#/$defs/binding"}, "equals": {"type": ["string", "number", "boolean"]},
+            "outputs": {"$ref": "#/$defs/mappings"}
+          }
+        },
         "inputs": {"$ref": "#/$defs/mappings"}, "role": {"enum": ["FEATURE", "REALITY", "PRIORITY", "ADVICE"]}
       }
     },
