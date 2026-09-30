@@ -1,11 +1,21 @@
 # Corrected candidate release checklist
 
-Status on 2026-09-30: corrected artifact built in the original authorized
-workspace; **public Release not published**. The restricted publication API must
-not be retried or bypassed through alternative automation. Resolve the supported
-publication permission/channel first. No security setting change is prescribed.
+## Published release record — 2026-09-30
 
-## Exact pending artifact
+The user published the public [v0.1.0 Release](https://github.com/hu8627/dify_dmn_plugin/releases/tag/v0.1.0) at
+11:23:49 UTC. The authorized GitHub connector verified release `399973040`
+is non-draft and non-prerelease. Asset `600747721` has the filename and size
+below; its GitHub-reported SHA-256 exactly matches the reviewed package.
+[Installation asset](https://github.com/hu8627/dify_dmn_plugin/releases/download/v0.1.0/hu8627-dmn-0.1.0-d04f51c.difypkg).
+
+This handoff verified metadata through the connector; no new asset download or
+tag-target check was performed by this executor. The package source remains
+d04f51c regardless of later documentation commits. No tag was moved, asset rebuilt
+or re-uploaded, or restricted API retried. Target installation is being retried,
+but success and a target DMN call remain unverified; the target Node service is
+not deployed.
+
+## Exact published artifact
 
 | Field | Expected |
 |---|---|
@@ -22,7 +32,7 @@ bytewise. This artifact replaces the old pending package. Documentation commits
 after d04f51c do not change its source revision. Do not silently rebuild or relabel
 an artifact as belonging to another commit.
 
-## Before publishing through an approved channel
+## Checklist for subsequent approved publication or verification
 
 1. Inspect existing tag, release and same-name assets. Reuse only identical targets
    and bytes; report conflicts. Never move a differing tag or overwrite an asset.
@@ -39,6 +49,10 @@ an artifact as belonging to another commit.
    verified release and asset URLs only after all checks pass.
 
 ## Installation and runtime acceptance remain separate
+
+For the current release, choose **From GitHub**, enter
+`https://github.com/hu8627/dify_dmn_plugin`, then select `v0.1.0` and the exact
+`.difypkg` filename above. Complete the workspace-approved installation flow.
 
 Enterprise policy may disable local package import. Use an administrator-approved
 installation/signing channel; do not weaken signature checks. A published asset

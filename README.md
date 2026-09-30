@@ -12,7 +12,7 @@ Java-free 候选原型。Dify Python 插件薄封装 → Node.js 执行服务 �
 - 源码测试：**99 Node + 230 Python**，包含 26 次真实 SDK → 本地 HTTP → 隔离 Node 集成测试。
 - Dify 1.11.1 原始模型解析、真实 SDK stdio、全新 Python 3.12 依赖安装已通过；daemon Go 包解码、目标 UI 安装和目标 DMN 调用尚未验证。详见[兼容性证据](docs/compatibility-1.11.1.md)。
 
-**公开 Release 尚未发布，因此目前不能通过 From GitHub 选择该安装包。** 源码分支或仓库中存在包文件不等同于 Release 资产。安装包未签名、未经 Marketplace 审核；本地安装需符合工作区策略，若企业策略禁用则需管理员提供批准的安装渠道，不能关闭安全校验。安装后仍需独立、可达且配置鉴权的 Node 服务。见[发布核对清单](docs/release-checklist.md)。
+**用户已发布公开 [v0.1.0 Release](https://github.com/hu8627/dify_dmn_plugin/releases/tag/v0.1.0)**（2026-09-30 11:23:49 UTC，非草稿、非预发布）；授权 GitHub 连接器已核验资产名称、53,718 字节及 SHA-256 与上述候选一致。[安装包链接](https://github.com/hu8627/dify_dmn_plugin/releases/download/v0.1.0/hu8627-dmn-0.1.0-d04f51c.difypkg)。目标 From GitHub 安装正在重试，尚未确认成功。安装包未签名、未经 Marketplace 审核；本地安装需符合工作区策略，若企业策略禁用则需管理员提供批准的安装渠道，不能关闭安全校验。安装后仍需独立、可达且配置鉴权的 Node 服务；目标服务尚未部署，目标 DMN 调用尚未验证。见[发布核对清单](docs/release-checklist.md)。
 
 ## 结构
 
@@ -72,7 +72,7 @@ Dify 运行在容器时，它的 `127.0.0.1` 不是宿主机。需由部署人�
 
 ## Dify 安装
 
-1. 工作区策略允许时，本地安装上述修正版 `.difypkg`；From GitHub 需先有公开 Release 安装包资产（目前未发布）。自行打包见 `plugin/README.md`
+1. 在插件管理中选择 **From GitHub**，填写 `https://github.com/hu8627/dify_dmn_plugin`，选择 `v0.1.0` 及 `hu8627-dmn-0.1.0-d04f51c.difypkg`，按工作区批准流程安装。若本地导入被策略禁用，不绕过该策略。自行打包见 `plugin/README.md`
 2. 配置 Engine URL 和相同 API Token。公网使用 HTTPS。仅受控内网调试可显式启用 insecure HTTP
 3. 工具 `query_capability` 展示查询，`evaluate_dmn` 展示一个决策，`execute_plan` 执行一条显式多 Step 计划
 4. 输入和输出均为结构化 JSON。技术成功仍须检查业务结论，NOT_FOUND 不代表可继续；状态不是成功就不能继续执行实际业务动作；`WAITING_INPUT` 进入补证或人工分支

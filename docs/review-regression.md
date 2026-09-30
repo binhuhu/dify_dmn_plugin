@@ -80,9 +80,15 @@ current claim that no corrected package exists.
 - SHA-256: `122e68ef2627d9371eb6cae1d7ee9cfb51b50bcedab59c7e6afa58c3b1776fbf`
 - Dify checksum: `d720592666104edb8c86951dbeabf7233a41e8412b17a8e71d0bbd51f25028be`
 
-This artifact supersedes the earlier pending package. Public Release publication
-is still pending; the restricted Release API was not retried or bypassed.
+This artifact supersedes the earlier pending package. On 2026-09-30 at
+11:23:49 UTC the user published the public [v0.1.0 Release](https://github.com/hu8627/dify_dmn_plugin/releases/tag/v0.1.0).
+The authorized GitHub connector verified release ID `399973040`, draft=false,
+prerelease=false, and asset ID `600747721`: the filename, 53,718-byte size and
+GitHub-reported SHA-256 match the artifact above. This is connector metadata
+verification, not a new downloaded-byte verification in this executor.
+The restricted Release API was not retried or bypassed.
 [Compatibility checks](compatibility-1.11.1.md) passed for actual Dify 1.11.1
 Python models, SDK stdio and a fresh 37-package dependency installation.
 Daemon Go package decoding and target UI installation/call remain NOT RUN.
-See the [release checklist](release-checklist.md) before publication.
+Target From GitHub installation is being retried; success is not yet verified.
+The target Node service remains undeployed. See the [release record and checklist](release-checklist.md).

@@ -87,7 +87,7 @@ Tests instantiate the actual SDK registration loader against the manifest/provid
 
 Optional Dify remote debugging uses `.env.example`, workspace-provided debugging credentials, and `python -m main`. Never commit a real debug key or engine token.
 
-The corrected artifact and its exact source/hash are recorded in the [repository delivery status](../README.md#当前交付状态2026-09-30). Public Release publication remains pending.
+The corrected artifact and its exact source/hash are recorded in the [repository delivery status](../README.md#当前交付状态2026-09-30). The user published the public [v0.1.0 Release](https://github.com/hu8627/dify_dmn_plugin/releases/tag/v0.1.0); choose that version and `hu8627-dmn-0.1.0-d04f51c.difypkg` via From GitHub. Target installation and runtime execution remain unverified; the separate target Node service has not been deployed.
 
 ## Packaging
 
