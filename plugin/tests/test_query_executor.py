@@ -542,7 +542,11 @@ def test_configured_staged_sdk_stdio_and_invalid_tokens(case, server, tmp_path):
     try:
         manifest = receive(lambda item: item.get("type") == "plugin")
         assert manifest["name"] == "dmn_json"
-        for mode in ("native", "json", "tampered", "bad_signature", "expired"):
+        for mode in ("native", "json", "tampered", "bad_signature", "expired", "production"):
+            if mode == "production":
+                config = json.loads(path.read_text())
+                config["environment"] = "PRODUCTION"
+                path.write_text(json.dumps(config))
             inv = copy.deepcopy(case[1])
             context = inv["execution_context"]
             expiry = int(time.time()) + (60 if mode != "expired" else -1)
@@ -602,10 +606,15 @@ def test_configured_staged_sdk_stdio_and_invalid_tokens(case, server, tmp_path):
                 assert result["execution_status"] == "SUCCEEDED", result
                 assert len(server[1]["calls"]) - before == 5
             else:
-                assert result["error"]["code"] == "QUERY_UNAUTHORIZED", result
+                assert result["error"]["code"] == (
+                    "QUERY_TRUSTED_HOST_REQUIRED" if mode == "production" else "QUERY_UNAUTHORIZED"
+                ), result
                 assert len(server[1]["calls"]) == before
         (tmp_path / "query-stdio-evidence.json").write_text(
-            json.dumps({"node_calls": 5, "environment": "SYNTHETIC", "events": captured}, indent=2)
+            json.dumps(
+                {"node_calls": 6, "stdio_calls": 6, "environment": "SYNTHETIC", "events": captured},
+                indent=2,
+            )
         )
     finally:
         process.terminate()
@@ -797,3 +806,212 @@ def test_tcp_and_tls_setup_share_capability_deadline(case, monkeypatch):
     assert clock[0] == pytest.approx(0.1)
     assert len(sockets) == 1 and sockets[0].closed
     assert len(result["trace"]["api_calls"]) == 1
+
+
+def combined_batch_pagination(case, deployment):
+    single_operation(case, deployment)
+    op = deployment.operations["mock.interactions.read@1"]
+    op["batch"] = {"parameter": "order_id", "max_items": 2, "max_batches": 2}
+    op["pagination"] = {"parameter": "cursor", "items_key": "items", "max_pages": 2}
+    op["input_schema"] = copy.deepcopy(op["input_schema"])
+    op["input_schema"]["properties"]["order_id"] = {"type": "array", "items": {"type": "string"}}
+    case[3]["operations"]["mock.interactions.read@1"]["input_schema"] = op["input_schema"]
+    case[2]["nodes"][0]["input_bindings"]["order_id"] = {"literal": ["A", "B", "C"]}
+    case[2]["budget"]["max_pages"] = 4
+    relock(case, deployment)
+
+
+def test_combined_batch_pagination_has_independent_cursors(case, server):
+    d = deploy(case, server)
+    combined_batch_pagination(case, d)
+
+    def pages(kind, answer):
+        params = server[1]["calls"][-1][1]
+        ids = params["order_id"]
+        ids = ids if isinstance(ids, list) else [ids]
+        # Reusing a cursor token in another batch is valid; not a loop.
+        return {
+            **answer,
+            "data": {"items": [{"ids": ids, "page": params.get("cursor", "first")}]},
+            "next_cursor": None if "cursor" in params else "second",
+        }
+
+    server[1]["change"] = pages
+    result = run(case, d)
+    assert result["execution_status"] == "SUCCEEDED", result
+    assert result["outputs"]["query"]["completeness"] == "COMPLETE"
+    assert result["outputs"]["query"]["data"]["record"]["items"] == [
+        {"ids": ["A", "B"], "page": "first"},
+        {"ids": ["A", "B"], "page": "second"},
+        {"ids": ["C"], "page": "first"},
+        {"ids": ["C"], "page": "second"},
+    ]
+    assert [(c["batch"], c["page"]) for c in result["trace"]["api_calls"]] == [
+        (1, 1),
+        (1, 2),
+        (2, 1),
+        (2, 2),
+    ]
+
+
+@pytest.mark.parametrize(
+    "limit,code,count",
+    [
+        ("pages", "QUERY_PARTIAL", 3),
+        ("calls", "QUERY_BUDGET_EXCEEDED", 3),
+        ("bytes", "QUERY_BUDGET_EXCEEDED", 2),
+    ],
+)
+def test_combined_batch_pagination_shared_budgets(case, server, limit, code, count):
+    d = deploy(case, server)
+    combined_batch_pagination(case, d)
+
+    def pages(kind, answer):
+        params = server[1]["calls"][-1][1]
+        result = {
+            **answer,
+            "data": {"items": ["SYNTHETIC"]},
+            "next_cursor": None if "cursor" in params else "second",
+        }
+        if limit == "bytes" and len(server[1]["calls"]) == 1:
+            # Permit the first response, then exceed cumulative bytes on second.
+            d.limits["max_response_bytes"] = len(json.dumps(result).encode()) + 1
+        return result
+
+    server[1]["change"] = pages
+    if limit == "pages":
+        case[2]["budget"]["max_pages"] = 3
+    if limit == "calls":
+        case[2]["budget"]["max_calls"] = 3
+    relock(case, d)
+    result = run(case, d)
+    assert result["error"]["code"] == code, result
+    assert result["outputs"]["query"] is None
+    assert len(server[1]["calls"]) == count
+
+
+def test_combined_batch_truncated_optional_output_is_unknown(case, server):
+    d = deploy(case, server)
+    combined_batch_pagination(case, d)
+    d.capabilities["demo.case_context@1.0.0"]["optional_outputs"] = ["record"]
+    case[2]["budget"]["max_pages"] = 3
+    relock(case, d)
+    server[1]["change"] = lambda kind, answer: {
+        **answer,
+        "next_cursor": None if "cursor" in server[1]["calls"][-1][1] else "second",
+    }
+    result = run(case, d)
+    assert result["execution_status"] == "SUCCEEDED", result
+    query = result["outputs"]["query"]
+    assert query["completeness"] == "PARTIAL"
+    assert query["data"]["record"]["quality"] == "UNKNOWN"
+    assert query["data"]["record"]["value"] is None
+    assert query["data"]["record"]["source_refs"]
+    assert len(server[1]["calls"]) == 3
+
+
+@pytest.mark.parametrize(
+    "environment,endpoint",
+    [
+        ("PRODUCTION", "http://127.0.0.1:1/read"),
+        ("PRODUCTION", "https://8.8.8.8/read"),
+        ("SYNTHETIC", "https://8.8.8.8/read"),
+        ("SYNTHETIC", "https://10.0.0.1/read"),
+        ("SYNTHETIC", "https://169.254.169.254/read"),
+        ("SYNTHETIC", "http://localhost:1/read"),
+        ("SYNTHETIC", "http://[::ffff:127.0.0.1]:1/read"),
+        ("SYNTHETIC", "http://[::1%25lo]:1/read"),
+        ("SYNTHETIC", "https://[2001:4860:4860::8888]/read"),
+    ],
+)
+def test_env_loader_cannot_authorize_real_reads(
+    case, server, tmp_path, monkeypatch, environment, endpoint
+):
+    import socket
+
+    from dmn_client.node_contract import ContractError
+
+    path, _ = configured_file(case, server, tmp_path)
+    config = json.loads(path.read_text())
+    config["environment"] = environment
+    # Put the forbidden endpoint late: the entire deployment must fail before IO.
+    config["operations"]["mock.interactions.read@1"]["url"] = endpoint
+    path.write_text(json.dumps(config))
+    monkeypatch.setenv("DMN_QUERY_DEPLOYMENT_FILE", str(path))
+    monkeypatch.setenv("DMN_QUERY_HMAC_KEY", "fixture-only-test-key-at-least-32-bytes")
+
+    def forbidden(*args, **kwargs):
+        pytest.fail("No network is allowed while rejecting fixture deployment")
+
+    monkeypatch.setattr(socket.socket, "connect", forbidden)
+    with pytest.raises(ContractError) as caught:
+        load_query_deployment()
+    assert caught.value.code == "QUERY_TRUSTED_HOST_REQUIRED"
+    assert not server[1]["calls"]
+
+
+def test_fixture_loader_allows_literal_ipv6_loopback_only(case, server, tmp_path, monkeypatch):
+    path, _ = configured_file(case, server, tmp_path)
+    config = json.loads(path.read_text())
+    for operation in config["operations"].values():
+        operation["url"] = "http://[::1]:1/read"
+    path.write_text(json.dumps(config))
+    monkeypatch.setenv("DMN_QUERY_DEPLOYMENT_FILE", str(path))
+    monkeypatch.setenv("DMN_QUERY_HMAC_KEY", "fixture-only-test-key-at-least-32-bytes")
+    deployment = load_query_deployment()
+    assert deployment.environment == "SYNTHETIC"
+    assert not server[1]["calls"]
+
+
+def test_combined_page_exhaustion_stops_later_unrelated_calls(case, server):
+    d = deploy(case, server)
+    combined_batch_pagination(case, d)
+    case[2]["budget"]["max_pages"] = 3
+    case[2]["nodes"].append(
+        {
+            "node_id": "late_user",
+            "operation_ref": "mock.user.read@1",
+            "depends_on": [],
+            "input_bindings": {"user_id": {"literal": "U-100"}},
+        }
+    )
+    relock(case, d)
+    server[1]["change"] = lambda kind, answer: {
+        **answer,
+        "next_cursor": None if "cursor" in server[1]["calls"][-1][1] else "second",
+    }
+    result = run(case, d)
+    assert result["error"]["code"] == "QUERY_PARTIAL", result
+    assert len(server[1]["calls"]) == 3
+    assert all(path == "/interactions" for path, params in server[1]["calls"])
+    assert result["trace"]["api_calls"][-1] == {
+        "api_node_id": "late_user",
+        "operation_ref": "mock.user.read@1",
+        "status": "NOT_EXECUTED",
+    }
+
+
+@pytest.mark.parametrize("mode,code", [("timeout", "QUERY_TIMEOUT"), ("cancel", "QUERY_CANCELLED")])
+def test_combined_batch_pagination_stops_on_timeout_or_cancel(case, server, mode, code):
+    d = deploy(case, server)
+    combined_batch_pagination(case, d)
+    case[2]["budget"]["total_timeout_ms"] = 40
+    relock(case, d)
+    if mode == "cancel":
+        d.cancelled = lambda: len(server[1]["calls"]) >= 3
+
+    def pages(kind, answer):
+        if mode == "timeout" and len(server[1]["calls"]) == 3:
+            return "timeout"
+        return {
+            **answer,
+            "next_cursor": None if "cursor" in server[1]["calls"][-1][1] else "second",
+        }
+
+    server[1]["change"] = pages
+    result = run(case, d)
+    assert result["error"]["code"] == code, result
+    assert result["outputs"]["query"] is None
+    assert len(server[1]["calls"]) == 3
+    time.sleep(0.12)
+    assert len(server[1]["calls"]) == 3

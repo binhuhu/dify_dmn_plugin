@@ -22,6 +22,7 @@ BLOCKING = {
     "INDETERMINATE_MATCH",
     "SNAPSHOT_STALE",
     "INPUT_BINDING_UNAVAILABLE",
+    "SNAPSHOT_REUSE_UNVERIFIED",
 }
 
 
@@ -172,6 +173,53 @@ def _merge_data(target, new):
         target[key] = deepcopy(value)
 
 
+def _validate_reduced_paths(prepared, actions):
+    """Validate the actually selected union; unselected rows cannot fill gaps.
+
+    This checks only reachability/selection and never activates or executes a
+    node. The host still requires both activation and selection at dispatch.
+    """
+    step = prepared["step"]
+    nodes = {node["node_id"]: node for node in step["graph"]["nodes"]}
+    edges = step["graph"]["edges"]
+    decision_id = prepared["node"]["node_id"]
+    routes = {action["route_ref"] for action in actions if action["kind"] == "CONTROL"}
+    route = next(iter(routes), None)
+    todo = [
+        edge["target"]
+        for edge in edges
+        if edge["source"] == decision_id and edge["source_port"] == "ok"
+    ]
+    reachable = set()
+    while todo:
+        node_id = todo.pop()
+        if node_id in reachable:
+            continue
+        reachable.add(node_id)
+        node = nodes[node_id]
+        outgoing = [edge for edge in edges if edge["source"] == node_id]
+        if node.get("selector") == {"source": "DECISION_CONTROL", "node_id": decision_id}:
+            outgoing = [edge for edge in outgoing if edge["source_port"] == route]
+            if route not in node["ports"] or len(outgoing) != 1:
+                fail(
+                    "GATEWAY_ROUTE_UNMAPPED",
+                    "Every reachable business gateway requires exactly one edge for the selected route.",
+                    node_id,
+                )
+        todo.extend(edge["target"] for edge in outgoing)
+    targets = {action["target_node_id"] for action in actions if action["kind"] != "CONTROL"}
+    if not targets <= reachable:
+        fail("INTENT_PATH_MISMATCH", "Selected intent is unreachable on the reduced control route.")
+    required = {
+        node_id
+        for node_id in reachable
+        if nodes[node_id]["kind"] == "ACTION"
+        or (nodes[node_id]["kind"] == "QUERY" and nodes[node_id]["requires_intent"])
+    }
+    if not required <= targets:
+        fail("PATH_ACTION_NOT_SELECTED", "Reduced control route lacks a required action intent.")
+
+
 def _render(prepared, templates, params):
     nodes = {n["node_id"]: n for n in prepared["step"]["graph"]["nodes"]}
     decision = {"state": templates[0]["state"], "data": {}, "actions": []}
@@ -246,6 +294,7 @@ def _render(prepared, templates, params):
             "The reduced decision must select one registered control route.",
         )
     decision["actions"] = list(actions.values())
+    _validate_reduced_paths(prepared, decision["actions"])
     return decision
 
 
@@ -263,6 +312,10 @@ def evaluate_decision(
     The policy may return trusted NodeIO sources. Fixed input bindings are then
     recomputed and must exactly match snapshot records before evaluation. Returning
     None does not attest sources and retains the content-only trust classification.
+    For reused_from snapshots the trusted policy must verify original permissions,
+    subject, definition/model versions, quality and age before returning sources;
+    absent source verification blocks reuse. Ordinary fixed-input pure replay does
+    not set reused_from and remains credential-free.
     """
     ref = node_ref if isinstance(node_ref, dict) else {}
     context = execution_context_json if isinstance(execution_context_json, dict) else {}
@@ -292,6 +345,14 @@ def evaluate_decision(
                     )
                 prepared["trusted_sources"] = sources
         model, params = validate_snapshot(prepared)
+        if (
+            "reused_from" in prepared["inputs"]["parameter_snapshot"]
+            and "trusted_sources" not in prepared
+        ):
+            fail(
+                "SNAPSHOT_REUSE_UNVERIFIED",
+                "Reused snapshots require deployment-verified scope and source evidence.",
+            )
         if "trusted_sources" in prepared:
             rebound = bind_inputs(prepared["node"], prepared["trusted_sources"])
             if not equal(rebound, params):

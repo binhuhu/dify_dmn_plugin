@@ -160,3 +160,14 @@ def test_manifest_matches_official_cli_0610_version_format():
     assert manifest["version"] == "0.4.0-rc1"
     assert not re.fullmatch(pattern, "0.4.0-rc.1", flags=re.ASCII)
     assert "RC" in manifest["label"]["en_US"]
+
+
+def test_sdk_reused_snapshot_without_trusted_host_is_blocked():
+    tool = EvaluateDecisionTool.from_credentials({})
+    params = parameters()
+    params["inputs_json"]["parameter_snapshot"]["reused_from"] = "previous-attempt"
+    result, values = invoke(tool, params)
+    assert result["execution_status"] == "BLOCKED"
+    assert result["error"]["code"] == "SNAPSHOT_REUSE_UNVERIFIED"
+    assert result["outputs"]["decision"] is None
+    assert (values["state"], values["data"], values["actions"]) == ("", {}, [])

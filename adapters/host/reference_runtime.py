@@ -262,6 +262,10 @@ class ReferenceRuntime:
             decision=None,
             evaluation_ref=None,
             active={},
+            activation_tokens={},
+            waits={},
+            waiting_tokens={},
+            event_parameters={},
             queue=[],
             status="RUNNING",
         )
@@ -282,12 +286,16 @@ class ReferenceRuntime:
             }
         )
 
-    def _activate(self, node_id, fork=None, branch=None, port="ok"):
+    def _activate(
+        self, node_id, fork=None, branch=None, port="ok", failed=False, unresolved=False
+    ):
         token = {
             "node_id": node_id,
             "fork_run_id": fork,
             "branch_id": branch,
             "port": port,
+            "failed": failed,
+            "unresolved": unresolved,
         }
         self.state["queue"].append(token)
 
@@ -304,7 +312,12 @@ class ReferenceRuntime:
         edge = edges[0]
         self._record("EDGE", edge_id=edge["edge_id"], port=port)
         self._activate(
-            edge["target"], token.get("fork_run_id"), token.get("branch_id"), port
+            edge["target"],
+            token.get("fork_run_id"),
+            token.get("branch_id"),
+            port,
+            failed=token.get("failed", False),
+            unresolved=token.get("unresolved", False),
         )
 
     def drive(self):
@@ -316,7 +329,11 @@ class ReferenceRuntime:
                 )
             token = s["queue"].pop(0)
             fork = s["forks"].get(token["fork_run_id"])
-            if fork and fork["status"] != "OPEN":
+            if (
+                fork
+                and fork["status"] != "OPEN"
+                and not (fork["status"] == "FAILING" and token.get("failed"))
+            ):
                 self._record("LATE_BRANCH_IGNORED", **token)
                 continue
             node = self._nodes()[token["node_id"]]
@@ -328,6 +345,14 @@ class ReferenceRuntime:
             elif kind == "START":
                 self._edge(node["node_id"], "ok", token)
             elif kind == "END":
+                if (
+                    token.get("unresolved")
+                    and self._step()["exits"][node["exit_ref"]]["class"] != "TECHNICAL"
+                ):
+                    raise ContractError(
+                        "UNRESOLVED_EXECUTION",
+                        "Unresolved operation requires WAIT before nontechnical exit",
+                    )
                 self._exit(node["exit_ref"])
             elif kind == "WAIT":
                 request_id = s["waits"].get(node["node_id"])
@@ -336,7 +361,7 @@ class ReferenceRuntime:
                         "RESUME_EVENT_MISMATCH", "WAIT was not registered before send"
                     )
                 s["waiting_node"] = node["node_id"]
-                s["status"] = "WAITING"
+                s["waiting_tokens"][node["node_id"]] = copy.deepcopy(token)
                 self._consume_wait(node, request_id)
             elif kind == "EXCLUSIVE":
                 self._exclusive(node, token)
@@ -344,6 +369,9 @@ class ReferenceRuntime:
                 self._parallel(node, token)
             else:
                 raise ContractError("HOST_PROFILE_UNSUPPORTED", "Unsupported host node")
+            self._save()
+        if s["status"] == "RUNNING" and not s["queue"] and s["waiting_tokens"]:
+            s["status"] = "WAITING"
             self._save()
         return copy.deepcopy(s)
 
@@ -406,6 +434,7 @@ class ReferenceRuntime:
         context = self._context(node)
         ref = self._ref(node["node_id"])
         s["active"][node["node_id"]] = context
+        s["activation_tokens"][node["node_id"]] = copy.deepcopy(token)
         s["in_flight"] = node["node_id"]
         self._save()  # A crash during IO is UNKNOWN; never automatically resend.
         try:
@@ -502,6 +531,7 @@ class ReferenceRuntime:
             )
         s["in_flight"] = None
         s["active"].pop(node["node_id"], None)
+        s["activation_tokens"].pop(node["node_id"], None)
         s["results"][node["node_id"]] = copy.deepcopy(result)
         s["history"][result["node_run_id"]] = copy.deepcopy(result)
         if node["kind"] == "DECISION":
@@ -517,7 +547,13 @@ class ReferenceRuntime:
             node_run_id=context["node_run_id"],
             status=result["execution_status"],
         )
-        if token["fork_run_id"] and result["execution_status"] != "SUCCEEDED":
+        if result["execution_status"] in {"PENDING", "UNKNOWN"}:
+            token["unresolved"] = True
+        if token["fork_run_id"] and result["execution_status"] in {
+            "FAILED",
+            "BLOCKED",
+            "CANCELLED",
+        }:
             self.branch_complete(token["fork_run_id"], token["branch_id"], False)
         else:
             self._edge(node["node_id"], result["output_port"], token)
@@ -587,6 +623,9 @@ class ReferenceRuntime:
         for wait_node in waits:
             wait = correlation | {
                 "correlation_values": copy.deepcopy(correlation),
+                "token": copy.deepcopy(
+                    self.state["activation_tokens"].get(node_id, {})
+                ),
                 "event_type": wait_node["event_type"],
                 "node_id": wait_node["node_id"],
                 "event_schema": wait_node["event_schema"],
@@ -652,14 +691,19 @@ class ReferenceRuntime:
 
     def _parallel(self, node, token):
         if node["mode"] == "JOIN":
+            fork = self.state["forks"].get(token.get("fork_run_id"))
+            if not fork or fork["join"] != node["node_id"]:
+                raise ContractError(
+                    "FORK_BRANCH_MISMATCH", "Receipt reached a different fork join"
+                )
             self.branch_complete(
-                token["fork_run_id"], token["branch_id"], token["port"] == "ok"
+                token["fork_run_id"],
+                token["branch_id"],
+                token["port"] in {"ok", "received"}
+                and not token.get("failed", False)
+                and not token.get("unresolved", False),
             )
             return
-        if token["fork_run_id"]:
-            raise ContractError(
-                "HOST_PROFILE_UNSUPPORTED", "Nested parallel forks are not enabled"
-            )
         edges = [
             e for e in self._step()["graph"]["edges"] if e["source"] == node["node_id"]
         ]
@@ -669,16 +713,60 @@ class ReferenceRuntime:
             "join": node["pair_ref"],
             "branches": {e["branch_id"]: None for e in edges},
             "attempt_id": self.state["attempt_id"],
+            "parent_token": copy.deepcopy(token),
         }
         for edge in edges:
-            self._activate(edge["target"], fork_id, edge["branch_id"])
+            self._activate(
+                edge["target"],
+                fork_id,
+                edge["branch_id"],
+                unresolved=token.get("unresolved", False),
+            )
+
+    def _fork_descendants(self, fork_id):
+        scope = {fork_id}
+        changed = True
+        while changed:
+            previous = len(scope)
+            scope.update(
+                key
+                for key, value in self.state["forks"].items()
+                if value.get("parent_token", {}).get("fork_run_id") in scope
+            )
+            changed = len(scope) != previous
+        return scope
+
+    def _cancel_fork_scope(self, fork_id):
+        scope = self._fork_descendants(fork_id)
+        self.state["queue"] = [
+            token
+            for token in self.state["queue"]
+            if token.get("fork_run_id") not in scope
+        ]
+        for child in scope - {fork_id}:
+            fork = self.state["forks"][child]
+            if fork["status"] == "OPEN":
+                fork["status"] = "CANCELLED"
+                self._record("FORK_CLOSED", fork_run_id=child, status="CANCELLED")
+        for node_id, request_id in self.state["waits"].items():
+            wait, _ = self.store.wait(request_id)
+            if wait.get("token", {}).get("fork_run_id") in scope:
+                self.store.claim(request_id, {"port": "cancelled"})
+                self.state["waiting_tokens"].pop(node_id, None)
+                self._record(
+                    "WAIT_CANCELLED_BY_FORK", node_id=node_id, request_id=request_id
+                )
 
     def branch_complete(self, fork_run_id, branch_id, success):
-        """A branch receipt carries identity; duplicate/late receipts cannot reopen."""
+        """Identity scoped receipts, including nested children; one failure exit."""
         fork = self.state["forks"].get(fork_run_id)
         if not fork or branch_id not in fork["branches"]:
             raise ContractError("FORK_BRANCH_MISMATCH", "Unknown fork/branch")
-        if fork["status"] != "OPEN" or fork["branches"][branch_id] is not None:
+        if (
+            fork["status"] not in {"OPEN", "FAILING"}
+            or (fork["status"] == "FAILING" and success)
+            or fork["branches"][branch_id] is not None
+        ):
             self._record(
                 "LATE_BRANCH_IGNORED", fork_run_id=fork_run_id, branch_id=branch_id
             )
@@ -686,13 +774,37 @@ class ReferenceRuntime:
         fork["branches"][branch_id] = success
         if not success or all(v is True for v in fork["branches"].values()):
             fork["status"] = "SUCCEEDED" if success else "FAILED"
-            self.state["queue"] = [
-                t for t in self.state["queue"] if t["fork_run_id"] != fork_run_id
-            ]
+            if not success:
+                self._cancel_fork_scope(fork_run_id)
             self._record("FORK_CLOSED", fork_run_id=fork_run_id, status=fork["status"])
-            self._edge(fork["join"], "ok" if success else "error", {})
+            parent = fork.get("parent_token", {})
+            if success:
+                # ALL_SUCCESS is reached only after every branch resolved its token.
+                parent = {**parent, "unresolved": False}
+            if not success and parent.get("fork_run_id"):
+                # Freeze all enclosing scopes before following the registered
+                # error path. A MERGE's ok port cannot erase this failed token.
+                ancestor = parent["fork_run_id"]
+                top = ancestor
+                while ancestor:
+                    enclosing = self.state["forks"][ancestor]
+                    enclosing["status"] = "FAILING"
+                    top = ancestor
+                    ancestor = enclosing.get("parent_token", {}).get("fork_run_id")
+                self._cancel_fork_scope(top)
+                parent = {**parent, "failed": True}
+            self._edge(fork["join"], "ok" if success else "error", parent)
         self._save()
         return True
+
+    def _wait_scope_open(self, wait):
+        state = self.store.load(wait["workflow_run_id"])
+        if state["status"] == "COMPLETED" or any(
+            state[key] != wait[key] for key in ("step_run_id", "attempt_id")
+        ):
+            return False
+        fork_id = wait.get("token", {}).get("fork_run_id")
+        return not fork_id or state["forks"].get(fork_id, {}).get("status") == "OPEN"
 
     def receive(self, event):
         """Authenticated host event adapter must authenticate before this call."""
@@ -722,7 +834,7 @@ class ReferenceRuntime:
                 "RESUME_EVENT_MISMATCH", "Event does not match host correlation"
             )
         Draft202012Validator(wait["event_schema"]).validate(event.get("payload"))
-        if winner:
+        if winner or not self._wait_scope_open(wait):
             return False
         return self.store.claim(
             wait["request_id"],
@@ -756,13 +868,24 @@ class ReferenceRuntime:
                 "Interrupted execution requires reconciliation; no automatic resend",
             )
         if self.state["status"] == "WAITING":
-            node = self._nodes()[self.state["waiting_node"]]
-            self._consume_wait(node, self.state["waits"][node["node_id"]])
+            self.state["status"] = "RUNNING"
+            for node_id in list(self.state["waiting_tokens"]):
+                if node_id in self.state["waiting_tokens"]:
+                    self._consume_wait(
+                        self._nodes()[node_id], self.state["waits"][node_id]
+                    )
         return self.drive()
 
     def _consume_wait(self, node, request_id):
+        if node["node_id"] not in self.state["waiting_tokens"]:
+            return
         wait, winner = self.store.wait(request_id)
         if not winner:
+            return
+        token = self.state["waiting_tokens"].pop(node["node_id"], {})
+        fork_id = token.get("fork_run_id")
+        if fork_id and self.state["forks"][fork_id]["status"] != "OPEN":
+            self._record("LATE_BRANCH_IGNORED", **token)
             return
         if winner["port"] == "received":
             self.state["event"] = winner["payload"]
@@ -776,10 +899,30 @@ class ReferenceRuntime:
                     },
                 },
             )
+            updates = {}
             for key, record in bound.items():
                 if node["event_bindings"][key]["source_format"] == "VALUE":
                     record["source_refs"] = [winner["event_id"]]
-                self.state["context"].setdefault("parameters", {})[key] = record
+                previous = self.state["event_parameters"].get(key)
+                if previous is not None and not equal(
+                    {k: v for k, v in previous.items() if k != "source_refs"},
+                    {k: v for k, v in record.items() if k != "source_refs"},
+                ):
+                    if fork_id:
+                        self._record("EVENT_PARAMETER_CONFLICT", parameter=key)
+                        self.branch_complete(fork_id, token["branch_id"], False)
+                        return
+                    raise ContractError(
+                        "RESULT_CONFLICT", "Concurrent events disagree on a parameter"
+                    )
+                if previous is not None:
+                    record["source_refs"] = sorted(
+                        set(previous["source_refs"] + record["source_refs"])
+                    )
+                updates[key] = record
+            # Validate the complete projection before publishing any field.
+            self.state["event_parameters"].update(copy.deepcopy(updates))
+            self.state["context"].setdefault("parameters", {}).update(updates)
         self._record(
             "WAIT_RESOLVED",
             node_id=node["node_id"],
@@ -787,7 +930,12 @@ class ReferenceRuntime:
             port=winner["port"],
         )
         self.state["status"] = "RUNNING"
-        self._edge(node["node_id"], winner["port"], {})
+        if winner["port"] == "received":
+            token["unresolved"] = False
+        if fork_id and winner["port"] != "received":
+            self.branch_complete(fork_id, token["branch_id"], False)
+        else:
+            self._edge(node["node_id"], winner["port"], token)
         self._save()
 
     def _exit(self, exit_ref):

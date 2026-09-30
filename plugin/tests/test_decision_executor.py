@@ -459,3 +459,224 @@ def test_sdk_trusted_binding_failure_clears_previous_success(case, monkeypatch):
     failed, outputs = invoke()
     assert_failure(failed, "INPUT_BINDING_MISMATCH")
     assert outputs["state"] == "" and outputs["data"] == {} and outputs["actions"] == []
+
+
+def split_collect(case):
+    """Three rows jointly supply Data, interaction selection, and the route."""
+    model = table(case)
+    model["hit_policy"] = "COLLECT"
+    model["result_templates"] = {
+        "route": {
+            "state": "NEED_USER_INPUT",
+            "data": {},
+            "actions": [{"intent_id": "control", "kind": "CONTROL", "route_ref": "ASK"}],
+        },
+        "interaction": {
+            "state": "NEED_USER_INPUT",
+            "data": {},
+            "actions": [{"intent_id": "ask", "kind": "INTERACTION", "target_node_id": "A_ASK"}],
+        },
+        "data": {
+            "state": "NEED_USER_INPUT",
+            "data": {"question_ref": {"literal": "demo.ask_meeting@1"}},
+            "actions": [],
+        },
+    }
+    model["rules"] = [
+        {"rule_id": name, "when": [], "output_template_ref": name}
+        for name in ("route", "interaction", "data")
+    ]
+    step = case[0]["workflows"][1]["phases"][0]["steps"][0]
+    target = next(n for n in step["graph"]["nodes"] if n["node_id"] == "A_ASK")
+    target["input_bindings"]["question_ref"] = {
+        "from": {"source": "decision", "path": ["data", "question_ref"]}
+    }
+    return model
+
+
+@pytest.mark.parametrize(
+    "order",
+    [
+        ("route", "interaction", "data"),
+        ("route", "data", "interaction"),
+        ("interaction", "route", "data"),
+        ("interaction", "data", "route"),
+        ("data", "route", "interaction"),
+        ("data", "interaction", "route"),
+    ],
+)
+def test_collect_cross_template_route_action_data_all_orders(case, order):
+    model = split_collect(case)
+    model["rules"] = [{"rule_id": name, "when": [], "output_template_ref": name} for name in order]
+    result = run(case)
+    assert result["execution_status"] == "SUCCEEDED", result
+    decision = result["outputs"]["decision"]
+    assert decision["data"] == {"question_ref": "demo.ask_meeting@1"}
+    assert {a["kind"] for a in decision["actions"]} == {"CONTROL", "INTERACTION"}
+    assert next(a for a in decision["actions"] if a["kind"] == "INTERACTION")["parameters"] == {
+        "order_id": "O-100",
+        "question_ref": "demo.ask_meeting@1",
+    }
+    assert set(result["trace"]["selected_rule_ids"]) == set(order)
+
+
+def test_collect_unselected_action_row_cannot_fill_actual_gap(case):
+    model = split_collect(case)
+    model["rules"][1]["when"] = [
+        {"path": ["parameters", "order_id", "value"], "op": "eq", "value": "OTHER"}
+    ]
+    result = run(case)
+    assert_failure(result, "PATH_ACTION_NOT_SELECTED")
+    assert set(result["trace"]["selected_rule_ids"]) == {"route", "data"}
+
+
+def test_collect_action_only_row_must_match_selected_route(case):
+    model = split_collect(case)
+    model["result_templates"]["route"]["actions"][0]["route_ref"] = "CONTINUE"
+    assert_failure(run(case), "INTENT_PATH_MISMATCH")
+
+
+def test_collect_empty_template_cannot_borrow_unselected_intent(case):
+    model = split_collect(case)
+    for rule in model["rules"]:
+        rule["when"] = [{"path": ["parameters", "order_id", "value"], "op": "eq", "value": "OTHER"}]
+    model["on_no_match"] = "RESULT_TEMPLATE"
+    model["empty_template_ref"] = "route"
+    assert_failure(run(case), "PATH_ACTION_NOT_SELECTED")
+
+
+def test_collect_cross_template_unknown_is_blocked_before_dispatch(case):
+    model = split_collect(case)
+    model["rules"][1]["when"] = [
+        {"path": ["parameters", "met_driver", "value"], "op": "eq", "value": True}
+    ]
+    assert_failure(run(case), "INDETERMINATE_MATCH", "BLOCKED")
+
+
+def test_collect_cross_template_duplicate_intent_deduplicates(case):
+    model = split_collect(case)
+    model["result_templates"]["duplicate"] = deepcopy(model["result_templates"]["interaction"])
+    model["result_templates"]["duplicate"]["actions"][0]["intent_id"] = "also-ask"
+    model["rules"].append({"rule_id": "duplicate", "when": [], "output_template_ref": "duplicate"})
+    result = run(case)
+    assert result["execution_status"] == "SUCCEEDED"
+    assert len(result["outputs"]["decision"]["actions"]) == 2
+    assert set(result["trace"]["selected_rule_ids"]) == {
+        "route",
+        "data",
+        "interaction",
+        "duplicate",
+    }
+
+
+def test_collect_cross_template_sdk_missing_action_clears_success(case):
+    from tools.evaluate_decision import EvaluateDecisionTool
+
+    model = split_collect(case)
+    tool = EvaluateDecisionTool.from_credentials({})
+
+    def call():
+        bundle, invocation = case
+        digest = definition_digest(bundle)
+        invocation["inputs"]["parameter_snapshot"]["definition_digest"] = digest
+        messages = list(
+            tool.invoke(
+                {
+                    "definition_bundle_json": bundle,
+                    "node_ref": invocation["node_ref"],
+                    "expected_definition_sha256": digest,
+                    "inputs_json": invocation["inputs"],
+                    "execution_context_json": invocation["execution_context"],
+                }
+            )
+        )
+        return messages[0].message.json_object, {
+            m.message.variable_name: m.message.variable_value for m in messages[1:]
+        }
+
+    success, _ = call()
+    assert success["execution_status"] == "SUCCEEDED"
+    model["rules"] = [r for r in model["rules"] if r["rule_id"] != "interaction"]
+    failed, values = call()
+    assert_failure(failed, "PATH_ACTION_NOT_SELECTED")
+    assert (values["state"], values["data"], values["actions"]) == ("", {}, [])
+
+
+@pytest.mark.parametrize("policy", [None, lambda prepared: None])
+def test_reused_snapshot_requires_verified_source_policy(case, policy):
+    case[1]["inputs"]["parameter_snapshot"]["reused_from"] = "previous-attempt"
+    assert_failure(run(case, policy), "SNAPSHOT_REUSE_UNVERIFIED", "BLOCKED")
+
+
+def test_reused_snapshot_revalidated_against_current_trusted_bindings(case):
+    sources = trusted_sources(case)
+    case[1]["inputs"]["parameter_snapshot"]["reused_from"] = "previous-attempt"
+    result = run(case, lambda prepared: sources)
+    assert result["execution_status"] == "SUCCEEDED"
+    assert result["trace"]["trust"] == "DEPLOYMENT_POLICY_CHECKED"
+    record(case).update(quality="KNOWN", value=False)
+    assert_failure(run(case, lambda prepared: sources), "INPUT_BINDING_MISMATCH")
+
+
+def test_reuse_policy_must_accept_age_scope_before_sources(case):
+    case[1]["inputs"]["parameter_snapshot"]["reused_from"] = "old-tenant-run"
+
+    def reject_old_subject(prepared):
+        assert prepared["inputs"]["parameter_snapshot"]["reused_from"] == "old-tenant-run"
+        raise ContractError("SNAPSHOT_SCOPE_MISMATCH", "Original source scope is not valid here")
+
+    assert_failure(run(case, reject_old_subject), "SNAPSHOT_SCOPE_MISMATCH")
+
+
+def test_plain_saved_input_replay_without_reuse_remains_credential_free(case):
+    first = run(case)
+    assert first["execution_status"] == "SUCCEEDED"
+    assert run(case) == first
+
+
+@pytest.mark.parametrize("policy", ["FIRST", "COLLECT"])
+@pytest.mark.parametrize("second_route", ["OTHER", "LOCATED"])
+def test_every_reachable_business_gateway_maps_selected_route(case, policy, second_route):
+    bundle, invocation = case
+    step = bundle["workflows"][0]["phases"][0]["steps"][0]
+    bundle["models"]["demo.locate@1"]["hit_policy"] = policy
+    ref = {
+        "workflow_id": "demo.locate",
+        "phase_id": "LOCATE",
+        "step_id": "LOCATE.S1",
+        "node_id": "D",
+    }
+    invocation["node_ref"] = ref
+    invocation["inputs"]["parameter_snapshot"].update(prepared_for=ref, parameters={})
+    step["graph"]["nodes"].append(
+        {
+            "node_id": "G2",
+            "name": "G2",
+            "category": "GATEWAY",
+            "kind": "EXCLUSIVE",
+            "mode": "SPLIT",
+            "ports": [second_route, "error"],
+            "selector": {"source": "DECISION_CONTROL", "node_id": "D"},
+        }
+    )
+    for edge in step["graph"]["edges"]:
+        if edge["source"] == "G" and edge["source_port"] == "LOCATED":
+            edge["target"] = "G2"
+    step["graph"]["edges"].extend(
+        [
+            {
+                "edge_id": "G2_result",
+                "source": "G2",
+                "source_port": second_route,
+                "target": "E_LOCATED",
+            },
+            {"edge_id": "G2_error", "source": "G2", "source_port": "error", "target": "E_ERR"},
+        ]
+    )
+    result = run(case)
+    if second_route == "OTHER":
+        assert_failure(result, "GATEWAY_ROUTE_UNMAPPED")
+        assert result["error"]["path"] == "G2"
+    else:
+        assert result["execution_status"] == "SUCCEEDED", result
+        assert result["outputs"]["decision"]["state"] == "LOCATED"

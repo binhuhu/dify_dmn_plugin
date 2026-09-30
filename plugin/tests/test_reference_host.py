@@ -617,3 +617,513 @@ def test_wait_parameter_binding_preserves_unknown_on_new_attempt(bundle, tmp_pat
     assert len(decisions) == 2
     assert all(r["execution_status"] == "SUCCEEDED" for r in decisions)
     assert all(r["outputs"]["decision"]["state"] == "NEED_USER_INPUT" for r in decisions)
+
+
+def nested_query_bundle(bundle):
+    step = bundle["workflows"][1]["phases"][0]["steps"][0]
+    graph = step["graph"]
+    inner_split = {
+        "node_id": "F_IN",
+        "name": "inner",
+        "category": "GATEWAY",
+        "kind": "PARALLEL",
+        "mode": "SPLIT",
+        "ports": ["context", "extra"],
+        "pair_ref": "J_IN",
+    }
+    inner_join = {
+        "node_id": "J_IN",
+        "name": "inner join",
+        "category": "GATEWAY",
+        "kind": "PARALLEL",
+        "mode": "JOIN",
+        "ports": ["ok", "error"],
+        "pair_ref": "F_IN",
+        "join_policy": "ALL_SUCCESS",
+        "failure_policy": "CANCEL_REMAINING",
+    }
+    extra = copy.deepcopy(next(n for n in graph["nodes"] if n["node_id"] == "Q_HISTORY"))
+    extra["node_id"] = extra["name"] = "Q_EXTRA"
+    graph["nodes"] += [inner_split, inner_join, extra]
+    for edge in graph["edges"]:
+        if edge["source"] == "F" and edge["target"] == "Q_CONTEXT":
+            edge["target"] = "F_IN"
+        elif edge["source"] == "Q_CONTEXT":
+            edge["target"] = "J_IN"
+    for source, port, target, branch in [
+        ("F_IN", "context", "Q_CONTEXT", "context"),
+        ("F_IN", "extra", "Q_EXTRA", "extra"),
+        ("Q_EXTRA", "ok", "J_IN", None),
+        ("Q_EXTRA", "error", "J_IN", None),
+        ("Q_EXTRA", "blocked", "J_IN", None),
+        ("J_IN", "ok", "J", None),
+        ("J_IN", "error", "J", None),
+    ]:
+        edge = {
+            "edge_id": source + "_" + port,
+            "source": source,
+            "source_port": port,
+            "target": target,
+        }
+        if branch:
+            edge["branch_id"] = branch
+        graph["edges"].append(edge)
+    return bundle
+
+
+def parallel_wait_bundle(bundle, *, nested=False):
+    step = bundle["workflows"][1]["phases"][0]["steps"][0]
+    graph = step["graph"]
+    action = copy.deepcopy(next(n for n in graph["nodes"] if n["node_id"] == "A_ASK"))
+    action["node_id"] = action["name"] = "A_OTHER"
+    wait = copy.deepcopy(next(n for n in graph["nodes"] if n["node_id"] == "W_ANSWER"))
+    wait.update(node_id="W_OTHER", name="other wait", pre_register_before="A_OTHER")
+    wait["event_bindings"] = {
+        "other_confirmation": copy.deepcopy(wait["event_bindings"]["met_driver"])
+    }
+    graph["nodes"] = [n for n in graph["nodes"] if n["node_id"] not in {"E_TIMEOUT", "E_CANCEL"}]
+    graph["nodes"] += [
+        action,
+        wait,
+        {
+            "node_id": "PF",
+            "name": "parallel questions",
+            "category": "GATEWAY",
+            "kind": "PARALLEL",
+            "mode": "SPLIT",
+            "ports": ["one", "two"],
+            "pair_ref": "PJ",
+        },
+        {
+            "node_id": "PJ",
+            "name": "question join",
+            "category": "GATEWAY",
+            "kind": "PARALLEL",
+            "mode": "JOIN",
+            "ports": ["ok", "error"],
+            "pair_ref": "PF",
+            "join_policy": "ALL_SUCCESS",
+            "failure_policy": "CANCEL_REMAINING",
+        },
+    ]
+    for edge in graph["edges"]:
+        if edge["source"] == "G_ROUTE" and edge["source_port"] == "ASK":
+            edge["target"] = "PF"
+        elif edge["source"] == "W_ANSWER" or (
+            edge["source"] == "A_ASK" and edge["source_port"] != "ok"
+        ):
+            edge["target"] = "PJ"
+    additions = [
+        ("PF", "one", "A_ASK", "one"),
+        ("PF", "two", "A_OTHER", "two"),
+        ("A_OTHER", "ok", "W_OTHER", None),
+        ("A_OTHER", "blocked", "PJ", None),
+        ("A_OTHER", "error", "PJ", None),
+        ("PJ", "ok", "E_RETRY", None),
+        ("PJ", "error", "E_FAILED", None),
+    ]
+    additions += [("W_OTHER", port, "PJ", None) for port in wait["ports"]]
+    model = bundle["models"]["demo.meeting@1.0.0"]
+    model["result_templates"]["ask"]["actions"].append(
+        {"intent_id": "ask_other", "kind": "INTERACTION", "target_node_id": "A_OTHER"}
+    )
+    if nested:
+        # Two question branches are nested inside a second postdecision fork.
+        graph["nodes"] += [
+            {
+                "node_id": "OUTER_F",
+                "name": "outer",
+                "category": "GATEWAY",
+                "kind": "PARALLEL",
+                "mode": "SPLIT",
+                "ports": ["questions", "read"],
+                "pair_ref": "OUTER_J",
+            },
+            {
+                "node_id": "OUTER_J",
+                "name": "outer join",
+                "category": "GATEWAY",
+                "kind": "PARALLEL",
+                "mode": "JOIN",
+                "ports": ["ok", "error"],
+                "pair_ref": "OUTER_F",
+                "join_policy": "ALL_SUCCESS",
+                "failure_policy": "CANCEL_REMAINING",
+            },
+        ]
+        extra = copy.deepcopy(next(n for n in graph["nodes"] if n["node_id"] == "Q_HISTORY"))
+        extra.update(node_id="Q_POST", name="post read", requires_intent=True)
+        extra["input_bindings"] = {"ticket_id": {"literal": "SYNTHETIC-T"}}
+        graph["nodes"].append(extra)
+        model["result_templates"]["ask"]["actions"].append(
+            {"intent_id": "read_post", "kind": "QUERY", "target_node_id": "Q_POST"}
+        )
+        for edge in graph["edges"]:
+            if edge["source"] == "G_ROUTE" and edge["source_port"] == "ASK":
+                edge["target"] = "OUTER_F"
+        additions = [
+            (source, port, "OUTER_J" if source == "PJ" else target, branch)
+            for source, port, target, branch in additions
+        ]
+        additions += [
+            ("OUTER_F", "questions", "PF", "questions"),
+            ("OUTER_F", "read", "Q_POST", "read"),
+            ("OUTER_J", "ok", "E_RETRY", None),
+            ("OUTER_J", "error", "E_FAILED", None),
+        ]
+        additions += [("Q_POST", port, "OUTER_J", None) for port in ["ok", "error", "blocked"]]
+    for source, port, target, branch in additions:
+        edge = {
+            "edge_id": source + "_" + port,
+            "source": source,
+            "source_port": port,
+            "target": target,
+        }
+        if branch:
+            edge["branch_id"] = branch
+        graph["edges"].append(edge)
+    return bundle
+
+
+def branch_event(host, node_id, event_id):
+    wait, _ = host.store.wait(host.state["waits"][node_id])
+    return {
+        **wait["correlation_values"],
+        "event_type": wait["event_type"],
+        "event_id": event_id,
+        "payload": {"met_driver": False},
+    }
+
+
+def test_nested_parallel_success_restores_parent_branch_identity(bundle, tmp_path):
+    host = runtime(nested_query_bundle(bundle), tmp_path)
+    state = start(host, False)
+    assert state["outcome"] == "DEMO_FRAGMENT_COMPLETED"
+    assert len(state["forks"]) == 2
+    assert all(f["status"] == "SUCCEEDED" for f in state["forks"].values())
+    inner = next(f for f in state["forks"].values() if f["join"] == "J_IN")
+    assert inner["parent_token"]["branch_id"] == "context"
+    assert len([r for r in state["history"].values() if r["node_ref"]["node_id"] == "D1"]) == 1
+
+
+def test_nested_failure_closes_parent_once_and_late_receipt_cannot_reopen(bundle, tmp_path):
+    calls = []
+
+    def fail_extra(*args):
+        calls.append(args[1]["node_id"])
+        if args[1]["node_id"] == "Q_EXTRA":
+            return make_result(args[1], args[4], "FAILED", outputs={"query": None})
+        return query(*args)
+
+    host = runtime(nested_query_bundle(bundle), tmp_path, execute_query=fail_extra)
+    state = start(host, False)
+    assert state["outcome"] == "TECHNICAL_FAILURE"
+    assert all(f["status"] == "FAILED" for f in state["forks"].values())
+    assert len([t for t in state["trace"] if t["event"] == "EXIT"]) == 1
+    inner_id = next(k for k, f in state["forks"].items() if f["join"] == "J_IN")
+    assert host.branch_complete(inner_id, "extra", True) is False
+    assert host.state["outcome"] == "TECHNICAL_FAILURE"
+    assert not any(r["node_ref"]["node_id"] == "D1" for r in state["history"].values())
+
+
+@pytest.mark.parametrize("nested", [False, True])
+def test_parallel_waits_resume_independently_after_host_restart(bundle, tmp_path, nested):
+    bundle = parallel_wait_bundle(bundle, nested=nested)
+    host = runtime(bundle, tmp_path)
+    waiting = start(host)
+    assert waiting["status"] == "WAITING"
+    assert set(waiting["waiting_tokens"]) == {"W_ANSWER", "W_OTHER"}
+    first, second = branch_event(host, "W_ANSWER", "first"), branch_event(host, "W_OTHER", "second")
+    host = runtime(bundle, tmp_path)
+    assert host.receive(first)
+    partial = host.restore(waiting["workflow_run_id"])
+    assert partial["status"] == "WAITING" and set(partial["waiting_tokens"]) == {"W_OTHER"}
+    assert host.receive(first) is False
+    assert host.receive(second)
+    done = host.restore(waiting["workflow_run_id"])
+    assert done["outcome"] == "DEMO_FRAGMENT_COMPLETED"
+    decisions = [r for r in done["history"].values() if r["node_ref"]["node_id"] == "D1"]
+    assert (
+        len(decisions) == 2
+        and decisions[0]["run_ref"]["step_run_id"] == decisions[1]["run_ref"]["step_run_id"]
+    )
+    assert all(f["status"] == "SUCCEEDED" for f in done["forks"].values())
+
+
+@pytest.mark.parametrize("nested", [False, True])
+def test_parallel_wait_cancel_closes_scope_and_late_answer_is_ignored(bundle, tmp_path, nested):
+    host = runtime(parallel_wait_bundle(bundle, nested=nested), tmp_path)
+    waiting = start(host)
+    late = branch_event(host, "W_OTHER", "late")
+    assert host.cancel(waiting["waits"]["W_ANSWER"])
+    done = host.restore(waiting["workflow_run_id"])
+    assert done["outcome"] == "TECHNICAL_FAILURE" and not done["waiting_tokens"]
+    assert host.receive(late) is False
+    assert host.restore(waiting["workflow_run_id"])["outcome"] == "TECHNICAL_FAILURE"
+    assert len([t for t in done["trace"] if t["event"] == "EXIT"]) == 1
+
+
+@pytest.mark.parametrize("same_value", [True, False])
+@pytest.mark.parametrize("reverse", [True, False])
+def test_parallel_events_same_parameter_merge_or_fail_without_last_write_wins(
+    bundle, tmp_path, same_value, reverse
+):
+    bundle = parallel_wait_bundle(bundle, nested=True)
+    step = bundle["workflows"][1]["phases"][0]["steps"][0]
+    other = next(n for n in step["graph"]["nodes"] if n["node_id"] == "W_OTHER")
+    other["event_bindings"]["met_driver"] = other["event_bindings"].pop("other_confirmation")
+    host = runtime(bundle, tmp_path)
+    waiting = start(host)
+    events = [branch_event(host, "W_ANSWER", "FIRST"), branch_event(host, "W_OTHER", "SECOND")]
+    if not same_value:
+        events[1]["payload"]["met_driver"] = True
+    if reverse:
+        events.reverse()
+    for incoming in events:
+        assert host.receive(incoming)
+        state = host.restore(waiting["workflow_run_id"])
+    if same_value:
+        assert state["outcome"] == "DEMO_FRAGMENT_COMPLETED"
+        assert state["context"]["parameters"]["met_driver"] == {
+            "quality": "KNOWN",
+            "value": False,
+            "source_refs": ["FIRST", "SECOND"],
+        }
+    else:
+        assert state["outcome"] == "TECHNICAL_FAILURE"
+        assert len([r for r in state["history"].values() if r["node_ref"]["node_id"] == "D1"]) == 1
+        assert any(t["event"] == "EVENT_PARAMETER_CONFLICT" for t in state["trace"])
+    assert len(
+        [t for t in state["trace"] if t["event"] == "EXIT" and t["exit_ref"] == "FAILED"]
+    ) == (0 if same_value else 1)
+
+
+def test_multiple_wait_timeouts_do_not_dispatch_cancelled_sibling_twice(bundle, tmp_path):
+    clock = [1000]
+    host = runtime(parallel_wait_bundle(bundle, nested=True), tmp_path, clock=lambda: clock[0])
+    waiting = start(host)
+    clock[0] += 301
+    assert all(host.timeout(request) for request in waiting["waits"].values())
+    done = host.restore(waiting["workflow_run_id"])
+    assert done["outcome"] == "TECHNICAL_FAILURE" and not done["waiting_tokens"]
+    assert len([t for t in done["trace"] if t["event"] == "EXIT"]) == 1
+    assert len([t for t in done["trace"] if t["event"] == "WAIT_RESOLVED"]) == 1
+    assert host.restore(waiting["workflow_run_id"])["outcome"] == "TECHNICAL_FAILURE"
+
+
+def test_nested_error_follows_registered_merge_edge_without_losing_failure(bundle, tmp_path):
+    bundle = nested_query_bundle(bundle)
+    graph = bundle["workflows"][1]["phases"][0]["steps"][0]["graph"]
+    graph["nodes"].append(
+        {
+            "node_id": "ERROR_MERGE",
+            "name": "technical merge",
+            "category": "GATEWAY",
+            "kind": "EXCLUSIVE",
+            "mode": "MERGE",
+            "ports": ["ok"],
+        }
+    )
+    next(e for e in graph["edges"] if e["source"] == "J_IN" and e["source_port"] == "error")[
+        "target"
+    ] = "ERROR_MERGE"
+    graph["edges"].append(
+        {"edge_id": "MERGE_TO_OUTER", "source": "ERROR_MERGE", "source_port": "ok", "target": "J"}
+    )
+
+    def fail_extra(*args):
+        if args[1]["node_id"] == "Q_EXTRA":
+            return make_result(args[1], args[4], "FAILED", outputs={"query": None})
+        return query(*args)
+
+    state = start(runtime(bundle, tmp_path, execute_query=fail_extra), False)
+    assert state["outcome"] == "TECHNICAL_FAILURE"
+    assert all(f["status"] == "FAILED" for f in state["forks"].values())
+    edges = [t["edge_id"] for t in state["trace"] if t["event"] == "EDGE"]
+    assert "J_IN_error" in edges and "MERGE_TO_OUTER" in edges and "J_error_E_FAILED" in edges
+    assert "J_ok_D1" not in edges
+
+
+def test_nested_failure_route_with_new_execution_is_rejected_at_deployment(bundle, tmp_path):
+    bundle = nested_query_bundle(bundle)
+    graph = bundle["workflows"][1]["phases"][0]["steps"][0]["graph"]
+    extra = copy.deepcopy(next(n for n in graph["nodes"] if n["node_id"] == "Q_HISTORY"))
+    extra.update(node_id="ERROR_QUERY", name="cannot read after fork failure")
+    graph["nodes"].append(extra)
+    next(e for e in graph["edges"] if e["source"] == "J_IN" and e["source_port"] == "error")[
+        "target"
+    ] = "ERROR_QUERY"
+    graph["edges"] += [
+        {"edge_id": "EQ_" + p, "source": "ERROR_QUERY", "source_port": p, "target": "J"}
+        for p in ["ok", "blocked", "error"]
+    ]
+    with pytest.raises(ContractError) as caught:
+        runtime(bundle, tmp_path)
+    assert caught.value.code == "NESTED_FAILURE_PATH_MUST_CONVERGE_WITHOUT_EXECUTION"
+
+
+def test_nested_fast_answers_registered_before_send_reach_join_once(bundle, tmp_path):
+    holder, sent_ids = {}, []
+
+    def immediate(action_ref, parameters, correlation):
+        host = holder["host"]
+        wait, _ = host.store.wait(correlation["request_id"])
+        assert wait["token"]["fork_run_id"] in host.state["forks"]
+        assert host.receive(
+            {
+                **correlation,
+                "event_type": wait["event_type"],
+                "event_id": correlation["request_id"],
+                "payload": {"met_driver": False},
+            }
+        )
+        sent_ids.append(correlation["request_id"])
+        return sent()
+
+    host = runtime(parallel_wait_bundle(bundle, nested=True), tmp_path, send_interaction=immediate)
+    holder["host"] = host
+    state = start(host)
+    assert state["outcome"] == "DEMO_FRAGMENT_COMPLETED" and len(set(sent_ids)) == 2
+    assert all(f["status"] == "SUCCEEDED" for f in state["forks"].values())
+    assert len([t for t in state["trace"] if t["event"] == "WAIT_RESOLVED"]) == 2
+
+
+@pytest.mark.parametrize("status", ["PENDING", "UNKNOWN"])
+@pytest.mark.parametrize("wait_route", [False, True, "merge"])
+def test_parallel_unresolved_interaction_requires_wait_before_join(
+    bundle, tmp_path, status, wait_route
+):
+    bundle = parallel_wait_bundle(bundle, nested=True)
+    graph = bundle["workflows"][1]["phases"][0]["steps"][0]["graph"]
+    if wait_route == "merge":
+        graph["nodes"].append(
+            {
+                "node_id": "UNRESOLVED_MERGE",
+                "name": "merge",
+                "category": "GATEWAY",
+                "kind": "EXCLUSIVE",
+                "mode": "MERGE",
+                "ports": ["ok"],
+            }
+        )
+        graph["edges"].append(
+            {
+                "edge_id": "unresolved_merge_join",
+                "source": "UNRESOLVED_MERGE",
+                "source_port": "ok",
+                "target": "PJ",
+            }
+        )
+    for node in graph["nodes"]:
+        if node["node_id"] in {"A_ASK", "A_OTHER"}:
+            node["ports"].append(status.lower())
+            graph["edges"].append(
+                {
+                    "edge_id": node["node_id"] + "_" + status.lower(),
+                    "source": node["node_id"],
+                    "source_port": status.lower(),
+                    "target": ("W_ANSWER" if node["node_id"] == "A_ASK" else "W_OTHER")
+                    if wait_route is True
+                    else "UNRESOLVED_MERGE"
+                    if wait_route == "merge" and node["node_id"] == "A_ASK"
+                    else "PJ",
+                }
+            )
+
+    def unresolved(*args):
+        return sent() | {"operation_status": status}
+
+    host = runtime(bundle, tmp_path, send_interaction=unresolved)
+    state = start(host)
+    if wait_route is not True:
+        assert state["outcome"] == "TECHNICAL_FAILURE"
+        assert not state["waiting_tokens"]
+        assert sum(t["event"] == "EDGE" and t["edge_id"] == "PJ_error" for t in state["trace"]) == 1
+        return
+    assert state["status"] == "WAITING"
+    assert set(state["waiting_tokens"]) == {"W_ANSWER", "W_OTHER"}
+    assert len({t["branch_id"] for t in state["waiting_tokens"].values()}) == 2
+    assert all(t["fork_run_id"] for t in state["waiting_tokens"].values())
+    events = [branch_event(host, node, node) for node in state["waiting_tokens"]]
+    host = runtime(bundle, tmp_path, send_interaction=unresolved)
+    for event in events:
+        assert host.receive(event)
+    done = host.restore(state["workflow_run_id"])
+    assert done["outcome"] == "DEMO_FRAGMENT_COMPLETED"
+    assert all(f["status"] == "SUCCEEDED" for f in done["forks"].values())
+
+
+@pytest.mark.parametrize("status", ["PENDING", "UNKNOWN"])
+def test_unresolved_merge_cannot_finish_business_exit(bundle, tmp_path, status):
+    step = bundle["workflows"][1]["phases"][0]["steps"][0]
+    graph = step["graph"]
+    action = next(n for n in graph["nodes"] if n["node_id"] == "A_ASK")
+    action["ports"].append(status.lower())
+    graph["nodes"].append(
+        {
+            "node_id": "UNRESOLVED_MERGE",
+            "name": "merge",
+            "category": "GATEWAY",
+            "kind": "EXCLUSIVE",
+            "mode": "MERGE",
+            "ports": ["ok"],
+        }
+    )
+    graph["edges"] += [
+        {
+            "edge_id": "pending_merge",
+            "source": "A_ASK",
+            "source_port": status.lower(),
+            "target": "UNRESOLVED_MERGE",
+        },
+        {
+            "edge_id": "merge_business",
+            "source": "UNRESOLVED_MERGE",
+            "source_port": "ok",
+            "target": "E_OTHER",
+        },
+    ]
+    host = runtime(
+        bundle, tmp_path, send_interaction=lambda *a: sent() | {"operation_status": status}
+    )
+    with pytest.raises(ContractError, match="Unresolved operation") as error:
+        start(host)
+    assert error.value.code == "UNRESOLVED_EXECUTION"
+    assert host.state["status"] != "COMPLETED"
+
+
+@pytest.mark.parametrize("status", ["PENDING", "UNKNOWN"])
+def test_unresolved_before_split_clears_only_after_every_branch_wait(bundle, tmp_path, status):
+    bundle = parallel_wait_bundle(bundle)
+    graph = bundle["workflows"][1]["phases"][0]["steps"][0]["graph"]
+    for edge in graph["edges"]:
+        if edge["source"] == "G_ROUTE" and edge["source_port"] == "ASK":
+            edge["target"] = "A_ASK"
+        elif edge["source"] == "PF" and edge["source_port"] == "one":
+            edge["target"] = "W_ANSWER"
+        elif edge["source"] == "A_ASK" and edge["source_port"] == "ok":
+            edge["target"] = "PF"
+        elif edge["source"] == "A_ASK":
+            edge["target"] = "E_FAILED"
+    for node in graph["nodes"]:
+        if node["node_id"] in {"A_ASK", "A_OTHER"}:
+            node["ports"].append(status.lower())
+            graph["edges"].append(
+                {
+                    "edge_id": node["node_id"] + "_unresolved",
+                    "source": node["node_id"],
+                    "source_port": status.lower(),
+                    "target": "PF" if node["node_id"] == "A_ASK" else "W_OTHER",
+                }
+            )
+    host = runtime(
+        bundle, tmp_path, send_interaction=lambda *a: sent() | {"operation_status": status}
+    )
+    state = start(host)
+    assert state["status"] == "WAITING"
+    assert all(t["unresolved"] for t in state["waiting_tokens"].values())
+    for node in list(state["waiting_tokens"]):
+        assert host.receive(branch_event(host, node, node))
+    done = host.restore(state["workflow_run_id"])
+    assert done["outcome"] == "DEMO_FRAGMENT_COMPLETED"
+    assert all(f["status"] == "SUCCEEDED" for f in done["forks"].values())

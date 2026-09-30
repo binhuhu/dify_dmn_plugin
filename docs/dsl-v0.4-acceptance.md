@@ -26,7 +26,7 @@ The last command is deliberately fail-closed: it exits 2 while any v0.4 target g
 
 - Supply reviewed read-only API contracts and operation registration, real tenant/subject authorization, connection configuration and sanitized per-call receipts. Exercise chain/fan-in, partial results, timeout, scope isolation, freshness/conflict and budget behavior against those APIs.
 - Identify the exact Dify/host version and its trusted injection, single executor mapping, checkpoint/event storage and resume capabilities. Exercise branches, immediate events, timeout races, replay/old-attempt rejection, cancellation, bounded reentry and crash/recovery on that host. The reference host is not an installed Dify runtime.
-- Generate the official `.difypkg` from the final fixed commit, unpack and verify the five registrations, then record real target installation/upgrade. Local staging and SDK stdio do not meet the complete AC-056 packaging/installation gate.
+- RC1 commit `3065505baa3828f0925f95ed6b69cea60528ba21` passed official CLI 0.6.10 packaging and unpacked five-tool SDK verification (parent-task evidence). Follow-up feature changes require a new fixed-commit package before release. Real target installation/upgrade remains unverified; the complete AC-056 gate is still blocked.
 - Supply approved historical cases and policies for AC-057 shadow comparison; approve meaningful differences explicitly. Synthetic examples cannot prove policy compatibility.
 - Record AC-058 software rollback of Workflow/definition/tool versions in the target environment. Version rollback does not reverse external business effects or reopen closed tickets.
 - Keep BUSINESS and P6/P7 disabled; AC-061–067 remain deferred to v0.5. No self-reported hash, approval or activation reference grants permission.
@@ -39,7 +39,7 @@ The supplied v2 core schemas intentionally do not encode every semantic obligati
 
 The machine-readable index is authoritative for test references and individual gaps. The following inventory retains every acceptance gate; local results are updated only after actual execution.
 
-Recorded audit run: **359 passed, zero failed or skipped**, across 126 cited test functions (including parametrizations). This is the cited-test subset, not the complete repository regression count. The complete regression and final Git commit are reported by the integrator. SDK staging was exercised; an official package was not produced in this environment.
+Recorded audit run: **446 passed, zero failed or skipped**, across 168 cited test functions (including parametrizations). This is the cited-test subset, not the complete repository regression count. The complete regression and final Git commit are reported by the integrator. SDK staging was exercised for this feature tree; no official package was produced for these follow-up changes. Published RC1 packaging PASS applies only to commit3065505, as recorded separately.
 
 | Case | Requirement / name | Local evidence | Target gate |
 |---|---|---|---|
@@ -99,7 +99,7 @@ Recorded audit run: **359 passed, zero failed or skipped**, across 126 cited tes
 | AC-054 | FR-22 旧三工具兼容 | PASS | BLOCKED |
 | AC-055 | FR-22 无凭据纯求值 | PASS | BLOCKED |
 | AC-056 | FR-22 真实Provider/staging | PARTIAL | BLOCKED |
-| AC-057 | FR-23 结构影子比对 | NOT_RUN | BLOCKED |
+| AC-057 | FR-23 结构影子比对 | PARTIAL | BLOCKED |
 | AC-058 | FR-23 软件回滚 | NOT_RUN | BLOCKED |
 | AC-059 | FR-20 追溯与敏感日志 | PARTIAL | BLOCKED |
 | AC-060 | FR-24 默认禁用BUSINESS | PASS | BLOCKED |
@@ -111,4 +111,4 @@ Recorded audit run: **359 passed, zero failed or skipped**, across 126 cited tes
 | AC-066 | FR-24 目标效果核验 | DEFERRED | DEFERRED |
 | AC-067 | FR-24 结束工单不重开 | DEFERRED | DEFERRED |
 
-COLLECT additionally permits pure State/Data rows to merge with route/action rows, but each CONTROL template must contain its route-required intents. Cross-template action-only route composition remains outside this strict subset (AC-029 PARTIAL).
+COLLECT now reduces cross-template Data/control/intent contributions and validates the actually selected route and required intents. Unselected rows cannot supply a missing action. UNKNOWN and conflicting results still block executable output.

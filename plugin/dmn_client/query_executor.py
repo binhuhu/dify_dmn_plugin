@@ -227,10 +227,16 @@ def _validate_plan(plan, capability, deployment):
         ):
             if config is not None and (not isinstance(config, dict) or set(config) != keys):
                 _fail("QUERY_PLAN_INVALID", "Unsupported pagination or batch adapter")
-        if op.get("pagination") and op.get("batch"):
-            _fail("QUERY_PLAN_INVALID", "Combined pagination and batching need a separate adapter")
         if op.get("pagination"):
             config = op["pagination"]
+            if any(
+                not isinstance(config[k], str) or not config[k] for k in ("parameter", "items_key")
+            ):
+                _fail("QUERY_PLAN_INVALID")
+            if config["parameter"] in node["input_bindings"]:
+                _fail(
+                    "QUERY_PLAN_INVALID", "Pagination cursor must not override a business binding"
+                )
             if (
                 type(config["max_pages"]) is not int
                 or not 1 <= config["max_pages"] <= budget["max_pages"]
@@ -238,6 +244,13 @@ def _validate_plan(plan, capability, deployment):
                 _fail("QUERY_BUDGET_EXCEEDED")
         if op.get("batch"):
             config = op["batch"]
+            if (
+                not isinstance(config["parameter"], str)
+                or config["parameter"] not in node["input_bindings"]
+            ):
+                _fail("QUERY_PLAN_INVALID", "Batch parameter must name a bound array")
+            if op.get("pagination", {}).get("parameter") == config["parameter"]:
+                _fail("QUERY_PLAN_INVALID", "Cursor and batch parameters must differ")
             if any(
                 type(config[k]) is not int or config[k] < 1 for k in ("max_items", "max_batches")
             ):
@@ -563,10 +576,18 @@ def execute_query(
         deadline = time.monotonic() + plan["budget"]["total_timeout_ms"] / 1000
         facts = {}
         total_bytes = 0
+        total_pages = 0
+        page_budget_exhausted = False
         for node in order:
             node_id, op_ref = node["node_id"], node["operation_ref"]
             op = deployment.operations[op_ref]
             _guard(deployment, deadline)
+            if page_budget_exhausted:
+                gaps[node_id] = "QUERY_PAGE_BUDGET_EXHAUSTED"
+                calls.append(
+                    {"api_node_id": node_id, "operation_ref": op_ref, "status": "NOT_EXECUTED"}
+                )
+                continue
             if any(dep in gaps for dep in node["depends_on"]):
                 gaps[node_id] = "QUERY_DEPENDENCY_UNAVAILABLE"
                 calls.append(
@@ -593,9 +614,9 @@ def execute_query(
                     ]
                     if len(batches) > config["max_batches"]:
                         _fail("QUERY_BUDGET_EXCEEDED")
-                collected, aggregate, seen_cursors = [], None, set()
-                for batch in batches:
-                    page, params = 0, batch
+                collected, aggregate = [], None
+                for batch_index, batch in enumerate(batches, start=1):
+                    page, params, seen_cursors = 0, batch, set()
                     while True:
                         _guard(deployment, deadline)
                         if (
@@ -603,12 +624,18 @@ def execute_query(
                             >= plan["budget"]["max_calls"]
                         ):
                             _fail("QUERY_BUDGET_EXCEEDED")
+                        if op.get("pagination"):
+                            if total_pages >= plan["budget"]["max_pages"]:
+                                page_budget_exhausted = True
+                                _fail("QUERY_PARTIAL", "Capability-wide page budget exhausted")
+                            total_pages += 1
                         page += 1
                         record = {
                             "api_node_id": node_id,
                             "operation_ref": op_ref,
                             "status": "STARTED",
                             "page": page,
+                            "batch": batch_index,
                         }
                         calls.append(record)
                         result, size = _http(op, params, deployment, deadline)
@@ -654,6 +681,7 @@ def execute_query(
                             _fail("QUERY_OUTPUT_INVALID", "Unsupported or repeated cursor")
                         seen_cursors.add(cursor)
                         if page >= op["pagination"]["max_pages"]:
+                            page_budget_exhausted = True
                             _fail("QUERY_PARTIAL", "Pagination budget exhausted")
                         params = {**batch, op["pagination"]["parameter"]: cursor}
                 if collected or op.get("pagination") or op.get("batch"):
@@ -772,11 +800,11 @@ def _activation_payload(digest, node_ref, inputs, context, expires):
 
 
 def sign_activation(digest, node_ref, inputs, context, expires, key):
-    """Trusted HOST only: sign AFTER activation/selection/scope checks, never an LLM tool.
+    """SYNTHETIC loopback fixture signing helper, never production authorization.
 
-    The signed input commits to subject, tenant, authorization, run, node, definition,
-    source refs and every parameter. Read-only tokens may replay until expiry; there
-    is no write authorization or claim of persistent host event/activation storage.
+    Tokens bind test inputs but cannot prove live host activation or revocation.
+    The env loader accepts these only with SYNTHETIC and all-loopback endpoints.
+    Real integrations require a trusted Python deployment authorization callback.
     """
     signature = hmac.new(
         key.encode(),
@@ -794,6 +822,9 @@ def load_query_deployment():
     paths. DMN_QUERY_HMAC_KEY is a separate >=32 byte shared host secret. The file
     cannot name modules, code, dynamic URLs or provide authorization callbacks.
     Missing both means unconfigured. Partial/malformed setup fails closed.
+    This loader is ONLY a SYNTHETIC loopback fixture transport. HMAC alone cannot
+    attest live activation/intent selection or revocation; production and any
+    non-loopback endpoints are refused before IO, even with a valid signature.
     """
     path = os.environ.get("DMN_QUERY_DEPLOYMENT_FILE")
     key = os.environ.get("DMN_QUERY_HMAC_KEY")
@@ -823,8 +854,31 @@ def load_query_deployment():
             <= cfg.keys()
         ):
             _fail("QUERY_CONNECTION_INVALID")
-        if cfg.get("allow_loopback_http") and cfg["environment"] != "SYNTHETIC":
-            _fail("QUERY_CONNECTION_INVALID", "Loopback HTTP is only for SYNTHETIC tests")
+        if cfg["environment"] != "SYNTHETIC":
+            _fail(
+                "QUERY_TRUSTED_HOST_REQUIRED",
+                "Real reads require an integrated trusted host authorization callback",
+            )
+        for operation in cfg["operations"].values():
+            try:
+                endpoint = urlsplit(operation["url"])
+                address = ipaddress.ip_address(endpoint.hostname)
+                # Mapped IPv6 addresses are intentionally not treated as loopback:
+                # no DNS aliases, unusual integer forms, zones, or rebinding.
+                if (
+                    not address.is_loopback
+                    or "%" in endpoint.hostname
+                    or getattr(address, "ipv4_mapped", None) is not None
+                ):
+                    _fail(
+                        "QUERY_TRUSTED_HOST_REQUIRED",
+                        "Fixture loader only allows literal loopback endpoints",
+                    )
+            except (KeyError, TypeError, ValueError):
+                _fail(
+                    "QUERY_TRUSTED_HOST_REQUIRED",
+                    "Fixture loader only allows literal loopback endpoints",
+                )
 
         def authorize(invocation, capability_ref):
             try:

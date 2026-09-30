@@ -40,8 +40,15 @@ they never start a node. Results are stored under node_run_id in private history
 with a per-attempt projection for bindings. No unscoped last-write-wins context
 merge exists. Event bindings explicitly publish accepted answer parameters.
 
-The supported reference profile deliberately rejects nested parallel regions,
-WAIT within parallel regions, INCLUSIVE, arbitrary graph cycles, and ALL_SETTLED.
+The reference profile supports properly nested paired parallel regions and WAIT
+inside branches. Crossed pairs, cross-Step active parallelism, INCLUSIVE, arbitrary
+graph cycles, and ALL_SETTLED are rejected.
+Nested JOIN error paths must converge to the parent JOIN through EXCLUSIVE
+technical gateways without starting new execution or waiting work; deployment
+rejects paths that violate this ALL_SUCCESS failure rule.
+PENDING/UNKNOWN follows its declared port with an unresolved token, including
+through MERGE; it cannot complete JOIN or a business END. A valid WAIT receipt
+resolves the token; ALL_SUCCESS requires all branch tokens to be resolved.
 Parallel branches execute serially with fixed fork/branch obligations. First failure
 cancels queued branch calls and emits one JOIN error edge; duplicate/late receipts
 cannot reopen a fork. EXCLUSIVE MERGE does not wait for its unselected route.
@@ -50,7 +57,9 @@ WAIT is registered and checkpointed before sending. Correlation includes request
 workflow run, step run, attempt, subject, intent, and event type. Payload is checked
 against the fixed event schema. The SQLite `UPDATE ... WHERE winner IS NULL`
 chooses exactly one event/timeout/cancel winner. `receive(event)` records a winner;
-`restore(workflow_run_id)` resumes from the saved WAIT. Timeout can win only after
+`restore(workflow_run_id)` resumes independently from saved branch WAITs.
+Concurrent event projections with equal values merge source references; conflicting
+records fail the fork rather than overwrite by arrival order. Timeout can win only after
 the saved deadline, using the injected host technical clock; business evaluation
 still uses explicit `as_of`. A REENTER exit retains step_run_id and creates a new
 attempt; exhausted attempts follow the registered non-reentry technical exit.
