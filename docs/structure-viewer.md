@@ -43,6 +43,6 @@ plugin/.venv/bin/python scripts/compatibility/viewer_stdio.py /tmp/structure-vie
 node --test viewer/tests/adapter.test.cjs
 ```
 
-After installation on a supporting Dify host, create/open this plugin's Endpoint instance and use its host-issued base URL ending `/`. Relative assets stay beneath that endpoint. A generic workflow/share link is not this endpoint and is not authorization to retrieve a definition. This candidate is **not packaged or target-host installed**. Plugin identity/version remain the development baseline; it does not replace the published RC1 artifact.
+After installation on a supporting Dify host, create/open this plugin's Endpoint instance and use its host-issued base URL ending `/`. Relative assets stay beneath that endpoint. A generic workflow/share link is not this endpoint and is not authorization to retrieve a definition. This candidate is **not packaged or target-host installed**. Plugin identity remains hu8627/dmn_json; the candidate version is 0.4.0-rc2. It does not replace the published RC1 artifact.
 
 Optional browser test: `cd viewer && npm install --ignore-scripts && npm run browser`, with normal sandboxed Chromium at `/usr/bin/chromium` or `CHROMIUM_PATH`. Browser test dependencies are test-only; delivered UI has no third-party dependencies or copied private HTML/vendor source. In the current environment Chromium aborts before page load because its SUID sandbox helper is misconfigured. Pixel/interaction/network-observation acceptance is **NOT_RUN**, not PASS. No sandbox/TLS bypass is used.
