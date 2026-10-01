@@ -110,14 +110,15 @@
       "source_status": "NOT_RUN",
       "offline_status": "PASS",
       "tests": [
-        "plugin/tests/test_node_contract.py::test_graph_rejects_unsafe_structure"
+        "plugin/tests/test_node_contract.py::test_graph_rejects_unsafe_structure",
+        "plugin/tests/test_reference_host.py::test_nested_failure_route_with_new_execution_is_rejected_at_deployment"
       ],
       "evidence": [],
       "product_status": "BLOCKED",
       "remaining_evidence": "Cited local product tests passed in the recorded run. Target integration/installation and trusted-source acceptance are separately unverified.",
       "offline_scope": "Actual production validator/NodeIO/SDK entry over SYNTHETIC fixtures; no target deployment acceptance implied.",
-      "implementation_status": "LIMITED",
-      "implementation_gap": "支持的图节点可验证，但额外拒绝 PARALLEL 内 WAIT/嵌套 PARALLEL；这比 v2 明确排除的 INCLUSIVE 范围更窄。"
+      "implementation_status": "IMPLEMENTED",
+      "implementation_gap": "支持成对嵌套PARALLEL与分支WAIT；交叉pair、INCLUSIVE、任意回边、跨Step活跃并行拒绝。嵌套失败路径限无新执行的技术网关收敛到父JOIN。"
     },
     {
       "id": "AC-006",
@@ -345,14 +346,19 @@
       "tests": [
         "plugin/tests/test_query_executor.py::test_pagination_success_and_truncation",
         "plugin/tests/test_query_executor.py::test_response_byte_budget",
-        "plugin/tests/test_query_executor.py::test_batch_partition_bound_and_aggregation"
+        "plugin/tests/test_query_executor.py::test_batch_partition_bound_and_aggregation",
+        "plugin/tests/test_query_executor.py::test_combined_batch_pagination_has_independent_cursors",
+        "plugin/tests/test_query_executor.py::test_combined_batch_pagination_shared_budgets",
+        "plugin/tests/test_query_executor.py::test_combined_batch_truncated_optional_output_is_unknown",
+        "plugin/tests/test_query_executor.py::test_combined_page_exhaustion_stops_later_unrelated_calls",
+        "plugin/tests/test_query_executor.py::test_combined_batch_pagination_stops_on_timeout_or_cancel"
       ],
       "evidence": [],
       "product_status": "BLOCKED",
       "remaining_evidence": "Real read API, trusted authorization/scopes and sanitized receipts not supplied; local HTTP/SYNTHETIC tests are not real integration.",
       "offline_scope": "Registered local HTTP SYNTHETIC transport; serial bounded DAG and fixed IP endpoint subset. No real API, tenant authorization or production freshness acceptance.",
-      "implementation_status": "LIMITED",
-      "implementation_gap": "分页、batch、截断和预算分别实现；可信适配器拒绝分页与 batch 组合，固定 literal-IP 传输子集未覆盖通用多 API 适配。"
+      "implementation_status": "IMPLEMENTED",
+      "implementation_gap": "批量与游标分页可组合；每批游标独立，页数/调用/响应大小/时间共同受能力预算限制，截断不伪完整。真实API适配与压测仍待提供。"
     },
     {
       "id": "AC-016",
@@ -392,14 +398,18 @@
         "plugin/tests/test_decision_executor.py::test_policy_authentication_and_age_rejection_have_no_decision",
         "plugin/tests/test_query_executor.py::test_scope_source_freshness_no_reuse",
         "plugin/tests/test_decision_executor.py::test_trusted_sources_rebound_reject_forged_snapshot",
-        "plugin/tests/test_dsl_reference_flow.py::test_trusted_host_rebind_rejects_tampered_decision_snapshot"
+        "plugin/tests/test_dsl_reference_flow.py::test_trusted_host_rebind_rejects_tampered_decision_snapshot",
+        "plugin/tests/test_decision_executor.py::test_reused_snapshot_requires_verified_source_policy",
+        "plugin/tests/test_decision_executor.py::test_reused_snapshot_revalidated_against_current_trusted_bindings",
+        "plugin/tests/test_decision_executor.py::test_reuse_policy_must_accept_age_scope_before_sources",
+        "plugin/tests/test_dsl_sdk.py::test_sdk_reused_snapshot_without_trusted_host_is_blocked"
       ],
       "evidence": [],
       "product_status": "BLOCKED",
       "remaining_evidence": "Real read API, trusted authorization/scopes and sanitized receipts not supplied; local HTTP/SYNTHETIC tests are not real integration.",
       "offline_scope": "Registered local HTTP SYNTHETIC transport; serial bounded DAG and fixed IP endpoint subset. No real API, tenant authorization or production freshness acceptance.",
       "implementation_status": "LIMITED",
-      "implementation_gap": "已有主体/租户/授权签名检查及可信宿主重绑定，但默认 SDK 决策为 CONTENT_ONLY；尚无 SDK 可信 policy 配置入口或完整来源最大年龄/跨调用复用治理。"
+      "implementation_gap": "显式reused_from无可信来源policy时阻断；可信来源重绑定已实现。默认SDK仍CONTENT_ONLY，来源最大年龄、单位、复用权限/来源登记和生产policy接线仍缺外部合同。"
     },
     {
       "id": "AC-018",
@@ -440,14 +450,17 @@
         "plugin/tests/test_decision_executor.py::test_policy_cannot_be_replaced_by_self_approved_context",
         "plugin/tests/test_decision_executor.py::test_policy_authentication_and_age_rejection_have_no_decision",
         "plugin/tests/test_query_executor.py::test_preflight_rejection_zero_io",
-        "plugin/tests/test_query_executor.py::test_signed_deployment_loader_and_tamper"
+        "plugin/tests/test_query_executor.py::test_signed_deployment_loader_and_tamper",
+        "plugin/tests/test_query_executor.py::test_env_loader_cannot_authorize_real_reads",
+        "plugin/tests/test_query_executor.py::test_fixture_loader_allows_literal_ipv6_loopback_only",
+        "plugin/tests/test_query_executor.py::test_configured_staged_sdk_stdio_and_invalid_tokens"
       ],
       "evidence": [],
       "product_status": "BLOCKED",
       "remaining_evidence": "Real read API, trusted authorization/scopes and sanitized receipts not supplied; local HTTP/SYNTHETIC tests are not real integration.",
       "offline_scope": "Registered local HTTP SYNTHETIC transport; serial bounded DAG and fixed IP endpoint subset. No real API, tenant authorization or production freshness acceptance.",
       "implementation_status": "LIMITED",
-      "implementation_gap": "默认 SDK 查询 HMAC loader 验证签名与最多 300 秒时效，但只读 token 有效期可重放；未接宿主持久 activation ledger 核验当前激活/撤销，不能等同在线状态授权。"
+      "implementation_gap": "默认SDK配置/HMAC限定SYNTHETIC literal loopback；生产即使有效签名也零IO拒绝。真实查询须可信Python宿主回调核验在线激活/撤销/权限，尚未接目标宿主。"
     },
     {
       "id": "AC-020",
@@ -662,14 +675,16 @@
         "plugin/tests/test_decision_executor.py::test_ac023_through032_hit_policies",
         "plugin/tests/test_node_contract.py::test_collect_data_only_and_route_templates_real_executor",
         "plugin/tests/test_node_contract.py::test_collect_data_only_does_not_relax_route_intent_proof",
-        "plugin/tests/test_decision_executor.py::test_collect_final_result_requires_control_route"
+        "plugin/tests/test_decision_executor.py::test_collect_final_result_requires_control_route",
+        "plugin/tests/test_decision_executor.py::test_collect_cross_template_route_action_data_all_orders",
+        "plugin/tests/test_decision_executor.py::test_collect_cross_template_duplicate_intent_deduplicates"
       ],
       "evidence": [],
       "product_status": "BLOCKED",
       "remaining_evidence": "Cited local product tests passed in the recorded run. Target integration/installation and trusted-source acceptance are separately unverified. Static subset requires each CONTROL template to carry its route-required intents; action-only cross-template route composition is not supported.",
       "offline_scope": "Actual pure decision executor with typed SYNTHETIC records; no external source authenticity or production policy approval claimed.",
-      "implementation_status": "LIMITED",
-      "implementation_gap": "COLLECT 支持 data-only 与 route/actions 行组合；不支持把 CONTROL 路线及其必要 action-only 意图拆在不同模板。"
+      "implementation_status": "IMPLEMENTED",
+      "implementation_gap": "COLLECT跨模板汇集Data/route/actions，按实际命中集合完整归约；影响完整集合的UNKNOWN阻断。"
     },
     {
       "id": "AC-030",
@@ -704,14 +719,19 @@
       "source_status": "NOT_RUN",
       "offline_status": "PASS",
       "tests": [
-        "plugin/tests/test_decision_executor.py::test_ac031_conflicts_fail_closed"
+        "plugin/tests/test_decision_executor.py::test_ac031_conflicts_fail_closed",
+        "plugin/tests/test_decision_executor.py::test_collect_unselected_action_row_cannot_fill_actual_gap",
+        "plugin/tests/test_decision_executor.py::test_collect_action_only_row_must_match_selected_route",
+        "plugin/tests/test_decision_executor.py::test_collect_empty_template_cannot_borrow_unselected_intent",
+        "plugin/tests/test_decision_executor.py::test_collect_cross_template_unknown_is_blocked_before_dispatch",
+        "plugin/tests/test_decision_executor.py::test_collect_cross_template_sdk_missing_action_clears_success"
       ],
       "evidence": [],
       "product_status": "BLOCKED",
       "remaining_evidence": "Cited local product tests passed in the recorded run. Target integration/installation and trusted-source acceptance are separately unverified.",
       "offline_scope": "Actual pure decision executor with typed SYNTHETIC records; no external source authenticity or production policy approval claimed.",
-      "implementation_status": "LIMITED",
-      "implementation_gap": "状态/控制/数据冲突安全拒绝；C 归约受自包含 route/actions 模板限制，复杂事实集合仅保守冲突，不是完整业务实体归约。"
+      "implementation_status": "IMPLEMENTED",
+      "implementation_gap": "同值状态/稳定Data事实键去重，冲突确定值/意图参数/控制去向拒绝；跨模板结果最终路径与意图完整性检查，不私造业务优先级或金额归约。"
     },
     {
       "id": "AC-032",
@@ -824,7 +844,7 @@
       "remaining_evidence": "Target host/version, canvas mapping and durable deployed runtime evidence not supplied; reference-host tests are offline evidence only.",
       "offline_scope": "Reference single-owner SQLite host / SYNTHETIC flow only; bounded serial branches, no nested PARALLEL/WAIT support, no target Dify mapping or production interaction.",
       "implementation_status": "LIMITED",
-      "implementation_gap": "参考宿主执行控制激活与意图选择双条件；默认 SDK 无 trusted policy 注入，合法 context/node 输出绑定不能仅凭自报 runtime_snapshot 完成。 默认 SDK 查询 HMAC loader 验证签名与最多 300 秒时效，但只读 token 有效期可重放；未接宿主持久 activation ledger 核验当前激活/撤销，不能等同在线状态授权。"
+      "implementation_gap": "参考宿主执行控制激活与意图选择双条件；COLLECT归约后校验路径。默认SDK未提供可信policy接线；生产查询通道缺在线宿主授权时拒绝。"
     },
     {
       "id": "AC-037",
@@ -861,7 +881,8 @@
       "offline_status": "PARTIAL",
       "tests": [
         "plugin/tests/test_node_contract.py::test_graph_rejects_unsafe_structure",
-        "plugin/tests/test_node_contract.py::test_v2_path_binding_and_intent_mutations"
+        "plugin/tests/test_node_contract.py::test_v2_path_binding_and_intent_mutations",
+        "plugin/tests/test_decision_executor.py::test_every_reachable_business_gateway_maps_selected_route"
       ],
       "evidence": [],
       "product_status": "BLOCKED",
@@ -925,14 +946,16 @@
       "source_status": "NOT_RUN",
       "offline_status": "PARTIAL",
       "tests": [
-        "plugin/tests/test_reference_host.py::test_join_duplicates_not_arrival_count"
+        "plugin/tests/test_reference_host.py::test_join_duplicates_not_arrival_count",
+        "plugin/tests/test_reference_host.py::test_nested_parallel_success_restores_parent_branch_identity",
+        "plugin/tests/test_reference_host.py::test_parallel_waits_resume_independently_after_host_restart"
       ],
       "evidence": [],
       "product_status": "BLOCKED",
       "remaining_evidence": "Target host/version, canvas mapping and durable deployed runtime evidence not supplied; reference-host tests are offline evidence only.",
       "offline_scope": "Reference single-owner SQLite host / SYNTHETIC flow only; bounded serial branches, no nested PARALLEL/WAIT support, no target Dify mapping or production interaction.",
-      "implementation_status": "LIMITED",
-      "implementation_gap": "参考宿主按 fork_run_id/branch_id JOIN；嵌套 PARALLEL 和分支 WAIT 尚未实现。"
+      "implementation_status": "IMPLEMENTED",
+      "implementation_gap": "fork_run_id/branch_id及嵌套parent token同步，多个WAIT持久化后各自恢复，重复/晚到不重开。"
     },
     {
       "id": "AC-042",
@@ -947,14 +970,18 @@
       "offline_status": "PARTIAL",
       "tests": [
         "plugin/tests/test_reference_host.py::test_parallel_failure_cancels_unstarted_and_late_receipt",
-        "plugin/tests/test_dsl_reference_flow.py::test_query_failure_is_technical_and_join_exits_once"
+        "plugin/tests/test_dsl_reference_flow.py::test_query_failure_is_technical_and_join_exits_once",
+        "plugin/tests/test_reference_host.py::test_nested_failure_closes_parent_once_and_late_receipt_cannot_reopen",
+        "plugin/tests/test_reference_host.py::test_parallel_wait_cancel_closes_scope_and_late_answer_is_ignored",
+        "plugin/tests/test_reference_host.py::test_multiple_wait_timeouts_do_not_dispatch_cancelled_sibling_twice",
+        "plugin/tests/test_reference_host.py::test_nested_error_follows_registered_merge_edge_without_losing_failure"
       ],
       "evidence": [],
       "product_status": "BLOCKED",
       "remaining_evidence": "Target host/version, canvas mapping and durable deployed runtime evidence not supplied; reference-host tests are offline evidence only.",
       "offline_scope": "Reference single-owner SQLite host / SYNTHETIC flow only; bounded serial branches, no nested PARALLEL/WAIT support, no target Dify mapping or production interaction.",
-      "implementation_status": "LIMITED",
-      "implementation_gap": "参考宿主失败出口一次、取消未开始分支、晚到不重开；仅无嵌套/无分支 WAIT 子集。"
+      "implementation_status": "IMPLEMENTED",
+      "implementation_gap": "嵌套失败冻结父scope并沿登记error边收敛；取消其他等待，无新分支调用；双超时一次出口，失败标志经MERGE不丢。"
     },
     {
       "id": "AC-043",
@@ -969,14 +996,18 @@
       "offline_status": "PARTIAL",
       "tests": [
         "plugin/tests/test_reference_host.py::test_parallel_all_success_one_decision",
-        "plugin/tests/test_dsl_reference_flow.py::test_fast_event_real_http_decision_branch_and_reentry"
+        "plugin/tests/test_dsl_reference_flow.py::test_fast_event_real_http_decision_branch_and_reentry",
+        "plugin/tests/test_reference_host.py::test_nested_parallel_success_restores_parent_branch_identity",
+        "plugin/tests/test_reference_host.py::test_parallel_events_same_parameter_merge_or_fail_without_last_write_wins",
+        "plugin/tests/test_reference_host.py::test_parallel_unresolved_interaction_requires_wait_before_join",
+        "plugin/tests/test_reference_host.py::test_unresolved_before_split_clears_only_after_every_branch_wait"
       ],
       "evidence": [],
       "product_status": "BLOCKED",
       "remaining_evidence": "Target host/version, canvas mapping and durable deployed runtime evidence not supplied; reference-host tests are offline evidence only.",
       "offline_scope": "Reference single-owner SQLite host / SYNTHETIC flow only; bounded serial branches, no nested PARALLEL/WAIT support, no target Dify mapping or production interaction.",
-      "implementation_status": "LIMITED",
-      "implementation_gap": "参考宿主 ALL_SUCCESS、重复分支结果不重复完成；仅无嵌套/无分支 WAIT 子集。"
+      "implementation_status": "IMPLEMENTED",
+      "implementation_gap": "嵌套ALL_SUCCESS只有每个分支成功才继续；分支WAIT未回答不完成JOIN；同字段事件冲突拒绝，同值合并来源。"
     },
     {
       "id": "AC-044",
@@ -1016,7 +1047,8 @@
         "plugin/tests/test_query_executor.py::test_timeout_stops_new_calls",
         "plugin/tests/test_query_executor.py::test_required_partial_and_http_redirect_not_empty_success",
         "plugin/tests/test_reference_host.py::test_parallel_failure_cancels_unstarted_and_late_receipt",
-        "plugin/tests/test_dsl_reference_flow.py::test_query_failure_is_technical_and_join_exits_once"
+        "plugin/tests/test_dsl_reference_flow.py::test_query_failure_is_technical_and_join_exits_once",
+        "plugin/tests/test_reference_host.py::test_unresolved_merge_cannot_finish_business_exit"
       ],
       "evidence": [],
       "product_status": "BLOCKED",
@@ -1039,7 +1071,8 @@
       "tests": [
         "plugin/tests/test_reference_host.py::test_wait_not_complete_and_restore_after_event",
         "plugin/tests/test_reference_host.py::test_fast_reply_registered_before_send",
-        "plugin/tests/test_dsl_reference_flow.py::test_fast_event_real_http_decision_branch_and_reentry"
+        "plugin/tests/test_dsl_reference_flow.py::test_fast_event_real_http_decision_branch_and_reentry",
+        "plugin/tests/test_reference_host.py::test_nested_fast_answers_registered_before_send_reach_join_once"
       ],
       "evidence": [],
       "product_status": "BLOCKED",
@@ -1304,7 +1337,7 @@
       "remaining_evidence": "Official fixed-commit difypkg unpacking and target install/upgrade not yet executed.",
       "offline_scope": "Actual provider registration, staging and SDK stdio. Official difypkg generation/unpack and target install not run.",
       "implementation_status": "LIMITED",
-      "implementation_gap": "实际 Provider 注册、SDK 调用及 staging 已实现；官方包/安装/目标升级验收尚不完整。rc.1 被官方 CLI 拒绝后改 rc1，不能据改名声称打包成功。"
+      "implementation_gap": "已发布3065505 RC1官方CLI0.6.10打包/42文件比对/解包SDK通过（父任务提供）；本轮后续源码staging独立验证，未重打官方包。目标宿主安装升级未验收。"
     },
     {
       "id": "AC-057",
@@ -1316,14 +1349,37 @@
       "expected": "业务结论/原因一致或差异明确批准",
       "required_evidence": "目标实现的运行记录、断言与对应版本；涉及真实能力需脱敏原始回执",
       "source_status": "NOT_RUN",
-      "offline_status": "NOT_RUN",
-      "tests": [],
-      "evidence": [],
+      "offline_status": "PARTIAL",
+      "tests": [
+        "plugin/tests/test_dsl_shadow.py::test_shadow_golden_real_evaluator_offline",
+        "plugin/tests/test_dsl_shadow.py::test_shadow_detects_each_business_projection_mutation",
+        "plugin/tests/test_dsl_shadow.py::test_shadow_model_policy_mutation_not_silently_approved",
+        "plugin/tests/test_dsl_shadow.py::test_shadow_json_types_do_not_conflate_bool_and_number",
+        "plugin/tests/test_dsl_shadow.py::test_shadow_strict_manifest_before_execution",
+        "plugin/tests/test_dsl_shadow.py::test_shadow_cli_exit_report_and_no_raw_business_values",
+        "plugin/tests/test_dsl_shadow.py::test_shadow_technical_failure_cannot_match_old_success",
+        "plugin/tests/test_dsl_shadow.py::test_shadow_intent_order_is_not_business_sequence_but_duplicates_survive",
+        "plugin/tests/test_dsl_shadow.py::test_shadow_reviewed_history_label_does_not_verify_approval",
+        "plugin/tests/test_dsl_shadow.py::test_shadow_rejects_ambiguous_outer_json",
+        "plugin/tests/test_dsl_shadow.py::test_shadow_case_budget"
+      ],
+      "evidence": [
+        {
+          "path": "scripts/shadow-compare-dsl.py",
+          "sha256": "9e7de470e7f4c6db0d469117059aad14755bd5be504d98d3733de0164d2ebf62",
+          "scope": "OFFLINE_IMPLEMENTATION_NOT_TARGET_ACCEPTANCE"
+        },
+        {
+          "path": "docs/dsl-v0.4-shadow.md",
+          "sha256": "27012c0eb8dc5cdc961ab6cfeedb4a527f11bedc2105ba9e02979ebbab5c7b57",
+          "scope": "OFFLINE_IMPLEMENTATION_NOT_TARGET_ACCEPTANCE"
+        }
+      ],
       "product_status": "BLOCKED",
       "remaining_evidence": "Approved historical business cases/policies and authorized shadow-comparison differences not supplied.",
-      "offline_scope": "No executable local acceptance evidence claimed.",
-      "implementation_status": "MISSING",
-      "implementation_gap": "尚无历史案例结构影子比对执行器/结果证据；SYNTHETIC 流程和原包静态检查不可替代。"
+      "offline_scope": "离线执行器及SYNTHETIC回归，不是历史业务验收",
+      "implementation_status": "LIMITED",
+      "implementation_gap": "已新增严格输入、摘要固定的离线结构影子比对执行器，直接调用真实evaluate_decision并有golden/变异测试；真实批准历史案例、映射与差异签认仍缺。"
     },
     {
       "id": "AC-058",
@@ -1523,13 +1579,12 @@
   ],
   "local_test_run": {
     "status": "PASS",
-    "command": "DMN_ENGINE_DIR=\"$PWD/engine\" plugin/.venv/bin/python scripts/check-dsl-evidence.py --run --report /tmp/dsl-v0.4-review-final-evidence.json",
-    "unique_test_references": 126,
-    "tests_executed": 359,
+    "command": "DMN_ENGINE_DIR=\"$PWD/engine\" plugin/.venv/bin/python scripts/check-dsl-evidence.py --run --report /tmp/dsl-followup-final-evidence.json",
+    "unique_test_references": 168,
+    "tests_executed": 446,
     "failed": 0,
     "skipped": 0,
-    "duration_seconds": 34.96,
-    "tested_tree": "0.4.0-rc1 review fix tree based on 7c9d2d479705da8048023c198cfc46ffdd0a13d5; exact fix commit is the commit containing this record",
-    "scope": "Cited tests only, not the complete repository suite or target acceptance."
+    "tested_tree": "Follow-up feature tree based on published RC1 3065505baa3828f0925f95ed6b69cea60528ba21; exact candidate is the commit containing this record",
+    "scope": "Cited tests are a subset of the full 662 Python tests; not additional tests or target acceptance."
   }
 }

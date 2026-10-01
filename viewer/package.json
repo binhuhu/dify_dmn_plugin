@@ -1,0 +1,11 @@
+{
+  "name": "structure-viewer-tests",
+  "private": true,
+  "scripts": {
+    "test": "cd .. && node --test viewer/tests/adapter.test.cjs",
+    "browser": "cd .. && node viewer/tests/browser.cjs"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0"
+  }
+}

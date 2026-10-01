@@ -360,15 +360,10 @@ def _validate_graph(bundle: dict[str, Any]) -> None:
                         if ns[nid]["kind"] == "ACTION"
                         or (ns[nid]["kind"] == "QUERY" and ns[nid]["requires_intent"])
                     }
-                    # COLLECT may contribute only State/Data while another
-                    # selected template supplies the route and its full intent
-                    # set. The final reducer requires one CONTROL. Keep route
-                    # templates self-contained, so every successful route still
-                    # proves all required actions before dispatch.
-                    data_only_collect = (
-                        model["hit_policy"] == "COLLECT" and bool(route_nodes) and not t["actions"]
-                    )
-                    if not data_only_collect:
+                    # A COLLECT result is the union of selected templates, not
+                    # an independently dispatchable row. Validate each reference
+                    # here; validate route/intent completeness after reduction.
+                    if model["hit_policy"] != "COLLECT":
                         require(needed <= targets, "PATH_ACTION_NOT_SELECTED")
                 for x in s["exits"].values():
                     dest = x["destination"]
@@ -493,13 +488,43 @@ def _validate_step_strict(step: dict, bundle: dict) -> None:
                             continue
                         region.add(current)
                         require(nodes[current]["kind"] != "END", "BRANCH_BYPASSES_JOIN")
-                        require(
-                            nodes[current]["kind"] not in {"WAIT", "PARALLEL"},
-                            "UNSUPPORTED_PARALLEL_REGION",
-                        )
                         todo.extend(succ[current])
                     require(not any(region & old for old in regions), "PARALLEL_BRANCH_OVERLAP")
+                    # Nested forks must be wholly contained in one branch;
+                    # crossed or partially enclosed pairs have no valid scope.
+                    require(
+                        all(
+                            nodes[x]["kind"] != "PARALLEL" or nodes[x].get("pair_ref") in region
+                            for x in region
+                        ),
+                        "CROSSED_PARALLEL_PAIR",
+                    )
                     regions.append(region)
+                enclosing = [
+                    (outer_join, region)
+                    for outer_join, outer_regions in fork_regions.items()
+                    for region in outer_regions
+                    if nid in region
+                ]
+                if enclosing:
+                    parent_join = min(enclosing, key=lambda item: len(item[1]))[0]
+                    failures = [
+                        e for e in edges if e["source"] == join and e["source_port"] == "error"
+                    ]
+                    require(len(failures) == 1, "NESTED_FAILURE_PATH_REQUIRED")
+                    pending, visited = [failures[0]["target"]], set()
+                    while pending:
+                        current = pending.pop()
+                        if current == parent_join or current in visited:
+                            continue
+                        visited.add(current)
+                        require(
+                            nodes[current]["category"] == "GATEWAY"
+                            and nodes[current]["kind"] == "EXCLUSIVE",
+                            "NESTED_FAILURE_PATH_MUST_CONVERGE_WITHOUT_EXECUTION",
+                        )
+                        require(bool(succ[current]), "NESTED_FAILURE_PATH_REQUIRED")
+                        pending.extend(succ[current])
                 fork_regions[join] = regions
                 region_all = set().union(*regions)
                 require(pred[join] <= region_all | {nid}, "FOREIGN_JOIN_INPUT")

@@ -1,9 +1,9 @@
 {
-  "scope": "LOCAL_PRODUCT_TESTS_NOT_TARGET_ACCEPTANCE",
+  "scope": "FOLLOWUP_LOCAL_PRODUCT_TESTS_NOT_TARGET_ACCEPTANCE",
   "version": "0.4.0-rc1",
-  "base_commit": "7c9d2d479705da8048023c198cfc46ffdd0a13d5",
+  "base_commit": "3065505baa3828f0925f95ed6b69cea60528ba21",
   "python_full_regression": {
-    "tests": 574,
+    "tests": 662,
     "failures": 0,
     "errors": 0,
     "skipped": 0
@@ -16,18 +16,18 @@
   "sdk_stdio_calls": {
     "legacy_three_tools": 14,
     "new_node_tools": 6,
-    "trusted_configured_query": 5
+    "trusted_configured_query": 6
   },
   "acceptance_subset_run": {
     "index_validation": "PASS",
     "cases": 67,
     "v0.4_cases": 60,
     "v0.5_cases": 7,
-    "unique_test_references": 126,
+    "unique_test_references": 168,
     "recorded_offline_status": {
-      "PARTIAL": 33,
+      "PARTIAL": 34,
       "PASS": 25,
-      "NOT_RUN": 2,
+      "NOT_RUN": 1,
       "DEFERRED": 7
     },
     "recorded_product_status": {
@@ -37,7 +37,7 @@
     "current_test_run": "PASS",
     "release_gate": "BLOCKED",
     "scope": "Index consistency is not product testing; offline tests are not target acceptance.",
-    "tests_executed": 359,
+    "tests_executed": 446,
     "nonpassing_tests": 0,
     "unaccepted_v0.4_cases": [
       "AC-001",
@@ -104,22 +104,30 @@
   },
   "lint": "PASS",
   "format": "PASS",
-  "official_package": "NOT_RUN",
+  "official_package": {
+    "published_rc1_commit": "3065505baa3828f0925f95ed6b69cea60528ba21",
+    "published_rc1_status": "PASS",
+    "followup_feature_status": "NOT_RUN"
+  },
   "target_installation": "NOT_RUN",
   "real_business_api": "BLOCKED",
   "target_host": "BLOCKED",
   "files": [
     {
+      "path": "README.md",
+      "sha256": "44aabf2d69c893cd71ce5c98c085197e0e869d674c35606f09834f1056cb436d"
+    },
+    {
       "path": "acceptance/dsl-v0.4-evidence.json",
-      "sha256": "0580ae88ad63a76586781e8940e74564689fa464387d23136632b4597dcfdd50"
+      "sha256": "9d944b37e56f461fcd0096a209f52d756c2af87c6d71b191f01d95c81a369178"
     },
     {
       "path": "adapters/host/README.md",
-      "sha256": "e8b214367c026014d3b77018de35d75fe092005fc7a2d2bf8819e94caa03fe18"
+      "sha256": "36000d58afcc7a19af5a1ed0fdd2880c4b1790b7e759a812736363ad16c43ca2"
     },
     {
       "path": "adapters/host/reference_runtime.py",
-      "sha256": "523d3bf6c29f2712552651abe4f48f3e7e2c5ffe89d7d2f8fd11bbb71eb99c94"
+      "sha256": "0d22de798b8c3647f3aa70b920123c2302f11b0db3e7923d16cf8359435c7db3"
     },
     {
       "path": "builtin/manifest.yaml",
@@ -135,15 +143,23 @@
     },
     {
       "path": "docs/dsl-v0.4-acceptance.md",
-      "sha256": "fbe95ee413c81555796de1350024079841669111e09f767855947965bbccc0d0"
+      "sha256": "7e398f754b5157cfa35ce73e8e958ee8012a053cd53e75afe33d4f7903ea96c1"
+    },
+    {
+      "path": "docs/dsl-v0.4-followup.md",
+      "sha256": "23653a83ba62f382a487774b258550d910348db8c41d087a5e42666767d02a5f"
     },
     {
       "path": "docs/dsl-v0.4-independent-review.md",
-      "sha256": "96dd70042e958acb42ed56c2cde3153acf660e78eec15c7f04bcd60a44dd9f7f"
+      "sha256": "90054d347be76d36ebc660f9b07bdffe8eb96a4794c6b08b094b8ffb4e347b78"
+    },
+    {
+      "path": "docs/dsl-v0.4-shadow.md",
+      "sha256": "27012c0eb8dc5cdc961ab6cfeedb4a527f11bedc2105ba9e02979ebbab5c7b57"
     },
     {
       "path": "docs/dsl-v0.4.md",
-      "sha256": "4b1ddd3d5b34e967c4bde8733562414cafdbdc36a5613565e575d924169f84e0"
+      "sha256": "18b50c6bfc3de60174eab7cf12e8b0a082f3953ad4ae86b7698fe55cd5c67039"
     },
     {
       "path": "examples/dsl-v0.4/README.md",
@@ -191,7 +207,7 @@
     },
     {
       "path": "plugin/dmn_client/decision_executor.py",
-      "sha256": "bbc4ae5ee5a95fd3d65fc54a8fe0fdc972a61a4743c3b3ca563bec07d3c2e8ce"
+      "sha256": "4eb1c79486e8a711b17c2ce89c5cd1a6157c156dd6c38c705480034f1e99ea3f"
     },
     {
       "path": "plugin/dmn_client/dsl_schemas/architecture.schema.json",
@@ -231,7 +247,7 @@
     },
     {
       "path": "plugin/dmn_client/node_contract.py",
-      "sha256": "0a089315abd5cb136c5987e007201925f0bced4ab2973e57ee274b2e62d7f1c2"
+      "sha256": "d41d234c8490d2e8d2e287b992bc7dc56cf73e04cf2aa9bdcd4e0a90f4256241"
     },
     {
       "path": "plugin/dmn_client/node_tool_outputs.py",
@@ -239,7 +255,7 @@
     },
     {
       "path": "plugin/dmn_client/query_executor.py",
-      "sha256": "0193e5cc7883eaf6e42b41b7a56482a651fe90a9e4a26afb10835e537f1060d5"
+      "sha256": "6b27967070e60578c80915253428dc3a43247b3da299dba0f170c68db3b1c554"
     },
     {
       "path": "plugin/pyproject.toml",
@@ -263,7 +279,7 @@
     },
     {
       "path": "plugin/tests/test_decision_executor.py",
-      "sha256": "00d2739450eef06f2e11abcf0ddf12f8a731f0809c9ec4ae695e4a9c10af58b5"
+      "sha256": "410d8e666c420ca49a333717e14bb3b2dacbcbe0607cd0c0a641fe3778172ccc"
     },
     {
       "path": "plugin/tests/test_dsl_reference_flow.py",
@@ -271,7 +287,11 @@
     },
     {
       "path": "plugin/tests/test_dsl_sdk.py",
-      "sha256": "ea46636373b300068b68ab9e762b25e906e1d166f02063a9ba7ec963042c8f19"
+      "sha256": "8a885195fdcd8433207ae4cbaa6f58289ad972b8150b83e90ae48ddb1c93ecfc"
+    },
+    {
+      "path": "plugin/tests/test_dsl_shadow.py",
+      "sha256": "67e384ce669b8a3097362533d05f14c84de03d2aa480dc150c4bf16035b551c6"
     },
     {
       "path": "plugin/tests/test_flows.py",
@@ -295,11 +315,11 @@
     },
     {
       "path": "plugin/tests/test_query_executor.py",
-      "sha256": "95cb670d526b20c477489ef945efc4e18f605ab165c182949746c598129d08e4"
+      "sha256": "c04c20e860a13e31f152cfe3e299a547d3736b5af7d89cdf7c3cf54c582d06ab"
     },
     {
       "path": "plugin/tests/test_reference_host.py",
-      "sha256": "cda54e72937f5090b8526e546f1ce7a4f2889c12b35a711be5f190460b5281d7"
+      "sha256": "4ea189345aa77f6fb0890885b3bf5e05342c94315ca1fdc2b618e1f10b45e116"
     },
     {
       "path": "plugin/tests/test_review_boundaries.py",
@@ -398,14 +418,18 @@
       "sha256": "b057419f2ac6cda658564e00907780698115f2b70b7c38e885767596895a0606"
     },
     {
+      "path": "scripts/shadow-compare-dsl.py",
+      "sha256": "9e7de470e7f4c6db0d469117059aad14755bd5be504d98d3733de0164d2ebf62"
+    },
+    {
       "path": "scripts/stage-builtin.py",
       "sha256": "224474f07e04263c4bac099508fe5ece4024985648e9a20909e5bbad32e39c52"
     }
   ],
   "implementation_status": {
-    "IMPLEMENTED": 46,
-    "LIMITED": 12,
-    "MISSING": 2,
+    "IMPLEMENTED": 53,
+    "LIMITED": 6,
+    "MISSING": 1,
     "DEFERRED": 7
   },
   "official_cli_version_format": {
@@ -413,6 +437,30 @@
     "source_commit": "1310a18b2f6bc6f18768a0a6265484830891433c",
     "candidate": "0.4.0-rc1",
     "format_regression": "PASS",
-    "actual_candidate_packaging": "NOT_RUN"
-  }
+    "actual_candidate_packaging": "Published3065505 PASS; follow-up feature NOT_RUN"
+  },
+  "published_rc1": {
+    "commit": "3065505baa3828f0925f95ed6b69cea60528ba21",
+    "version": "0.4.0-rc1",
+    "official_cli": "0.6.10",
+    "official_package": "PASS",
+    "archive_files_byte_matched": 42,
+    "unpacked_tool_registrations": 5,
+    "unpacked_sdk_calls": 20,
+    "same_commit_trusted_query_sdk_calls": 5,
+    "sdk_related_tests": 10,
+    "package_bytes": 69265,
+    "package_sha256": "f158645791f879c81a45fcb53e26d8893b26abb4bf6ade701828599b3e83d097",
+    "release_url": "https://github.com/binhuhu/dify_dmn_plugin/releases/tag/v0.4.0-rc1",
+    "release_kind": "prerelease",
+    "evidence_source": "Parent task official packaging environment; supplied completion records",
+    "target_installation": "NOT_RUN",
+    "target_upgrade": "NOT_RUN",
+    "scope": "ONLY this exact published RC1 commit; not subsequent feature changes"
+  },
+  "source_status": "UNRELEASED_FOLLOWUP_IDENTIFIED_BY_GIT_COMMIT",
+  "sdk_stdio_scope": "Query env loader calls are SYNTHETIC loopback only; 6 includes production refusal. No production host authorization claimed.",
+  "staging": "PASS",
+  "target_upgrade": "NOT_RUN",
+  "version_scope": "Unchanged development baseline; this follow-up is identified by Git SHA and is not a new RC1 package"
 }

@@ -1,6 +1,8 @@
 # Dify DMN 插件：显式查询 + 显式决策
 
-当前开发分支为 [0.4.0-rc1 节点执行候选](docs/dsl-v0.4.md)：保留三个旧工具，新增 execute_query/evaluate_decision 与独立参考宿主。未正式发布，真实 API 与目标宿主验收仍阻断。
+已发布 [v0.4.0-rc1 预发布](https://github.com/binhuhu/dify_dmn_plugin/releases/tag/v0.4.0-rc1)，精确源码 `3065505baa3828f0925f95ed6b69cea60528ba21`。官方 CLI 0.6.10 打包通过，42 个归档文件逐字节匹配，解包五工具注册与 SDK 验证通过；包 69265 bytes，SHA256 `f158645791f879c81a45fcb53e26d8893b26abb4bf6ade701828599b3e83d097`。真实 API、目标宿主安装升级及生产验收仍阻断。
+
+当前 feature 为 [RC1 后续开发候选](docs/dsl-v0.4-followup.md)，新增变更以 Git SHA 区分，尚未官方打包或发布；不包含于上述 RC1 包。保留三个旧工具，新增 execute_query/evaluate_decision 与独立参考宿主。
 
 此前新增免 Key 的 [内置 JSON 三工具 0.3.0](builtin/README.md)：决策、SYNTHETIC 查询、JSON 阶段计划均在 Python 插件进程内执行，无需外部决策服务。完整合同和转换边界见 [0.3.0 文档](docs/builtin-0.3.0.md)。为兼容 Dify 1.11.1 的提供商授权限制，使用独立身份 `hu8627/dmn_json`，保留已安装的原外部插件和其他插件。原路径如下。
 
@@ -122,3 +124,7 @@ node scripts/smoke.mjs examples/solve-request.json
 ```
 
 第一条包含 query → decision → query → decision；第二条包含 P1–P7、P3 显式跳过、DMN-A/DMN-B/优先关系、处置建议和工单建议。示例金额不会自动补填，缺口不会自动宣称 LINKED。`examples/fact-calculator.mjs` 是外部 L1 ESM 计算器示意，不会被模型动态加载。真实阶段包含慢查询时，应由 Dify 逐 Step 编排、分别显示状态；`execute_plan` 当前只适合总时限内的小型候选计划，不是长流程编排平台。
+
+## 只读结构展示
+
+直接打开 `plugin/viewer_static/index.html`，查看定位／解决的真实 Phase → Step → Node 归属并导入本地 JSON。无工作台、编辑、执行或服务端存储。[格式、入口及验证限制](docs/structure-viewer.md)。

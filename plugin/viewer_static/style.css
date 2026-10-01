@@ -1,0 +1,240 @@
+:root {
+  color-scheme: dark;
+  font-family: system-ui, sans-serif;
+  background: #101314;
+  color: #e9eeee;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+}
+header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 20px 28px;
+  border-bottom: 1px solid #354040;
+}
+header div {
+  margin-right: auto;
+}
+h1 {
+  font-size: 24px;
+  margin: 4px 0;
+}
+small {
+  color: #8baba8;
+  letter-spacing: 2px;
+}
+button,
+.import,
+select {
+  background: #20292a;
+  color: #e5efed;
+  border: 1px solid #49615e;
+  border-radius: 7px;
+  padding: 9px 14px;
+  cursor: pointer;
+  font: inherit;
+}
+button:hover,
+button:focus-visible {
+  border-color: #83f4ca;
+}
+button[aria-pressed="true"] {
+  background: #21483e;
+  color: #a2ffda;
+}
+.import input {
+  display: block;
+  font-size: 12px;
+  max-width: 220px;
+  margin-top: 4px;
+}
+nav,
+.toolbar {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 12px 28px;
+  flex-wrap: wrap;
+}
+.notice,
+footer,
+#status {
+  font-size: 13px;
+  color: #a0b3b1;
+  padding: 8px 28px;
+}
+#status {
+  color: #f7c684;
+  white-space: pre-wrap;
+}
+.toolbar span {
+  font-size: 12px;
+  color: #94aaa7;
+}
+#viewport {
+  height: 65vh;
+  min-height: 350px;
+  overflow: hidden;
+  position: relative;
+  background: radial-gradient(#2c3837 1px, transparent 1px);
+  background-size: 22px 22px;
+  touch-action: none;
+}
+#canvas {
+  display: flex;
+  gap: 30px;
+  position: absolute;
+  transform-origin: 0 0;
+  padding: 24px;
+}
+.phase {
+  border: 1px solid #425653;
+  border-radius: 12px;
+  background: #151c1cee;
+  padding: 18px;
+}
+.phase > h2 {
+  font-size: 18px;
+  margin: 0 0 18px;
+  color: #edfff9;
+}
+.steps {
+  display: flex;
+  gap: 18px;
+}
+.step {
+  width: 286px;
+  background: #202828;
+  border: 1px solid #364542;
+  border-radius: 8px;
+  padding: 14px;
+}
+.step h3 {
+  font-size: 15px;
+  margin: 0 0 14px;
+  overflow-wrap: anywhere;
+}
+.graph {
+  position: relative;
+}
+.node {
+  position: relative;
+  z-index: 1;
+  display: block;
+  width: 220px;
+  text-align: left;
+  min-height: 68px;
+  margin: 0 0 28px;
+  border-color: #58716b;
+  background: #25312f;
+  overflow-wrap: anywhere;
+}
+.node.DECISION {
+  border-color: #7bd7b2;
+  background: #193b30;
+}
+.node.GATEWAY {
+  border-color: #6bd6e8;
+}
+.node small {
+  display: block;
+  font-size: 11px;
+  letter-spacing: 0;
+  color: #b7cdca;
+}
+.edges {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+.edges path {
+  stroke: #61baca;
+  stroke-width: 1.5;
+  fill: none;
+}
+.edge-list {
+  font-size: 12px;
+  color: #8fd0db;
+  overflow-wrap: anywhere;
+  padding-left: 16px;
+}
+.edge-list li {
+  margin-bottom: 6px;
+}
+aside {
+  position: fixed;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: min(560px, 100vw);
+  background: #182121;
+  box-shadow: -10px 0 40px #0008;
+  border-left: 1px solid #4b635d;
+  padding: 22px;
+  overflow: auto;
+  z-index: 5;
+}
+aside[hidden] {
+  display: none;
+}
+aside h2 {
+  overflow-wrap: anywhere;
+}
+pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 12px;
+  background: #101817;
+  padding: 12px;
+  border-radius: 5px;
+}
+table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 12px;
+}
+td,
+th {
+  border: 1px solid #40534d;
+  padding: 8px;
+  vertical-align: top;
+  text-align: left;
+}
+td pre {
+  margin: 0;
+  padding: 0;
+  background: none;
+}
+details {
+  margin: 15px 0;
+}
+summary {
+  cursor: pointer;
+  color: #a3e9d0;
+}
+.breadcrumb {
+  color: #9ed7c5;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 650px) {
+  header {
+    flex-wrap: wrap;
+    padding: 14px;
+  }
+  nav,
+  .toolbar {
+    padding: 10px;
+  }
+  h1 {
+    font-size: 20px;
+  }
+}

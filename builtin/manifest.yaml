@@ -1,4 +1,4 @@
-version: 0.4.0-rc1
+version: 0.4.0-rc2
 type: plugin
 author: hu8627
 name: dmn_json
@@ -17,6 +17,8 @@ resource:
 plugins:
   tools:
   - provider/dmn.yaml
+  endpoints:
+  - endpoints/structure_viewer.yaml
 meta:
   version: 0.0.1
   arch:
