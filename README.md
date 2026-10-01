@@ -124,3 +124,7 @@ node scripts/smoke.mjs examples/solve-request.json
 ```
 
 第一条包含 query → decision → query → decision；第二条包含 P1–P7、P3 显式跳过、DMN-A/DMN-B/优先关系、处置建议和工单建议。示例金额不会自动补填，缺口不会自动宣称 LINKED。`examples/fact-calculator.mjs` 是外部 L1 ESM 计算器示意，不会被模型动态加载。真实阶段包含慢查询时，应由 Dify 逐 Step 编排、分别显示状态；`execute_plan` 当前只适合总时限内的小型候选计划，不是长流程编排平台。
+
+## 只读结构展示
+
+直接打开 `plugin/viewer_static/index.html`，查看定位／解决的真实 Phase → Step → Node 归属并导入本地 JSON。无工作台、编辑、执行或服务端存储。[格式、入口及验证限制](docs/structure-viewer.md)。

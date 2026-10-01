@@ -1,0 +1,15 @@
+{
+  "scope": "Read-only Phase/Step/Node structure viewer; no workbench",
+  "base_commit": "c29fcc55fd19f2b97b9ff06c2d1fc397ab546273",
+  "python_regression": {"passed": 665, "skipped": 0, "live_node_engine": true},
+  "node_engine_regression": {"passed": 99},
+  "viewer_adapter_tests": {"passed": 7},
+  "real_sdk": {"static_endpoint_calls": 6, "static_bytes_match": true, "legacy_tool_calls": 14, "node_tool_calls": 6, "credentials": "empty"},
+  "staging": {"files": 50, "path_in_test_environment": "/tmp/structure-viewer-final"},
+  "browser_pixel_interaction_network_observation": {"status": "NOT_RUN", "blocker": "Sandboxed Chromium aborts before page load: SUID helper incorrectly configured"},
+  "network_privacy_evidence": "Source inspection: no remote request, upload or browser storage code; Endpoint and HTML CSP connect-src none. Actual browser observation NOT_RUN.",
+  "official_packaging_this_candidate": "NOT_RUN",
+  "target_host_install": "NOT_RUN",
+  "private_reference": "Not transferred or copied; layout guidance supplied by parent only",
+  "published_main_and_release": "Unchanged; no new production acceptance claimed"
+}

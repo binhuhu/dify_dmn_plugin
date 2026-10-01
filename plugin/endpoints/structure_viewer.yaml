@@ -1,0 +1,12 @@
+settings: []
+endpoints:
+  - path: /
+    method: GET
+    extra:
+      python:
+        source: endpoints/structure_viewer.py
+  - path: /<path:route>
+    method: GET
+    extra:
+      python:
+        source: endpoints/structure_viewer.py

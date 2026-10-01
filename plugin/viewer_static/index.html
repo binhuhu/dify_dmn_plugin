@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'none'; img-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'"
+    />
+    <title>定位与解决 · 结构视图</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <header>
+      <div>
+        <small>READ ONLY · PHASE / STEP / NODE</small>
+        <h1>定位与解决</h1>
+      </div>
+      <label class="import"
+        >导入本地 JSON<input
+          id="file"
+          type="file"
+          accept=".json,application/json" /></label
+      ><button id="demo">SYNTHETIC 示例</button>
+    </header>
+    <nav aria-label="流程选择">
+      <button data-flow="LOCATE" aria-pressed="true">定位问题</button
+      ><button data-flow="SOLVE" aria-pressed="false">解决方案</button
+      ><select id="workflow" aria-label="当前流程"></select
+      ><span id="scope"></span>
+    </nav>
+    <div class="notice">
+      只读展示，不执行规则或请求接口。文件仅在本页内存读取；链接、哈希与
+      source_refs 仅作原文展示，不代表验证或授权。
+    </div>
+    <div id="status" role="status"></div>
+    <div class="toolbar">
+      <button id="out" aria-label="缩小">−</button
+      ><button id="fit">适应画布</button
+      ><button id="in" aria-label="放大">＋</button
+      ><span>拖动画布平移 · 滚轮缩放 · 点击节点查看完整定义</span>
+    </div>
+    <main id="viewport" tabindex="0" aria-label="流程结构画布">
+      <div id="canvas"></div>
+    </main>
+    <aside id="drawer" hidden aria-label="节点详情">
+      <button id="close">关闭详情 ×</button>
+      <div id="detail"></div>
+    </aside>
+    <footer>
+      支持 node-architecture.v2 bundle / structure-view.v1。按 phases[].steps[]
+      原始归属排列；跨步骤出口在详情中列出。
+    </footer>
+    <script src="adapter.js"></script>
+    <script src="demo.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>
