@@ -86,8 +86,9 @@ SQLite writes use BEGIN IMMEDIATE and atomic expected revisions. Stale writes
 return 409 rather than overwrite a draft. Limits: 1 MiB request/stored object,
 512 KiB project compilation, 100 objects / 8 MiB per namespace, 32 sessions,
 32 required cases. Frozen content is immutable; it is **not a deployment or an
-authorization approval**. Only successful explicitly expected content test cases
-can freeze in this slice. Negative-case golden expectations remain missing.
+authorization approval**. Freeze reruns required cases and requires at least one positive business-success
+case per flow. Negative status/error expectations may pass boundary regression,
+but cannot replace positive business approval.
 
 ## Implemented and missing
 
@@ -107,13 +108,13 @@ source ports and END exits. Data bindings are rendered separately as readonly
 nonactivating edges. Layout/folding remains outside execution definitions. It is
 not a second runtime and does not implement Query, Gateway or WAIT execution.
 
-Still missing locally: complete binding/source selector and field business
+Still missing locally: API/node/event binding sources and field business
 metadata; semantic old-to-new migration (never automatic); cell-targeted
 comprehensive diagnostics; multi-Step/Phase and additional node authoring;
 full business LOCATE/SOLVE orchestration and friendly domain results; complete
-version/reviewer governance, record retention/backup, negative golden test
-management and performance/usability acceptance. The Cloud storage and origin
-isolation path remains a required, unmet delivery item, not a removed platform.
+version/reviewer governance, record retention/backup and performance/usability acceptance. Cloud atomic storage remains a required, unmet delivery item. Origin isolation
+is target-unverified: the official platform-assigned Endpoint subdomain may
+satisfy it without a separate website.
 See [Cloud feasibility](workbench-cloud-feasibility.md).
 
 Nine browser Playwright cases are committed but **NOT_RUN past browser startup**:
@@ -140,8 +141,50 @@ PYTHONPATH=plugin plugin/.venv/bin/python scripts/compatibility/workbench_stdio.
 (cd ui && npm test)
 ```
 
-Use a supported sandboxed Chromium environment for the final command. Tests use
-loopback HTTPS with an ephemeral self-signed certificate; certificate relaxation
-is confined to that test harness. Tool credentials remain empty. The published
+Use a supported sandboxed Chromium environment for the final command. Tests require administrator-provided TLS certificate/key paths in
+WORKBENCH_TEST_TLS_CERT and WORKBENCH_TEST_TLS_KEY, with a valid 127.0.0.1 SAN and
+a chain trusted by both browser and Node. No certificate verification bypass is
+enabled. Missing certificate configuration is an explicit BLOCKED startup. Tool credentials remain empty. The published
 `3065505` CLI/package verification applies only to that historical commit; this
 new Tool+Endpoint candidate requires its own official packaging and installation.
+
+## Next local authoring increment (after 147c768)
+
+Model management adds stable-reference rename, duplicate-to-new-project, reversible
+archive metadata, independent rule/template copy, drag/keyboard reorder and atomic
+TSV append. TSV deliberately supports only one scalar condition per row; it
+preserves explicit JSON types and rejects a whole invalid batch. Archive is a
+management label, not deployed-version revocation.
+
+Input binding authoring supports declared context.parameters whole records and
+explicit VALUE literals. The actual workbench invocation projects through the
+existing Python NodeIO bind_inputs; the browser never evaluates rules. Type,
+nullability and quality sets must be compatible. Missing records stay missing,
+UNKNOWN remains UNKNOWN, and reading a record's value to manufacture KNOWN is
+rejected. API/node/event sources remain unsupported. Import preservation is not
+permission to execute unsupported bindings. Malformed source records may fail
+binding validation before decision evaluation; the test runner labels these
+ERROR, rather than a successful expected business failure.
+
+Existing ERROR / RESULT_TEMPLATE no-match configuration is editable. Named cases
+can be added/copied/deleted and marked required, with typed inputs and explicit
+success or negative status/error expectations. The authenticated test-runs API
+uses the same core. Freeze never trusts submitted PASS diagnostics, and negative
+tests cannot replace a positive required case in each flow.
+
+Historical comparisons reject changed input_bindings with
+COMPARISON_BINDINGS_CHANGED because records do not contain the unprojected source
+inputs needed to replay a changed mapping. Same-binding comparisons still run.
+Dify template generation conservatively rejects nondefault graph/binding mappings;
+there is no claim that edited bindings are target-importable.
+
+Two flow cards expose independent models/case counts and the actual current
+P1/S1 decision structure. Phase/Step names and descriptions are presentation-only.
+The node catalog explains Query/Gateway/Execute/WAIT restrictions. This is not
+complete business LOCATE/SOLVE orchestration, multi-container authoring or native
+Dify synchronization. Browser interaction remains BLOCKED; source/build and pure
+helper tests do not substitute for visual acceptance.
+
+Additional local check: node --test ui/src/lifecycle.test.js.
+The previous self-signed preview server is stopped. No current user-viewable HTTPS
+preview is claimed until a valid trusted certificate and sandboxed browser exist.

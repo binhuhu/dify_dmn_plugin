@@ -1,6 +1,8 @@
 """Real staged SDK transport smoke for same-package Tool and Endpoint registration."""
 
 import argparse
+import hashlib
+import tempfile
 import json
 import os
 from pathlib import Path
@@ -87,9 +89,90 @@ def run(stage):
                 b"".join(bytes.fromhex(x.get("result", "")) for x in events)
                 == (Path(stage) / "workbench_static" / asset).read_bytes()
             )
-        # Existing pure tool is still registered and executes without credentials.
-        from workbench.model import invocation, sample
+        # Trusted Endpoint settings over the real SDK transport; no browser/TLS bypass.
+        from workbench.model import invocation, project_graphs, sample
 
+        with tempfile.TemporaryDirectory(prefix="workbench-stdio-") as directory:
+            root = Path(directory)
+            root.chmod(0o700)
+            password = "SYNTHETIC-stdio-password-only"
+            salt = bytes.fromhex("12" * 16)
+            verifier = (
+                "scrypt1:"
+                + salt.hex()
+                + ":"
+                + hashlib.scrypt(
+                    password.encode(), salt=salt, n=16384, r=8, p=1, dklen=32
+                ).hex()
+            )
+            settings = {
+                "workbench_deployment": json.dumps(
+                    {
+                        "schema_version": "workbench.endpoint-config.v1",
+                        "database": str(root / "store.db"),
+                        "base_url": "https://fixture.invalid/",
+                        "password_verifier": verifier,
+                    }
+                )
+            }
+            cookie = ""
+            csrf = ""
+            calls = 0
+
+            def api(route, body, expected=200):
+                nonlocal cookie, csrf, calls
+                calls += 1
+                encoded = json.dumps(body).encode()
+                raw = (
+                    f"POST /api/{route} HTTP/1.1\r\nHost: fixture.invalid\r\n"
+                    "Origin: https://fixture.invalid\r\nContent-Type: application/json\r\n"
+                    f"Cookie: {cookie}\r\nX-CSRF-Token: {csrf}\r\n"
+                    f"Content-Length: {len(encoded)}\r\n\r\n"
+                ).encode() + encoded
+                events = invoke(
+                    f"authenticated-{calls}",
+                    {
+                        "type": "endpoint",
+                        "action": "invoke_endpoint",
+                        "settings": settings,
+                        "raw_http_request": raw.hex(),
+                    },
+                )
+                assert events[0]["status"] == expected, (route, events[0]["status"])
+                payload = json.loads(
+                    b"".join(bytes.fromhex(x.get("result", "")) for x in events)
+                )
+                if route == "login":
+                    cookie = events[0]["headers"]["Set-Cookie"].split(";", 1)[0]
+                    csrf = payload["csrf"]
+                return payload
+
+            api("login", {"password": password})
+            project = sample()
+            assert all(
+                row["status"] == "PASS"
+                for row in api("test-runs", {"document": project})["cases"]
+            )
+            graph = project_graphs(project)["LOCATE"]
+            next(n for n in graph["nodes"] if n["node_id"] == "D")["input_bindings"] = {
+                "needs_support": {"source_format": "VALUE", "literal": False}
+            }
+            project["graphs"] = {"LOCATE": graph}
+            result = api(
+                "evaluate",
+                {
+                    "document": project,
+                    "flow": "LOCATE",
+                    "parameters": project["tests"][0]["parameters"],
+                },
+            )["result"]
+            assert result["outputs"]["decision"]["state"] == "NO_ISSUE"
+            rows = api("test-runs", {"document": project})["cases"]
+            assert [row["status"] for row in rows] == ["FAIL", "PASS"]
+            saved = api("projects/save", {"document": project, "revision": 0})
+            assert api("releases/freeze", saved, 422)["error"] == "REQUIRED_TEST_FAILED"
+
+        # Existing pure tool is still registered and executes without credentials.
         args = invocation(
             sample(),
             "LOCATE",
@@ -119,7 +202,7 @@ def run(stage):
         assert result["execution_status"] == "SUCCEEDED", result
         assert any(x.get("type") == "plugin" for x in registration)
         print(
-            f"PASS actual SDK stdio: {3 + len(assets)} Endpoint calls, 1 empty-credential Tool call; target installation NOT_RUN"
+            f"PASS actual SDK stdio: {3 + len(assets) + calls} Endpoint calls, 1 empty-credential Tool call; target installation NOT_RUN"
         )
     finally:
         process.terminate()

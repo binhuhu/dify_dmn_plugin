@@ -39,3 +39,23 @@ Real API/host production integration and target user/performance studies remain
 unverified. Chromium's SUID sandbox is misconfigured in this environment; no
 sandbox bypass was used. See workbench-cloud-feasibility.md for pinned SDK/daemon
 sources and required deployment inputs.
+
+## Follow-up authoring review
+
+Independent checks found and fixed a current-draft comparison bug: a historical
+snapshot is already projected, so changing bindings cannot be faithfully compared
+without original source inputs. The shared compare_record now rejects binding
+changes using full node references and canonical digests; actual Endpoint tests
+cover it. Field deletion impact now includes persisted graph bindings and case
+snapshots. This remains limited impact analysis, not all asset references.
+
+No duplicate-project/late-save overwrite was found: copies receive a new client
+identity and storage ID; prior save responses cannot attach the source ID.
+Archive remains explicit reversible metadata. Binding authoring validates types
+and quality against the existing production NodeIO; it confers no online authority.
+
+Cloud status is now BLOCKED_ATOMIC_STORAGE and origin isolation is separately
+TARGET_NOT_VERIFIED. A platform-assigned unique HTTPS origin can satisfy the
+latter without a new site. TLS bypass options were removed, ephemeral self-signed
+generation stopped, and test startup now explicitly blocks without provided
+trusted TLS. System sandbox/CA settings are unchanged.

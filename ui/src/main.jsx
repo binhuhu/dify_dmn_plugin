@@ -1,6 +1,11 @@
 import React, { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import GraphEditor from "./graph";
+import { FlowStructure } from "./structure";
+import { projectFieldReferences } from "./lifecycle.mjs";
+import { LifecycleEditor } from "./lifecycle.jsx";
+import { BindingEditor } from "./bindings";
+import { TestCases, NoMatchEditor } from "./testcases";
 import {
   ValueEditor,
   FieldEditor,
@@ -15,6 +20,13 @@ const copy = (value) => structuredClone(value);
 const labels = { LOCATE: "定位问题", SOLVE: "解决方案" };
 const errors = {
   LOGIN_REQUIRED: "请登录工作台",
+  COMPARISON_BINDINGS_CHANGED:
+    "输入绑定已变化；历史仅保存绑定后的快照，无法安全重放新绑定。请用明确的新来源输入试算。",
+  UNSUPPORTED_EDITOR_BINDING:
+    "此来源不在当前编辑范围；完整参数记录不得截取 value 后提升为已知。",
+  BINDING_TYPE_MISMATCH: "绑定来源与目标字段类型不一致。",
+  BINDING_QUALITY_MISMATCH: "目标不接受该来源的质量范围。",
+  BINDING_NULLABILITY_MISMATCH: "目标不允许来源可能具有的空值。",
   DEPLOYMENT_NOT_CONFIGURED: "管理员尚未配置受控会话与持久存储，当前不可用。",
   REVISION_CONFLICT:
     "另一页面已保存新版本。当前草稿保留，请先导出，再重新打开项目比较。",
@@ -353,6 +365,8 @@ function App() {
     [frozenId, setFrozenId] = useState(null);
   const [saveEpoch, setSaveEpoch] = useState(0),
     [replayResult, setReplayResult] = useState(null);
+  const [caseResults, setCaseResults] = useState(null);
+  useEffect(() => setCaseResults(null), [item?.document, flow]);
   const latest = useRef({});
   latest.current = {
     item,
@@ -646,8 +660,8 @@ function App() {
       </header>
       {capabilities && (
         <p role="note">
-          存储：事务型单宿主适配 · 访问：Endpoint 建模角色 · Cloud
-          持久存储/Origin 交付未满足 · 目标安装 NOT_RUN
+          存储：事务型单宿主适配 · 访问：Endpoint 建模角色 · Cloud 原子存储
+          BLOCKED · Origin 隔离待目标核验 · 目标安装 NOT_RUN
         </p>
       )}
       <nav>
@@ -1048,6 +1062,38 @@ function App() {
               重做
             </button>
           </nav>
+          <LifecycleEditor
+            project={item.document}
+            flow={flow}
+            onChange={(doc) => change((_, p) => Object.assign(p, doc))}
+            onDuplicate={async (doc) => {
+              if (dirty && !confirm("有未保存修改，确认以当前内容复制新项目？"))
+                return;
+              ++navSeq.current;
+              setItem({
+                clientKey: crypto.randomUUID(),
+                id: null,
+                revision: 0,
+                document: doc,
+              });
+              setDirty(true);
+              setFrozenId(null);
+              setResult(null);
+              setHistory([]);
+              setRedo([]);
+              setParameters({ LOCATE: {}, SOLVE: {} });
+              setMessage("已创建独立副本，等待保存为新项目");
+            }}
+          />
+          <FlowStructure
+            project={item.document}
+            flow={flow}
+            onSelect={(id) => {
+              setFlow(id);
+              setResult(null);
+            }}
+            onChange={(doc) => change((_, p) => Object.assign(p, doc))}
+          />
           <h2>{labels[flow]} · 独立单决策内容试算</h2>
           <nav>
             <button onClick={() => setView("table")}>决策表</button>
@@ -1055,7 +1101,21 @@ function App() {
           </nav>
           {view === "table" ? (
             <>
-              <FieldEditor model={model} change={change} />
+              <FieldEditor
+                model={model}
+                change={change}
+                projectReferences={(name) =>
+                  projectFieldReferences(item.document, flow, name)
+                }
+              />
+              <NoMatchEditor
+                model={model}
+                onChange={(updated) =>
+                  change((_, p) => {
+                    p.flows[flow] = updated;
+                  })
+                }
+              />
               <Table model={model} change={change} result={result} />
             </>
           ) : (
@@ -1075,6 +1135,47 @@ function App() {
               }
               onDecisionOpen={() => setView("table")}
             />
+          )}
+          <BindingEditor
+            model={model}
+            graph={item.document.graphs?.[flow] || graphs[flow]}
+            onChange={(graph) =>
+              change((_, p) => {
+                p.graphs ??= {};
+                p.graphs[flow] = graph;
+              })
+            }
+          />
+          <TestCases
+            project={item.document}
+            flow={flow}
+            onChange={(doc) => change((_, p) => Object.assign(p, doc))}
+            onRun={() =>
+              operation(async () => {
+                const submitted = snapshot();
+                setCaseResults(null);
+                const response = await api("test-runs", {
+                  document: submitted.document,
+                });
+                if (isCurrent(submitted)) setCaseResults(response.cases);
+              })
+            }
+          />
+          {caseResults && (
+            <section aria-label="用例执行报告">
+              <h3>用例执行报告 · 内容测试</h3>
+              {caseResults.map((row) => (
+                <p key={row.case_id}>
+                  {row.name || row.case_id} · {row.flow} · {row.status}
+                  {row.business_success ? " · 业务期望通过" : " · 不批准业务"}
+                  {row.error_code ? " · " + row.error_code : ""}
+                </p>
+              ))}
+              <details>
+                <summary>用例结果和差异</summary>
+                <pre>{JSON.stringify(caseResults, null, 2)}</pre>
+              </details>
+            </section>
           )}
           <section>
             <h2>人工试算输入</h2>
@@ -1200,8 +1301,11 @@ function App() {
                   disabled={result.execution_status !== "SUCCEEDED"}
                   onClick={() =>
                     change((_, p) => {
-                      p.tests = p.tests.filter((t) => t.flow !== flow);
+                      if (p.tests.length >= 32) return;
                       p.tests.push({
+                        case_id: crypto.randomUUID(),
+                        name: "审阅后的人工样例",
+                        required: true,
                         flow,
                         parameters: copy(records),
                         expected: {

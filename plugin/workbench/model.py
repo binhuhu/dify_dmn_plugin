@@ -236,6 +236,10 @@ def compile_flow(project, flow):
         "asset_locks": {},
     }
     validate_definition(bundle)
+    from workbench.binding_editor import validate_bindings
+
+    main_node = next(n for n in nodes if n.get("node_id") == "D")
+    validate_bindings(model, main_node.get("input_bindings", {}))
     return bundle, ref
 
 
@@ -248,7 +252,10 @@ def validate_project(project):
 
 
 def invocation(project, flow, parameters):
+    from workbench.binding_editor import project_parameters
+
     bundle, ref = compile_flow(project, flow)
+    parameters = project_parameters(project, flow, parameters)
     digest = definition_digest(bundle)
     context = {
         key: "manual-test"
@@ -295,21 +302,9 @@ def evaluate(project, flow, parameters):
 
 def freeze(project):
     validate_project(project)
-    require(bool(project.get("tests")), "REQUIRED_TESTS_MISSING")
-    tested = set()
-    for case in project["tests"]:
-        require(set(case) == {"flow", "parameters", "expected"}, "INVALID_TEST_CASE")
-        result = evaluate(project, case["flow"], case["parameters"])
-        require(result["execution_status"] == "SUCCEEDED", "REQUIRED_TEST_FAILED")
-        actual = {
-            **result["outputs"]["decision"],
-            "selected_rule_ids": result["trace"]["selected_rule_ids"],
-        }
-        require(
-            definition_digest(actual) == definition_digest(case["expected"]), "REQUIRED_TEST_FAILED"
-        )
-        tested.add(case["flow"])
-    require(tested == set(project["flows"]), "REQUIRED_TESTS_MISSING")
+    from workbench.cases import validate_required
+
+    validate_required(project)
     return {
         "name": project["name"],
         "schema_version": "workbench.freeze.v1",

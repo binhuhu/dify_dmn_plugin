@@ -10,9 +10,9 @@
   },
   "existing_67_ac_index": "UNCHANGED_SEPARATE",
   "browser": {
-    "status": "BLOCKED_BEFORE_TEST_BODY",
+    "status": "BLOCKED_VALID_TLS_AND_SANDBOX",
     "tests": 9,
-    "reason": "Chromium SUID sandbox misconfigured; no sandbox bypass. Official browser CDN returned 403."
+    "reason": "Trusted TLS certificate/key not provisioned; bypass removed. System Chromium sandbox remains misconfigured; no system changes."
   },
   "official_package": "NOT_RUN_FOR_THIS_CANDIDATE",
   "target_install": "NOT_RUN",
@@ -35,7 +35,7 @@
       "scenario": "新建三规则模型并试算",
       "status": "PARTIAL",
       "accepted": false,
-      "reason": "Blank model, typed fields and rules can be authored; API evaluation tested; browser blocked.",
+      "reason": "Blank typed model, rule management and no-match configuration implemented; actual browser/target tasks unverified.",
       "evidence": [
         "docs/plugin-workbench.md",
         "docs/workbench-review.md"
@@ -71,7 +71,7 @@
       "scenario": "复制规则、排序、撤销重做",
       "status": "PARTIAL",
       "accepted": false,
-      "reason": "Rule clone uses independent output template; undo/redo/reorder code exists; browser not executed.",
+      "reason": "Stable-reference rename/copy/archive metadata, independent rule/template copy, strict atomic scalar TSV, drag/keyboard reorder and undo integration; 11 pure helper tests, browser unverified.",
       "evidence": []
     },
     {
@@ -194,7 +194,7 @@
       "scenario": "无命中、命中null、技术失败",
       "status": "PARTIAL",
       "accepted": false,
-      "reason": "Explicit null UI added; core outcomes retained; comprehensive no-match configuration missing.",
+      "reason": "Explicit ERROR/RESULT_TEMPLATE no-match editor and existing-core tests; null remains distinct; browser unverified.",
       "evidence": [
         "docs/plugin-workbench.md",
         "docs/workbench-review.md"
@@ -242,7 +242,7 @@
       "scenario": "从表格定位字段来源",
       "status": "PARTIAL",
       "accepted": false,
-      "reason": "Typed model fields and graph binding source labels exist; source/binding editor and full navigation missing.",
+      "reason": "Source/type/quality-aware selector added for context whole records or explicit literals; real NodeIO projection tested. API/node/event sources and drag binding creation missing.",
       "evidence": [
         "docs/plugin-workbench.md",
         "docs/workbench-review.md"
@@ -263,7 +263,7 @@
       "scenario": "UNKNOWN参数记录映射到value",
       "status": "PARTIAL",
       "accepted": false,
-      "reason": "Inherited typed binding engine unchanged; workbench binding forms missing.",
+      "reason": "Whole PARAMETER mapping preserves UNKNOWN/source refs; .value promotion rejected by authoring boundary and actual core tests. No online activation.",
       "evidence": []
     },
     {
@@ -272,7 +272,7 @@
       "scenario": "删除被引用字段或节点",
       "status": "PARTIAL",
       "accepted": false,
-      "reason": "Referenced model fields and graph nodes guarded; comprehensive cross-artifact impact analysis missing.",
+      "reason": "Deletion impact now includes model references, persisted graph binding targets/sources and case snapshots; full asset impact still missing.",
       "evidence": [
         "docs/plugin-workbench.md",
         "docs/workbench-review.md"
@@ -305,7 +305,7 @@
       "scenario": "发布有必需测试失败的草稿",
       "status": "PARTIAL",
       "accepted": false,
-      "reason": "Freeze enforces required successful expected cases per flow; negative-case golden tests unsupported.",
+      "reason": "Named positive/negative required cases rerun by freeze; every flow requires positive business success. Supplied PASS cannot authorize; browser unverified.",
       "evidence": [
         "plugin/tests/test_workbench.py",
         "scripts/compatibility/workbench_stdio.py"
@@ -392,7 +392,7 @@
       "scenario": "旧版本输入用新版本回放",
       "status": "PARTIAL",
       "accepted": false,
-      "reason": "New-model comparison retains historical inputs/context without mutating original record; backend tested, browser unverified.",
+      "reason": "Same-binding snapshot comparison retained; binding changes explicitly blocked because original source inputs absent. Persisted comparison history still missing.",
       "evidence": [
         "docs/plugin-workbench.md",
         "docs/workbench-review.md"
@@ -548,7 +548,7 @@
       "scenario": "插件界面切换定位和解决",
       "status": "PARTIAL",
       "accepted": false,
-      "reason": "Separate LOCATE/SOLVE models and graph layouts; record metadata identifies flow; complete business flows and independent release versions missing.",
+      "reason": "Flow cards show independent model versions/case counts/current structure; complete business flows and independent release histories missing.",
       "evidence": [
         "docs/plugin-workbench.md",
         "docs/workbench-review.md"
@@ -599,7 +599,7 @@
       "scenario": "阶段折叠、路径定位、节点与表格互跳",
       "status": "PARTIAL",
       "accepted": false,
-      "reason": "Phase/Step folding, node search and Decision-to-table navigation added; browser unverified, multi-container authoring missing.",
+      "reason": "Phase/Step labels/descriptions/folding and node search added; no historical execution overlay or collapsed exception counters.",
       "evidence": [
         "docs/plugin-workbench.md",
         "docs/workbench-review.md"
@@ -698,7 +698,7 @@
       "scenario": "编辑 Phase/Step 属性",
       "status": "PARTIAL",
       "accepted": false,
-      "reason": "Phase/Step display and fold only; execution-property editing still missing.",
+      "reason": "Phase/Step name/description forms affect UI metadata only; fixed parent P1/S1, no container creation/reorder.",
       "evidence": [
         "docs/plugin-workbench.md",
         "docs/workbench-review.md"
@@ -740,7 +740,7 @@
       "scenario": "编辑布尔、枚举、数字与来源字段",
       "status": "PARTIAL",
       "accepted": false,
-      "reason": "Typed field/quality/nullable forms added; enum/source binding forms incomplete.",
+      "reason": "Typed field and context-record/literal binding forms; full enum/business metadata and external sources still missing.",
       "evidence": [
         "docs/plugin-workbench.md",
         "docs/workbench-review.md"

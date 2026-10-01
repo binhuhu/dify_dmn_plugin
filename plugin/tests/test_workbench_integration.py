@@ -43,7 +43,8 @@ def test_trusted_endpoint_settings_and_browser_claims(tmp_path, monkeypatch):
     csrf = login(client)
     assert post(client, "projects/new", csrf=csrf).status_code == 200
     capabilities = post(client, "capabilities", csrf=csrf).json
-    assert capabilities["cloud_delivery"] == "UNMET_TRANSACTIONAL_STORAGE_AND_ORIGIN"
+    assert capabilities["cloud_delivery"] == "BLOCKED_ATOMIC_STORAGE"
+    assert capabilities["origin_isolation"] == "TARGET_NOT_VERIFIED"
     assert capabilities["atomic_revision"] is True
     assert post(client, "projects/new", {"tenant_id": "other"}, csrf).status_code == 403
     settings["workbench_deployment"] = '{"schema_version":"fake"}'
@@ -136,3 +137,106 @@ def test_graph_definition_separate_from_layout_and_template_guard(endpoint):
     bad = deepcopy(project)
     bad["graphs"]["LOCATE"]["edges"][0]["target"] = "missing"
     assert post(client, "validate", {"document": bad}, csrf).status_code == 422
+
+
+def test_endpoint_binding_projection_and_cases_gate(endpoint, monkeypatch):
+    import socket
+
+    def no_network(*args, **kwargs):
+        raise AssertionError("content authoring must not call network")
+
+    monkeypatch.setattr(socket.socket, "connect", no_network)
+    clients, _ = endpoint
+    client = clients("trusted-A")
+    csrf = login(client)
+    project = sample()
+    graph = project_graphs(project)["LOCATE"]
+    decision = next(n for n in graph["nodes"] if n["node_id"] == "D")
+    decision["input_bindings"]["needs_support"] = {"source_format": "VALUE", "literal": False}
+    project["graphs"] = {"LOCATE": graph}
+    response = post(
+        client,
+        "evaluate",
+        {
+            "document": project,
+            "flow": "LOCATE",
+            "parameters": {
+                "needs_support": {"quality": "KNOWN", "value": True, "source_refs": ["manual:test"]}
+            },
+        },
+        csrf,
+    )
+    assert response.status_code == 200
+    assert response.json["result"]["outputs"]["decision"]["state"] == "NO_ISSUE"
+    rows = post(client, "test-runs", {"document": project}, csrf).json["cases"]
+    assert [r["status"] for r in rows] == ["FAIL", "PASS"]
+    saved = post(client, "projects/save", {"document": project, "revision": 0}, csrf).json
+    blocked = post(client, "releases/freeze", saved, csrf)
+    assert blocked.status_code == 422 and blocked.json["error"] == "REQUIRED_TEST_FAILED"
+    project["tests"][0]["expected"] = {
+        "state": "NO_ISSUE",
+        "data": {"reason": "SYNTHETIC:未报告问题"},
+        "actions": [],
+        "selected_rule_ids": ["no"],
+    }
+    saved = post(client, "projects/save", {**saved, "document": project}, csrf).json
+    assert post(client, "releases/freeze", saved, csrf).status_code == 200
+
+
+def test_copied_project_and_presentation_metadata_keep_original(endpoint):
+    clients, _ = endpoint
+    client = clients("trusted-A")
+    csrf = login(client)
+    original = sample()
+    saved = post(client, "projects/save", {"document": original, "revision": 0}, csrf).json
+    copied = deepcopy(original)
+    copied["name"] = "SYNTHETIC 副本"
+    copied["ui"] = {
+        "archived": True,
+        "LOCATE": {
+            "phaseName": "展示阶段",
+            "stepName": "展示步骤",
+            "phaseDescription": "仅元数据",
+        },
+    }
+    new = post(client, "projects/save", {"document": copied, "revision": 0}, csrf).json
+    assert new["id"] != saved["id"]
+    assert post(client, "projects/get", {"id": saved["id"]}, csrf).json["document"] == original
+    assert post(client, "projects/get", {"id": new["id"]}, csrf).json["document"] == copied
+    assert definition_digest(compile_flow(original, "LOCATE")[0]) == definition_digest(
+        compile_flow(copied, "LOCATE")[0]
+    )
+
+
+def test_historical_comparison_rejects_changed_bindings(endpoint):
+    clients, _ = endpoint
+    client = clients("trusted-A")
+    csrf = login(client)
+    project = sample()
+    response = post(
+        client,
+        "evaluate",
+        {
+            "document": project,
+            "flow": "LOCATE",
+            "parameters": project["tests"][0]["parameters"],
+        },
+        csrf,
+    ).json
+    graph = project_graphs(project)["LOCATE"]
+    next(n for n in graph["nodes"] if n["node_id"] == "D")["input_bindings"] = {
+        "needs_support": {"source_format": "VALUE", "literal": False}
+    }
+    project["graphs"] = {"LOCATE": graph}
+    compared = post(
+        client,
+        "records/compare",
+        {
+            "id": response["record"]["id"],
+            "document": project,
+            "flow": "LOCATE",
+        },
+        csrf,
+    )
+    assert compared.status_code == 422
+    assert compared.json["error"] == "COMPARISON_BINDINGS_CHANGED"

@@ -1,30 +1,31 @@
 {
   "scope": "UNRELEASED_EXPANDED_OFFLINE_WORKBENCH_NOT_COMPLETE_MILESTONE_A",
-  "base_commit": "7a488d9c842dfe720bc72f4d39b860525e656774",
+  "base_commit": "147c768001c766478cfeee2b238fdf1057b64120",
   "python_full": {
-    "passed": 739,
+    "passed": 777,
     "skipped": 0,
     "warnings": 13
   },
   "node": {
-    "passed": 99
+    "passed": 99,
+    "scope": "99 engine tests passed at prior147c768; engine unchanged this increment"
   },
   "new_endpoint_boundary_tests": 30,
   "authenticated_endpoint_vs_tool_comparisons": 20,
   "staged_sdk": {
     "legacy_tool_calls": 14,
     "node_tool_calls": 6,
-    "endpoint_requests": 7,
+    "endpoint_requests": 13,
     "same_process_empty_credential_tool_calls": 1
   },
   "ui_build": "PASS",
   "browser_tests": {
     "count": 9,
-    "status": "BLOCKED_AT_BROWSER_LAUNCH",
+    "status": "BLOCKED_VALID_TLS_AND_SANDBOX",
     "passed": 0,
     "previously_attempted": 4,
     "new_not_run": 5,
-    "reason": "Chromium SUID sandbox misconfigured; sandbox retained"
+    "reason": "No trusted TLS certificate/key configured: BROWSER_BLOCKED_VALID_TLS_REQUIRED. Both ignoreHTTPSErrors options removed. Chromium sandbox remains misconfigured; no bypass."
   },
   "ruff": "PASS",
   "official_package": "NOT_RUN",
@@ -80,24 +81,33 @@
       "tools/query_local.py": "f76cfa566bed735c568a97c35835f7cb387e42249f38069ef8ccf7027a7a5445",
       "tools/query_local.yaml": "f7b24b04c4f985b658590cf0b78741c742a649c4c8eb4cdcd4c12799ad4de86c",
       "workbench/__init__.py": "26c933f493403ff941036fefb64189b17f90d369c11f975dbcb46d6abcda0e66",
-      "workbench/artifacts.py": "24ee3c7a85fa5ec16fbfd376034ee3b9985fa005734e000edccab04f41d4604b",
-      "workbench/model.py": "cadfbca0c3d5c6fff1bcb5923fb796daab8c306069e35a0d29218b2af976c307",
-      "workbench/service.py": "3fed6a7203dab3a4ed595453e5988684c4b6d153755aa3ed0218759eaa1d6853",
+      "workbench/artifacts.py": "a38e89b7e9e82792600adf3ab35bc44e53c2e3db36224918d247c1d7bb0f5416",
+      "workbench/binding_editor.py": "a759cc4114e760871f5a13041158b92c21904ee110f5260cb698e45f1200b339",
+      "workbench/cases.py": "775370af234bd46c0e635a407d44476db99d6a428fc394e46a85992d26abf28f",
+      "workbench/model.py": "0dfe7822124fa9e38e80c99fc660083c2e2f1d89ba6f13b00f6606bcb69df76e",
+      "workbench/service.py": "ce6abc0de1ab3187710cfa91ccc76d208cc2ad8281b6506d3e2a167f12a71a71",
       "workbench/store.py": "c8f1b05e7c5a319b26d2c1c0796a9f751dfe7625e029bbd1ab4fe75d8b704365",
       "workbench/templates.py": "a7a4bb330a74a24e8d3f3719ba42b7c2f4f1ae95e76b0c9f5b3bc9db9daba48e",
       "workbench_static/THIRD_PARTY_LICENSES.txt": "8d3562a8c9536b253d47f87754cb5ba5d8e51bd83ad82ee894887f1cc9fa9e86",
-      "workbench_static/assets/index-BmVFh1xu.js": "e36f4e230cbca791f76639fd31d9accf6ced932f48b59c89928999398f16e2c1",
+      "workbench_static/assets/index-DI4sWsvg.js": "d253c81de756e12a8bde09ac7e7b393122bd900a2a1524c57fdb7930b1faadab",
       "workbench_static/assets/index-DTWm5yo6.css": "c62ae0b64a50cd801d68720744fdaee26c057443d144ba0b6798c38fed06808a",
-      "workbench_static/assets.json": "10ae04e30edea7f4fd9e0d88548dd1ac7569903b450581f042f104677203c300",
-      "workbench_static/index.html": "a58045f28113f5aebca493b8496975e2114a28ccc30f2d1ceb6ae6de2bab38e4"
+      "workbench_static/assets.json": "99694addbffdd1df33cc91701ff926afddec544e7779c4d5700cd39d245573a7",
+      "workbench_static/index.html": "455af68172f6d95e9440668d2b5915eef370eab8da3320e53ebd59cf8b3027d7"
     },
-    "file_count": 56
+    "file_count": 58
   },
   "ui_format": "PASS",
   "workbench_tests": {
-    "passed": 77,
-    "new_this_round": 47
+    "passed": 115,
+    "new_this_round": 38
   },
-  "cloud_delivery": "UNMET_TRANSACTIONAL_STORAGE_AND_ORIGIN",
-  "review": "docs/workbench-review.md"
+  "cloud_delivery": "BLOCKED_ATOMIC_STORAGE",
+  "review": "docs/workbench-review.md",
+  "ui_pure_helper_tests": {
+    "passed": 11,
+    "command": "node --test ui/src/lifecycle.test.js",
+    "browser_evidence": false
+  },
+  "origin_isolation": "TARGET_NOT_VERIFIED",
+  "preview": "STOPPED_NO_TRUSTED_TLS_NOT_A_DELIVERY_ARTIFACT"
 }

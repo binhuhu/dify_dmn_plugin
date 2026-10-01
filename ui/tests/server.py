@@ -5,7 +5,6 @@ import hashlib
 import json
 import os
 import tempfile
-import subprocess
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -14,6 +13,16 @@ from werkzeug.serving import run_simple
 from endpoints.workbench import WorkbenchEndpoint
 
 assert dify_plugin
+certificate = os.environ.get("WORKBENCH_TEST_TLS_CERT")
+private_key = os.environ.get("WORKBENCH_TEST_TLS_KEY")
+if not certificate or not private_key:
+    raise SystemExit(
+        "BROWSER_BLOCKED_VALID_TLS_REQUIRED: trusted certificate/key required"
+    )
+if not Path(certificate).is_file() or not Path(private_key).is_file():
+    raise SystemExit(
+        "BROWSER_BLOCKED_VALID_TLS_REQUIRED: certificate/key files unavailable"
+    )
 root = Path(tempfile.mkdtemp(prefix="workbench-browser-"))
 root.chmod(0o700)
 salt = b"SYNTHETICsalt1234"
@@ -51,32 +60,11 @@ def app(environ, start_response):
     )
 
 
-subprocess.run(
-    [
-        "openssl",
-        "req",
-        "-x509",
-        "-newkey",
-        "rsa:2048",
-        "-nodes",
-        "-days",
-        "1",
-        "-subj",
-        "/CN=localhost",
-        "-keyout",
-        str(root / "key.pem"),
-        "-out",
-        str(root / "cert.pem"),
-    ],
-    check=True,
-    stdout=subprocess.DEVNULL,
-    stderr=subprocess.DEVNULL,
-)
 run_simple(
     "127.0.0.1",
     9443,
     app,
-    ssl_context=(str(root / "cert.pem"), str(root / "key.pem")),
+    ssl_context=(certificate, private_key),
     threaded=True,
     use_reloader=False,
 )

@@ -3,8 +3,8 @@
     "sha256": "8d3562a8c9536b253d47f87754cb5ba5d8e51bd83ad82ee894887f1cc9fa9e86",
     "content_type": "text/plain; charset=utf-8"
   },
-  "assets/index-BmVFh1xu.js": {
-    "sha256": "e36f4e230cbca791f76639fd31d9accf6ced932f48b59c89928999398f16e2c1",
+  "assets/index-DI4sWsvg.js": {
+    "sha256": "d253c81de756e12a8bde09ac7e7b393122bd900a2a1524c57fdb7930b1faadab",
     "content_type": "text/javascript; charset=utf-8"
   },
   "assets/index-DTWm5yo6.css": {
@@ -12,7 +12,7 @@
     "content_type": "text/css; charset=utf-8"
   },
   "index.html": {
-    "sha256": "a58045f28113f5aebca493b8496975e2114a28ccc30f2d1ceb6ae6de2bab38e4",
+    "sha256": "455af68172f6d95e9440668d2b5915eef370eab8da3320e53ebd59cf8b3027d7",
     "content_type": "text/html; charset=utf-8"
   }
 }

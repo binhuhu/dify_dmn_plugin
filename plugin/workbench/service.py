@@ -183,12 +183,19 @@ class Service:
                     "storage": "SQLITE_SINGLE_HOST",
                     "atomic_revision": True,
                     "authentication": "ENDPOINT_MODELER",
-                    "cloud_delivery": "UNMET_TRANSACTIONAL_STORAGE_AND_ORIGIN",
+                    "cloud_delivery": "BLOCKED_ATOMIC_STORAGE",
+                    "origin_isolation": "TARGET_NOT_VERIFIED",
                     "target_install": "NOT_RUN",
                     "templates": "GENERATED_TARGET_NOT_RUN",
                     "graph_editor_nodes": ["START", "DECISION", "END"],
                     "production_actions": False,
                 }
+            )
+        if route == "api/test-runs":
+            from workbench.cases import run_cases
+
+            return self.reply(
+                {"cases": run_cases(body["document"]), "source": "MANUAL_CONTENT_TEST"}
             )
         if route == "api/projects/new":
             return self.reply({"document": new_project(body.get("name", "未命名项目"))})

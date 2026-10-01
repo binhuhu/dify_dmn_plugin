@@ -4,7 +4,7 @@
 
 当前 feature 为 [RC1 后续开发候选](docs/dsl-v0.4-followup.md)，新增变更以 Git SHA 区分，尚未官方打包或发布；不包含于上述 RC1 包。保留三个旧工具，新增 execute_query/evaluate_decision 与独立参考宿主。
 
-新增 [插件内离线工作台候选](docs/plugin-workbench.md)：同包 Tool + Endpoint、鉴权事务草稿与冻结、结构化表格/图编辑、保留原协议的导入、历史重放与新草稿比较、明确标记未目标验证的双模板生成。当前 **不是里程碑 A 完成**；浏览器沙箱、目标安装及完整产品功能仍有缺口，见 [86 项新增验收状态](acceptance/plugin-workbench.json)。
+新增 [插件内离线工作台候选](docs/plugin-workbench.md)：同包 Tool + Endpoint、鉴权事务草稿与冻结、模型复制/归档与批量标量规则、类型/质量受控输入绑定、多用例冻结检查、结构化表格/图编辑、保留原协议的导入、历史重放与新草稿比较、明确标记未目标验证的双模板生成。当前 **不是里程碑 A 完成**；浏览器沙箱、目标安装及完整产品功能仍有缺口，见 [86 项新增验收状态](acceptance/plugin-workbench.json)。
 
 此前新增免 Key 的 [内置 JSON 三工具 0.3.0](builtin/README.md)：决策、SYNTHETIC 查询、JSON 阶段计划均在 Python 插件进程内执行，无需外部决策服务。完整合同和转换边界见 [0.3.0 文档](docs/builtin-0.3.0.md)。为兼容 Dify 1.11.1 的提供商授权限制，使用独立身份 `hu8627/dmn_json`，保留已安装的原外部插件和其他插件。原路径如下。
 

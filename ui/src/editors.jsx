@@ -216,7 +216,7 @@ export function fieldReferences(model, name) {
 }
 
 /** change is the existing model draft mutator. UI metadata stays out of core schema. */
-export function FieldEditor({ model, change }) {
+export function FieldEditor({ model, change, projectReferences = () => [] }) {
   const [name, setName] = useState("");
   const [type, setType] = useState("string");
   const [error, setError] = useState("");
@@ -229,7 +229,10 @@ export function FieldEditor({ model, change }) {
         字段名是稳定引用，不自动重命名。修改类型不会转换事实或把未知质量变为已知。示例值仅供表单练习，不进入模型或试算输入。
       </p>
       {Object.entries(model.parameters).map(([name, spec]) => {
-        const refs = fieldReferences(model, name);
+        const refs = [
+          ...fieldReferences(model, name),
+          ...projectReferences(name),
+        ];
         return (
           <fieldset key={name}>
             <legend>{name}</legend>

@@ -255,7 +255,8 @@ export default function GraphEditor({
         <button
           onClick={() => meta({ phaseCollapsed: !layout.phaseCollapsed })}
         >
-          {layout.phaseCollapsed ? "展开" : "折叠"} Phase · 展示容器
+          {layout.phaseCollapsed ? "展开" : "折叠"} 阶段{" "}
+          {layout.phaseName || "P1"} · 展示容器
         </button>
         <span>单 Phase / 单 Step 编辑范围 · 未载入运行，异常计数不可用</span>
         {!layout.phaseCollapsed && (
@@ -263,7 +264,8 @@ export default function GraphEditor({
             <button
               onClick={() => meta({ stepCollapsed: !layout.stepCollapsed })}
             >
-              {layout.stepCollapsed ? "展开" : "折叠"} Step · 一个主决策
+              {layout.stepCollapsed ? "展开" : "折叠"} 步骤{" "}
+              {layout.stepName || "S1"} · 一个主决策
             </button>
             {!collapsed && (
               <div className="graph-canvas">

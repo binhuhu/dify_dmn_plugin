@@ -71,7 +71,7 @@ Follow-up implementation now accepts validated daemon Endpoint `settings` and
 exposes capabilities separately in the UI; actual Endpoint tests cover that
 configuration path. It still requires an administrator-provisioned durable
 SQLite directory. This removes only the environment-file dependency and does
-not close the Cloud transaction/origin gap. Other options above remain work.
+not close the Cloud atomic-storage gap or verify the target origin. Other options above remain work.
 
 ## Why apparently simpler alternatives do not close the gap
 
@@ -127,3 +127,19 @@ the Cloud label appear supported.
 No new service, token authority, storage guarantee, Cloud support status or
 production authorization is introduced by this document. Local modeling UI and
 core work can continue while these target prerequisites remain explicit.
+
+## Clarification after delivery review
+
+The official Endpoint introduction describes a platform-assigned unique HTTPS
+subdomain (https://dify.ai/blog/extension-plugin-endpoint-bringing-serverless-flexibility-to-dify).
+If the target provides an exclusive origin with valid TLS, it can satisfy origin
+isolation without another website. This is TARGET_NOT_VERIFIED, not evidence that
+Cloud lacks this capability. Atomic storage remains BLOCKED with the inspected
+SDK API. Current adapter selection is a project limitation, not a statement that
+Cloud has no persistence. A process mutex/MAX_WORKER=1 is not a documented
+Cloud-wide serial owner; no platform lease/fencing guarantee was established.
+
+The previous preview used certificate verification relaxation in a test harness.
+That harness is no longer a delivery path: both Playwright bypass options are
+removed and startup requires explicitly supplied trusted TLS certificate/key.
+No system CA or sandbox permissions are modified.

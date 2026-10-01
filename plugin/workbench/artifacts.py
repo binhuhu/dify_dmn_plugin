@@ -14,6 +14,7 @@ from dmn_client.node_contract import (
     decode_object,
     definition_digest,
     require,
+    resolve_node,
     validate_definition,
 )
 from workbench.model import validate_project
@@ -236,6 +237,13 @@ def compare_record(payload, new_invocation):
     original_inputs = deepcopy(old["inputs_json"])
     if record["tool"] == "evaluate_decision":
         require(args["node_ref"] == old["node_ref"], "COMPARISON_NODE_CHANGED")
+        old_node = resolve_node(old["definition_bundle_json"], old["node_ref"])[-1]
+        new_node = resolve_node(args["definition_bundle_json"], args["node_ref"])[-1]
+        require(
+            definition_digest(old_node.get("input_bindings", {}))
+            == definition_digest(new_node.get("input_bindings", {})),
+            "COMPARISON_BINDINGS_CHANGED",
+        )
         for inputs in (comparison_inputs, original_inputs):
             snapshot = inputs.get("parameter_snapshot", {})
             snapshot.pop("definition_digest", None)
