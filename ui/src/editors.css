@@ -1,0 +1,54 @@
+.json-editor,
+.field-editor fieldset,
+.output-editor fieldset {
+  min-width: 0;
+  margin: 0.6rem 0;
+  border: 1px solid #bac8d5;
+  border-radius: 0.4rem;
+  padding: 0.7rem;
+}
+.json-child {
+  padding: 0.6rem;
+  border-left: 3px solid #728ca5;
+  margin: 0.5rem 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+.json-child > .json-editor {
+  flex-basis: 100%;
+}
+.editor-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+.field-editor label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin: 0.35rem 0.8rem 0.35rem 0;
+}
+.scalar-editor {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  max-width: 100%;
+}
+.scalar-editor [role="alert"],
+.field-editor [role="alert"],
+.output-editor [role="alert"] {
+  color: #962126;
+  font-size: 0.95rem;
+}
+.field-editor p,
+.output-editor pre {
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.output-editor {
+  border-top: 2px solid #d9a3bd;
+  padding-top: 0.7rem;
+}

@@ -24,8 +24,8 @@ Inspected official SDK 0.10.2 (the installed package), and source snapshots:
 These support same-package registration and execution, **not proof of target
 Dify installation**. Target Dify/daemon versions, Endpoint URL routing, resource
 budgets, durable mount and upgrade behavior have not been supplied or tested.
-Dify Cloud is unsupported by the current storage adapter unless its deployment
-can explicitly provide this private durable single-host storage contract. No
+Dify Cloud is a required delivery path that this adapter does not yet satisfy;
+the target must provide a supported durable transactional storage contract. No
 silent in-memory or unsafe read-then-write KV fallback exists.
 
 ## Administrator provisioning (required)
@@ -46,6 +46,14 @@ not working credentials:
   }
 }
 ```
+
+Alternatively, administrators can use the official Endpoint setting
+`workbench_deployment` (secret-input) rather than an environment file. Its JSON
+has `schema_version: workbench.endpoint-config.v1`, `database`, `base_url`, and
+`password_verifier` using the same contracts above. This setting is supplied by
+the daemon from its encrypted Endpoint record, never taken from browser JSON.
+It removes the environment-file dependency, **not** the durable storage/origin
+requirements; it is not a Cloud completion claim. Tool credentials stay empty.
 
 The database parent must exist, mode 0700, on a durable local filesystem with
 SQLite locking guarantees. Mount/config setup is an administrator task, never
@@ -83,25 +91,32 @@ can freeze in this slice. Negative-case golden expectations remain missing.
 
 ## Implemented and missing
 
-Implemented: two SYNTHETIC example domains; independent LOCATE/SOLVE single
-Decision definitions; scalar table editing, rule copy/reorder/delete, undo/redo;
-trial quality inputs and separate state/data/actions display; server drafts,
-revision conflicts, content export and test-gated freeze; a four-node display
-projection with layout stored separately. Flow is not a graph editor/runtime.
-Changing a draft clears previous trial outputs. A failed save retains the draft
-in that page's memory for export; a tab crash loses unsaved edits. localStorage
-contains only the last project ID, never the project or session secret.
+Implemented in the follow-up: blank projects; two SYNTHETIC example domains;
+independent LOCATE/SOLVE drafts; recursive scalar/object/array/null form editing;
+field contracts, literal data outputs and rule copy/reorder/delete; undo/redo;
+MISSING/UNKNOWN/KNOWN null trial inputs; transactionally saved projects;
+atomic test-gated freeze with source project/revision; import preservation and
+readonly unsupported-artifact diagnostics; original-profile legacy trial;
+immutable private run records, pure offline replay and comparison against a new
+definition without changing historical inputs; two Dify 1.11.1 YAML candidates.
+Template generation explicitly rejects unsupported graph mapping and retains
+GENERATED_TARGET_NOT_RUN. It is not an installation/import success claim.
 
-Still missing (code work, not merely an external environment): new blank project
-and field schema forms; nested/object/array and set editors; full binding and
-result-template forms; old/new imports and round-trip migration; cell-targeted
-diagnostics; arbitrary graphs, data edges and unsupported-graph viewing;
-complete LOCATE/SOLVE orchestration; Dify DSL template generation; historical
-record ingestion/replay/diff; audit/reviewer permissions; release management;
-performance and usability acceptance. No new expression/profile semantics are
-introduced. Private customer rules are not included or claimed executable.
+The basic graph editor edits actual START/DECISION/END control edges with explicit
+source ports and END exits. Data bindings are rendered separately as readonly
+nonactivating edges. Layout/folding remains outside execution definitions. It is
+not a second runtime and does not implement Query, Gateway or WAIT execution.
 
-Browser Playwright cases are committed but **NOT_RUN past browser startup**:
+Still missing locally: complete binding/source selector and field business
+metadata; semantic old-to-new migration (never automatic); cell-targeted
+comprehensive diagnostics; multi-Step/Phase and additional node authoring;
+full business LOCATE/SOLVE orchestration and friendly domain results; complete
+version/reviewer governance, record retention/backup, negative golden test
+management and performance/usability acceptance. The Cloud storage and origin
+isolation path remains a required, unmet delivery item, not a removed platform.
+See [Cloud feasibility](workbench-cloud-feasibility.md).
+
+Nine browser Playwright cases are committed but **NOT_RUN past browser startup**:
 system Chromium aborts because its SUID sandbox helper is not configured;
 official Playwright download returned HTTP 403. No sandbox settings were
 weakened. Thus layout, interactive flows, autosave UI, accessibility and p95

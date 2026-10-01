@@ -1,9 +1,10 @@
 {
-  "scope": "UNRELEASED_WORKBENCH_TECHNICAL_SLICE",
-  "base_commit": "c29fcc55fd19f2b97b9ff06c2d1fc397ab546273",
+  "scope": "UNRELEASED_EXPANDED_OFFLINE_WORKBENCH_NOT_COMPLETE_MILESTONE_A",
+  "base_commit": "7a488d9c842dfe720bc72f4d39b860525e656774",
   "python_full": {
-    "passed": 692,
-    "skipped": 0
+    "passed": 739,
+    "skipped": 0,
+    "warnings": 13
   },
   "node": {
     "passed": 99
@@ -18,9 +19,12 @@
   },
   "ui_build": "PASS",
   "browser_tests": {
-    "count": 4,
+    "count": 9,
     "status": "BLOCKED_AT_BROWSER_LAUNCH",
-    "passed": 0
+    "passed": 0,
+    "previously_attempted": 4,
+    "new_not_run": 5,
+    "reason": "Chromium SUID sandbox misconfigured; sandbox retained"
   },
   "ruff": "PASS",
   "official_package": "NOT_RUN",
@@ -51,8 +55,8 @@
       "dmn_client/node_contract.py": "d41d234c8490d2e8d2e287b992bc7dc56cf73e04cf2aa9bdcd4e0a90f4256241",
       "dmn_client/node_tool_outputs.py": "6b70f7abd32e822f6f75dd162bca0eee9f5782a8224d9c9756bf40eb016be06a",
       "dmn_client/query_executor.py": "6b27967070e60578c80915253428dc3a43247b3da299dba0f170c68db3b1c554",
-      "endpoints/workbench.py": "228483b46b50f2189aed65e90990d8fe7d4d252c52ce2899b80caf0494a1dfb5",
-      "endpoints/workbench.yaml": "842f00aea1a0a779ef8c199560f5563dab965e6aed64fa689a49a4490c41d751",
+      "endpoints/workbench.py": "3d0b4c9cf3376ab03c7d68db3a703f4ee69f89c6f4465f29b2c7b2ae4f9d1691",
+      "endpoints/workbench.yaml": "bd83a23799b2965320abc314434ccf01d25c39979b5db44af9892ed29ea2c27f",
       "main.py": "a9be380aa2d872e93693fd3d70a78a09665be1d6e634fe93ef7abe66c14a350b",
       "manifest.yaml": "486070cdadb3d79bca04f33c4db1bcbd1c6015b588b5fb85a3d51a7c54fb5e8e",
       "provider/dmn.py": "5e6f0c5e73fe473e50978add5620e657404dabb7588076a34676286b18cf83e9",
@@ -76,15 +80,24 @@
       "tools/query_local.py": "f76cfa566bed735c568a97c35835f7cb387e42249f38069ef8ccf7027a7a5445",
       "tools/query_local.yaml": "f7b24b04c4f985b658590cf0b78741c742a649c4c8eb4cdcd4c12799ad4de86c",
       "workbench/__init__.py": "26c933f493403ff941036fefb64189b17f90d369c11f975dbcb46d6abcda0e66",
-      "workbench/model.py": "227dfc71e0b9da74c3b4a67bf3005cf59c5c3008fa08f50a82566a88f16fa496",
-      "workbench/service.py": "a9ef623046ec2e34c418887bbbd1199f6f169706c5e5d116f0d8794297bfbb5a",
-      "workbench/store.py": "48df525b03b71a3d217f0421217b074dbdc625a8de86bca0c86b7b3a3415f81d",
+      "workbench/artifacts.py": "24ee3c7a85fa5ec16fbfd376034ee3b9985fa005734e000edccab04f41d4604b",
+      "workbench/model.py": "cadfbca0c3d5c6fff1bcb5923fb796daab8c306069e35a0d29218b2af976c307",
+      "workbench/service.py": "3fed6a7203dab3a4ed595453e5988684c4b6d153755aa3ed0218759eaa1d6853",
+      "workbench/store.py": "c8f1b05e7c5a319b26d2c1c0796a9f751dfe7625e029bbd1ab4fe75d8b704365",
+      "workbench/templates.py": "a7a4bb330a74a24e8d3f3719ba42b7c2f4f1ae95e76b0c9f5b3bc9db9daba48e",
       "workbench_static/THIRD_PARTY_LICENSES.txt": "8d3562a8c9536b253d47f87754cb5ba5d8e51bd83ad82ee894887f1cc9fa9e86",
-      "workbench_static/assets/index-DfMOc-7i.js": "c9c252dc84e9141c590415df9f1b90999838b5f280a816cc0344a80792bfb8e1",
-      "workbench_static/assets/index-my4Xr3AI.css": "217b37ba75f4c2cb9e4283c0f62ee976a2c87684ff1f00a090be2ea1b8385ec6",
-      "workbench_static/assets.json": "04f3e3394aebf0d77f84d2c501cf4df422431ad5c50ec1037037ad4d7aea4597",
-      "workbench_static/index.html": "cea6b7e99912710e35a357d81b996d45fa645b3ca313ee9f1613cd2ba286b5e6"
-    }
+      "workbench_static/assets/index-BmVFh1xu.js": "e36f4e230cbca791f76639fd31d9accf6ced932f48b59c89928999398f16e2c1",
+      "workbench_static/assets/index-DTWm5yo6.css": "c62ae0b64a50cd801d68720744fdaee26c057443d144ba0b6798c38fed06808a",
+      "workbench_static/assets.json": "10ae04e30edea7f4fd9e0d88548dd1ac7569903b450581f042f104677203c300",
+      "workbench_static/index.html": "a58045f28113f5aebca493b8496975e2114a28ccc30f2d1ceb6ae6de2bab38e4"
+    },
+    "file_count": 56
   },
-  "ui_format": "PASS"
+  "ui_format": "PASS",
+  "workbench_tests": {
+    "passed": 77,
+    "new_this_round": 47
+  },
+  "cloud_delivery": "UNMET_TRANSACTIONAL_STORAGE_AND_ORIGIN",
+  "review": "docs/workbench-review.md"
 }

@@ -19,7 +19,9 @@ test("actual Endpoint: edit, save, refresh, trial, freeze and separate flows", a
   await expect(page.getByLabel("项目名称")).toHaveValue(
     "SYNTHETIC browser edited",
   );
-  await page.getByLabel("规则1业务状态").fill("MANUAL_REVIEW");
+  await page.getByLabel("needs_support质量").selectOption("KNOWN");
+  await page.getByLabel("needs_support试算值").selectOption("true");
+  await page.getByLabel("规则1 业务状态").fill("MANUAL_REVIEW");
   await page.getByRole("button", { name: "试算", exact: true }).click();
   await expect(page.locator(".results")).toContainText("MANUAL_REVIEW");
   await expect(page.getByRole("table")).toContainText(
@@ -30,7 +32,7 @@ test("actual Endpoint: edit, save, refresh, trial, freeze and separate flows", a
     .click();
   await expect(page.getByRole("status")).toHaveText("已保存到事务存储");
   await page.getByRole("button", { name: "解决方案", exact: true }).click();
-  await expect(page.getByLabel("规则1业务状态")).toHaveValue("REVIEW");
+  await expect(page.getByLabel("规则1 业务状态")).toHaveValue("REVIEW");
   await page.getByRole("button", { name: "流程画布" }).click();
   await expect(page.locator(".react-flow")).toBeVisible();
   const download = page.waitForEvent("download");

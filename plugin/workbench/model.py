@@ -77,10 +77,30 @@ def sample(domain="education"):
     return project
 
 
+def new_project(name="未命名项目"):
+    project = sample()
+    project.update(name=name, source="MANUAL_TEST", tests=[])
+    for model in project["flows"].values():
+        model["parameters"] = {}
+        model["rules"] = [{"rule_id": "default", "when": [], "output_template_ref": "default"}]
+        model["result_templates"] = {
+            "default": {"state": "NEEDS_REVIEW", "data": {}, "actions": []}
+        }
+    return validate_project(project)
+
+
+def project_graphs(project):
+    return {
+        flow: compile_flow(project, flow)[0]["workflows"][0]["phases"][0]["steps"][0]["graph"]
+        for flow in project["flows"]
+    }
+
+
 def compile_flow(project, flow):
     project = decode_object(project, "project", 524288)
     require(
-        set(project) == {"schema_version", "name", "source", "flows", "ui", "tests"},
+        {"schema_version", "name", "source", "flows", "ui", "tests"} <= set(project)
+        and set(project) <= {"schema_version", "name", "source", "flows", "ui", "tests", "graphs"},
         "PROJECT_SCHEMA_INVALID",
     )
     require(project["schema_version"] == "workbench.project.v1", "UNKNOWN_PROJECT_VERSION")
@@ -152,6 +172,28 @@ def compile_flow(project, flow):
             ]
         )
     ]
+    graphs = project.get("graphs", {})
+    require(type(graphs) is dict and set(graphs) <= set(project["flows"]), "INVALID_GRAPH_OVERRIDE")
+    if flow in graphs:
+        graph = graphs[flow]
+        require(type(graph) is dict and set(graph) == {"nodes", "edges"}, "INVALID_GRAPH_OVERRIDE")
+        nodes, edges = deepcopy(graph["nodes"]), deepcopy(graph["edges"])
+        # This editor does not add a second executor. Preserve the single main
+        # decision and explicit bindings; graph changes are checked by core.
+        require(sum(n.get("kind") == "DECISION" for n in nodes) == 1, "SINGLE_DECISION_REQUIRED")
+        require(
+            all(n.get("kind") in {"START", "END", "DECISION"} for n in nodes),
+            "UNSUPPORTED_EDITOR_NODE",
+        )
+        require(
+            any(
+                n.get("node_id") == "D"
+                and n.get("kind") == "DECISION"
+                and n.get("model_ref") == "decision@1"
+                for n in nodes
+            ),
+            "MAIN_DECISION_REQUIRED",
+        )
     step = {
         "step_id": "S1",
         "name": "单表内容试算",

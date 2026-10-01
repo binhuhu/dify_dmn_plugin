@@ -1,0 +1,126 @@
+.graph-editor {
+  min-width: 0;
+}
+.graph-toolbar,
+.graph-forms {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.graph-toolbar label,
+.graph-forms label {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.graph-toolbar [aria-pressed="true"] {
+  background: #203f74;
+  color: white;
+}
+.graph-legend {
+  color: #245958;
+  font-size: 0.95rem;
+}
+.graph-phase {
+  padding: 12px;
+  border: 2px solid #95a9c8;
+  background: #f4f7fc;
+  border-radius: 12px;
+}
+.graph-phase > span {
+  display: inline-block;
+  margin: 8px;
+  color: #526174;
+}
+.graph-step {
+  margin-top: 12px;
+  padding: 10px;
+  border: 1px dashed #8a9db9;
+  border-radius: 8px;
+}
+.graph-canvas {
+  height: 430px;
+  margin-top: 8px;
+  background: white;
+}
+.graph-node {
+  position: relative;
+  width: 175px;
+  padding: 12px;
+  background: #fff;
+  border: 2px solid #52719b;
+  border-radius: 10px;
+  box-shadow: 0 2px 8px #203f7412;
+}
+.graph-node strong,
+.graph-node span,
+.graph-node small {
+  display: block;
+  overflow-wrap: anywhere;
+}
+.graph-node span {
+  color: #38516b;
+  font-size: 12px;
+  margin-top: 5px;
+}
+.graph-node-readonly {
+  border-style: dashed;
+  background: #f6f6f6;
+}
+.graph-node small {
+  font-size: 11px;
+  margin-top: 4px;
+}
+.graph-editor .react-flow__node.selected .graph-node {
+  outline: 3px solid #e7ad38;
+}
+.graph-forms fieldset {
+  display: flex;
+  align-items: end;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 12px 0;
+  border: 1px solid #acb7c6;
+  max-width: 100%;
+}
+.graph-forms select {
+  max-width: 220px;
+}
+.graph-details {
+  border-top: 1px solid #bbc6d4;
+  margin-top: 12px;
+  padding-top: 8px;
+}
+.graph-details pre {
+  max-height: 300px;
+  overflow: auto;
+}
+.graph-delete {
+  background: #fff3dc;
+  border: 1px solid #b97f20;
+  padding: 12px;
+  margin: 12px 0;
+}
+.graph-bindings code {
+  display: block;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 12px;
+}
+.graph-editor li {
+  overflow-wrap: anywhere;
+  margin-bottom: 8px;
+}
+@media (max-width: 700px) {
+  .graph-canvas {
+    height: 340px;
+  }
+  .graph-phase,
+  .graph-step {
+    padding: 6px;
+  }
+  .graph-toolbar input {
+    max-width: 200px;
+  }
+}

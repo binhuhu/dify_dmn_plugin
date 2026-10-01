@@ -1,5 +1,5 @@
 {
-  "scope": "TECHNICAL_SLICE_ONLY_NOT_MILESTONE_A",
+  "scope": "EXPANDED_OFFLINE_WORKBENCH_NOT_COMPLETE_MILESTONE_A",
   "source": {
     "revision": "1.2",
     "sequence": 4,
@@ -11,7 +11,7 @@
   "existing_67_ac_index": "UNCHANGED_SEPARATE",
   "browser": {
     "status": "BLOCKED_BEFORE_TEST_BODY",
-    "tests": 4,
+    "tests": 9,
     "reason": "Chromium SUID sandbox misconfigured; no sandbox bypass. Official browser CDN returned 403."
   },
   "official_package": "NOT_RUN_FOR_THIS_CANDIDATE",
@@ -23,8 +23,11 @@
       "scenario": "空项目进入插件界面",
       "status": "PARTIAL",
       "accepted": false,
-      "reason": "Example/open actions exist; blank project and import missing.",
-      "evidence": []
+      "reason": "Blank projects, examples and import implemented; actual browser/target entry unverified.",
+      "evidence": [
+        "docs/plugin-workbench.md",
+        "docs/workbench-review.md"
+      ]
     },
     {
       "id": "AC02",
@@ -32,8 +35,11 @@
       "scenario": "新建三规则模型并试算",
       "status": "PARTIAL",
       "accepted": false,
-      "reason": "Add/edit rules and scalar outputs implemented on existing example; blank model forms missing. Browser blocked.",
-      "evidence": []
+      "reason": "Blank model, typed fields and rules can be authored; API evaluation tested; browser blocked.",
+      "evidence": [
+        "docs/plugin-workbench.md",
+        "docs/workbench-review.md"
+      ]
     },
     {
       "id": "AC03",
@@ -41,8 +47,11 @@
       "scenario": "字符串、布尔、数值及嵌套对象编辑",
       "status": "PARTIAL",
       "accepted": false,
-      "reason": "Scalar controls implemented; nested object/array/set editing missing.",
-      "evidence": []
+      "reason": "Recursive object/array and scalar value forms added; build passes, browser interactions unverified.",
+      "evidence": [
+        "docs/plugin-workbench.md",
+        "docs/workbench-review.md"
+      ]
     },
     {
       "id": "AC04",
@@ -87,19 +96,25 @@
       "id": "AC08",
       "phase": "A",
       "scenario": "导入旧json-table-v1并原样导出",
-      "status": "NOT_IMPLEMENTED",
+      "status": "PARTIAL",
       "accepted": false,
-      "reason": "Work required for this product capability; not implemented in the single-table technical slice.",
-      "evidence": []
+      "reason": "Legacy profile import/export and original-core evaluation tested; browser unverified.",
+      "evidence": [
+        "docs/plugin-workbench.md",
+        "docs/workbench-review.md"
+      ]
     },
     {
       "id": "AC09",
       "phase": "A",
       "scenario": "导入新版模型和图定义",
-      "status": "NOT_IMPLEMENTED",
+      "status": "PARTIAL",
       "accepted": false,
-      "reason": "Work required for this product capability; not implemented in the single-table technical slice.",
-      "evidence": []
+      "reason": "Project/service-model imports validated; unsupported graph bundles preserved read-only, not fully editable.",
+      "evidence": [
+        "docs/plugin-workbench.md",
+        "docs/workbench-review.md"
+      ]
     },
     {
       "id": "AC10",
@@ -107,10 +122,10 @@
       "scenario": "重复键、超限、无效数值、未知协议",
       "status": "PARTIAL",
       "accepted": false,
-      "reason": "API rejects duplicate keys and bounded invalid requests; import UI missing.",
+      "reason": "File-content parser rejects duplicate keys, limits and invalid numbers; unknown profiles preserved read-only.",
       "evidence": [
-        "plugin/tests/test_workbench.py",
-        "scripts/compatibility/workbench_stdio.py"
+        "docs/plugin-workbench.md",
+        "docs/workbench-review.md"
       ]
     },
     {
@@ -119,8 +134,11 @@
       "scenario": "FIRST前置UNKNOWN、后置TRUE",
       "status": "PARTIAL",
       "accepted": false,
-      "reason": "Inherited FIRST UNKNOWN tests; UI profile import not implemented.",
-      "evidence": []
+      "reason": "FIRST semantics retained through original-profile import/evaluation; browser unverified.",
+      "evidence": [
+        "docs/plugin-workbench.md",
+        "docs/workbench-review.md"
+      ]
     },
     {
       "id": "AC12",
@@ -164,8 +182,11 @@
       "scenario": "新COLLECT模板冲突或跨模板不支持组合",
       "status": "PARTIAL",
       "accepted": false,
-      "reason": "Inherited COLLECT conflict reducer retained; full output editor and diagnostic navigation missing.",
-      "evidence": []
+      "reason": "Literal state/data forms added; action templates remain restricted and cell navigation incomplete.",
+      "evidence": [
+        "docs/plugin-workbench.md",
+        "docs/workbench-review.md"
+      ]
     },
     {
       "id": "AC17",
@@ -173,8 +194,11 @@
       "scenario": "无命中、命中null、技术失败",
       "status": "PARTIAL",
       "accepted": false,
-      "reason": "Core outcomes retained; UI null editing and full no-match configuration missing.",
-      "evidence": []
+      "reason": "Explicit null UI added; core outcomes retained; comprehensive no-match configuration missing.",
+      "evidence": [
+        "docs/plugin-workbench.md",
+        "docs/workbench-review.md"
+      ]
     },
     {
       "id": "AC18",
@@ -182,10 +206,10 @@
       "scenario": "未提供、KNOWN null、UNKNOWN",
       "status": "PARTIAL",
       "accepted": false,
-      "reason": "Quality/missing controls exist; explicit KNOWN null UI missing; API boundaries tested.",
+      "reason": "Initial values remain MISSING; explicit KNOWN null and quality controls added, browser unverified.",
       "evidence": [
-        "plugin/tests/test_workbench.py",
-        "scripts/compatibility/workbench_stdio.py"
+        "docs/plugin-workbench.md",
+        "docs/workbench-review.md"
       ]
     },
     {
@@ -206,20 +230,23 @@
       "scenario": "纯决策试算及离线回放",
       "status": "PARTIAL",
       "accepted": false,
-      "reason": "20 actual Endpoint vs Tool evaluations forbid socket connect; historical replay UI missing.",
+      "reason": "Same-core no-network evaluation and digest-pinned read-only replay tested; browser unverified.",
       "evidence": [
-        "plugin/tests/test_workbench.py",
-        "scripts/compatibility/workbench_stdio.py"
+        "docs/plugin-workbench.md",
+        "docs/workbench-review.md"
       ]
     },
     {
       "id": "AC21",
       "phase": "A",
       "scenario": "从表格定位字段来源",
-      "status": "NOT_IMPLEMENTED",
+      "status": "PARTIAL",
       "accepted": false,
-      "reason": "Work required for this product capability; not implemented in the single-table technical slice.",
-      "evidence": []
+      "reason": "Typed model fields and graph binding source labels exist; source/binding editor and full navigation missing.",
+      "evidence": [
+        "docs/plugin-workbench.md",
+        "docs/workbench-review.md"
+      ]
     },
     {
       "id": "AC22",
@@ -243,10 +270,13 @@
       "id": "AC24",
       "phase": "A",
       "scenario": "删除被引用字段或节点",
-      "status": "NOT_IMPLEMENTED",
+      "status": "PARTIAL",
       "accepted": false,
-      "reason": "Work required for this product capability; not implemented in the single-table technical slice.",
-      "evidence": []
+      "reason": "Referenced model fields and graph nodes guarded; comprehensive cross-artifact impact analysis missing.",
+      "evidence": [
+        "docs/plugin-workbench.md",
+        "docs/workbench-review.md"
+      ]
     },
     {
       "id": "AC25",
@@ -261,10 +291,13 @@
       "id": "AC26",
       "phase": "A",
       "scenario": "导入未支持图结构",
-      "status": "NOT_IMPLEMENTED",
+      "status": "PARTIAL",
       "accepted": false,
-      "reason": "Work required for this product capability; not implemented in the single-table technical slice.",
-      "evidence": []
+      "reason": "Unsupported graphs preserved read-only; supported START/DECISION/END graph editable, browser unverified.",
+      "evidence": [
+        "docs/plugin-workbench.md",
+        "docs/workbench-review.md"
+      ]
     },
     {
       "id": "AC27",
@@ -312,10 +345,13 @@
       "id": "AC31",
       "phase": "A",
       "scenario": "导入生成的单表Dify模板",
-      "status": "NOT_IMPLEMENTED",
+      "status": "PARTIAL",
       "accepted": false,
-      "reason": "Work required for this product capability; not implemented in the single-table technical slice.",
-      "evidence": []
+      "reason": "Two single-decision YAML templates generated against official Dify 1.11.1 shape; installed plugin dependency and target import NOT_RUN.",
+      "evidence": [
+        "docs/plugin-workbench.md",
+        "docs/workbench-review.md"
+      ]
     },
     {
       "id": "AC32",
@@ -332,26 +368,35 @@
       "scenario": "只导出模板但未目标运行",
       "status": "PARTIAL",
       "accepted": false,
-      "reason": "Freeze explicitly CONTENT_TEST_ONLY and target NOT_RUN; Dify templates not generated.",
-      "evidence": []
+      "reason": "Templates explicitly ready_for_deployment=false, target NOT_RUN; no deployment implied.",
+      "evidence": [
+        "docs/plugin-workbench.md",
+        "docs/workbench-review.md"
+      ]
     },
     {
       "id": "AC34",
       "phase": "A",
       "scenario": "导入完整及缺快照的运行记录",
-      "status": "NOT_IMPLEMENTED",
+      "status": "PARTIAL",
       "accepted": false,
-      "reason": "Work required for this product capability; not implemented in the single-table technical slice.",
-      "evidence": []
+      "reason": "Complete records replayed using original core; absent/mismatched snapshots or engine digest read-only.",
+      "evidence": [
+        "docs/plugin-workbench.md",
+        "docs/workbench-review.md"
+      ]
     },
     {
       "id": "AC35",
       "phase": "A",
       "scenario": "旧版本输入用新版本回放",
-      "status": "NOT_IMPLEMENTED",
+      "status": "PARTIAL",
       "accepted": false,
-      "reason": "Work required for this product capability; not implemented in the single-table technical slice.",
-      "evidence": []
+      "reason": "New-model comparison retains historical inputs/context without mutating original record; backend tested, browser unverified.",
+      "evidence": [
+        "docs/plugin-workbench.md",
+        "docs/workbench-review.md"
+      ]
     },
     {
       "id": "AC36",
@@ -359,10 +404,10 @@
       "scenario": "两个不同领域模型",
       "status": "PARTIAL",
       "accepted": false,
-      "reason": "Two SYNTHETIC domain examples pass same unchanged Python core; no custom field creation UI yet.",
+      "reason": "Two SYNTHETIC domains plus blank custom-field forms use unchanged Python core; browser unverified.",
       "evidence": [
-        "plugin/tests/test_workbench.py",
-        "scripts/compatibility/workbench_stdio.py"
+        "docs/plugin-workbench.md",
+        "docs/workbench-review.md"
       ]
     },
     {
@@ -425,8 +470,11 @@
       "scenario": "模拟、人工和真实调用混合记录",
       "status": "PARTIAL",
       "accepted": false,
-      "reason": "Manual content tests explicitly marked; mixed production record ingestion missing.",
-      "evidence": []
+      "reason": "Imported records are content-only unverified evidence; generated records distinguish local trial; production ingestion missing.",
+      "evidence": [
+        "docs/plugin-workbench.md",
+        "docs/workbench-review.md"
+      ]
     },
     {
       "id": "AC44",
@@ -500,8 +548,11 @@
       "scenario": "插件界面切换定位和解决",
       "status": "PARTIAL",
       "accepted": false,
-      "reason": "Two single-table drafts and layout keys separate; full independent versions/run histories missing.",
-      "evidence": []
+      "reason": "Separate LOCATE/SOLVE models and graph layouts; record metadata identifies flow; complete business flows and independent release versions missing.",
+      "evidence": [
+        "docs/plugin-workbench.md",
+        "docs/workbench-review.md"
+      ]
     },
     {
       "id": "AC52",
@@ -525,10 +576,13 @@
       "id": "AC54",
       "phase": "A",
       "scenario": "两个模板导入目标Dify",
-      "status": "NOT_IMPLEMENTED",
+      "status": "PARTIAL",
       "accepted": false,
-      "reason": "Work required for this product capability; not implemented in the single-table technical slice.",
-      "evidence": []
+      "reason": "Two single-decision templates generated; complete business flow templates missing and target import NOT_RUN.",
+      "evidence": [
+        "docs/plugin-workbench.md",
+        "docs/workbench-review.md"
+      ]
     },
     {
       "id": "AC55",
@@ -545,26 +599,35 @@
       "scenario": "阶段折叠、路径定位、节点与表格互跳",
       "status": "PARTIAL",
       "accepted": false,
-      "reason": "Display containers and Decision-to-table double click implemented; collapse/path navigation missing.",
-      "evidence": []
+      "reason": "Phase/Step folding, node search and Decision-to-table navigation added; browser unverified, multi-container authoring missing.",
+      "evidence": [
+        "docs/plugin-workbench.md",
+        "docs/workbench-review.md"
+      ]
     },
     {
       "id": "AC57",
       "phase": "B",
       "scenario": "选历史运行后编辑新草稿",
-      "status": "NOT_IMPLEMENTED",
+      "status": "PARTIAL",
       "accepted": false,
-      "reason": "Work required for this product capability; not implemented in the single-table technical slice.",
-      "evidence": []
+      "reason": "Historical record remains immutable; current-draft comparison tested; browser workflow unverified.",
+      "evidence": [
+        "docs/plugin-workbench.md",
+        "docs/workbench-review.md"
+      ]
     },
     {
       "id": "AC58",
       "phase": "B",
       "scenario": "Dify原生修改导入流程",
-      "status": "NOT_IMPLEMENTED",
+      "status": "PARTIAL",
       "accepted": false,
-      "reason": "Work required for this product capability; not implemented in the single-table technical slice.",
-      "evidence": []
+      "reason": "Target-shaped YAML generated, native target edits/imports NOT_RUN.",
+      "evidence": [
+        "docs/plugin-workbench.md",
+        "docs/workbench-review.md"
+      ]
     },
     {
       "id": "AC59",
@@ -635,8 +698,11 @@
       "scenario": "编辑 Phase/Step 属性",
       "status": "PARTIAL",
       "accepted": false,
-      "reason": "Phase/Step display-only, no execution config; property editing missing.",
-      "evidence": []
+      "reason": "Phase/Step display and fold only; execution-property editing still missing.",
+      "evidence": [
+        "docs/plugin-workbench.md",
+        "docs/workbench-review.md"
+      ]
     },
     {
       "id": "AC67",
@@ -644,8 +710,11 @@
       "scenario": "重排容器、折叠与移动节点布局",
       "status": "PARTIAL",
       "accepted": false,
-      "reason": "Layout stored separately; reorder/collapse UI missing and browser unavailable.",
-      "evidence": []
+      "reason": "Separate draggable positions and fold state; container reorder missing; browser unverified.",
+      "evidence": [
+        "docs/plugin-workbench.md",
+        "docs/workbench-review.md"
+      ]
     },
     {
       "id": "AC68",
@@ -671,8 +740,11 @@
       "scenario": "编辑布尔、枚举、数字与来源字段",
       "status": "PARTIAL",
       "accepted": false,
-      "reason": "Existing scalar fields and qualities editable; schema/enum/source form missing.",
-      "evidence": []
+      "reason": "Typed field/quality/nullable forms added; enum/source binding forms incomplete.",
+      "evidence": [
+        "docs/plugin-workbench.md",
+        "docs/workbench-review.md"
+      ]
     },
     {
       "id": "AC71",
@@ -707,8 +779,11 @@
       "scenario": "Private source ambiguity and mapping review (details withheld)",
       "status": "NOT_IMPLEMENTED",
       "accepted": false,
-      "reason": "Private ambiguous source retained only in private requirements; no public fixture or executable conversion. Import diagnostics missing.",
-      "evidence": []
+      "reason": "Private source not published or converted; generic import diagnostics added, private ambiguity/mapping review missing.",
+      "evidence": [
+        "docs/plugin-workbench.md",
+        "docs/workbench-review.md"
+      ]
     },
     {
       "id": "AC75",
@@ -723,10 +798,13 @@
       "id": "AC76",
       "phase": "A与D",
       "scenario": "将 OR/NOT 草稿发布到旧 AND profile",
-      "status": "NOT_IMPLEMENTED",
+      "status": "PARTIAL",
       "accepted": false,
-      "reason": "No expression rewrite/profile extension; general draft import/support diagnostics missing.",
-      "evidence": []
+      "reason": "No OR/NOT rewrite introduced; unsupported model attributes preserved read-only with diagnostics.",
+      "evidence": [
+        "docs/plugin-workbench.md",
+        "docs/workbench-review.md"
+      ]
     },
     {
       "id": "AC77",
@@ -779,8 +857,11 @@
       "scenario": "业务用户首次从插件入口使用",
       "status": "PARTIAL",
       "accepted": false,
-      "reason": "Static UI + authenticated API save/evaluate/freeze implemented; real browser/target entry unavailable; blank project form missing.",
-      "evidence": []
+      "reason": "Blank/import/example entry and authenticated save/evaluate/freeze implemented; actual target/browser onboarding unverified.",
+      "evidence": [
+        "docs/plugin-workbench.md",
+        "docs/workbench-review.md"
+      ]
     },
     {
       "id": "AC83",
@@ -812,8 +893,11 @@
       "scenario": "升级插件后加载界面与执行旧冻结定义",
       "status": "PARTIAL",
       "accepted": false,
-      "reason": "Assets bundled and five tools retained; actual upgrade/old frozen definition UI replay missing.",
-      "evidence": []
+      "reason": "Digest-pinned original-core replay added; actual plugin upgrade and target UI verification missing.",
+      "evidence": [
+        "docs/plugin-workbench.md",
+        "docs/workbench-review.md"
+      ]
     },
     {
       "id": "AC86",

@@ -65,31 +65,60 @@ class Store:
         ]
 
     def put(self, scope, kind, identity, document, revision):
+        with self.connect() as db:
+            return self._put(db, scope, kind, identity, document, revision)
+
+    def _put(self, db, scope, kind, identity, document, revision):
+        if type(revision) is not int or revision < 0:
+            raise StoreError("INVALID_REVISION", 422)
         raw = json.dumps(document, ensure_ascii=False, allow_nan=False)
         if len(raw.encode()) > 1048576:
             raise StoreError("DOCUMENT_LIMIT", 413)
-        with self.connect() as db:
-            old = db.execute(
-                "SELECT revision,body FROM objects WHERE scope=? AND kind=? AND id=?",
-                (scope, kind, identity),
-            ).fetchone()
-            if kind == "release" and old:
-                if old[1] == raw:
-                    return old[0]
-                raise StoreError("IMMUTABLE_RELEASE")
-            if (old[0] if old else 0) != revision:
-                raise StoreError("REVISION_CONFLICT")
-            count, size = db.execute(
-                "SELECT count(*),coalesce(sum(length(cast(body as blob))),0) FROM objects WHERE scope=?",
-                (scope,),
-            ).fetchone()
-            if (not old and count >= 100) or size - (len(old[1].encode()) if old else 0) + len(
-                raw.encode()
-            ) > 8388608:
-                raise StoreError("STORAGE_CAPACITY", 413)
-            db.execute(
-                "INSERT INTO objects VALUES(?,?,?,?,?) ON CONFLICT(scope,kind,id) "
-                "DO UPDATE SET revision=excluded.revision,body=excluded.body",
-                (scope, kind, identity, revision + 1, raw),
-            )
+        old = db.execute(
+            "SELECT revision,body FROM objects WHERE scope=? AND kind=? AND id=?",
+            (scope, kind, identity),
+        ).fetchone()
+        if kind in {"release", "record", "artifact"} and old:
+            from dmn_client.node_contract import definition_digest
+
+            if definition_digest(json.loads(old[1])) == definition_digest(document):
+                return old[0]
+            raise StoreError("IMMUTABLE_RELEASE")
+        if (old[0] if old else 0) != revision:
+            raise StoreError("REVISION_CONFLICT")
+        count, size = db.execute(
+            "SELECT count(*),coalesce(sum(length(cast(body as blob))),0) FROM objects WHERE scope=?",
+            (scope,),
+        ).fetchone()
+        if (not old and count >= 100) or size - (len(old[1].encode()) if old else 0) + len(
+            raw.encode()
+        ) > 8388608:
+            raise StoreError("STORAGE_CAPACITY", 413)
+        db.execute(
+            "INSERT INTO objects VALUES(?,?,?,?,?) ON CONFLICT(scope,kind,id) "
+            "DO UPDATE SET revision=excluded.revision,body=excluded.body",
+            (scope, kind, identity, revision + 1, raw),
+        )
         return revision + 1
+
+    def freeze_project(self, scope, identity, revision, freeze):
+        from dmn_client.node_contract import definition_digest
+
+        if type(revision) is not int or revision < 1:
+            raise StoreError("INVALID_REVISION", 422)
+        # The expected revision, content tests and immutable write share one
+        # transaction; a concurrent writer linearizes before or after freeze.
+        with self.connect() as db:
+            row = db.execute(
+                "SELECT revision,body FROM objects WHERE scope=? AND kind='project' AND id=?",
+                (scope, identity),
+            ).fetchone()
+            if not row:
+                raise StoreError("NOT_FOUND", 404)
+            if row[0] != revision:
+                raise StoreError("REVISION_CONFLICT")
+            frozen = freeze(json.loads(row[1]))
+            frozen["source_project"] = {"id": identity, "revision": revision}
+            release_id = definition_digest(frozen)
+            self._put(db, scope, "release", release_id, frozen, 0)
+            return {"id": release_id, "document": frozen}

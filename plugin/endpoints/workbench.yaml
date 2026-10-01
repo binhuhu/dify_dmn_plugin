@@ -1,4 +1,14 @@
-settings: []
+settings:
+  - name: workbench_deployment
+    type: secret-input
+    required: false
+    label:
+      en_US: Administrator workbench storage/session configuration
+      zh_Hans: 管理员工作台存储与会话配置
+    help:
+      en_US: Optional trusted endpoint-config.v1 JSON; not a model API key. Requires provisioned durable storage and trusted origin.
+      zh_Hans: 可选的可信 endpoint-config.v1 配置；不是模型Key，需要已配置持久存储与可信Origin。
+
 endpoints:
   - path: /
     method: GET

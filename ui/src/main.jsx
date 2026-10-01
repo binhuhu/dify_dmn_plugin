@@ -1,6 +1,12 @@
 import React, { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { ReactFlow, Background, Controls } from "@xyflow/react";
+import GraphEditor from "./graph";
+import {
+  ValueEditor,
+  FieldEditor,
+  RuleOutputEditor,
+  defaultValue,
+} from "./editors";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import "@xyflow/react/dist/style.css";
 import "./style.css";
@@ -30,7 +36,9 @@ const ops = {
   is_null: "为空",
 };
 let csrf = "";
+let sessionGeneration = 0;
 async function api(route, body = {}) {
+  const generation = sessionGeneration;
   let response;
   try {
     response = await fetch("./api/" + route, {
@@ -42,6 +50,8 @@ async function api(route, body = {}) {
     throw new Error("网络不可达。草稿仍保留，请导出备份后重试。");
   }
   const data = await response.json();
+  if (generation !== sessionGeneration)
+    throw new Error("会话已更换，旧响应已丢弃");
   if (!response.ok)
     throw new Error(errors[data.error] || data.error || "请求失败");
   return data;
@@ -56,45 +66,7 @@ function download(value, name) {
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
-function Value({ value, type, label, onChange }) {
-  const [text, setText] = useState(String(value ?? ""));
-  useEffect(() => setText(String(value ?? "")), [value]);
-  if (type === "boolean")
-    return (
-      <select
-        aria-label={label}
-        value={String(value)}
-        onChange={(e) => onChange(e.target.value === "true")}
-      >
-        <option value="true">是 / true</option>
-        <option value="false">否 / false</option>
-      </select>
-    );
-  if (type === "object" || type === "array")
-    return <span>本技术切片暂不支持嵌套编辑</span>;
-  return (
-    <input
-      aria-label={label}
-      value={text}
-      type={type === "string" ? "text" : "number"}
-      onChange={(e) => setText(e.target.value)}
-      onBlur={(e) => {
-        if (type === "string") onChange(text);
-        else if (
-          text.trim() !== "" &&
-          Number.isFinite(Number(text)) &&
-          (type !== "integer" || Number.isSafeInteger(Number(text)))
-        ) {
-          e.target.setCustomValidity("");
-          onChange(Number(text));
-        } else {
-          e.target.setCustomValidity("请输入有效的类型化数值");
-          e.target.reportValidity();
-        }
-      }}
-    />
-  );
-}
+const Value = ValueEditor;
 function Table({ model, change, result }) {
   const parent = useRef(null);
   const virtual = useVirtualizer({
@@ -221,14 +193,9 @@ function Table({ model, change, result }) {
                             r.when[j] = {
                               path: ["parameters", e.target.value, "value"],
                               op: "eq",
-                              value:
-                                model.parameters[e.target.value].type ===
-                                "boolean"
-                                  ? true
-                                  : model.parameters[e.target.value].type ===
-                                      "string"
-                                    ? ""
-                                    : 0,
+                              value: defaultValue(
+                                model.parameters[e.target.value].type,
+                              ),
                             };
                           })
                         }
@@ -267,17 +234,17 @@ function Table({ model, change, result }) {
                             </option>
                           ))}
                       </select>
-                      {c.op === "in" ? (
-                        <span>集合编辑待实现（保留原值）</span>
-                      ) : (
+                      {false ? null : (
                         <Value
                           label={`规则${i + 1}条件${j + 1}值`}
                           type={
-                            ["exists", "is_null"].includes(c.op)
-                              ? "boolean"
-                              : c.path[2] === "quality"
-                                ? "string"
-                                : model.parameters[c.path[1]]?.type
+                            c.op === "in"
+                              ? "array"
+                              : ["exists", "is_null"].includes(c.op)
+                                ? "boolean"
+                                : c.path[2] === "quality"
+                                  ? "string"
+                                  : model.parameters[c.path[1]]?.type
                           }
                           value={c.value}
                           onChange={(value) =>
@@ -302,12 +269,7 @@ function Table({ model, change, result }) {
                         r.when.push({
                           path: ["parameters", fields[0], "value"],
                           op: "eq",
-                          value:
-                            model.parameters[fields[0]].type === "boolean"
-                              ? true
-                              : model.parameters[fields[0]].type === "string"
-                                ? ""
-                                : 0,
+                          value: defaultValue(model.parameters[fields[0]].type),
                         }),
                       )
                     }
@@ -316,34 +278,15 @@ function Table({ model, change, result }) {
                   </button>
                 </div>
                 <div role="cell" className="output">
-                  <label>
-                    state{" "}
-                    <input
-                      aria-label={`规则${i + 1}业务状态`}
-                      value={out.state}
-                      onChange={(e) =>
-                        edit(i, (_, m) => {
-                          m.result_templates[r.output_template_ref].state =
-                            e.target.value;
-                        })
-                      }
-                    />
-                  </label>
-                  <label>
-                    data.reason{" "}
-                    <input
-                      aria-label={`规则${i + 1}原因`}
-                      value={out.data?.reason?.literal ?? ""}
-                      onChange={(e) =>
-                        edit(i, (_, m) => {
-                          m.result_templates[
-                            r.output_template_ref
-                          ].data.reason = { literal: e.target.value };
-                        })
-                      }
-                    />
-                  </label>
-                  <p>actions：空；真实动作禁用</p>
+                  <RuleOutputEditor
+                    label={`规则${i + 1}`}
+                    template={out}
+                    onChange={(template) =>
+                      edit(i, (_, m) => {
+                        m.result_templates[r.output_template_ref] = template;
+                      })
+                    }
+                  />
                 </div>
                 <div role="cell">
                   <button
@@ -400,6 +343,42 @@ function App() {
   const [dirty, setDirty] = useState(false),
     [history, setHistory] = useState([]),
     [redo, setRedo] = useState([]);
+  const [graphs, setGraphs] = useState({}),
+    [artifact, setArtifact] = useState(null),
+    [importEntry, setImportEntry] = useState("project"),
+    [runList, setRunList] = useState([]),
+    [runView, setRunView] = useState(null),
+    [legacyInputs, setLegacyInputs] = useState({}),
+    [legacyResult, setLegacyResult] = useState(null),
+    [frozenId, setFrozenId] = useState(null);
+  const [saveEpoch, setSaveEpoch] = useState(0),
+    [replayResult, setReplayResult] = useState(null);
+  const latest = useRef({});
+  latest.current = {
+    item,
+    flow,
+    parameters,
+    logged,
+    artifact,
+    legacyInputs,
+    runView,
+  };
+  const snapshot = () => ({
+    key: item?.clientKey,
+    document: item?.document,
+    flow,
+    parameters,
+    logged,
+  });
+  const isCurrent = (v, withInputs = false) =>
+    latest.current.logged === v.logged &&
+    latest.current.item?.clientKey === v.key &&
+    latest.current.item?.document === v.document &&
+    latest.current.flow === v.flow &&
+    (!withInputs || latest.current.parameters === v.parameters);
+  const navSeq = useRef(0),
+    importSeq = useRef(0);
+  const historySeq = useRef(0);
   const current = useRef(item),
     saving = useRef(false);
   current.current = item;
@@ -421,8 +400,13 @@ function App() {
   async function open(id) {
     if (dirty && !confirm("当前有未保存修改。确认放弃并打开服务器版本？"))
       return;
+    const navigation = ++navSeq.current;
     const data = await api("projects/get", { id });
-    setItem(data);
+    if (navigation !== navSeq.current) return;
+    setItem({ ...data, clientKey: crypto.randomUUID() });
+    setFlow(Object.keys(data.document.flows)[0]);
+    setParameters({ LOCATE: {}, SOLVE: {} });
+    setFrozenId(null);
     setDirty(false);
     setResult(null);
     setHistory([]);
@@ -441,6 +425,73 @@ function App() {
       })
       .catch(() => {});
   }, []);
+  useEffect(() => {
+    let active = true;
+    setGraphs({});
+    if (item)
+      api("graphs", { document: item.document })
+        .then((x) => {
+          if (active) setGraphs(x.graphs);
+        })
+        .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [item?.clientKey, item?.document, flow]);
+  const [capabilities, setCapabilities] = useState(null);
+  useEffect(() => {
+    let active = true;
+    if (logged)
+      api("capabilities")
+        .then((x) => {
+          if (active) setCapabilities(x);
+        })
+        .catch(() => {});
+    else setCapabilities(null);
+    return () => {
+      active = false;
+    };
+  }, [logged]);
+  async function loadRuns() {
+    setRunList((await api("records/list")).records);
+  }
+  async function importFile(file) {
+    if (!file) return;
+    if (file.size > 1048576) throw new Error("文件超过1MiB，未导入");
+    const importing = ++importSeq.current;
+    const payload = await file.text();
+    const report = await api(
+      importEntry === "record" ? "records/import" : "artifacts/import",
+      { payload, entry: importEntry },
+    );
+    if (importing !== importSeq.current) return;
+    setArtifact(report);
+    setLegacyResult(null);
+    setMessage(report.mode + "：" + report.diagnostics.join("；"));
+    if (importEntry === "record") await loadRuns();
+  }
+  function useImported() {
+    const doc =
+      artifact.project_candidate ||
+      (artifact.kind === "project" ? artifact.original : null);
+    if (!doc) return;
+    if (dirty && !confirm("有未保存修改，确认替换当前草稿？")) return;
+    setItem({
+      clientKey: crypto.randomUUID(),
+      id: null,
+      revision: 0,
+      document: copy(doc),
+    });
+    ++navSeq.current;
+    setFlow(Object.keys(doc.flows)[0]);
+    setParameters({ LOCATE: {}, SOLVE: {} });
+    setDirty(true);
+    setFrozenId(null);
+    setResult(null);
+    setHistory([]);
+    setRedo([]);
+    setFrozenId(null);
+  }
   async function save() {
     if (saving.current) throw new Error("保存进行中，请稍后重试");
     saving.current = true;
@@ -451,6 +502,7 @@ function App() {
         revision: snapshot.revision,
         document: snapshot.document,
       });
+      if (current.current?.clientKey !== snapshot.clientKey) return saved;
       setItem((old) => ({ ...old, ...saved }));
       localStorage.setItem(lastKey, saved.id);
       if (current.current.document === snapshot.document) setDirty(false);
@@ -459,6 +511,8 @@ function App() {
       return saved;
     } finally {
       saving.current = false;
+      if (current.current?.clientKey !== snapshot.clientKey)
+        setSaveEpoch((e) => e + 1);
     }
   }
   useEffect(() => {
@@ -467,7 +521,7 @@ function App() {
       save().catch((e) => setMessage(e.message));
     }, 1500);
     return () => clearTimeout(timer);
-  }, [item, dirty, busy]);
+  }, [item, dirty, busy, saveEpoch]);
   function change(fn) {
     setHistory((h) => [...h.slice(-19), copy(item.document)]);
     setRedo([]);
@@ -475,29 +529,48 @@ function App() {
     fn(next.document.flows[flow], next.document);
     setItem(next);
     setDirty(true);
+    setFrozenId(null);
     setResult(null);
+    setFrozenId(null);
     setMessage("草稿已修改，等待保存");
   }
   async function example(domain) {
+    if (dirty && !confirm("当前有未保存修改，确认替换？")) return;
+    setHistory([]);
+    setRedo([]);
+    setFrozenId(null);
+    const navigation = ++navSeq.current;
     const x = await api("example", { domain });
-    setItem({ id: null, revision: 0, document: x.document });
+    if (navigation !== navSeq.current) return;
+    setFlow("LOCATE");
+    setItem({
+      clientKey: crypto.randomUUID(),
+      id: null,
+      revision: 0,
+      document: x.document,
+    });
     setDirty(true);
+    setFrozenId(null);
     setResult(null);
-    setParameters({ LOCATE: {}, SOLVE: {} });
-    setMessage("已打开 SYNTHETIC 示例；两个流程独立试算");
+    setParameters(
+      Object.fromEntries(
+        ["LOCATE", "SOLVE"].map((f) => [
+          f,
+          copy(x.document.tests.find((t) => t.flow === f)?.parameters || {}),
+        ]),
+      ),
+    );
+    setMessage("已打开 SYNTHETIC 示例；试算输入来自显式示例，两个流程独立");
   }
   const model = item?.document.flows[flow];
   const records = Object.fromEntries(
-    Object.entries(model?.parameters || {})
-      .filter(([name]) => parameters[flow][name]?.quality !== "MISSING")
-      .map(([name, c]) => [
-        name,
-        parameters[flow][name] || {
-          quality: "KNOWN",
-          value: c.type === "boolean" ? true : c.type === "string" ? "" : 0,
-          source_refs: ["manual:test"],
-        },
-      ]),
+    Object.keys(model?.parameters || {})
+      .filter(
+        (name) =>
+          parameters[flow][name] &&
+          parameters[flow][name].quality !== "MISSING",
+      )
+      .map((name) => [name, parameters[flow][name]]),
   );
   if (!logged)
     return (
@@ -538,16 +611,32 @@ function App() {
         <div>
           <h1>决策工作台</h1>
           <p>
-            单表技术闭环 · SYNTHETIC / 人工内容测试 · 目标 Dify 安装 NOT_RUN
+            建模与离线内容验证 · SYNTHETIC / 人工内容测试 · 目标 Dify 安装
+            NOT_RUN
           </p>
         </div>
         <button
           onClick={() =>
             operation(async () => {
+              sessionGeneration++;
               await api("logout");
+              sessionGeneration++;
+              navSeq.current++;
+              importSeq.current++;
+              historySeq.current++;
               csrf = "";
               setLogged(false);
               setItem(null);
+              setArtifact(null);
+              setRunList([]);
+              setRunView(null);
+              setLegacyResult(null);
+              setReplayResult(null);
+              setGraphs({});
+              setProjects([]);
+              setParameters({ LOCATE: {}, SOLVE: {} });
+              setResult(null);
+              setFrozenId(null);
               localStorage.removeItem(lastKey);
             })
           }
@@ -555,6 +644,12 @@ function App() {
           退出登录
         </button>
       </header>
+      {capabilities && (
+        <p role="note">
+          存储：事务型单宿主适配 · 访问：Endpoint 建模角色 · Cloud
+          持久存储/Origin 交付未满足 · 目标安装 NOT_RUN
+        </p>
+      )}
       <nav>
         <button onClick={() => operation(() => example("education"))}>
           教学支持示例
@@ -577,6 +672,228 @@ function App() {
           ))}
         </select>
       </nav>
+      <section className="toolbar">
+        <button
+          onClick={() =>
+            operation(async () => {
+              if (dirty && !confirm("当前有未保存修改，确认新建？")) return;
+              const navigation = ++navSeq.current;
+              const x = await api("projects/new");
+              if (navigation !== navSeq.current) return;
+              setItem({
+                clientKey: crypto.randomUUID(),
+                id: null,
+                revision: 0,
+                document: x.document,
+              });
+              setFlow("LOCATE");
+              setParameters({ LOCATE: {}, SOLVE: {} });
+              setDirty(true);
+              setFrozenId(null);
+              setResult(null);
+              setHistory([]);
+              setRedo([]);
+              setFrozenId(null);
+            })
+          }
+        >
+          新建空白项目
+        </button>
+        <label>
+          导入类型
+          <select
+            value={importEntry}
+            onChange={(e) => setImportEntry(e.target.value)}
+          >
+            <option value="project">工作台项目</option>
+            <option value="model">旧/新模型或图定义</option>
+            <option value="record">历史运行记录</option>
+          </select>
+        </label>
+        <label>
+          导入 JSON 文件
+          <input
+            type="file"
+            accept=".json,application/json"
+            onChange={(e) => {
+              const f = e.target.files[0];
+              operation(() => importFile(f));
+              e.target.value = "";
+            }}
+          />
+        </label>
+        <button onClick={() => operation(loadRuns)}>查看历史记录</button>
+      </section>
+      {artifact && (
+        <section>
+          <h2>导入审查：{artifact.kind}</h2>
+          <p>
+            {artifact.mode} · {artifact.diagnostics.join("；")} · 不自动迁移语义
+          </p>
+          <button
+            onClick={() =>
+              download(artifact.original, "original-artifact.json")
+            }
+          >
+            原样导出来源
+          </button>
+          {artifact.mode === "EDITABLE" && (
+            <button onClick={useImported}>复制到编辑草稿</button>
+          )}
+          {artifact.kind === "legacy_table" && artifact.execution_allowed && (
+            <>
+              <ValueEditor
+                label="旧协议模型副本"
+                value={artifact.original}
+                onChange={(v) => {
+                  setArtifact({ ...artifact, original: v, id: null });
+                  setLegacyResult(null);
+                }}
+              />
+              <button
+                onClick={() =>
+                  operation(async () => {
+                    const selected = artifact;
+                    const response = await api("artifacts/import", {
+                      payload: selected.original,
+                      entry: "model",
+                    });
+                    if (latest.current.artifact !== selected) return;
+                    setArtifact(response);
+                    setMessage("已按原协议校验副本，未迁移");
+                  })
+                }
+              >
+                校验并保存编辑副本
+              </button>
+              <ValueEditor
+                label="旧协议试算输入"
+                type="object"
+                value={legacyInputs}
+                onChange={(v) => {
+                  setLegacyInputs(v);
+                  setLegacyResult(null);
+                }}
+              />
+              <button
+                disabled={!artifact.id}
+                onClick={() =>
+                  operation(async () => {
+                    setLegacyResult(null);
+                    const selected = artifact,
+                      inputs = legacyInputs;
+                    const response = await api("artifacts/evaluate", {
+                      id: selected.id,
+                      inputs,
+                    });
+                    if (
+                      latest.current.artifact !== selected ||
+                      latest.current.legacyInputs !== inputs
+                    )
+                      return;
+                    setLegacyResult(response.result);
+                  })
+                }
+              >
+                原协议试算
+              </button>
+              {legacyResult && (
+                <pre>{JSON.stringify(legacyResult, null, 2)}</pre>
+              )}
+            </>
+          )}
+          <details>
+            <summary>完整原稿与只读诊断</summary>
+            <pre>{JSON.stringify(artifact.original, null, 2)}</pre>
+          </details>
+        </section>
+      )}
+      {runList.length > 0 && (
+        <section>
+          <h2>私有历史记录 · 与当前草稿独立</h2>
+          <select
+            aria-label="历史运行记录"
+            onChange={(e) => {
+              const id = e.target.value,
+                sequence = ++historySeq.current;
+              setRunView(null);
+              setReplayResult(null);
+              if (id)
+                operation(async () => {
+                  const response = await api("records/get", { id });
+                  if (historySeq.current !== sequence) return;
+                  setRunView(response.document);
+                });
+            }}
+          >
+            <option value="">选择记录</option>
+            {runList.map((r) => (
+              <option key={r.id} value={r.id}>
+                {r.name}
+              </option>
+            ))}
+          </select>
+          {runView && (
+            <>
+              <button onClick={() => download(runView, "run-record.json")}>
+                导出记录
+              </button>
+              <button
+                onClick={() =>
+                  operation(async () => {
+                    const selected = runView;
+                    const x = await api("records/import", {
+                      payload: selected,
+                    });
+                    if (latest.current.runView !== selected) return;
+                    const response = await api("records/replay", { id: x.id });
+                    if (latest.current.runView !== selected) return;
+                    setReplayResult(response);
+                    setMessage("只读回放完成，原记录未改变");
+                  })
+                }
+              >
+                离线只读回放
+              </button>
+              <button
+                disabled={!item || runView.tool !== "evaluate_decision"}
+                onClick={() =>
+                  operation(async () => {
+                    const selected = runView,
+                      submitted = snapshot();
+                    const x = await api("records/import", {
+                      payload: selected,
+                    });
+                    if (
+                      latest.current.runView !== selected ||
+                      !isCurrent(submitted)
+                    )
+                      return;
+                    const response = await api("records/compare", {
+                      id: x.id,
+                      document: submitted.document,
+                      flow: submitted.flow,
+                    });
+                    if (
+                      latest.current.runView !== selected ||
+                      !isCurrent(submitted)
+                    )
+                      return;
+                    setReplayResult(response);
+                    setMessage("新草稿使用历史输入比较；原记录未改变");
+                  })
+                }
+              >
+                与当前草稿比较
+              </button>
+              <pre>{JSON.stringify(runView, null, 2)}</pre>
+              {replayResult && (
+                <pre>{JSON.stringify(replayResult, null, 2)}</pre>
+              )}
+            </>
+          )}
+        </section>
+      )}
       <p role="status" className="status">
         {message}
       </p>
@@ -603,7 +920,9 @@ function App() {
               onClick={() =>
                 operation(async () => {
                   setResult(null);
+                  const submitted = snapshot();
                   await api("validate", { document: item.document });
+                  if (!isCurrent(submitted)) return;
                   setMessage("结构校验通过；不代表部署验证");
                 })
               }
@@ -615,11 +934,13 @@ function App() {
               onClick={() =>
                 operation(async () => {
                   setResult(null);
+                  const submitted = snapshot();
                   const x = await api("evaluate", {
                     document: item.document,
                     flow,
                     parameters: records,
                   });
+                  if (!isCurrent(submitted, true)) return;
                   setResult(x.result);
                   setMessage(
                     x.result.execution_status === "SUCCEEDED"
@@ -628,6 +949,8 @@ function App() {
                           x.result.error?.code ||
                           "未完成",
                   );
+                  if (x.record?.status !== "SAVED")
+                    setMessage("试算完成，但记录未保存：" + x.record?.reason);
                 })
               }
             >
@@ -637,10 +960,13 @@ function App() {
               disabled={busy || dirty}
               onClick={() =>
                 operation(async () => {
+                  const submitted = snapshot();
                   const x = await api("releases/freeze", {
                     id: item.id,
                     revision: item.revision,
                   });
+                  if (!isCurrent(submitted)) return;
+                  setFrozenId(x.id);
                   download(x.document, "frozen-content.json");
                   setMessage("内容版本已冻结；未部署，目标安装与导入 NOT_RUN");
                 })
@@ -648,23 +974,53 @@ function App() {
             >
               冻结内容版本
             </button>
+            <button
+              disabled={!frozenId || dirty}
+              onClick={() =>
+                operation(async () => {
+                  const submitted = snapshot();
+                  const x = await api("releases/templates", {
+                    id: frozenId,
+                    target_version: "1.11.1",
+                  });
+                  if (!isCurrent(submitted)) return;
+                  for (const [name, body] of Object.entries(x.files)) {
+                    const url = URL.createObjectURL(
+                      new Blob([body], { type: "text/yaml" }),
+                    );
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = name;
+                    a.click();
+                    setTimeout(() => URL.revokeObjectURL(url), 1000);
+                  }
+                  setMessage(
+                    "模板已生成 · 目标 Dify 1.11.1 导入 NOT_RUN；并非部署完成",
+                  );
+                })
+              }
+            >
+              生成 Dify 双流程模板
+            </button>
             <button onClick={() => download(item.document, "project.json")}>
               导出草稿
             </button>
           </section>
           <nav>
-            {Object.entries(labels).map(([id, name]) => (
-              <button
-                aria-pressed={flow === id}
-                key={id}
-                onClick={() => {
-                  setFlow(id);
-                  setResult(null);
-                }}
-              >
-                {name}
-              </button>
-            ))}
+            {Object.entries(labels)
+              .filter(([id]) => id in item.document.flows)
+              .map(([id, name]) => (
+                <button
+                  aria-pressed={flow === id}
+                  key={id}
+                  onClick={() => {
+                    setFlow(id);
+                    setResult(null);
+                  }}
+                >
+                  {name}
+                </button>
+              ))}
             <button
               disabled={!history.length}
               onClick={() => {
@@ -672,6 +1028,7 @@ function App() {
                 setItem({ ...item, document: history.at(-1) });
                 setHistory((h) => h.slice(0, -1));
                 setDirty(true);
+                setFrozenId(null);
                 setResult(null);
               }}
             >
@@ -684,6 +1041,7 @@ function App() {
                 setItem({ ...item, document: redo.at(-1) });
                 setRedo((r) => r.slice(0, -1));
                 setDirty(true);
+                setFrozenId(null);
                 setResult(null);
               }}
             >
@@ -696,75 +1054,27 @@ function App() {
             <button onClick={() => setView("flow")}>流程画布</button>
           </nav>
           {view === "table" ? (
-            <Table model={model} change={change} result={result} />
+            <>
+              <FieldEditor model={model} change={change} />
+              <Table model={model} change={change} result={result} />
+            </>
           ) : (
-            <div className="flow">
-              <ReactFlow
-                nodes={[
-                  {
-                    id: "phase",
-                    position: { x: 0, y: 0 },
-                    data: { label: "阶段 · 仅结构展示" },
-                    style: { width: 730, height: 330, background: "#edf3f7" },
-                  },
-                  {
-                    id: "step",
-                    parentId: "phase",
-                    position: { x: 15, y: 45 },
-                    data: { label: "步骤 · 单表技术切片" },
-                    style: { width: 690, height: 265, background: "#fff" },
-                  },
-                  ...[
-                    "输入 START",
-                    "决策 D",
-                    "结果 RESULT",
-                    "未完成 ERROR",
-                  ].map((label, i) => ({
-                    id: String(i),
-                    parentId: "step",
-                    position: item.document.ui[flow]?.[i] || {
-                      x: 25 + Math.min(i, 2) * 220,
-                      y: i === 3 ? 145 : 70,
-                    },
-                    data: { label },
-                  })),
-                ]}
-                edges={[
-                  { id: "e1", source: "0", target: "1", label: "控制" },
-                  {
-                    id: "e2",
-                    source: "1",
-                    target: "2",
-                    label: "ok / 非业务完成证明",
-                  },
-                  {
-                    id: "e3",
-                    source: "1",
-                    target: "3",
-                    label: "blocked / error",
-                  },
-                ]}
-                fitView
-                nodesConnectable={false}
-                onNodeDragStop={(_, node) => {
-                  if (["0", "1", "2", "3"].includes(node.id))
-                    change((_, p) => {
-                      p.ui[flow] ??= {};
-                      p.ui[flow][node.id] = node.position;
-                    });
-                }}
-                onNodeDoubleClick={(_, node) => {
-                  if (node.id === "1") setView("table");
-                }}
-              >
-                <Background />
-                <Controls />
-              </ReactFlow>
-              <p>
-                只读执行结构投影；移动仅保存布局。不执行 Query、WAIT
-                或业务动作。
-              </p>
-            </div>
+            <GraphEditor
+              graph={item.document.graphs?.[flow] || graphs[flow]}
+              layout={item.document.ui[flow]}
+              onChange={(graph) =>
+                change((_, p) => {
+                  p.graphs ??= {};
+                  p.graphs[flow] = graph;
+                })
+              }
+              onLayoutChange={(layout) =>
+                change((_, p) => {
+                  p.ui[flow] = layout;
+                })
+              }
+              onDecisionOpen={() => setView("table")}
+            />
           )}
           <section>
             <h2>人工试算输入</h2>
@@ -801,11 +1111,7 @@ function App() {
                           quality: e.target.value,
                           value:
                             e.target.value === "KNOWN"
-                              ? c.type === "boolean"
-                                ? true
-                                : c.type === "string"
-                                  ? ""
-                                  : 0
+                              ? defaultValue(c.type)
                               : null,
                         })
                       }
@@ -823,12 +1129,41 @@ function App() {
                       ))}
                     </select>
                     {record.quality === "KNOWN" && (
-                      <Value
-                        label={name + "试算值"}
-                        type={c.type}
-                        value={record.value}
-                        onChange={(value) => update({ value })}
-                      />
+                      <>
+                        {" "}
+                        {(c.nullable || record.value === null) && (
+                          <label>
+                            <input
+                              type="checkbox"
+                              aria-label={name + "显式null"}
+                              checked={record.value === null}
+                              onChange={(e) =>
+                                update({
+                                  value: e.target.checked
+                                    ? null
+                                    : defaultValue(c.type),
+                                })
+                              }
+                            />
+                            KNOWN null（显式空值）
+                          </label>
+                        )}
+                        <button
+                          onClick={() =>
+                            update({ value: defaultValue(c.type) })
+                          }
+                        >
+                          显式重置为当前字段类型
+                        </button>
+                        {record.value !== null && (
+                          <Value
+                            label={name + "试算值"}
+                            type={c.type}
+                            value={record.value}
+                            onChange={(value) => update({ value })}
+                          />
+                        )}
+                      </>
                     )}
                   </fieldset>
                 );
@@ -889,9 +1224,8 @@ function App() {
             )}
           </section>
           <p>
-            范围：表格 / 单决策试算 / 事务保存 /
-            内容冻结。完整流程编辑、导入迁移、Dify 模板、记录回放与里程碑 A
-            验收尚未完成。
+            范围：类型表单、无损导入审查、基础图编辑、试算、冻结、模板候选、只读回放。完整多阶段编排、目标安装及里程碑
+            A 验收仍未完成。
           </p>
         </>
       )}
