@@ -1,0 +1,831 @@
+{
+  "scope": "TECHNICAL_SLICE_ONLY_NOT_MILESTONE_A",
+  "source": {
+    "revision": "1.2",
+    "sequence": 4,
+    "blocks": 215,
+    "block_hash_verification": "PASS",
+    "snapshot_sha256": "d6b13f3592a17b9f04df3b2e7449c2f2fab19c680581809369b24d07641da4cd",
+    "wrapper_78228_byte_hash": "NOT_VERIFIED_MESSAGE_TRUNCATED_USED_PAGE_CONNECTOR"
+  },
+  "existing_67_ac_index": "UNCHANGED_SEPARATE",
+  "browser": {
+    "status": "BLOCKED_BEFORE_TEST_BODY",
+    "tests": 4,
+    "reason": "Chromium SUID sandbox misconfigured; no sandbox bypass. Official browser CDN returned 403."
+  },
+  "official_package": "NOT_RUN_FOR_THIS_CANDIDATE",
+  "target_install": "NOT_RUN",
+  "cases": [
+    {
+      "id": "AC01",
+      "phase": "A",
+      "scenario": "空项目进入插件界面",
+      "status": "PARTIAL",
+      "accepted": false,
+      "reason": "Example/open actions exist; blank project and import missing.",
+      "evidence": []
+    },
+    {
+      "id": "AC02",
+      "phase": "A",
+      "scenario": "新建三规则模型并试算",
+      "status": "PARTIAL",
+      "accepted": false,
+      "reason": "Add/edit rules and scalar outputs implemented on existing example; blank model forms missing. Browser blocked.",
+      "evidence": []
+    },
+    {
+      "id": "AC03",
+      "phase": "A",
+      "scenario": "字符串、布尔、数值及嵌套对象编辑",
+      "status": "PARTIAL",
+      "accepted": false,
+      "reason": "Scalar controls implemented; nested object/array/set editing missing.",
+      "evidence": []
+    },
+    {
+      "id": "AC04",
+      "phase": "A",
+      "scenario": "编辑后刷新或异常关闭",
+      "status": "PARTIAL",
+      "accepted": false,
+      "reason": "Transactional saved-draft readback tested; UI refresh/crash tests blocked at browser startup.",
+      "evidence": [
+        "plugin/tests/test_workbench.py",
+        "scripts/compatibility/workbench_stdio.py"
+      ]
+    },
+    {
+      "id": "AC05",
+      "phase": "A",
+      "scenario": "复制规则、排序、撤销重做",
+      "status": "PARTIAL",
+      "accepted": false,
+      "reason": "Rule clone uses independent output template; undo/redo/reorder code exists; browser not executed.",
+      "evidence": []
+    },
+    {
+      "id": "AC06",
+      "phase": "A",
+      "scenario": "诊断包含字段类型错误",
+      "status": "PARTIAL",
+      "accepted": false,
+      "reason": "API/core diagnostics exist; cell navigation and comprehensive Chinese messages missing.",
+      "evidence": []
+    },
+    {
+      "id": "AC07",
+      "phase": "A",
+      "scenario": "无鼠标完成关键任务",
+      "status": "PARTIAL",
+      "accepted": false,
+      "reason": "Native form controls exist; keyboard/accessibility acceptance not executed.",
+      "evidence": []
+    },
+    {
+      "id": "AC08",
+      "phase": "A",
+      "scenario": "导入旧json-table-v1并原样导出",
+      "status": "NOT_IMPLEMENTED",
+      "accepted": false,
+      "reason": "Work required for this product capability; not implemented in the single-table technical slice.",
+      "evidence": []
+    },
+    {
+      "id": "AC09",
+      "phase": "A",
+      "scenario": "导入新版模型和图定义",
+      "status": "NOT_IMPLEMENTED",
+      "accepted": false,
+      "reason": "Work required for this product capability; not implemented in the single-table technical slice.",
+      "evidence": []
+    },
+    {
+      "id": "AC10",
+      "phase": "A",
+      "scenario": "重复键、超限、无效数值、未知协议",
+      "status": "PARTIAL",
+      "accepted": false,
+      "reason": "API rejects duplicate keys and bounded invalid requests; import UI missing.",
+      "evidence": [
+        "plugin/tests/test_workbench.py",
+        "scripts/compatibility/workbench_stdio.py"
+      ]
+    },
+    {
+      "id": "AC11",
+      "phase": "A",
+      "scenario": "FIRST前置UNKNOWN、后置TRUE",
+      "status": "PARTIAL",
+      "accepted": false,
+      "reason": "Inherited FIRST UNKNOWN tests; UI profile import not implemented.",
+      "evidence": []
+    },
+    {
+      "id": "AC12",
+      "phase": "A",
+      "scenario": "FIRST已选择后出现无关UNKNOWN",
+      "status": "PARTIAL",
+      "accepted": false,
+      "reason": "Inherited FIRST trace semantics retained; UI interaction unverified.",
+      "evidence": []
+    },
+    {
+      "id": "AC13",
+      "phase": "A",
+      "scenario": "UNIQUE两行确定满足",
+      "status": "PARTIAL",
+      "accepted": false,
+      "reason": "Inherited UNIQUE conflict semantics retained; browser unverified.",
+      "evidence": []
+    },
+    {
+      "id": "AC14",
+      "phase": "A",
+      "scenario": "UNIQUE有潜在UNKNOWN命中",
+      "status": "PARTIAL",
+      "accepted": false,
+      "reason": "Inherited conservative UNIQUE behavior retained; browser unverified.",
+      "evidence": []
+    },
+    {
+      "id": "AC15",
+      "phase": "A",
+      "scenario": "COLLECT存在相关UNKNOWN",
+      "status": "PARTIAL",
+      "accepted": false,
+      "reason": "Inherited conservative COLLECT behavior retained; browser unverified.",
+      "evidence": []
+    },
+    {
+      "id": "AC16",
+      "phase": "A",
+      "scenario": "新COLLECT模板冲突或跨模板不支持组合",
+      "status": "PARTIAL",
+      "accepted": false,
+      "reason": "Inherited COLLECT conflict reducer retained; full output editor and diagnostic navigation missing.",
+      "evidence": []
+    },
+    {
+      "id": "AC17",
+      "phase": "A",
+      "scenario": "无命中、命中null、技术失败",
+      "status": "PARTIAL",
+      "accepted": false,
+      "reason": "Core outcomes retained; UI null editing and full no-match configuration missing.",
+      "evidence": []
+    },
+    {
+      "id": "AC18",
+      "phase": "A",
+      "scenario": "未提供、KNOWN null、UNKNOWN",
+      "status": "PARTIAL",
+      "accepted": false,
+      "reason": "Quality/missing controls exist; explicit KNOWN null UI missing; API boundaries tested.",
+      "evidence": [
+        "plugin/tests/test_workbench.py",
+        "scripts/compatibility/workbench_stdio.py"
+      ]
+    },
+    {
+      "id": "AC19",
+      "phase": "A",
+      "scenario": "先成功后失败再次试算",
+      "status": "PARTIAL",
+      "accepted": false,
+      "reason": "Endpoint failure output clearing tested; UI clears on edit in code; browser test blocked.",
+      "evidence": [
+        "plugin/tests/test_workbench.py",
+        "scripts/compatibility/workbench_stdio.py"
+      ]
+    },
+    {
+      "id": "AC20",
+      "phase": "A",
+      "scenario": "纯决策试算及离线回放",
+      "status": "PARTIAL",
+      "accepted": false,
+      "reason": "20 actual Endpoint vs Tool evaluations forbid socket connect; historical replay UI missing.",
+      "evidence": [
+        "plugin/tests/test_workbench.py",
+        "scripts/compatibility/workbench_stdio.py"
+      ]
+    },
+    {
+      "id": "AC21",
+      "phase": "A",
+      "scenario": "从表格定位字段来源",
+      "status": "NOT_IMPLEMENTED",
+      "accepted": false,
+      "reason": "Work required for this product capability; not implemented in the single-table technical slice.",
+      "evidence": []
+    },
+    {
+      "id": "AC22",
+      "phase": "A",
+      "scenario": "错误类型、悬空引用、查询DAG环",
+      "status": "NOT_IMPLEMENTED",
+      "accepted": false,
+      "reason": "Work required for this product capability; not implemented in the single-table technical slice.",
+      "evidence": []
+    },
+    {
+      "id": "AC23",
+      "phase": "A",
+      "scenario": "UNKNOWN参数记录映射到value",
+      "status": "PARTIAL",
+      "accepted": false,
+      "reason": "Inherited typed binding engine unchanged; workbench binding forms missing.",
+      "evidence": []
+    },
+    {
+      "id": "AC24",
+      "phase": "A",
+      "scenario": "删除被引用字段或节点",
+      "status": "NOT_IMPLEMENTED",
+      "accepted": false,
+      "reason": "Work required for this product capability; not implemented in the single-table technical slice.",
+      "evidence": []
+    },
+    {
+      "id": "AC25",
+      "phase": "A",
+      "scenario": "技术字段与图布局变更",
+      "status": "PARTIAL",
+      "accepted": false,
+      "reason": "Compiler excludes ui layout from executable bundle; no comprehensive semantic diff screen.",
+      "evidence": []
+    },
+    {
+      "id": "AC26",
+      "phase": "A",
+      "scenario": "导入未支持图结构",
+      "status": "NOT_IMPLEMENTED",
+      "accepted": false,
+      "reason": "Work required for this product capability; not implemented in the single-table technical slice.",
+      "evidence": []
+    },
+    {
+      "id": "AC27",
+      "phase": "A",
+      "scenario": "发布有必需测试失败的草稿",
+      "status": "PARTIAL",
+      "accepted": false,
+      "reason": "Freeze enforces required successful expected cases per flow; negative-case golden tests unsupported.",
+      "evidence": [
+        "plugin/tests/test_workbench.py",
+        "scripts/compatibility/workbench_stdio.py"
+      ]
+    },
+    {
+      "id": "AC28",
+      "phase": "A",
+      "scenario": "同一发布的插件界面与真实SDK执行",
+      "status": "PARTIAL",
+      "accepted": false,
+      "reason": "20 authenticated Endpoint calls compared to actual SDK Tool; target package/install remains untested.",
+      "evidence": [
+        "plugin/tests/test_workbench.py",
+        "scripts/compatibility/workbench_stdio.py"
+      ]
+    },
+    {
+      "id": "AC29",
+      "phase": "A",
+      "scenario": "插件升级后旧五工具调用",
+      "status": "PARTIAL",
+      "accepted": false,
+      "reason": "Existing five Tool sources/contracts unchanged; local regression covers them; target upgrade untested.",
+      "evidence": []
+    },
+    {
+      "id": "AC30",
+      "phase": "A",
+      "scenario": "目标Dify安装及空凭据调用",
+      "status": "TARGET_NOT_RUN",
+      "accepted": false,
+      "reason": "Provider credentials still empty; target Dify version/install not provided.",
+      "evidence": []
+    },
+    {
+      "id": "AC31",
+      "phase": "A",
+      "scenario": "导入生成的单表Dify模板",
+      "status": "NOT_IMPLEMENTED",
+      "accepted": false,
+      "reason": "Work required for this product capability; not implemented in the single-table technical slice.",
+      "evidence": []
+    },
+    {
+      "id": "AC32",
+      "phase": "A",
+      "scenario": "发布定义或依赖摘要被修改",
+      "status": "PARTIAL",
+      "accepted": false,
+      "reason": "Existing RFC8785 definition checking reused; immutable content freeze; not deployed release governance.",
+      "evidence": []
+    },
+    {
+      "id": "AC33",
+      "phase": "A",
+      "scenario": "只导出模板但未目标运行",
+      "status": "PARTIAL",
+      "accepted": false,
+      "reason": "Freeze explicitly CONTENT_TEST_ONLY and target NOT_RUN; Dify templates not generated.",
+      "evidence": []
+    },
+    {
+      "id": "AC34",
+      "phase": "A",
+      "scenario": "导入完整及缺快照的运行记录",
+      "status": "NOT_IMPLEMENTED",
+      "accepted": false,
+      "reason": "Work required for this product capability; not implemented in the single-table technical slice.",
+      "evidence": []
+    },
+    {
+      "id": "AC35",
+      "phase": "A",
+      "scenario": "旧版本输入用新版本回放",
+      "status": "NOT_IMPLEMENTED",
+      "accepted": false,
+      "reason": "Work required for this product capability; not implemented in the single-table technical slice.",
+      "evidence": []
+    },
+    {
+      "id": "AC36",
+      "phase": "A",
+      "scenario": "两个不同领域模型",
+      "status": "PARTIAL",
+      "accepted": false,
+      "reason": "Two SYNTHETIC domain examples pass same unchanged Python core; no custom field creation UI yet.",
+      "evidence": [
+        "plugin/tests/test_workbench.py",
+        "scripts/compatibility/workbench_stdio.py"
+      ]
+    },
+    {
+      "id": "AC37",
+      "phase": "A",
+      "scenario": "插件启用、浏览器刷新及宿主重启",
+      "status": "PARTIAL",
+      "accepted": false,
+      "reason": "Same-package resources and persistent adapter implemented; target mount/routing/restart untested.",
+      "evidence": []
+    },
+    {
+      "id": "AC38",
+      "phase": "A",
+      "scenario": "五名目标用户完成六项任务",
+      "status": "TARGET_NOT_RUN",
+      "accepted": false,
+      "reason": "Target user study not conducted.",
+      "evidence": []
+    },
+    {
+      "id": "AC39",
+      "phase": "A",
+      "scenario": "128规则模型交互与暖启动试算",
+      "status": "TARGET_NOT_RUN",
+      "accepted": false,
+      "reason": "Virtualized rows implemented; target performance measurements not conducted.",
+      "evidence": []
+    },
+    {
+      "id": "AC40",
+      "phase": "B",
+      "scenario": "批量用例、版本差异与引用影响",
+      "status": "NOT_IMPLEMENTED",
+      "accepted": false,
+      "reason": "Work required for this product capability; not implemented in the single-table technical slice.",
+      "evidence": []
+    },
+    {
+      "id": "AC41",
+      "phase": "B",
+      "scenario": "插件、定义、绑定真实回退",
+      "status": "NOT_IMPLEMENTED",
+      "accepted": false,
+      "reason": "Work required for this product capability; not implemented in the single-table technical slice.",
+      "evidence": []
+    },
+    {
+      "id": "AC42",
+      "phase": "B",
+      "scenario": "在线记录服务不可达及重复补传",
+      "status": "NOT_IMPLEMENTED",
+      "accepted": false,
+      "reason": "Work required for this product capability; not implemented in the single-table technical slice.",
+      "evidence": []
+    },
+    {
+      "id": "AC43",
+      "phase": "B",
+      "scenario": "模拟、人工和真实调用混合记录",
+      "status": "PARTIAL",
+      "accepted": false,
+      "reason": "Manual content tests explicitly marked; mixed production record ingestion missing.",
+      "evidence": []
+    },
+    {
+      "id": "AC44",
+      "phase": "C",
+      "scenario": "未配置真实查询连接",
+      "status": "PARTIAL",
+      "accepted": false,
+      "reason": "Existing execute_query fail-closed behavior retained; workbench query nodes not editable.",
+      "evidence": []
+    },
+    {
+      "id": "AC45",
+      "phase": "C",
+      "scenario": "真实接口成功空、分页不全或超时",
+      "status": "NOT_IMPLEMENTED",
+      "accepted": false,
+      "reason": "Work required for this product capability; not implemented in the single-table technical slice.",
+      "evidence": []
+    },
+    {
+      "id": "AC46",
+      "phase": "C",
+      "scenario": "错主体、错租户、过期来源与撤销激活",
+      "status": "PARTIAL",
+      "accepted": false,
+      "reason": "Inherited trusted query boundary retained; workbench only content tests, no production activation.",
+      "evidence": []
+    },
+    {
+      "id": "AC47",
+      "phase": "C",
+      "scenario": "受支持WAIT后服务重启再接事件",
+      "status": "NOT_IMPLEMENTED",
+      "accepted": false,
+      "reason": "Work required for this product capability; not implemented in the single-table technical slice.",
+      "evidence": []
+    },
+    {
+      "id": "AC48",
+      "phase": "C",
+      "scenario": "事件与超时竞争",
+      "status": "NOT_IMPLEMENTED",
+      "accepted": false,
+      "reason": "Work required for this product capability; not implemented in the single-table technical slice.",
+      "evidence": []
+    },
+    {
+      "id": "AC49",
+      "phase": "C",
+      "scenario": "自报已批准或控制意图尝试业务写入",
+      "status": "PARTIAL",
+      "accepted": false,
+      "reason": "Workbench action templates explicitly rejected; no production write support.",
+      "evidence": [
+        "plugin/tests/test_workbench.py",
+        "scripts/compatibility/workbench_stdio.py"
+      ]
+    },
+    {
+      "id": "AC50",
+      "phase": "C",
+      "scenario": "发布日志、导出与记录权限检查",
+      "status": "PARTIAL",
+      "accepted": false,
+      "reason": "Cookie/login isolation tested; individual permissions/audit/export review not implemented.",
+      "evidence": []
+    },
+    {
+      "id": "AC51",
+      "phase": "A",
+      "scenario": "插件界面切换定位和解决",
+      "status": "PARTIAL",
+      "accepted": false,
+      "reason": "Two single-table drafts and layout keys separate; full independent versions/run histories missing.",
+      "evidence": []
+    },
+    {
+      "id": "AC52",
+      "phase": "A",
+      "scenario": "单独启动解决方案",
+      "status": "PARTIAL",
+      "accepted": false,
+      "reason": "SOLVE core invocation independent of LOCATE; complete scene flow/UI input forms missing.",
+      "evidence": []
+    },
+    {
+      "id": "AC53",
+      "phase": "A",
+      "scenario": "显式组合定位与解决",
+      "status": "NOT_IMPLEMENTED",
+      "accepted": false,
+      "reason": "Work required for this product capability; not implemented in the single-table technical slice.",
+      "evidence": []
+    },
+    {
+      "id": "AC54",
+      "phase": "A",
+      "scenario": "两个模板导入目标Dify",
+      "status": "NOT_IMPLEMENTED",
+      "accepted": false,
+      "reason": "Work required for this product capability; not implemented in the single-table technical slice.",
+      "evidence": []
+    },
+    {
+      "id": "AC55",
+      "phase": "A",
+      "scenario": "查看定位和解决的人类可读结果",
+      "status": "PARTIAL",
+      "accepted": false,
+      "reason": "state/data/actions shown with literal reason; full domain result schema/editor missing.",
+      "evidence": []
+    },
+    {
+      "id": "AC56",
+      "phase": "A",
+      "scenario": "阶段折叠、路径定位、节点与表格互跳",
+      "status": "PARTIAL",
+      "accepted": false,
+      "reason": "Display containers and Decision-to-table double click implemented; collapse/path navigation missing.",
+      "evidence": []
+    },
+    {
+      "id": "AC57",
+      "phase": "B",
+      "scenario": "选历史运行后编辑新草稿",
+      "status": "NOT_IMPLEMENTED",
+      "accepted": false,
+      "reason": "Work required for this product capability; not implemented in the single-table technical slice.",
+      "evidence": []
+    },
+    {
+      "id": "AC58",
+      "phase": "B",
+      "scenario": "Dify原生修改导入流程",
+      "status": "NOT_IMPLEMENTED",
+      "accepted": false,
+      "reason": "Work required for this product capability; not implemented in the single-table technical slice.",
+      "evidence": []
+    },
+    {
+      "id": "AC59",
+      "phase": "C",
+      "scenario": "补查循环达到次数或时间预算",
+      "status": "NOT_IMPLEMENTED",
+      "accepted": false,
+      "reason": "Work required for this product capability; not implemented in the single-table technical slice.",
+      "evidence": []
+    },
+    {
+      "id": "AC60",
+      "phase": "D",
+      "scenario": "新profile逻辑组合与旧profile运行",
+      "status": "NOT_IMPLEMENTED",
+      "accepted": false,
+      "reason": "No new expression profile introduced; previous contracts retained. New profile work deferred.",
+      "evidence": []
+    },
+    {
+      "id": "AC61",
+      "phase": "D",
+      "scenario": "精确数值、时区和集合组合",
+      "status": "NOT_IMPLEMENTED",
+      "accepted": false,
+      "reason": "No new numeric/time/set profile introduced.",
+      "evidence": []
+    },
+    {
+      "id": "AC62",
+      "phase": "D",
+      "scenario": "子决策依赖、嵌套并行和分支等待",
+      "status": "PARTIAL",
+      "accepted": false,
+      "reason": "Inherited structured host offline tests retained; workbench subdecision/parallel editing absent.",
+      "evidence": []
+    },
+    {
+      "id": "AC63",
+      "phase": "C",
+      "scenario": "独立API消费者执行同一模型和流程",
+      "status": "PARTIAL",
+      "accepted": false,
+      "reason": "Python core and plugin Endpoint usable without Dify evaluator; complete host flow API missing.",
+      "evidence": []
+    },
+    {
+      "id": "AC64",
+      "phase": "E",
+      "scenario": "动作超时、重入、重复确认与部分成功",
+      "status": "NOT_IMPLEMENTED",
+      "accepted": false,
+      "reason": "Work required for this product capability; not implemented in the single-table technical slice.",
+      "evidence": []
+    },
+    {
+      "id": "AC65",
+      "phase": "E",
+      "scenario": "权限、发布审阅和备份恢复演练",
+      "status": "NOT_IMPLEMENTED",
+      "accepted": false,
+      "reason": "Work required for this product capability; not implemented in the single-table technical slice.",
+      "evidence": []
+    },
+    {
+      "id": "AC66",
+      "phase": "A",
+      "scenario": "编辑 Phase/Step 属性",
+      "status": "PARTIAL",
+      "accepted": false,
+      "reason": "Phase/Step display-only, no execution config; property editing missing.",
+      "evidence": []
+    },
+    {
+      "id": "AC67",
+      "phase": "A",
+      "scenario": "重排容器、折叠与移动节点布局",
+      "status": "PARTIAL",
+      "accepted": false,
+      "reason": "Layout stored separately; reorder/collapse UI missing and browser unavailable.",
+      "evidence": []
+    },
+    {
+      "id": "AC68",
+      "phase": "B",
+      "scenario": "创建跨 Step/Phase 控制边",
+      "status": "NOT_IMPLEMENTED",
+      "accepted": false,
+      "reason": "Work required for this product capability; not implemented in the single-table technical slice.",
+      "evidence": []
+    },
+    {
+      "id": "AC69",
+      "phase": "A",
+      "scenario": "查看 Query/Decision/Gateway/Execute 节点",
+      "status": "PARTIAL",
+      "accepted": false,
+      "reason": "Single Decision/START/END projection only; Query/Gateway/Execute editor missing.",
+      "evidence": []
+    },
+    {
+      "id": "AC70",
+      "phase": "A",
+      "scenario": "编辑布尔、枚举、数字与来源字段",
+      "status": "PARTIAL",
+      "accepted": false,
+      "reason": "Existing scalar fields and qualities editable; schema/enum/source form missing.",
+      "evidence": []
+    },
+    {
+      "id": "AC71",
+      "phase": "A合同，E真实动作",
+      "scenario": "查看 Decision 输出和后续节点",
+      "status": "PARTIAL",
+      "accepted": false,
+      "reason": "state/data/actions separated; actions disabled, Gateway/Execute forms absent.",
+      "evidence": []
+    },
+    {
+      "id": "AC72",
+      "phase": "A",
+      "scenario": "修改规则阈值并试算",
+      "status": "PARTIAL",
+      "accepted": false,
+      "reason": "Draft sent directly to existing evaluator and old result cleared; browser validation blocked.",
+      "evidence": []
+    },
+    {
+      "id": "AC73",
+      "phase": "A",
+      "scenario": "完整决策表与窄屏查看",
+      "status": "PARTIAL",
+      "accepted": false,
+      "reason": "Responsive full-width styles and virtualizer implemented; visual/interactive acceptance not executed.",
+      "evidence": []
+    },
+    {
+      "id": "AC74",
+      "phase": "A",
+      "scenario": "Private source ambiguity and mapping review (details withheld)",
+      "status": "NOT_IMPLEMENTED",
+      "accepted": false,
+      "reason": "Private ambiguous source retained only in private requirements; no public fixture or executable conversion. Import diagnostics missing.",
+      "evidence": []
+    },
+    {
+      "id": "AC75",
+      "phase": "A",
+      "scenario": "Private source ambiguity and mapping review (details withheld)",
+      "status": "NOT_IMPLEMENTED",
+      "accepted": false,
+      "reason": "Private source semantics not converted or published; source/binding editor missing.",
+      "evidence": []
+    },
+    {
+      "id": "AC76",
+      "phase": "A与D",
+      "scenario": "将 OR/NOT 草稿发布到旧 AND profile",
+      "status": "NOT_IMPLEMENTED",
+      "accepted": false,
+      "reason": "No expression rewrite/profile extension; general draft import/support diagnostics missing.",
+      "evidence": []
+    },
+    {
+      "id": "AC77",
+      "phase": "A",
+      "scenario": "difypkg 安装与插件界面访问",
+      "status": "PARTIAL",
+      "accepted": false,
+      "reason": "Real staged SDK serves Endpoint and Tools; target package installation/entry untested.",
+      "evidence": []
+    },
+    {
+      "id": "AC78",
+      "phase": "E",
+      "scenario": "未授权、失败及重复执行动作",
+      "status": "NOT_IMPLEMENTED",
+      "accepted": false,
+      "reason": "Work required for this product capability; not implemented in the single-table technical slice.",
+      "evidence": []
+    },
+    {
+      "id": "AC79",
+      "phase": "C",
+      "scenario": "等待补充输入后恢复原运行",
+      "status": "NOT_IMPLEMENTED",
+      "accepted": false,
+      "reason": "Work required for this product capability; not implemented in the single-table technical slice.",
+      "evidence": []
+    },
+    {
+      "id": "AC80",
+      "phase": "A",
+      "scenario": "原型编辑后查看 Dify 演示",
+      "status": "PARTIAL",
+      "accepted": false,
+      "reason": "No host synchronization or integration success claimed; native Dify demo absent.",
+      "evidence": []
+    },
+    {
+      "id": "AC81",
+      "phase": "A",
+      "scenario": "目标环境安装同包 Tool + Endpoint",
+      "status": "TARGET_NOT_RUN",
+      "accepted": false,
+      "reason": "Actual staged SDK registration/dispatch PASS; target Dify/daemon installation NOT_RUN.",
+      "evidence": []
+    },
+    {
+      "id": "AC82",
+      "phase": "A",
+      "scenario": "业务用户首次从插件入口使用",
+      "status": "PARTIAL",
+      "accepted": false,
+      "reason": "Static UI + authenticated API save/evaluate/freeze implemented; real browser/target entry unavailable; blank project form missing.",
+      "evidence": []
+    },
+    {
+      "id": "AC83",
+      "phase": "A",
+      "scenario": "浏览器篡改工作空间及项目引用",
+      "status": "PARTIAL",
+      "accepted": false,
+      "reason": "Trusted daemon endpoint ID selects admin namespace; forged scope and cross-endpoint IDs rejected in local API tests; target mapping untested.",
+      "evidence": [
+        "plugin/tests/test_workbench.py",
+        "scripts/compatibility/workbench_stdio.py"
+      ]
+    },
+    {
+      "id": "AC84",
+      "phase": "A",
+      "scenario": "Endpoint 试算与 Tool 执行同一冻结定义",
+      "status": "PARTIAL",
+      "accepted": false,
+      "reason": "20 authenticated Endpoint/Tool same-core comparisons cover both domains/flows and quality/type failures; target install/frozen UI run untested.",
+      "evidence": [
+        "plugin/tests/test_workbench.py",
+        "scripts/compatibility/workbench_stdio.py"
+      ]
+    },
+    {
+      "id": "AC85",
+      "phase": "A",
+      "scenario": "升级插件后加载界面与执行旧冻结定义",
+      "status": "PARTIAL",
+      "accepted": false,
+      "reason": "Assets bundled and five tools retained; actual upgrade/old frozen definition UI replay missing.",
+      "evidence": []
+    },
+    {
+      "id": "AC86",
+      "phase": "A",
+      "scenario": "插件/宿主重启与容量边界",
+      "status": "PARTIAL",
+      "accepted": false,
+      "reason": "New Endpoint instances read same database; quota and concurrent revisions tested; target host restart/backup not tested.",
+      "evidence": [
+        "plugin/tests/test_workbench.py",
+        "scripts/compatibility/workbench_stdio.py"
+      ]
+    }
+  ]
+}

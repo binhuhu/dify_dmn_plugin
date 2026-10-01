@@ -17,6 +17,8 @@ resource:
 plugins:
   tools:
   - provider/dmn.yaml
+  endpoints:
+  - endpoints/workbench.yaml
 meta:
   version: 0.0.1
   arch:

@@ -1,0 +1,17 @@
+settings: []
+endpoints:
+  - path: /
+    method: GET
+    extra:
+      python:
+        source: endpoints/workbench.py
+  - path: /<path:route>
+    method: GET
+    extra:
+      python:
+        source: endpoints/workbench.py
+  - path: /<path:route>
+    method: POST
+    extra:
+      python:
+        source: endpoints/workbench.py

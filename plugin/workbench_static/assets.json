@@ -1,0 +1,18 @@
+{
+  "THIRD_PARTY_LICENSES.txt": {
+    "sha256": "8d3562a8c9536b253d47f87754cb5ba5d8e51bd83ad82ee894887f1cc9fa9e86",
+    "content_type": "text/plain; charset=utf-8"
+  },
+  "assets/index-DfMOc-7i.js": {
+    "sha256": "c9c252dc84e9141c590415df9f1b90999838b5f280a816cc0344a80792bfb8e1",
+    "content_type": "text/javascript; charset=utf-8"
+  },
+  "assets/index-my4Xr3AI.css": {
+    "sha256": "217b37ba75f4c2cb9e4283c0f62ee976a2c87684ff1f00a090be2ea1b8385ec6",
+    "content_type": "text/css; charset=utf-8"
+  },
+  "index.html": {
+    "sha256": "cea6b7e99912710e35a357d81b996d45fa645b3ca313ee9f1613cd2ba286b5e6",
+    "content_type": "text/html; charset=utf-8"
+  }
+}
