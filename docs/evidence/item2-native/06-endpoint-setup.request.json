@@ -1,0 +1,12 @@
+{
+  "method": "POST",
+  "path": "/plugin/00000000-0000-4000-8000-000000000002/endpoint/setup",
+  "json": {
+    "plugin_unique_identifier": "hu8627/dmn_json:0.4.0-rc4@c5d2f618a1fa96e48a360b7e733a0c99264c3b9bde1e8af2517ecfc306c56c7b",
+    "user_id": "00000000-0000-4000-8000-000000000003",
+    "name": "SYNTHETIC item2 isolated viewer",
+    "settings": {}
+  },
+  "form": null,
+  "authentication": "ephemeral X-Api-Key REDACTED"
+}

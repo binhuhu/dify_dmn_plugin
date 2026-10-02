@@ -1,0 +1,23 @@
+{
+  "id": "d376bab9-02a6-4321-819a-3408265254d3",
+  "created_at": "2026-10-02T07:07:55.664508Z",
+  "updated_at": "2026-10-02T07:08:08.016654Z",
+  "status": "failed",
+  "tenant_id": "00000000-0000-4000-8000-000000000002",
+  "total_plugins": 1,
+  "completed_plugins": 0,
+  "plugins": [
+    {
+      "plugin_unique_identifier": "hu8627/dmn_json:0.4.0-rc4@c5d2f618a1fa96e48a360b7e733a0c99264c3b9bde1e8af2517ecfc306c56c7b",
+      "labels": {
+        "en_US": "JSON Decision Tools (RC)",
+        "zh_Hans": "JSON \u51b3\u7b56\u5de5\u5177\uff08RC\uff09"
+      },
+      "icon": "f847ac08f896e956894f3eab8870a64a511bb89cd2482eb5d91db5b107d310e7.svg",
+      "icon_dark": "",
+      "plugin_id": "hu8627/dmn_json",
+      "status": "failed",
+      "message": "failed to launch plugin: failed to install dependencies: failed to install dependencies: exit status 1, output: DEBUG uv 0.9.17\nTRACE Checking lock for `/root/.cache/uv` at `/root/.cache/uv/.lock`\nDEBUG Acquired shared lock for `/root/.cache/uv`\nDEBUG Searching for default Python interpreter in virtual environments\nTRACE Querying interpreter executable at /tmp/item2/cwd/hu8627/dmn_json-0.4.0-rc4@c5d2f618a1fa96e48a360b7e733a0c99264c3b9bde1e8af2517ecfc306c56c7b/.venv/bin/python3\nDEBUG Found `cpython-3.12.3-li... failed after 3 retries\n  \u251c\u2500\u25b6 error sending request for url (https://pypi.org/simple/rfc8785/)\n  \u251c\u2500\u25b6 client error (Connect)\n  \u2570\u2500\u25b6 invalid peer certificate: UnknownIssuer\n  help: Consider enabling use of system TLS certificates with the\n        `--native-tls` command-line flag\nDEBUG Released lock at `/tmp/item2/cwd/hu8627/dmn_json-0.4.0-rc4@c5d2f618a1fa96e48a360b7e733a0c99264c3b9bde1e8af2517ecfc306c56c7b/.venv/.lock`\nDEBUG Released lock at `/root/.cache/uv/.lock`\n\nfailed to init environment"
+    }
+  ]
+}

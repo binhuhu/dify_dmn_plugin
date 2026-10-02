@@ -1,0 +1,9 @@
+{
+  "container_removed": true,
+  "container_files_and_database_removed": true,
+  "temporary_auth_file_removed": true,
+  "loopback_endpoint_closed": true,
+  "persistent_signing_keys_created": false,
+  "host_services_modified": false,
+  "original_package_sha256_after_test": "5ba96ab76d88a98bc603417b4584a604fd58dc9de27ad1c3a2de0601128b453b"
+}

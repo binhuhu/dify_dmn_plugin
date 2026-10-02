@@ -1,0 +1,9 @@
+{
+  "method": "POST",
+  "path": "/plugin/00000000-0000-4000-8000-000000000002/management/install/upload/package",
+  "json": null,
+  "form": {
+    "verify_signature": "false"
+  },
+  "authentication": "ephemeral X-Api-Key REDACTED"
+}

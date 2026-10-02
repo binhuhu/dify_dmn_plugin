@@ -1,79 +1,76 @@
-# Item 2 — Endpoint manifest gate and isolated daemon acceptance
+# Item 2 — manifest gate and real daemon acceptance
 
-Base: published `v0.4.0-rc4`, commit `ecfb0a333fde771cb804f4173e4dffee170ced7d`. This change does not modify main, publish another release, install into AgentHub or upgrade central control.
+**PASS for the explicitly authorized isolated development mode only.** No production installation, central-control upgrade, main change, new release or item-3 work was performed. Mandatory-signature mode was not tested.
 
-## Offline gate
+## Offline gate and CI
 
-`scripts/check-manifest-permissions.py` reads manifest YAML or the root `manifest.yaml` inside a `.difypkg` without extracting or executing it. A nonempty `plugins.endpoints` list requires boolean `resource.permission.endpoint.enabled: true`. Missing, false, null, string and numeric values fail; no declared Endpoints needs no Endpoint permission. Invalid endpoint-list structure, duplicate mapping keys, malformed YAML and absent/duplicate root manifests fail closed. This is a targeted permission gate, not a replacement for full daemon manifest validation or signature verification.
+`scripts/check-manifest-permissions.py` accepts manifest YAML or a `.difypkg`. Nonempty `plugins.endpoints` requires boolean `resource.permission.endpoint.enabled: true`; missing/false/null/string/numeric permissions, malformed declarations and duplicate mapping keys fail closed. No declared Endpoint needs no Endpoint permission. It checks the root manifest without extracting or executing the package.
 
-`scripts/check.sh` runs the gate first against builtin and external-plugin manifests, exports `DMN_ENGINE_DIR` for integration tests and uses Python 3. The new GitHub Checks workflow installs the existing pinned plugin dependencies, Python 3.12, Node 24 and test tools, then executes the same script. Full tag history is fetched for the frozen RC3/RC4 regression fixtures.
-
-```sh
-# Activate the plugin development environment first.
-python3 scripts/check-manifest-permissions.py builtin/manifest.yaml plugin/manifest.yaml
-python3 scripts/check-manifest-permissions.py /private/original-rc3.difypkg  # exit 1
-python3 scripts/check-manifest-permissions.py /private/original-rc4.difypkg  # exit 0
-bash scripts/check.sh
-```
-
-Actual original package verification on 2026-10-02:
+The gate runs first in `scripts/check.sh`; `DMN_ENGINE_DIR` enables integration tests. The GitHub Checks workflow executes the same script with Python 3.12 and Node 24 and fetches tags for frozen fixtures. Twenty new positive/negative cases passed. Full regression: **685 Python + 99 Node, 0 skipped**, lint/format passed. [Implementation CI](https://github.com/binhuhu/dify_dmn_plugin/actions/runs/36970019605) succeeded on `8745f10bd6d5c77dc15c00c7df74f2aabbad2a5c`.
 
 | Original package | Bytes | SHA-256 | Gate exit |
 | --- | ---: | --- | ---: |
 | RC3 | 88,888 | `e68c0a66fda9afddaa547183d1247806541174391af34cfd120d4dff600d108f` | 1 (expected denial) |
 | RC4 | 88,896 | `5ba96ab76d88a98bc603417b4584a604fd58dc9de27ad1c3a2de0601128b453b` | 0 |
 
-Twenty positive/negative regression cases cover the frozen tag manifests, package CLI exit codes, required boolean permission and malformed declarations. They are synthetic/package-structure checks, not daemon acceptance.
+## Authorized native run, 2026-10-02
 
-## Real daemon acceptance: ENVIRONMENT_BLOCKED / NOT_RUN
+The user explicitly authorized temporary official-APT dependencies, `FORCE_VERIFYING_SIGNATURE=false` only in the disposable daemon, ephemeral credentials, and cleanup. This runs the **original unsigned RC4 archive**, not a signed/rebuilt derivative. Before/after package hashes match the table above. Native upload returned the exact identifier:
 
-Docker Engine 28.4.0 and Compose v2.40.3 are available; the initial container and image lists were empty. The official image `langgenius/dify-plugin-daemon:0.5.1-local` was successfully pulled:
+`hu8627/dmn_json:0.4.0-rc4@c5d2f618a1fa96e48a360b7e733a0c99264c3b9bde1e8af2517ecfc306c56c7b`
 
-- Registry digest: `sha256:8269050f192e7564b8bf1d51fdfbc430fcb03bc5c0bcdd86fa087bcf2d774ee8`
-- Local image ID: `sha256:d91da9ab03a04d8a46d431f539ed3dc9bff7a1c339a6591e9462eafa3911086d`
+Environment:
 
-Attempts to obtain the two isolated persistence dependencies, `postgres:15-alpine` and `redis:6-alpine`, each failed with the real Docker response:
+- Official `langgenius/dify-plugin-daemon:0.5.1-local`, registry digest `sha256:8269050f192e7564b8bf1d51fdfbc430fcb03bc5c0bcdd86fa087bcf2d774ee8`.
+- Health endpoint reported version `96b51115cb30f008bf4eda7e3787ea27d39c18e2`, build `2025-12-10T10:58:05+0000`, platform `local`.
+- Existing image OS Ubuntu 24.04.3. Official Ubuntu APT installed PostgreSQL/client `16.15-0ubuntu0.24.04.1` and Redis/server tools `5:7.0.15-1ubuntu0.24.04.4` inside the disposable container. Host software/services were unchanged.
+- Dependencies listened on container loopback with temporary authentication. Only daemon TCP 5002 was published, to host `127.0.0.1:15002`. No privileged mode, bind mounts, volumes or Docker-socket mount.
+- No Dify inner API or mock API was deployed. The unused inner-API URL pointed to container loopback port 59999. Empty viewer settings and these local tools completed without a backwards API.
+
+| Stage | Actual result | Evidence |
+| --- | --- | --- |
+| Upload original RC4 | HTTP 200, exact identifier | `01-upload.*` |
+| Install and await completion | task `success`, `completed_plugins: 1` | `04-install-offline.*`, `install-offline-last.json` |
+| Create Endpoint | HTTP 200, native setup `data: true`; readback enabled | `06-endpoint-setup.*`, `07-endpoint-list.response.txt` |
+| Invoke local tool | native SSE `evaluate_json_table`: `SUCCEEDED`, `answer: 42`, matched synthetic rule | `09-tool-invoke.*` |
+| Additional typed tool | native SSE `evaluate_decision`: `SUCCEEDED`, output port `ok` | `11-decision-invoke.*`, `11-decision-result.json` |
+| Actual Endpoint GET | HTTP 200; HTML exactly matches original package; CSP includes `connect-src 'none'` | `10-viewer.http.json` |
+
+These are daemon HTTP/dispatch and its managed plugin runtime results, **not direct SDK simulation**. The tool requests contain only repository public synthetic fixtures. The actual browser was not involved, so this does not claim screenshot or interaction acceptance.
+
+## Failures retained, then resolved
+
+The first native installation failed fetching PyPI dependencies with `UnknownIssuer`. Container system TLS also refused the connection. No insecure-host option, TLS bypass, new CA or mirror was used. The host's existing verified HTTPS connection to official PyPI succeeded, so 42 compatible wheels were downloaded there and hashed, copied into the temporary container, and installed by the native daemon with its supported:
 
 ```text
-Error response from daemon: toomanyrequests: You have reached your unauthenticated pull rate limit. https://www.docker.com/increase-rate-limit
+PIP_EXTRA_ARGS=--no-index --find-links=/tmp/item2/wheels
 ```
 
-No cached dependency images or running DB/Redis instances were available. No registry credentials, proxy settings, permission controls or signature checks were changed, and no alternate registry was used to circumvent the limit. An environment owner must provide authorized registry access, preloaded approved images, or isolated PostgreSQL/Redis services before the daemon can be started.
+The dependency set is recorded by filename/hash in `wheel-sha256.json`; this is not a claim that all transitive dependencies were historically locked. The second native installation succeeded. The initial failure remains in `install-last.json`.
 
-Dependency correction after tracing the native 0.5.1 implementation: Endpoint setup calls `InvokeEncrypt`, but the real implementation returns locally when `EncryptRequired` is false. That predicate requires a secret-input configuration. This viewer has `settings: []`, so its setup does **not** require an HTTP encryption call to Dify. A full Dify API is therefore not established as a mandatory dependency for this narrow empty-settings Endpoint plus local, credential-free tool test. The daemon still requires inner-API URL/key configuration; these fields are not proof of an actual HTTP call. Real host execution has not yet verified the entire path. Do not substitute a mock; any unexpected backwards invocation must fail the test and be recorded.
+The first tool request placed plugin identity in JSON but omitted required `X-Plugin-ID`, resulting in HTTP 400. The corrected native request supplied that documented header and passed. Both request/response pairs are retained (`08-*`, `09-*`). No production or plugin code was changed to obtain success.
 
-The original RC4 archive has no signature/verification entry. Daemon 0.5.1 defaults `FORCE_VERIFYING_SIGNATURE=true` and rejects an unverified package on upload. Even after the DB/Redis gap is resolved, installing these exact unsigned archive bytes under that policy cannot pass. An approved signed artifact/trust configuration is a separate prerequisite; no signature checks will be disabled. If a signed derivative is approved, retain the original, verify all code entries against it, record the new archive hash and actual identifier, and never describe the derivative as byte-identical to the original.
+The earlier Docker Hub anonymous rate limit was not retried or circumvented using another registry. Official APT installation in the already-cached image was the separately authorized deployment method.
 
-System recheck found no `postgres`, `pg_ctl`, `psql` or `redis-server` executable, no installed PostgreSQL/Redis server package, no corresponding process, and no listeners on the standard local service ports. The package database's similarly named optional PostgreSQL entries are `not-installed`, not usable servers. No containers are running. Installing official software or configuring new test credentials/trust needs explicit authorization; neither was done during the dependency investigation.
+## Evidence and cleanup
 
-Minimal continuation options:
+[Machine-readable receipt](item2-install-gate.receipt.json) and [evidence digest inventory](evidence/item2-native/SHA256SUMS) link to sanitized request/response captures, package declaration, install-task result, daemon logs, versions, isolation configuration and cleanup confirmation. Authentication values are omitted; the ephemeral public hook is redacted. The safe config intentionally excludes credential values. No private business handoff or user data is included.
 
-1. Supply approved preloaded `postgres:15-alpine` / `redis:6-alpine` images or isolated authenticated PostgreSQL/Redis services, plus an approved signed RC4 artifact/trust route. Continue with the already downloaded pinned daemon image, a private test network and disposable data directories. No model, vector DB, web UI, worker or production Dify workspace is needed for the proposed narrow local tool path; this remains source-based inference until the real run.
-2. Alternatively authorize official PostgreSQL/Redis software installation and a test-only signing/trust setup explicitly. This introduces software, local service/data directories and a trusted signing key into the isolated test instance; it must not affect system services, production trust, credentials or the retained original artifact. Review concrete versions/configuration before execution.
+The test container and its writable filesystem/database were removed; there were no mounted persistent volumes. The host temporary credential file and wheel staging directory were deleted. A read-only check confirmed the container no longer existed and the loopback health URL was closed. The original RC4 archive still has the exact original SHA-256. No signing key or persistent trust configuration was created.
 
-The executable acceptance sequence remains: hash/check original → verify approved signature policy → start DB/Redis and pinned daemon → upload/install and await completion → create empty-settings Endpoint → dispatch one public synthetic local decision tool → capture response bytes, logs and identities → remove only test resources. Each stage fails closed. No stage has been promoted from NOT_RUN during this investigation.
+## Repeat under the same explicit authorization
 
-Pinned upstream evidence:
+1. Verify the original package hash; use the pinned daemon image above in a disposable container with only a host-loopback port binding.
+2. Install the listed official Ubuntu packages in the container. Suppress service autostart there, initialize a disposable PostgreSQL directory, then start PostgreSQL and password-protected Redis on container loopback. Generate authentication only for this run; do not log it.
+3. Start `/app/main` with the nonsecret fields in `safe-config.json` and temporary credential fields. The signature exception is confined to this instance. Obtain verified official wheels if needed; never disable TLS verification.
+4. Replay the saved upload/install request paths with temporary `X-Api-Key`, await task completion, then replay Endpoint setup and tool dispatch. Dispatch requires `X-Plugin-ID: hu8627/dmn_json`. Assert application status and result, not merely HTTP 200.
+5. Capture sanitized logs/results and version/identity evidence, then remove only the test container/data/credentials and verify closure.
 
-- [0.5.1 encryption short-circuit](https://github.com/langgenius/dify-plugin-daemon/blob/96b51115cb30f008bf4eda7e3787ea27d39c18e2/internal/core/dify_invocation/calldify/http_request.go#L169)
-- [0.5.1 secret-input predicate](https://github.com/langgenius/dify-plugin-daemon/blob/96b51115cb30f008bf4eda7e3787ea27d39c18e2/internal/core/dify_invocation/types.go#L230)
-- [0.5.1 Endpoint setup and encryption call](https://github.com/langgenius/dify-plugin-daemon/blob/96b51115cb30f008bf4eda7e3787ea27d39c18e2/internal/service/setup_endpoint.go)
-- [0.5.1 configuration and required dependencies](https://github.com/langgenius/dify-plugin-daemon/blob/96b51115cb30f008bf4eda7e3787ea27d39c18e2/internal/types/app/config.go)
-- [0.5.1 package verification](https://github.com/langgenius/dify-plugin-daemon/blob/96b51115cb30f008bf4eda7e3787ea27d39c18e2/internal/service/plugin_decoder.go)
-
-| Required real stage | Result | Evidence boundary |
-| --- | --- | --- |
-| Install original RC4 plugin in daemon 0.5.1 | NOT_RUN | Dependency image acquisition blocked before daemon startup |
-| Create Endpoint through daemon setup | NOT_RUN | No running isolated daemon |
-| Invoke a tool through daemon dispatch | NOT_RUN | Installation never started |
-
-Consequently there are no real install/setup/dispatch request results or daemon runtime logs to report. Image-pull logs and local gate/test outputs are retained outside the repository. Earlier SDK tests are not substituted for these three stages. Item 2 remains incomplete until all three succeed in the nonproduction environment.
-
-On resumption, retain image digest/version, original package SHA-256 and identifier, sanitized upload/install responses and asynchronous installation completion, Endpoint setup response and matching daemon logs, plus a synthetic tool invocation/result through daemon dispatch. Stop at the first failed stage. Never try AgentHub production or modify central-control pins.
+The runtime permission fix is validated under this development configuration. It does not establish acceptance under mandatory signature verification, a production Dify/AgentHub deployment, or arbitrary private workflows.
 
 ## Deferred user notes — item 12 only
 
-Recorded without implementation in this item:
+Recorded, not implemented here:
 
 - Upgrade notes should mention removed `UNSUPPORTED_PARALLEL_REGION`.
 - `INTENT_PATH_MISMATCH` / `PATH_ACTION_NOT_SELECTED` are existing codes with added triggering paths.

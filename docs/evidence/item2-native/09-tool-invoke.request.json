@@ -1,0 +1,36 @@
+{
+  "method": "POST",
+  "path": "/plugin/00000000-0000-4000-8000-000000000002/dispatch/tool/invoke",
+  "authentication": "ephemeral X-Api-Key REDACTED",
+  "json": {
+    "user_id": "00000000-0000-4000-8000-000000000003",
+    "plugin_id": "hu8627/dmn_json",
+    "unique_identifier": "hu8627/dmn_json:0.4.0-rc4@c5d2f618a1fa96e48a360b7e733a0c99264c3b9bde1e8af2517ecfc306c56c7b",
+    "data": {
+      "provider": "dmn_json",
+      "tool": "evaluate_json_table",
+      "credentials": {},
+      "tool_parameters": {
+        "table_json": {
+          "format": "json-table-v1",
+          "id": "SYNTHETIC-item2",
+          "version": "1",
+          "hit_policy": "FIRST",
+          "rules": [
+            {
+              "id": "synthetic-ready",
+              "when": [],
+              "output": {
+                "answer": 42
+              }
+            }
+          ]
+        },
+        "inputs_json": {}
+      }
+    }
+  },
+  "headers": {
+    "X-Plugin-ID": "hu8627/dmn_json"
+  }
+}
