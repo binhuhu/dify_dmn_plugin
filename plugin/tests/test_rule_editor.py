@@ -182,6 +182,7 @@ def test_wrong_session_rejected(monkeypatch):
 
 def test_editor_never_calls_network(monkeypatch):
     import socket
+
     import httpx
 
     def forbidden(*args, **kwargs):
@@ -218,3 +219,21 @@ def test_unknown_workspace_profile_and_deep_payload_rejected():
 
 def test_malformed_origin_is_denied_without_exception():
     assert invoke(origin="http://[").status_code == 403
+
+
+@pytest.mark.parametrize("ref", [None, [], "node", 1, {}, {"node_id": "D1"}])
+def test_malformed_node_reference_is_controlled_error(ref):
+    req = request("evaluate")
+    req["node_ref"] = ref
+    response = invoke(req)
+    assert response.status_code == 400
+    assert response.json["error"] == "EDITOR_NODE_REFERENCE_INVALID"
+
+
+def test_freeze_cannot_wrap_another_freeze():
+    frozen = handle(request("freeze"))["frozen"]
+    outer = {**frozen, "document": frozen}
+    assert (
+        invoke({"operation": "validate", "document": outer}).json["error"]
+        == "FREEZE_CONTRACT_INVALID"
+    )

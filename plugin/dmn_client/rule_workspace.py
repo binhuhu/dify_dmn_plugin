@@ -40,6 +40,8 @@ def inspect(document):
             set(document)
             != {"schema_version", "document", "definition_sha256", "content_sha256", "authority"}
             or document["authority"] != "CONTENT_ONLY_NOT_AUTHORIZATION"
+            or not isinstance(document["document"], dict)
+            or document["document"].get("schema_version") != SCHEMA
         ):
             raise ContractError("FREEZE_CONTRACT_INVALID")
         bundle, digest = inspect(document["document"])
@@ -112,6 +114,12 @@ def handle(request):
         }
     if operation == "evaluate":
         ref = request["node_ref"]
+        if (
+            not isinstance(ref, dict)
+            or set(ref) != {"workflow_id", "phase_id", "step_id", "node_id"}
+            or not all(isinstance(v, str) for v in ref.values())
+        ):
+            raise ContractError("EDITOR_NODE_REFERENCE_INVALID")
         _, _, _, node = resolve_node(bundle, ref)
         if node["category"] != "EXECUTION" or node["kind"] != "DECISION":
             raise ContractError("EDITOR_NODE_FORBIDDEN")
