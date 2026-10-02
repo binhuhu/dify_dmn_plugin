@@ -237,3 +237,76 @@ def test_freeze_cannot_wrap_another_freeze():
         invoke({"operation": "validate", "document": outer}).json["error"]
         == "FREEZE_CONTRACT_INVALID"
     )
+
+
+def grouped_request():
+    req = request("evaluate")
+    model = req["document"]["definition_bundle"]["models"]["demo.meeting@1.0.0"]
+    model["profile"] = "service-decision-table-v2"
+    model["parameters"]["order_id"]["enum"] = ["O-100", "O-200"]
+    model["rules"][0]["when"] = [
+        {
+            "any": [
+                {"path": ["parameters", "met_driver", "quality"], "op": "eq", "value": "UNKNOWN"},
+                {
+                    "all": [
+                        {"path": ["parameters", "order_id", "value"], "op": "eq", "value": "O-200"}
+                    ]
+                },
+            ]
+        }
+    ]
+    req["expected_definition_sha256"] = handle(
+        {"operation": "validate", "document": req["document"]}
+    )["definition_sha256"]
+    return req
+
+
+def test_explicit_group_profile_kernel_tool_freeze_roundtrip():
+    req = grouped_request()
+    data = invoke(req).json
+    assert data["result"]["execution_status"] == "SUCCEEDED", data
+    messages = list(EvaluateDecisionTool.from_credentials({})._invoke(data["tool_replay"]))
+    assert messages[0].message.json_object == data["result"]
+    freeze = handle(
+        {
+            "operation": "freeze",
+            "document": req["document"],
+            "expected_definition_sha256": req["expected_definition_sha256"],
+        }
+    )["frozen"]
+    assert freeze["document"] == req["document"]
+    assert (
+        handle({"operation": "validate", "document": freeze})["definition_sha256"]
+        == req["expected_definition_sha256"]
+    )
+    req["parameters"]["order_id"]["value"] = "OUTSIDE_ENUM"
+    assert invoke(req).json["result"]["error"]["code"] == "INPUT_TYPE_MISMATCH"
+
+
+def test_v1_rejects_groups_instead_of_changing_legacy_semantics():
+    req = grouped_request()
+    req["document"]["definition_bundle"]["models"]["demo.meeting@1.0.0"]["profile"] = (
+        "service-decision-table-v1"
+    )
+    assert invoke({"operation": "validate", "document": req["document"]}).status_code == 400
+
+
+def test_group_three_valued_truth_and_budget():
+    from dmn_client.condition_tree import combine
+
+    assert combine(["UNKNOWN", "TRUE"], "any") == "TRUE"
+    assert combine(["UNKNOWN", "FALSE"], "any") == "UNKNOWN"
+    assert combine(["UNKNOWN", "FALSE"], "all") == "FALSE"
+    assert combine(["UNKNOWN", "TRUE"], "all") == "UNKNOWN"
+    req = grouped_request()
+    node = req["document"]["definition_bundle"]["models"]["demo.meeting@1.0.0"]["rules"][0]["when"][
+        0
+    ]
+    for _ in range(10):
+        node["any"] = [{"any": node["any"]}]
+        node = node["any"][0]
+    assert (
+        invoke({"operation": "validate", "document": req["document"]}).json["error"]
+        == "INVALID_MODEL"
+    )

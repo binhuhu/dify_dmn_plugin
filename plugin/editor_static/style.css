@@ -151,3 +151,24 @@ pre {
     gap: 8px;
   }
 }
+
+#rules fieldset {
+  min-width: 240px;
+  border: 1px solid #b4cbc0;
+  margin: 8px 0;
+  border-radius: 8px;
+}
+#rules fieldset label {
+  margin: 6px 0;
+}
+#rules fieldset select,
+#rules fieldset input {
+  max-width: 220px;
+  width: 100%;
+}
+#rules fieldset fieldset {
+  background: #f4f8f5;
+}
+#rules details {
+  margin-top: 12px;
+}

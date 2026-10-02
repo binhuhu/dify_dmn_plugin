@@ -1,6 +1,6 @@
 /* Real browser + real Python Endpoint, synthetic inputs only; sandbox required. */
 const { chromium } = require("@playwright/test");
-const { spawn } = require("node:child_process");
+const { spawn, spawnSync } = require("node:child_process");
 const fs = require("node:fs");
 const assert = require("node:assert/strict");
 (async () => {
@@ -129,6 +129,7 @@ const assert = require("node:assert/strict");
           options.find((o) => o.textContent.includes("P3 / P3.S1 / D1")).value,
       );
     await page.locator("#node").selectOption(selected);
+    await page.locator("#rules details summary").first().click();
     const conditionBefore = await page
       .getByLabel("完整条件 JSON", { exact: true })
       .first()
@@ -241,6 +242,101 @@ const assert = require("node:assert/strict");
     });
     await page.locator("#validate").click();
     await page.locator("#status").filter({ hasText: "定义校验通过" }).waitFor();
+    // Native typed table -> real backend -> freeze -> actual Python Tool replay.
+    const typed = JSON.parse(JSON.stringify(frozen.document.definition_bundle));
+    const typedModel = typed.models["demo.meeting@1.0.0"];
+    typedModel.profile = "service-decision-table-v2";
+    typedModel.parameters.order_id.enum = ["SYNTHETIC", "O-100"];
+    typedModel.parameters.priority_score = {
+      type: "number",
+      record_required: true,
+      nullable: false,
+      allowed_quality: ["KNOWN"],
+    };
+    const typedStep = typed.workflows
+      .find((w) => w.flow_type === "SOLVE")
+      .phases.find((p) => p.phase_id === "P3").steps[0];
+    typedStep.graph.nodes.find(
+      (n) => n.node_id === "D1",
+    ).input_bindings.priority_score = { literal: 0 };
+    await page
+      .locator("#file")
+      .setInputFiles({
+        name: "typed.json",
+        mimeType: "application/json",
+        buffer: Buffer.from(JSON.stringify(typed)),
+      });
+    await page.locator("#node").selectOption(selected);
+    const row = page.locator("#rules tr").first();
+    await row
+      .getByRole("button", { name: "添加 OR 组（v2）", exact: true })
+      .first()
+      .click();
+    await row
+      .getByLabel("条件字段", { exact: true })
+      .nth(1)
+      .selectOption(JSON.stringify(["parameters", "priority_score", "value"]));
+    await row
+      .getByLabel("条件运算符", { exact: true })
+      .nth(1)
+      .selectOption("gt");
+    await row.getByLabel("条件值", { exact: true }).nth(1).fill("5");
+    await row.getByLabel("条件值", { exact: true }).nth(1).press("Tab");
+    const group = row
+      .locator("fieldset")
+      .filter({ has: page.getByLabel("组合关系", { exact: true }) })
+      .first();
+    await group.getByRole("button", { name: "添加条件", exact: true }).click();
+    await row
+      .getByLabel("条件字段", { exact: true })
+      .nth(2)
+      .selectOption(JSON.stringify(["parameters", "order_id", "value"]));
+    await row.getByLabel("条件值", { exact: true }).nth(2).selectOption("1");
+    await group.getByRole("button", { name: "添加条件", exact: true }).click();
+    await row
+      .getByLabel("条件字段", { exact: true })
+      .nth(3)
+      .selectOption(JSON.stringify(["parameters", "met_driver", "value"]));
+    await row.getByLabel("条件值", { exact: true }).nth(3).selectOption("1");
+    await page.getByLabel("priority_score value", { exact: true }).fill("10");
+    await page.getByLabel("order_id value", { exact: true }).fill('"O-100"');
+    const trialResponse = page.waitForResponse(
+      (r) =>
+        r.url().endsWith("/api") &&
+        r.request().postDataJSON()?.operation === "evaluate",
+    );
+    await page.locator("#evaluate").click();
+    const trial = await (await trialResponse).json();
+    await page
+      .locator("#status")
+      .filter({ hasText: "试算 SUCCEEDED" })
+      .waitFor();
+    assert.equal(trial.result.outputs.decision.state, "NEED_USER_INPUT");
+    const freezeDownload = page.waitForEvent("download");
+    await page.locator("#freeze").click();
+    const finalFreeze = JSON.parse(
+      fs.readFileSync(await (await freezeDownload).path(), "utf8"),
+    );
+    assert.deepEqual(
+      finalFreeze.document.definition_bundle,
+      trial.tool_replay.definition_bundle_json,
+    );
+    assert.equal(
+      finalFreeze.document.definition_bundle.models["demo.meeting@1.0.0"]
+        .rules[0].when[1].any[0].value,
+      5,
+    );
+    fs.writeFileSync(
+      "/tmp/editor-native-parity.json",
+      JSON.stringify({ trial, frozen: finalFreeze }),
+    );
+    const parity = spawnSync(
+      process.env.EDITOR_PYTHON || "python3",
+      ["scripts/editor-tool-parity.py", "/tmp/editor-native-parity.json"],
+      { encoding: "utf8" },
+    );
+    assert.equal(parity.status, 0, parity.stderr || parity.stdout);
+    console.log(parity.stdout.trim());
     await page.screenshot({
       path: "/tmp/rule-editor-desktop.png",
       fullPage: true,

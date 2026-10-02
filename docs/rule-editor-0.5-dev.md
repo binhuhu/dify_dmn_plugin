@@ -40,3 +40,11 @@ plugin/.venv/bin/python scripts/editor-preview.py
 Required checks: full existing regression; browser desktop/mobile edit/validate/trial/freeze; typed and provenance errors; local save conflict; malformed imports; unauthorized and cross-origin denial; freeze tampering; retained exits/reentry; packaged SDK Endpoint/Tool exact NodeResult parity. The CI package gate uses official CLI 0.6.10 with its published SHA-256, unpacks the produced archive and exercises its actual SDK process. Browser CI runs real Python Endpoint code and normally sandboxed Chromium on the established macOS runner. SDK/preview acceptance is not native-daemon or production installation acceptance.
 
 This branch is a draft acceptance build. Do not merge or publish it as a production version. Commercial-license PR #4 remains separate.
+
+## Native business conditions milestone
+
+The rule table now selects parameter value/quality fields, legal operators and typed boolean/number/integer/string/enum operands, including typed `in` collections. AND/OR groups can nest. Parameter enums come from the model contract, not guessed values. Unsupported paths, unknown extension fields or operators remain advanced JSON with no native rewrite; rendering itself performs no semantic conversion.
+
+Group use explicitly opts the model into `service-decision-table-v2` (also available via the explicit enable button). The legacy `service-decision-table-v1` profile stays flat AND and rejects groups/enums. V2 adds `{"all":[...]}` and `{"any":[...]}` inside `when`, with an implicit outer AND, maximum depth 8, 64 expression nodes and 32 leaves per rule. AND: FALSE dominates UNKNOWN; OR: TRUE dominates UNKNOWN. The same Python kernel and schema validation apply to Tool and Endpoint. Input enum membership is enforced, and enums must match the declared parameter type. No disjunct is expanded into a separate rule, so UNIQUE/FIRST/COLLECT semantics are not silently changed.
+
+The workspace envelope is still authoring/content metadata, not a replacement execution workflow contract. The v2 table profile is a distinct decision-expression extension. See [pinned daemon identity review and pending host choices](dify-051-editor-identity-review.md). Installed-host enablement is still incomplete; LOCAL_PREVIEW does not satisfy that milestone.

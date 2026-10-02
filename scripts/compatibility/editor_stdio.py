@@ -105,7 +105,13 @@ def run(stage):
         return events[0]["status"], response
 
     try:
-        for asset in ["index.html", "app.js", "style.css", "demo.json"]:
+        for asset in [
+            "index.html",
+            "app.js",
+            "style.css",
+            "conditions.js",
+            "demo.json",
+        ]:
             status, body = endpoint(
                 path="/editor/" + ("" if asset == "index.html" else asset)
             )
@@ -122,11 +128,20 @@ def run(stage):
             == 403
         )
         cases = 0
-        for mode in ["ok", "wrong_type", "known"]:
+        for mode in ["ok", "wrong_type", "known", "groups"]:
             parameters = json.loads(
                 json.dumps(inv["inputs"]["parameter_snapshot"]["parameters"])
             )
-            if mode != "ok":
+            if mode == "groups":
+                model = bundle["models"]["demo.meeting@1.0.0"]
+                model["profile"] = "service-decision-table-v2"
+                model["rules"][0]["when"] = [{"any": model["rules"][0]["when"]}]
+                status, checked = endpoint(
+                    {"operation": "validate", "document": document}
+                )
+                assert status == 200, checked
+                digest = json.loads(checked)["definition_sha256"]
+            if mode in {"wrong_type", "known"}:
                 parameters["met_driver"].update(
                     quality="KNOWN", value="true" if mode == "wrong_type" else False
                 )
@@ -171,7 +186,7 @@ def run(stage):
         print(
             json.dumps(
                 {
-                    "editor_static_assets": 4,
+                    "editor_static_assets": 5,
                     "packaged_endpoint_tool_parity_cases": cases,
                     "freeze_roundtrip": True,
                     "cross_origin_denied": True,

@@ -16,6 +16,7 @@ STATIC = Path(__file__).resolve().parents[1] / "editor_static"
 ASSETS = {
     "index.html": "text/html",
     "app.js": "text/javascript",
+    "conditions.js": "text/javascript",
     "style.css": "text/css",
     "demo.json": "application/json",
 }

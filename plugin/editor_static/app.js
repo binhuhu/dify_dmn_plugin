@@ -282,6 +282,7 @@ function renderModel() {
     }),
   );
   $("policy").value = m.hit_policy;
+  $("model-profile").textContent = m.profile;
   for (const [i, rule] of m.rules.entries()) {
     const row = element("tr"),
       cells = Array.from({ length: 6 }, () => element("td"));
@@ -297,14 +298,49 @@ function renderModel() {
     cells[0].append(
       element("p", "模板引用：" + (rule.output_template_ref ?? "inline")),
     );
-    field(
-      cells[1],
+    const native = element("div");
+    cells[1].append(native);
+    const advanced = element("details");
+    advanced.append(element("summary", "高级条件 JSON（完整原文）"));
+    cells[1].append(advanced);
+    let raw;
+    const drawNative = () => {
+      invalid.delete(native);
+      native.replaceChildren();
+      NativeConditions.render(
+        native,
+        rule.when,
+        m.parameters,
+        (next, groups) => {
+          invalid.delete(native);
+          ensureDraft();
+          rule.when = next;
+          if (groups) m.profile = "service-decision-table-v2";
+          $("model-profile").textContent = m.profile;
+          changed();
+          raw.value = json(next);
+          status(
+            groups
+              ? "已显式升级模型为 service-decision-table-v2；AND/OR 采用三值逻辑，请重新校验"
+              : "业务条件已更新，请重新校验",
+          );
+        },
+        (message) => {
+          invalid.add(native);
+          status(message, true);
+        },
+      );
+    };
+    raw = field(
+      advanced,
       rule.when,
       (v) => {
         rule.when = v;
+        drawNative();
       },
       { label: "完整条件 JSON", parse: true, multiline: true },
     );
+    drawNative();
     const referenced = Object.hasOwn(rule, "output_template_ref"),
       output = referenced
         ? Object.hasOwn(m.result_templates, rule.output_template_ref)
@@ -635,3 +671,13 @@ window.addEventListener("storage", (e) => {
   if (e.key === key)
     status("另一标签页修改了本地草稿；保存前请读取最新版本", true);
 });
+
+$("groups").onclick = () =>
+  run(() => {
+    ensureDraft();
+    if (!model()) return;
+    model().profile = "service-decision-table-v2";
+    changed();
+    renderModel();
+    status("已显式启用 v2 条件树；旧定义和旧 checkpoint 不会迁移");
+  });
