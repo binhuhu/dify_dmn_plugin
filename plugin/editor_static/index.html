@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>业务规则编辑 · 0.5 开发版</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <header>
+      <div>
+        <small>0.5.0-dev · 内容版本，不是业务授权</small>
+        <h1>定位与解决 · 规则编辑</h1>
+      </div>
+      <a href="../">只读结构视图</a>
+    </header>
+    <p class="notice">
+      草稿只保存在当前浏览器，不是服务器版本库。宿主 API
+      默认关闭；只有临时授权的本地预览会接受后端请求。校验、试算和冻结会将当前定义发送到本插件后端；试算仅返回决策结果与意图，不读取业务
+      API，不执行动作。请使用合成数据。
+    </p>
+    <div class="toolbar">
+      <label
+        >导入定义／冻结文件<input id="file" type="file" accept=".json" /></label
+      ><button id="demo">合成示例</button><button id="save">保存本地草稿</button
+      ><button id="restore">读取本地草稿</button
+      ><button id="validate">校验定义</button
+      ><button id="freeze">冻结并下载</button>
+    </div>
+    <div id="status" role="status" aria-live="polite">请选择示例或导入定义</div>
+    <div id="version"></div>
+    <nav>
+      <button data-flow="LOCATE" aria-pressed="true">定位问题 LOCATE</button
+      ><button data-flow="SOLVE" aria-pressed="false">解决方案 SOLVE</button
+      ><label>Phase → Step → 决策 Node<select id="node"></select></label>
+    </nav>
+    <main>
+      <section>
+        <h2>规则表</h2>
+        <div class="toolbar">
+          <label
+            >Hit Policy<select id="policy">
+              <option>UNIQUE</option>
+              <option>FIRST</option>
+            </select></label
+          ><button id="add">添加规则</button>
+        </div>
+        <p>
+          条件和 data/actions 使用完整
+          JSON。引用模板的输出修改会影响同模型内引用该模板的所有规则；模板引用和其他原始字段始终保留。
+        </p>
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>ruleID / 模板引用</th>
+                <th>条件 · 高级 JSON</th>
+                <th>state</th>
+                <th>data · JSON</th>
+                <th>actions · JSON（仅意图）</th>
+                <th>顺序</th>
+              </tr>
+            </thead>
+            <tbody id="rules"></tbody>
+          </table>
+        </div>
+      </section>
+      <section>
+        <h2>参数与纯决策试算</h2>
+        <p>
+          类型、允许质量来自模型；value、quality、source_refs
+          是手动合成输入，不代表来源认证。
+        </p>
+        <label
+          >显式参考时间<input id="as-of" value="2026-10-01T00:00:00Z"
+        /></label>
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>参数 / 类型 / 必填</th>
+                <th>quality</th>
+                <th>value · JSON</th>
+                <th>source_refs · JSON</th>
+              </tr>
+            </thead>
+            <tbody id="parameters"></tbody>
+          </table>
+        </div>
+        <button id="evaluate">纯决策试算</button>
+        <div class="results">
+          <section>
+            <h3>state</h3>
+            <pre id="result-state"></pre>
+          </section>
+          <section>
+            <h3>data</h3>
+            <pre id="result-data"></pre>
+          </section>
+          <section>
+            <h3>actions（未执行）</h3>
+            <pre id="result-actions"></pre>
+          </section>
+        </div>
+        <details>
+          <summary>完整 NodeResult / 诊断 / 内容信任</summary>
+          <pre id="result"></pre>
+        </details>
+      </section>
+      <details>
+        <summary>
+          Phase / Step / Node 契约、exits 与 reentry（完整保留）
+        </summary>
+        <pre id="structure"></pre>
+      </details>
+      <details>
+        <summary>完整定义高级 JSON（无损编辑）</summary>
+        <textarea
+          id="definition"
+          rows="20"
+          aria-label="完整定义 JSON"
+        ></textarea
+        ><button id="apply">应用完整定义</button>
+      </details>
+    </main>
+    <script src="app.js"></script>
+  </body>
+</html>
