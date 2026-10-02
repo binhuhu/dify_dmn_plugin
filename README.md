@@ -1,5 +1,7 @@
 # Dify DMN 插件：显式查询 + 显式决策
 
+本开发分支为 **0.5.0-dev**：同插件新增 `/editor/` 规则表格编辑、内容校验、同内核纯决策试算和冻结下载。后端 API 默认关闭；临时本地预览说明及身份／草稿／冻结边界见 [0.5 开发版契约](docs/rule-editor-0.5-dev.md)。这是独立 Draft PR，不是生产发布；已发布的 RC5 保持不变。
+
 当前预发布候选为 **0.4.0-rc5**：修复单 operation 分页截断误停独立查询、本地导入渲染失败丢图及异步导入竞态，补齐 item2 遗漏日志证据。只读查看器仍为 Phase → 实际 Step → Node，不含编辑、存储或协作。RC4 原包已完成隔离开发模式安装验收，范围见[item2 回执](docs/item2-install-gate.md)；这不代表 RC5 生产安装或强制签名模式验收。中控升级仍由 owner 执行。精确包标识、验收证据与未测范围见 [RC5 发布记录](docs/releases/v0.4.0-rc5.md)。
 
 查看器始于 [v0.4.0-rc3](https://github.com/binhuhu/dify_dmn_plugin/releases/tag/v0.4.0-rc3)：只读 Phase → 实际 Step → Node 查看器，支持目录搜索、分组决策表、定位诊断及本地JSON来源提示。参见[查看器说明](docs/structure-viewer.md)及[RC3发布记录](docs/releases/v0.4.0-rc3.md)。查看器随Endpoint同包提供；本地导入不上传，不执行规则，不注入宿主画布。

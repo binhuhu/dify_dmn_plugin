@@ -178,3 +178,43 @@ def test_host_api_disabled_without_explicit_ephemeral_mode(monkeypatch):
 def test_wrong_session_rejected(monkeypatch):
     monkeypatch.setenv("DMN_EDITOR_PREVIEW_TOKEN", "different-synthetic-editor-token-32-bytes")
     assert invoke().json["error"] == "EDITOR_HOST_AUTH_REQUIRED"
+
+
+def test_editor_never_calls_network(monkeypatch):
+    import socket
+    import httpx
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError("Editor must not call any business/network adapter")
+
+    monkeypatch.setattr(socket.socket, "connect", forbidden)
+    monkeypatch.setattr(httpx.Client, "request", forbidden)
+    assert invoke(request("evaluate")).json["result"]["execution_status"] == "SUCCEEDED"
+
+
+def test_non_authoritative_parent_and_frozen_content_are_preserved():
+    req = request("freeze")
+    first = handle(req)["frozen"]
+    req["document"]["revision"] += 1
+    req["document"]["parent_definition_sha256"] = first["definition_sha256"]
+    second = handle(req)["frozen"]
+    assert second["definition_sha256"] == first["definition_sha256"]
+    assert second["content_sha256"] != first["content_sha256"]
+    assert second["authority"] == "CONTENT_ONLY_NOT_AUTHORIZATION"
+
+
+def test_unknown_workspace_profile_and_deep_payload_rejected():
+    req = request()
+    req["document"]["container_profile"] = "arbitrary-execution"
+    assert invoke(req).json["error"] == "WORKSPACE_CONTRACT_INVALID"
+    req = request()
+    value = {}
+    req["document"]["extra"] = value
+    for _ in range(45):
+        value["nested"] = {}
+        value = value["nested"]
+    assert invoke(req).json["error"] == "WORKSPACE_BUDGET_EXCEEDED"
+
+
+def test_malformed_origin_is_denied_without_exception():
+    assert invoke(origin="http://[").status_code == 403

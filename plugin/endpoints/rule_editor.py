@@ -38,9 +38,14 @@ class RuleEditorEndpoint(Endpoint):
             permitted = (
                 os.environ.get("DMN_EDITOR_MODE") == "LOCAL_PREVIEW"
                 and len(token) >= 32
-                and hmac.compare_digest(token, r.headers.get("X-Editor-Session", ""))
+                and hmac.compare_digest(
+                    token.encode(), r.headers.get("X-Editor-Session", "").encode()
+                )
             )
-            origin = urlsplit(r.headers.get("Origin", ""))
+            try:
+                origin = urlsplit(r.headers.get("Origin", ""))
+            except ValueError:
+                origin = urlsplit("")
             target = urlsplit(r.url)
             if not permitted:
                 response = reply({"error": "EDITOR_HOST_AUTH_REQUIRED"}, 403)

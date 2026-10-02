@@ -159,7 +159,7 @@ def test_manifest_matches_official_cli_0610_version_format():
     assert re.fullmatch(pattern, manifest["version"], flags=re.ASCII)
     assert manifest["version"] == "0.5.0-dev"
     assert not re.fullmatch(pattern, "0.4.0-rc.1", flags=re.ASCII)
-    assert "RC" in manifest["label"]["en_US"]
+    assert "DEV" in manifest["label"]["en_US"]
 
 
 def test_sdk_reused_snapshot_without_trusted_host_is_blocked():

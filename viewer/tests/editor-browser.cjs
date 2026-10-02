@@ -68,6 +68,20 @@ const assert = require("node:assert/strict");
     await second.locator("#status").filter({ hasText: "其他标签页" }).waitFor();
     await second.locator("#restore").click();
     await second.locator("#status").filter({ hasText: "已读取" }).waitFor();
+    const savedDraft = await page.evaluate(() =>
+      Object.values(localStorage).join("\n"),
+    );
+    assert.ok(
+      !savedDraft.includes(
+        new URLSearchParams(new URL(url).hash.slice(1)).get("session"),
+      ),
+    );
+    assert.ok(!savedDraft.includes("synthetic:editor-manual"));
+    const denied = await page.request.post(new URL("api", url).href, {
+      headers: { Origin: new URL(url).origin },
+      data: { operation: "validate" },
+    });
+    assert.equal(denied.status(), 403);
     const original = JSON.parse(await page.locator("#definition").inputValue());
     await page
       .getByLabel("state", { exact: true })
@@ -100,13 +114,11 @@ const assert = require("node:assert/strict");
       frozen.document.definition_bundle.workflows,
       original.workflows,
     );
-    await page
-      .locator("#file")
-      .setInputFiles({
-        name: "frozen.json",
-        mimeType: "application/json",
-        buffer: Buffer.from(JSON.stringify(frozen)),
-      });
+    await page.locator("#file").setInputFiles({
+      name: "frozen.json",
+      mimeType: "application/json",
+      buffer: Buffer.from(JSON.stringify(frozen)),
+    });
     await page.locator("#validate").click();
     await page.locator("#status").filter({ hasText: "定义校验通过" }).waitFor();
     await page.locator('[data-flow="SOLVE"]').click();
@@ -147,15 +159,69 @@ const assert = require("node:assert/strict");
     const before = await page.locator("#definition").inputValue();
     const invalid = JSON.parse(before);
     invalid.workflows[0].phases[0].name = { toString: 1, valueOf: 1 };
+    await page.locator("#file").setInputFiles({
+      name: "bad.json",
+      mimeType: "application/json",
+      buffer: Buffer.from(JSON.stringify(invalid)),
+    });
+    await page.locator("#status.error").waitFor();
+    assert.equal(await page.locator("#definition").inputValue(), before);
+    // Inject a synchronous render failure; original document and UI must survive.
+    const rollback = await page.evaluate(async () => {
+      const input = document.getElementById("file");
+      const definition = document.getElementById("definition").value;
+      const first = document.querySelector("#rules tr");
+      const original = document.createElement.bind(document);
+      let failed = false;
+      document.createElement = (tag, ...args) => {
+        if (tag === "option" && !failed) {
+          failed = true;
+          throw Error("synthetic render failure");
+        }
+        return original(tag, ...args);
+      };
+      const transfer = new DataTransfer();
+      transfer.items.add(
+        new File([definition], "render-fail.json", {
+          type: "application/json",
+        }),
+      );
+      input.files = transfer.files;
+      try {
+        await input.onchange();
+      } finally {
+        document.createElement = original;
+      }
+      return (
+        failed &&
+        document.querySelector("#rules tr") === first &&
+        document.getElementById("definition").value === definition
+      );
+    });
+    assert.ok(rollback);
     await page
       .locator("#file")
       .setInputFiles({
-        name: "bad.json",
+        name: "tampered-freeze.json",
         mimeType: "application/json",
-        buffer: Buffer.from(JSON.stringify(invalid)),
+        buffer: Buffer.from(
+          JSON.stringify({ ...frozen, content_sha256: "0".repeat(64) }),
+        ),
       });
-    await page.locator("#status.error").waitFor();
-    assert.equal(await page.locator("#definition").inputValue(), before);
+    await page.locator("#validate").click();
+    await page
+      .locator("#status")
+      .filter({ hasText: "FREEZE_DIGEST_MISMATCH" })
+      .waitFor();
+    await page
+      .locator("#file")
+      .setInputFiles({
+        name: "verified-freeze.json",
+        mimeType: "application/json",
+        buffer: Buffer.from(JSON.stringify(frozen)),
+      });
+    await page.locator("#validate").click();
+    await page.locator("#status").filter({ hasText: "定义校验通过" }).waitFor();
     await page.screenshot({
       path: "/tmp/rule-editor-desktop.png",
       fullPage: true,
