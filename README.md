@@ -1,8 +1,8 @@
 # Dify DMN 插件：显式查询 + 显式决策
 
-当前预发布候选为 **0.4.0-rc4**：补齐只读查看器 Endpoint 注册权限；工具/provider及合同保持不变。已核验的五类冻结调用在rc1与rc4上完整NodeResult逐字节一致。升级影响与新增诊断见[RC4升级说明](docs/rc4-upgrade-impact.md)，精确包标识见[RC4发布记录](docs/releases/v0.4.0-rc4.md)。宿主安装验收仍未完成；中控升级由owner执行。
+当前预发布候选为 **0.4.0-rc5**：修复单 operation 分页截断误停独立查询、本地导入渲染失败丢图及异步导入竞态，补齐 item2 遗漏日志证据。只读查看器仍为 Phase → 实际 Step → Node，不含编辑、存储或协作。RC4 原包已完成隔离开发模式安装验收，范围见[item2 回执](docs/item2-install-gate.md)；这不代表 RC5 生产安装或强制签名模式验收。中控升级仍由 owner 执行。
 
-上一公开预发布为 [v0.4.0-rc3](https://github.com/binhuhu/dify_dmn_plugin/releases/tag/v0.4.0-rc3)：只读 Phase → 实际 Step → Node 查看器，支持目录搜索、分组决策表、定位诊断及本地JSON来源提示。参见[查看器说明](docs/structure-viewer.md)及[RC3发布记录](docs/releases/v0.4.0-rc3.md)。查看器随Endpoint同包提供；本地导入不上传，不执行规则，不注入宿主画布。
+查看器始于 [v0.4.0-rc3](https://github.com/binhuhu/dify_dmn_plugin/releases/tag/v0.4.0-rc3)：只读 Phase → 实际 Step → Node 查看器，支持目录搜索、分组决策表、定位诊断及本地JSON来源提示。参见[查看器说明](docs/structure-viewer.md)及[RC3发布记录](docs/releases/v0.4.0-rc3.md)。查看器随Endpoint同包提供；本地导入不上传，不执行规则，不注入宿主画布。
 
 此前新增免 Key 的 [内置 JSON 三工具 0.3.0](builtin/README.md)：决策、SYNTHETIC 查询、JSON 阶段计划均在 Python 插件进程内执行，无需外部决策服务。完整合同和转换边界见 [0.3.0 文档](docs/builtin-0.3.0.md)。为兼容 Dify 1.11.1 的提供商授权限制，使用独立身份 `hu8627/dmn_json`，保留已安装的原外部插件和其他插件。原路径如下。
 
@@ -22,7 +22,7 @@ Java-free 候选原型。Dify Python 插件薄封装 → Node.js 执行服务 �
 
 ## 0.2.0 历史内置候选交付
 
-- 0.2.0 当时仅注册 `evaluate_json_table`；当前 `builtin/manifest.yaml` 为 0.4.0-rc4 五工具及只读 Endpoint 候选。旧 XML/FEEL 三工具及其授权保持兼容。
+- 0.2.0 当时仅注册 `evaluate_json_table`；当前 `builtin/manifest.yaml` 为 0.4.0-rc5 五工具及只读 Endpoint 候选。旧 XML/FEEL 三工具及其授权保持兼容。
 - 0.2.0 当时只准备了 staging 目录；后续 RC 的打包与发布状态以对应发布记录为准。旧 v0.1.0 Release 保持不动。
 - 免凭据 SDK 注册/校验/调用已验证；新包的目标 UI 安装和真实业务调用未验证。见 [0.2.0 验收记录](docs/builtin-0.2.0.md)。
 
