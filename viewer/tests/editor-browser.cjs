@@ -129,6 +129,29 @@ const assert = require("node:assert/strict");
           options.find((o) => o.textContent.includes("P3 / P3.S1 / D1")).value,
       );
     await page.locator("#node").selectOption(selected);
+    const conditionBefore = await page
+      .getByLabel("完整条件 JSON", { exact: true })
+      .first()
+      .inputValue();
+    await page.getByLabel("完整条件 JSON", { exact: true }).first().fill("[");
+    await page
+      .getByLabel("met_driver quality", { exact: true })
+      .selectOption("KNOWN");
+    assert.equal(
+      await page.getByLabel("met_driver quality", { exact: true }).inputValue(),
+      "UNKNOWN",
+    );
+    assert.equal(
+      await page
+        .getByLabel("完整条件 JSON", { exact: true })
+        .first()
+        .inputValue(),
+      "[",
+    );
+    await page
+      .getByLabel("完整条件 JSON", { exact: true })
+      .first()
+      .fill(conditionBefore);
     await page.locator("#evaluate").click();
     await page
       .locator("#status")
@@ -199,27 +222,23 @@ const assert = require("node:assert/strict");
       );
     });
     assert.ok(rollback);
-    await page
-      .locator("#file")
-      .setInputFiles({
-        name: "tampered-freeze.json",
-        mimeType: "application/json",
-        buffer: Buffer.from(
-          JSON.stringify({ ...frozen, content_sha256: "0".repeat(64) }),
-        ),
-      });
+    await page.locator("#file").setInputFiles({
+      name: "tampered-freeze.json",
+      mimeType: "application/json",
+      buffer: Buffer.from(
+        JSON.stringify({ ...frozen, content_sha256: "0".repeat(64) }),
+      ),
+    });
     await page.locator("#validate").click();
     await page
       .locator("#status")
       .filter({ hasText: "FREEZE_DIGEST_MISMATCH" })
       .waitFor();
-    await page
-      .locator("#file")
-      .setInputFiles({
-        name: "verified-freeze.json",
-        mimeType: "application/json",
-        buffer: Buffer.from(JSON.stringify(frozen)),
-      });
+    await page.locator("#file").setInputFiles({
+      name: "verified-freeze.json",
+      mimeType: "application/json",
+      buffer: Buffer.from(JSON.stringify(frozen)),
+    });
     await page.locator("#validate").click();
     await page.locator("#status").filter({ hasText: "定义校验通过" }).waitFor();
     await page.screenshot({

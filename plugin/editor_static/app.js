@@ -392,10 +392,16 @@ function renderModel() {
     });
     select.value = record.quality;
     select.onchange = () => {
-      record.quality = select.value;
-      if (record.quality !== "KNOWN") record.value = null;
-      generation++;
-      renderModel();
+      try {
+        ensureDraft();
+        record.quality = select.value;
+        if (record.quality !== "KNOWN") record.value = null;
+        generation++;
+        renderModel();
+      } catch (error) {
+        select.value = record.quality;
+        status(error.message, true);
+      }
     };
     cells[1].append(select);
     field(
@@ -587,13 +593,17 @@ $("policy").onchange = () =>
     model().hit_policy = $("policy").value;
     changed();
   });
-$("node").onchange = () =>
-  run(() => {
+$("node").onchange = () => {
+  try {
     ensureDraft();
     chosen = nodes[Number($("node").value)];
     generation++;
     renderModel();
-  });
+  } catch (error) {
+    $("node").value = String(nodes.indexOf(chosen));
+    status(error.message, true);
+  }
+};
 $("add").onclick = () =>
   run(() => {
     ensureDraft();
