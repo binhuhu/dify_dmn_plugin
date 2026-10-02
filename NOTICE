@@ -1,0 +1,27 @@
+Dify DMN Plugin
+Copyright (c) 2026 Brian Hu, for the original project material he owns.
+Other authors and third-party components retain their respective rights.
+
+Project material in this revision, except separately identified third-party
+material, is offered under GNU Affero General Public License version 3 only
+(SPDX-License-Identifier: AGPL-3.0-only). See LICENSE for the complete terms.
+The project includes Python plugins, the Node engine, viewer, adapters,
+examples, tests, build scripts and documentation, unless otherwise marked.
+
+Brian Hu is the designated commercial licensor. A separate signed commercial
+agreement can grant different terms only for rights Brian Hu owns or is
+authorized to license. See COMMERCIAL-LICENSE.md. This notice is not itself
+a commercial license, a contributor agreement, or proof of title clearance.
+
+Third-party dependencies keep their original licenses and notices; they are
+not relicensed by this project's dual-license policy. See THIRD_PARTY_NOTICES.md
+and third_party/ for the scope and limitations of the dependency snapshot.
+Project names and third-party names do not imply endorsement or certification.
+
+This declaration applies to revisions carrying it. It does not change the
+files, hashes, release records or license declarations of historical artifacts.
+In particular, earlier releases without a license declaration must not be
+described as having shipped under AGPL or a commercial license retroactively.
+
+Under the AGPL option, this software is provided without warranty; see LICENSE.
+Commercial warranties and support exist only if expressly agreed in writing.

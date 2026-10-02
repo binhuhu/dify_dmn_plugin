@@ -2,6 +2,17 @@
 name = "dify-dmn-plugin"
 version = "0.1.0"
 description = "A strict Dify tool client for a separately deployed DMN/FEEL engine"
+license = "AGPL-3.0-only"
+license-files = [
+    "LICENSE",
+    "NOTICE",
+    "COMMERCIAL-LICENSE.md",
+    "THIRD_PARTY_NOTICES.md",
+    "third_party/python/NOTICES.txt",
+    "third_party/python/inventory.json",
+    "third_party/python/supplements.json",
+    "third_party/python/supplements/**/*",
+]
 requires-python = ">=3.12,<3.13"
 dependencies = [
     "dify-plugin==0.10.2",

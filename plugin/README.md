@@ -1,5 +1,11 @@
 # DMN Decision Engine: Dify tool plugin
 
+This revision is offered under [AGPL-3.0-only](LICENSE), with a separate
+[commercial licensing option from Brian Hu](COMMERCIAL-LICENSE.md). Compliant
+commercial use under AGPL does not require payment. Dependencies retain their
+own terms; see [third-party notices](THIRD_PARTY_NOTICES.md). Historical packages
+retain their original files and licensing records.
+
 This directory is the Python 3.12 Dify tool plugin. The separately deployed engine is Node.js. There is no Java runtime and no embedded or handwritten FEEL evaluator in this plugin.
 
 ## Installation boundary

@@ -1,5 +1,7 @@
 # Dify DMN 插件：显式查询 + 显式决策
 
+本修订采用 **[AGPL-3.0-only](LICENSE)＋[商业双许可](COMMERCIAL-LICENSE.md)**，商业授权主体为 **Brian Hu**。遵守 AGPL 的商业使用无需付费；需要不同条款的闭源衍生/集成可申请单独商业授权。第三方依赖保留原许可，历史发行材料不回写。商业权利链与目标平台依赖核验仍待完成，详见[商业化准备](docs/commercial/README.md)及[第三方说明](THIRD_PARTY_NOTICES.md)。
+
 当前预发布候选为 **0.4.0-rc5**：修复单 operation 分页截断误停独立查询、本地导入渲染失败丢图及异步导入竞态，补齐 item2 遗漏日志证据。只读查看器仍为 Phase → 实际 Step → Node，不含编辑、存储或协作。RC4 原包已完成隔离开发模式安装验收，范围见[item2 回执](docs/item2-install-gate.md)；这不代表 RC5 生产安装或强制签名模式验收。中控升级仍由 owner 执行。精确包标识、验收证据与未测范围见 [RC5 发布记录](docs/releases/v0.4.0-rc5.md)。
 
 查看器始于 [v0.4.0-rc3](https://github.com/binhuhu/dify_dmn_plugin/releases/tag/v0.4.0-rc3)：只读 Phase → 实际 Step → Node 查看器，支持目录搜索、分组决策表、定位诊断及本地JSON来源提示。参见[查看器说明](docs/structure-viewer.md)及[RC3发布记录](docs/releases/v0.4.0-rc3.md)。查看器随Endpoint同包提供；本地导入不上传，不执行规则，不注入宿主画布。
