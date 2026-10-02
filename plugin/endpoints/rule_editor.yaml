@@ -1,0 +1,17 @@
+settings: []
+endpoints:
+  - path: /editor/
+    method: GET
+    extra:
+      python:
+        source: endpoints/rule_editor.py
+  - path: /editor/<asset>
+    method: GET
+    extra:
+      python:
+        source: endpoints/rule_editor.py
+  - path: /editor/api
+    method: POST
+    extra:
+      python:
+        source: endpoints/rule_editor.py

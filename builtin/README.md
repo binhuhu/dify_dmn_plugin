@@ -1,4 +1,4 @@
-# 内置 JSON 五工具 0.4.0-rc5
+# 内置 JSON 五工具 0.5.0-dev
 
 这是同一仓库的独立免凭据安装包 `hu8627/dmn_json`。原有 `hu8627/dmn` 外部 XML 插件和其他已安装插件保留，不卸载、不替换。新建“内置 JSON 决策表 / evaluate_json_table”节点无需 Key、引擎地址或外部服务。现有外部工具仍通过原插件配置 Node 服务，未配置时返回 INVALID_CONFIGURATION。两个包的模型格式和语义不能互换。
 
@@ -36,10 +36,14 @@ AND 中 FALSE 优先于 UNKNOWN。FIRST 的已选规则之前存在 UNKNOWN 或 
 
 ## 构建与验收
 
-从仓库根目录运行 `python scripts/stage-builtin.py /tmp/dmn-json-0.4.0-rc5`，然后用已安装的官方 Dify CLI：`dify plugin package /tmp/dmn-json-0.4.0-rc5 -o hu8627-dmn_json-0.4.0-rc5.difypkg`。没有 CLI 时 staging 目录不是安装包，不用普通 zip 冒充 difypkg。不重试已拒绝的下载/API，不修改旧 Release。包未签名，遵循平台签名策略。
+从仓库根目录运行 `python scripts/stage-builtin.py /tmp/dmn-json-0.5.0-dev`，然后用已安装的官方 Dify CLI：`dify plugin package /tmp/dmn-json-0.5.0-dev -o hu8627-dmn_json-0.5.0-dev.difypkg`。没有 CLI 时 staging 目录不是安装包，不用普通 zip 冒充 difypkg。不重试已拒绝的下载/API，不修改旧 Release。包未签名，遵循平台签名策略。
 
 依赖沿用仓库固定 requirements.txt；首次安装仍需要平台正常解析 Python 依赖。免 Key/无外部决策服务指工具调用路径，不是离线安装保证。目标 UI 安装与真实调用仍需验收。
 
 ## 只读结构展示（RC2）
 
 附带定位／解决 Phase → Step → Node 只读结构页，通过插件 Endpoint 打开；本地 JSON 仅在浏览器内存读取。无工作台、编辑、服务端存储或规则执行。真实 API、目标宿主安装及浏览器视觉验收尚未完成。
+
+## 0.5 开发版编辑入口
+
+同包 `/editor/` 提供 LOCATE/SOLVE 规则表、定义校验、同内核纯决策试算和内容冻结下载。草稿只在当前浏览器显式保存。JSON API 默认拒绝访问；临时 loopback 预览由 `scripts/editor-preview.py` 创建进程级会话，不创建长期密钥。正式宿主身份接入尚未实现，不能公开启用开发会话。冻结不是签名或业务授权，actions 不执行，Query/Action 不开放。原 `/` 仍为只读结构视图。此包仅供开发验收，不代表 native daemon 或生产安装通过。

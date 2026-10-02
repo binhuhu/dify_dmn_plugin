@@ -1,15 +1,15 @@
-version: 0.4.0-rc5
+version: 0.5.0-dev
 type: plugin
 author: hu8627
 name: dmn_json
 label:
-  en_US: JSON Decision Tools (RC)
-  zh_Hans: JSON 决策工具（RC）
+  en_US: JSON Decision Tools (DEV)
+  zh_Hans: JSON 决策工具（开发版）
 description:
   en_US: >-
     Local typed decisions and trusted query adapters; legacy SYNTHETIC demos.
-    RC: target host and production API acceptance pending.
-  zh_Hans: 类型化节点决策与受控查询适配；保留旧工具。RC，目标宿主与真实API待验收。
+    DEV: local rule editor; host identity integration and production acceptance pending.
+  zh_Hans: 类型化节点决策与受控查询适配；保留旧工具。开发版，本地规则编辑；宿主身份接入与生产验收未完成。
 icon: icon.svg
 resource:
   memory: 268435456
@@ -20,6 +20,7 @@ plugins:
   tools:
   - provider/dmn.yaml
   endpoints:
+  - endpoints/rule_editor.yaml
   - endpoints/structure_viewer.yaml
 meta:
   version: 0.0.1
