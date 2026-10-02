@@ -38,12 +38,12 @@ CLI 使用官方 darwin-arm64 资产，其 SHA-256 与 GitHub Release 的 digest
 
 | 第二轮审查包 | 大小 / 文件数 | SHA-256 | Dify checksum |
 | --- | --- | --- | --- |
-| `external-xml-license-review.difypkg` | 164,865 bytes / 61 | `367f56acf3db338e90ee67e19fcdd42d3a289170555d6190267e900328e69f4f` | `30c8e75d6300e816499372b07349c4e95e1a77dcbb369dd5e8a761b03fe5aaf9` |
-| `builtin-json-license-review.difypkg` | 133,368 bytes / 60 | `c8fc1e01e6e85a77a82c45a87a40a884bb340a06118942a8086854690fb88ce4` | `786a883aa4d059510af8bfbaaeda83c2f4446dc6b82a4abdbba35e6ecf59ae61` |
+| `external-xml-license-review.difypkg` | 164,876 bytes / 61 | `9e8b30478213b8497d8a050c41075718e7a717073c68031730ac44335e944958` | `b16959990ed47941c46460f36b6494b7703a4768501dc4edc49b3795dfc57c11` |
+| `builtin-json-license-review.difypkg` | 133,376 bytes / 60 | `39c5a36323b712711cb893e67c437889901a384e79344959cfcad72b41c2ea93` | `e5de63f3619b3e7f2452b04c3e4806e865d9a641c1bb400109e85f71a3ce6575` |
 
-包与解包证据位于本地 `dist/licensing-review/rc5-source/`。上游原文保留其原有空白；`.gitattributes` 对这些文件关闭空白风格告警，原始字节由 hash 检查约束，其余变更通过 `git diff --check`。
+包与解包证据位于本地 `dist/licensing-review/completed-checks/`。上游原文保留其原有空白；`.gitattributes` 对这些文件关闭空白风格告警，原始字节由 hash 检查约束，其余变更通过 `git diff --check`。
 
-最终 arm64 运行镜像：`sha256:549b5c4eb17c2f8a4c348b72e6dff1fbc65b6ce23f7b9cf78d49c80dc064c508`，Node v24.19.0，UID 10001。17 个生产依赖与锁定版本一致；最终文件系统无 npm/Yarn/Corepack，且未继承原构建镜像层。6 份应用法律材料 hash 与源码一致，88 个 Debian 包版权文件和 Node 组合许可保留。无外部容器网络、只读运行下，认证健康检查 200、未认证 401、合成 LOCATE 计划 SUCCEEDED。完整机器证据见 [镜像清单](runtime-image-inventory.json)。
+最终 arm64 运行镜像：`sha256:aca3db8b24989633f769adbe84657e285508c7b15deb3fc9a9465e8927a298fe`，Node v24.19.0，UID 10001。17 个生产依赖与锁定版本一致；最终文件系统无 npm/Yarn/Corepack，且未继承原构建镜像层。6 份应用法律材料 hash 与源码一致，88 个 Debian 包版权文件和 Node 组合许可保留。无外部容器网络、只读运行下，认证健康检查 200、未认证 401、合成 LOCATE 计划 SUCCEEDED。完整机器证据见 [镜像清单](runtime-image-inventory.json)。
 
 可复验命令：
 
@@ -53,4 +53,8 @@ python3.12 scripts/check-license-image.py
 python3.12 scripts/check-licensing.py --require-complete-notices --notice-scope python
 ```
 
-镜像仅在本地创建，未推送 registry；amd64、完整逐文件许可兼容和实际交付的对应源码供应不能由本次 arm64/原文检查代替。全范围严格检查仍因 dmn-elements 原文缺口失败；历史权利核验、上游声明及商业合同生效仍待真实确认。
+镜像仅在本地创建，未推送 registry；完整逐文件许可兼容和实际交付的对应源码供应不能由本次构建/原文检查代替。全范围严格检查仍因 dmn-elements 原文缺口失败；历史权利核验、上游声明及商业合同生效仍待真实确认。
+
+最终 amd64 镜像也已在 Docker Desktop 仿真下构建和运行验证：`sha256:9ed9b1784179a0162c5be969f2d9b94eb386575e14fafe5986e56a411ee1019e`。同样通过 17 个应用依赖、88 份系统版权材料、Node 原文、构建工具剔除、非 root、认证/未认证健康检查与合成计划。机器证据见 [amd64 镜像清单](runtime-image-inventory-amd64.json)；这不是原生 amd64 主机的性能或生产验收。
+
+外部 XML manifest 的既有 `repo` 字段已指向实际许可源码仓库 binhuhu/dify_dmn_plugin，SDK 解析及包内 manifest 逐字节核验通过；author/name/version 不变，没有新增不支持的 license 字段。

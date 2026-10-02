@@ -56,7 +56,8 @@ license. Exact image/package and file hashes are recorded in
 `docs/commercial/runtime-image-inventory.json` and verification documentation.
 Notice presence does not establish complete per-file compatibility or fulfil
 every corresponding-source obligation; those must be addressed for the actual
-distributed image and its dependencies. amd64 has not been exercised here.
+distributed image and its dependencies. Additional architecture checks are
+recorded separately in the verification documentation.
 
 Direct Python dependencies are `dify-plugin@0.10.2` (Apache-2.0),
 `httpx@0.28.1` (BSD-3-Clause), `jsonschema@4.26.0` (MIT), and

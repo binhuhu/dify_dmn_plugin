@@ -26,6 +26,6 @@ meta:
     entrypoint: main
 created_at: 2026-09-30T00:00:00Z
 privacy: PRIVACY.md
-repo: https://github.com/hu8627/dify_dmn_plugin
+repo: https://github.com/binhuhu/dify_dmn_plugin
 tags:
   - utilities

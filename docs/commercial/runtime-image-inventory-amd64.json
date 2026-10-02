@@ -221,7 +221,7 @@
       "sha256": "8fbcc77ed31f480a85654e9b6d1d25cbb95b62e9dc5159ae1565bca684c3e1dc"
     },
     {
-      "name": "gcc-12-base:arm64",
+      "name": "gcc-12-base:amd64",
       "version": "12.2.0-14+deb12u1",
       "copyright": "/usr/share/doc/gcc-12-base/copyright",
       "noticePresent": true,
@@ -263,21 +263,21 @@
       "sha256": "7534601cc4fa513804d16490359f5831e7b6a1212da3bbf948bebdd4c8799783"
     },
     {
-      "name": "libacl1:arm64",
+      "name": "libacl1:amd64",
       "version": "2.3.1-3",
       "copyright": "/usr/share/doc/libacl1/copyright",
       "noticePresent": true,
       "sha256": "9a2dfb4a5abc7e84be2cc41f1089be665519c9409549296f6c19de57ab1d37c2"
     },
     {
-      "name": "libapt-pkg6.0:arm64",
+      "name": "libapt-pkg6.0:amd64",
       "version": "2.6.1",
       "copyright": "/usr/share/doc/libapt-pkg6.0/copyright",
       "noticePresent": true,
       "sha256": "b4701305243d8d746f4acaafe15d94f946251b05691bd6917fef41dd15e9ee12"
     },
     {
-      "name": "libattr1:arm64",
+      "name": "libattr1:amd64",
       "version": "1:2.5.1-4",
       "copyright": "/usr/share/doc/libattr1/copyright",
       "noticePresent": true,
@@ -291,21 +291,21 @@
       "sha256": "6c7011e93f643b112c4cc3622131e28a30477afad6c4f5efe466b13aa7f603cc"
     },
     {
-      "name": "libaudit1:arm64",
+      "name": "libaudit1:amd64",
       "version": "1:3.0.9-1",
       "copyright": "/usr/share/doc/libaudit1/copyright",
       "noticePresent": true,
       "sha256": "6c7011e93f643b112c4cc3622131e28a30477afad6c4f5efe466b13aa7f603cc"
     },
     {
-      "name": "libblkid1:arm64",
+      "name": "libblkid1:amd64",
       "version": "2.38.1-5+deb12u3",
       "copyright": "/usr/share/doc/libblkid1/copyright",
       "noticePresent": true,
       "sha256": "30539a2df6a89d844f43c727505a3193a60515f8ec6cdede8cc515ed22941d1c"
     },
     {
-      "name": "libbz2-1.0:arm64",
+      "name": "libbz2-1.0:amd64",
       "version": "1.0.8-5+b1",
       "copyright": "/usr/share/doc/libbz2-1.0/copyright",
       "noticePresent": true,
@@ -319,161 +319,161 @@
       "sha256": "40c7e1f2118531f038ca22999bd976901254e1bc5cd1b0f0211bdd064c599987"
     },
     {
-      "name": "libc6:arm64",
+      "name": "libc6:amd64",
       "version": "2.36-9+deb12u14",
       "copyright": "/usr/share/doc/libc6/copyright",
       "noticePresent": true,
       "sha256": "40c7e1f2118531f038ca22999bd976901254e1bc5cd1b0f0211bdd064c599987"
     },
     {
-      "name": "libcap-ng0:arm64",
+      "name": "libcap-ng0:amd64",
       "version": "0.8.3-1+b3",
       "copyright": "/usr/share/doc/libcap-ng0/copyright",
       "noticePresent": true,
       "sha256": "49b5db19990a3e3cc1a9ed716aed231f6f3c1c217e58f62ae4dc2818c6d3e9cc"
     },
     {
-      "name": "libcap2:arm64",
+      "name": "libcap2:amd64",
       "version": "1:2.66-4+deb12u3+b1",
       "copyright": "/usr/share/doc/libcap2/copyright",
       "noticePresent": true,
       "sha256": "e60a5642e12e340060e4e519a65b2eb0330be2917854841c644e36268f607d54"
     },
     {
-      "name": "libcom-err2:arm64",
+      "name": "libcom-err2:amd64",
       "version": "1.47.0-2+b2",
       "copyright": "/usr/share/doc/libcom-err2/copyright",
       "noticePresent": true,
       "sha256": "1ca415a294c0e56958c4f795b3f1f69ea3479bca53d7811f5cdd020a258949db"
     },
     {
-      "name": "libcrypt1:arm64",
+      "name": "libcrypt1:amd64",
       "version": "1:4.4.33-2",
       "copyright": "/usr/share/doc/libcrypt1/copyright",
       "noticePresent": true,
       "sha256": "5a5e7ca0e9f3f9679977e3a3e9ede45ad92885a3297ea78e766979f9866c5a16"
     },
     {
-      "name": "libdb5.3:arm64",
+      "name": "libdb5.3:amd64",
       "version": "5.3.28+dfsg2-1",
       "copyright": "/usr/share/doc/libdb5.3/copyright",
       "noticePresent": true,
       "sha256": "8b53da37d73289d9df7317b3a2dbe16491f1fa9fec8b77b86d69704b40ce2c26"
     },
     {
-      "name": "libdebconfclient0:arm64",
+      "name": "libdebconfclient0:amd64",
       "version": "0.270",
       "copyright": "/usr/share/doc/libdebconfclient0/copyright",
       "noticePresent": true,
       "sha256": "cf63099896d1c0f6529c41b8d95738e6fea342ffba609187d339c4f38ce36ecc"
     },
     {
-      "name": "libext2fs2:arm64",
+      "name": "libext2fs2:amd64",
       "version": "1.47.0-2+b2",
       "copyright": "/usr/share/doc/libext2fs2/copyright",
       "noticePresent": true,
       "sha256": "1ca415a294c0e56958c4f795b3f1f69ea3479bca53d7811f5cdd020a258949db"
     },
     {
-      "name": "libffi8:arm64",
+      "name": "libffi8:amd64",
       "version": "3.4.4-1",
       "copyright": "/usr/share/doc/libffi8/copyright",
       "noticePresent": true,
       "sha256": "f83d2ecba1ea4d99957e81c50bebbd076a128194288a3ec22cc8ccdb77c43087"
     },
     {
-      "name": "libgcc-s1:arm64",
+      "name": "libgcc-s1:amd64",
       "version": "12.2.0-14+deb12u1",
       "copyright": "/usr/share/doc/libgcc-s1/copyright",
       "noticePresent": true,
       "sha256": "da8191658b3452ce9caf31638ba61dab31a38c619fa39df119812e050f592fd3"
     },
     {
-      "name": "libgcrypt20:arm64",
+      "name": "libgcrypt20:amd64",
       "version": "1.10.1-3+deb12u1",
       "copyright": "/usr/share/doc/libgcrypt20/copyright",
       "noticePresent": true,
       "sha256": "95db2f9da663f2bfe2aabe9c72fce9d6c9ae767b912f397d7823f50bd55a1a7d"
     },
     {
-      "name": "libgmp10:arm64",
+      "name": "libgmp10:amd64",
       "version": "2:6.2.1+dfsg1-1.1",
       "copyright": "/usr/share/doc/libgmp10/copyright",
       "noticePresent": true,
       "sha256": "7d366aef5ba325150246de1d7820c4c9926cd27ca61a69948492b26cd3b61601"
     },
     {
-      "name": "libgnutls30:arm64",
+      "name": "libgnutls30:amd64",
       "version": "3.7.9-2+deb12u7",
       "copyright": "/usr/share/doc/libgnutls30/copyright",
       "noticePresent": true,
       "sha256": "bb7e5c24b3e27bbba5671dd710d159a0066833bda4caa1d55d8027ffed539337"
     },
     {
-      "name": "libgpg-error0:arm64",
+      "name": "libgpg-error0:amd64",
       "version": "1.46-1",
       "copyright": "/usr/share/doc/libgpg-error0/copyright",
       "noticePresent": true,
       "sha256": "8760fd36efa1d7186f8769d4e76a3e678045b94d54465bf6f2db5eb871c7c27f"
     },
     {
-      "name": "libhogweed6:arm64",
+      "name": "libhogweed6:amd64",
       "version": "3.8.1-2",
       "copyright": "/usr/share/doc/libhogweed6/copyright",
       "noticePresent": true,
       "sha256": "ca2ca597320220c00ef6dc0fe5d0d82025548d6d4ba80e85615eb691f9021f93"
     },
     {
-      "name": "libidn2-0:arm64",
+      "name": "libidn2-0:amd64",
       "version": "2.3.3-1+b1",
       "copyright": "/usr/share/doc/libidn2-0/copyright",
       "noticePresent": true,
       "sha256": "41702469f28e8ff406345e3d1dd0c741f11bdfca319264f67036efd6aaa79e4b"
     },
     {
-      "name": "liblz4-1:arm64",
+      "name": "liblz4-1:amd64",
       "version": "1.9.4-1",
       "copyright": "/usr/share/doc/liblz4-1/copyright",
       "noticePresent": true,
       "sha256": "d3be0f43fe14da244f97c451bbae789c0acf868612598a69f5f22a289abeca40"
     },
     {
-      "name": "liblzma5:arm64",
+      "name": "liblzma5:amd64",
       "version": "5.4.1-1+deb12u1",
       "copyright": "/usr/share/doc/liblzma5/copyright",
       "noticePresent": true,
       "sha256": "a2dc8fac0f496e1c58aff67018cf0c6b88336316afa5642f9335b71642e28aa8"
     },
     {
-      "name": "libmd0:arm64",
+      "name": "libmd0:amd64",
       "version": "1.0.4-2",
       "copyright": "/usr/share/doc/libmd0/copyright",
       "noticePresent": true,
       "sha256": "4365ef6255ad553fce69dd4bc0e093472c5d0e41b8ea493a545cc926ce171aa6"
     },
     {
-      "name": "libmount1:arm64",
+      "name": "libmount1:amd64",
       "version": "2.38.1-5+deb12u3",
       "copyright": "/usr/share/doc/libmount1/copyright",
       "noticePresent": true,
       "sha256": "30539a2df6a89d844f43c727505a3193a60515f8ec6cdede8cc515ed22941d1c"
     },
     {
-      "name": "libnettle8:arm64",
+      "name": "libnettle8:amd64",
       "version": "3.8.1-2",
       "copyright": "/usr/share/doc/libnettle8/copyright",
       "noticePresent": true,
       "sha256": "ca2ca597320220c00ef6dc0fe5d0d82025548d6d4ba80e85615eb691f9021f93"
     },
     {
-      "name": "libp11-kit0:arm64",
+      "name": "libp11-kit0:amd64",
       "version": "0.24.1-2",
       "copyright": "/usr/share/doc/libp11-kit0/copyright",
       "noticePresent": true,
       "sha256": "ed139379f7c874f0ee75f3ddcc2e01091dd828d84ee1a0bdff6a1c5673ee6e58"
     },
     {
-      "name": "libpam-modules:arm64",
+      "name": "libpam-modules:amd64",
       "version": "1.5.2-6+deb12u2",
       "copyright": "/usr/share/doc/libpam-modules/copyright",
       "noticePresent": true,
@@ -494,28 +494,28 @@
       "sha256": "9596b9028339d66c285422237728d6170e1e29d0b0d9adf0e9f1bda82e2391ce"
     },
     {
-      "name": "libpam0g:arm64",
+      "name": "libpam0g:amd64",
       "version": "1.5.2-6+deb12u2",
       "copyright": "/usr/share/doc/libpam0g/copyright",
       "noticePresent": true,
       "sha256": "9596b9028339d66c285422237728d6170e1e29d0b0d9adf0e9f1bda82e2391ce"
     },
     {
-      "name": "libpcre2-8-0:arm64",
+      "name": "libpcre2-8-0:amd64",
       "version": "10.42-1",
       "copyright": "/usr/share/doc/libpcre2-8-0/copyright",
       "noticePresent": true,
       "sha256": "030511beb4d9d620ad09914c369c36ec0528dcf301d1923cc643c948ee7c6a38"
     },
     {
-      "name": "libseccomp2:arm64",
+      "name": "libseccomp2:amd64",
       "version": "2.5.4-1+deb12u1",
       "copyright": "/usr/share/doc/libseccomp2/copyright",
       "noticePresent": true,
       "sha256": "6da0653a365b80ab31478dbfe9e7c358e80d58b6d2b52b4e16b4dbb42d7d9f5c"
     },
     {
-      "name": "libselinux1:arm64",
+      "name": "libselinux1:amd64",
       "version": "3.4-1+b6",
       "copyright": "/usr/share/doc/libselinux1/copyright",
       "noticePresent": true,
@@ -529,91 +529,91 @@
       "sha256": "e00e6a86c598f9e24ced0180a70a5f2f2e45e133d93adf2b17ce8a06ce4b1b51"
     },
     {
-      "name": "libsemanage2:arm64",
+      "name": "libsemanage2:amd64",
       "version": "3.4-1+b5",
       "copyright": "/usr/share/doc/libsemanage2/copyright",
       "noticePresent": true,
       "sha256": "e00e6a86c598f9e24ced0180a70a5f2f2e45e133d93adf2b17ce8a06ce4b1b51"
     },
     {
-      "name": "libsepol2:arm64",
+      "name": "libsepol2:amd64",
       "version": "3.4-2.1",
       "copyright": "/usr/share/doc/libsepol2/copyright",
       "noticePresent": true,
       "sha256": "78d2a34606a0302057ec499a3b3c07bcbc43ca334064ce4c80891a0f69c8f6c6"
     },
     {
-      "name": "libsmartcols1:arm64",
+      "name": "libsmartcols1:amd64",
       "version": "2.38.1-5+deb12u3",
       "copyright": "/usr/share/doc/libsmartcols1/copyright",
       "noticePresent": true,
       "sha256": "30539a2df6a89d844f43c727505a3193a60515f8ec6cdede8cc515ed22941d1c"
     },
     {
-      "name": "libss2:arm64",
+      "name": "libss2:amd64",
       "version": "1.47.0-2+b2",
       "copyright": "/usr/share/doc/libss2/copyright",
       "noticePresent": true,
       "sha256": "1ca415a294c0e56958c4f795b3f1f69ea3479bca53d7811f5cdd020a258949db"
     },
     {
-      "name": "libstdc++6:arm64",
+      "name": "libstdc++6:amd64",
       "version": "12.2.0-14+deb12u1",
       "copyright": "/usr/share/doc/libstdc++6/copyright",
       "noticePresent": true,
       "sha256": "da8191658b3452ce9caf31638ba61dab31a38c619fa39df119812e050f592fd3"
     },
     {
-      "name": "libsystemd0:arm64",
+      "name": "libsystemd0:amd64",
       "version": "252.39-1~deb12u2",
       "copyright": "/usr/share/doc/libsystemd0/copyright",
       "noticePresent": true,
       "sha256": "a7d06854714a1ca99f6dbd1a1641dde5bcf28635be149f6554449618f8f427f3"
     },
     {
-      "name": "libtasn1-6:arm64",
+      "name": "libtasn1-6:amd64",
       "version": "4.19.0-2+deb12u1",
       "copyright": "/usr/share/doc/libtasn1-6/copyright",
       "noticePresent": true,
       "sha256": "572ad60ad184d8f52c6dc66d83a61a68f137db560b3452ce00588c9ecf128a65"
     },
     {
-      "name": "libtinfo6:arm64",
+      "name": "libtinfo6:amd64",
       "version": "6.4-4",
       "copyright": "/usr/share/doc/libtinfo6/copyright",
       "noticePresent": true,
       "sha256": "f0974fb41778e23c94111ff90da0546de8971f8270c58877283d372e6bd7f17e"
     },
     {
-      "name": "libudev1:arm64",
+      "name": "libudev1:amd64",
       "version": "252.39-1~deb12u2",
       "copyright": "/usr/share/doc/libudev1/copyright",
       "noticePresent": true,
       "sha256": "a7d06854714a1ca99f6dbd1a1641dde5bcf28635be149f6554449618f8f427f3"
     },
     {
-      "name": "libunistring2:arm64",
+      "name": "libunistring2:amd64",
       "version": "1.0-2",
       "copyright": "/usr/share/doc/libunistring2/copyright",
       "noticePresent": true,
       "sha256": "0035f89e5317f3cec389383e8727788521b0fde3e75cea881fa0e92e1d48cb57"
     },
     {
-      "name": "libuuid1:arm64",
+      "name": "libuuid1:amd64",
       "version": "2.38.1-5+deb12u3",
       "copyright": "/usr/share/doc/libuuid1/copyright",
       "noticePresent": true,
       "sha256": "30539a2df6a89d844f43c727505a3193a60515f8ec6cdede8cc515ed22941d1c"
     },
     {
-      "name": "libxxhash0:arm64",
+      "name": "libxxhash0:amd64",
       "version": "0.8.1-1",
       "copyright": "/usr/share/doc/libxxhash0/copyright",
       "noticePresent": true,
       "sha256": "a123c93b07e781919ae996276ac02bb1c8b19dfde88176cd1240ab277c14a4ce"
     },
     {
-      "name": "libzstd1:arm64",
+      "name": "libzstd1:amd64",
       "version": "1.5.4+dfsg2-5",
       "copyright": "/usr/share/doc/libzstd1/copyright",
       "noticePresent": true,
@@ -725,7 +725,7 @@
       "sha256": "30539a2df6a89d844f43c727505a3193a60515f8ec6cdede8cc515ed22941d1c"
     },
     {
-      "name": "zlib1g:arm64",
+      "name": "zlib1g:amd64",
       "version": "1:1.2.13.dfsg-1",
       "copyright": "/usr/share/doc/zlib1g/copyright",
       "noticePresent": true,
@@ -751,11 +751,11 @@
   },
   "syntheticPlanStatus": "SUCCEEDED",
   "unauthenticatedHealth": 401,
-  "imageId": "sha256:aca3db8b24989633f769adbe84657e285508c7b15deb3fc9a9465e8927a298fe",
+  "imageId": "sha256:9ed9b1784179a0162c5be969f2d9b94eb386575e14fafe5986e56a411ee1019e",
   "repoDigests": [
-    "dify-dmn-engine@sha256:aca3db8b24989633f769adbe84657e285508c7b15deb3fc9a9465e8927a298fe"
+    "dify-dmn-engine@sha256:9ed9b1784179a0162c5be969f2d9b94eb386575e14fafe5986e56a411ee1019e"
   ],
-  "architecture": "arm64",
+  "architecture": "amd64",
   "runtimeLayerCount": 2,
   "inheritsBuildImageLayers": false
 }
