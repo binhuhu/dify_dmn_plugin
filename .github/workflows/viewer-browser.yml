@@ -6,7 +6,7 @@ permissions:
   contents: read
 jobs:
   browser:
-    runs-on: ubuntu-latest
+    runs-on: macos-14
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -14,8 +14,8 @@ jobs:
           node-version: "24"
       - name: Install locked viewer dependencies
         run: npm ci --ignore-scripts --prefix viewer
-      - name: Install Chromium and system dependencies
-        run: cd viewer && npx playwright install --with-deps chromium
+      - name: Install pinned Chromium
+        run: cd viewer && npx playwright install chromium
       - name: Adapter and DOM regression
         run: npm test --prefix viewer
       - name: Chromium with sandbox enabled
