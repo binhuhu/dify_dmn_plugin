@@ -1,0 +1,55 @@
+[
+  {
+    "scope": "python",
+    "name": "cffi",
+    "version": "2.1.1",
+    "archive_url": "https://files.pythonhosted.org/packages/9e/ef/008a1939e372c06329a3fce4279c02f328488f3526744906eeec3da7ad5f/cffi-2.1.1.tar.gz",
+    "archive_sha256": "dd31f52ea1086513bb9df30f8fcee9b8918323ae067a3d5b78bc826a000712be",
+    "notice_sources": [
+      {
+        "path": "supplements/cffi/LICENSE",
+        "member": "cffi-2.1.1/LICENSE",
+        "sha256": "5ba24ddc57067f9249add644c3afc41a5d6dc37e23433ef759d95df370b0af63"
+      }
+    ],
+    "declared_license": "MIT-0",
+    "license_classifiers": []
+  },
+  {
+    "scope": "python",
+    "name": "pycparser",
+    "version": "3.0",
+    "archive_url": "https://files.pythonhosted.org/packages/1b/7d/92392ff7815c21062bea51aa7b87d45576f649f16458d78b7cf94b9ab2e6/pycparser-3.0.tar.gz",
+    "archive_sha256": "600f49d217304a5902ac3c37e1281c9fe94e4d0489de643a9504c5cdfdfc6b29",
+    "notice_sources": [
+      {
+        "path": "supplements/pycparser/LICENSE",
+        "member": "pycparser-3.0/LICENSE",
+        "sha256": "0c846399369ea76ddd7b5c44fe6d16497415fcf015f5cbb508c24bf98b81c5b1"
+      }
+    ],
+    "declared_license": "BSD-3-Clause",
+    "license_classifiers": []
+  },
+  {
+    "scope": "python",
+    "name": "python-dotenv",
+    "version": "1.2.3",
+    "archive_url": "https://files.pythonhosted.org/packages/6a/53/ed9d74092561d4b01a2ef1349d52cdbc135e526c245f366b089cfca6de49/python_dotenv-1.2.3.tar.gz",
+    "archive_sha256": "a20a594dabeaa385725aa239d5244871c143ecb356add8a20fcf23773a6c3a35",
+    "notice_sources": [
+      {
+        "path": "supplements/python-dotenv/LICENSE",
+        "member": "python_dotenv-1.2.3/LICENSE",
+        "sha256": "80619b7049f08c81683ad0e01f08f257a840652dd71ee83146d36658c7d2c2b9"
+      },
+      {
+        "path": "supplements/python-dotenv/license.md",
+        "member": "python_dotenv-1.2.3/docs/license.md",
+        "sha256": "80619b7049f08c81683ad0e01f08f257a840652dd71ee83146d36658c7d2c2b9"
+      }
+    ],
+    "declared_license": "BSD-3-Clause",
+    "license_classifiers": []
+  }
+]

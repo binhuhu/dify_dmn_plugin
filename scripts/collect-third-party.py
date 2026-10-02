@@ -8,6 +8,7 @@ import argparse
 import hashlib
 import importlib.metadata
 import json
+import shutil
 import tomllib
 from pathlib import Path
 
@@ -23,12 +24,19 @@ def notice_name(path):
     return any(token in name for token in ("LICENSE", "LICENCE", "COPYING", "NOTICE"))
 
 
-def collect(output, node_modules, saxes_license):
+def collect(output, node_modules, saxes_license, python_supplements=None):
     output = Path(output)
     if output.exists():
         raise ValueError("Output must not exist; will not overwrite reviewed notices.")
     lock_bytes = (ROOT / "plugin/uv.lock").read_bytes()
     packages = {p["name"]: p for p in tomllib.loads(lock_bytes.decode())["package"]}
+    supplements = {}
+    if python_supplements:
+        supplement_file = Path(python_supplements)
+        supplements = {
+            (item["name"], item["version"]): item
+            for item in json.loads(supplement_file.read_text())
+        }
     pending = [d["name"] for d in packages["dify-dmn-plugin"]["dependencies"]]
     names = set()
     while pending:
@@ -76,6 +84,39 @@ def collect(output, node_modules, saxes_license):
                         "No notice file found; metadata alone is not full license text."
                     )
         inventories["python"]["packages"].append(entry)
+        supplement = supplements.get((name, expected))
+        if entry["gaps"] and supplement:
+            sdist = packages[name]["sdist"]
+            if (
+                supplement["scope"] != "python"
+                or supplement["archive_url"] != sdist["url"]
+                or "sha256:" + supplement["archive_sha256"] != sdist["hash"]
+            ):
+                raise ValueError(f"Supplement archive does not match locked source: {name}")
+            sources = []
+            for source in supplement["notice_sources"]:
+                relative = Path(source["path"])
+                if relative.is_absolute() or ".." in relative.parts:
+                    raise ValueError("Supplement paths must stay within their source directory")
+                path = supplement_file.parent / relative
+                data = path.read_bytes()
+                if sha(data) != source["sha256"]:
+                    raise ValueError(f"Supplement notice hash mismatch: {name}")
+                provenance = {
+                    "url": supplement["archive_url"],
+                    "archive_sha256": supplement["archive_sha256"],
+                    "member": source["member"],
+                    "sha256": source["sha256"],
+                }
+                sources.append(provenance)
+                blocks["python"].append((name, expected, source["member"], data))
+            if not sources:
+                raise ValueError(f"Supplement has no original notices: {name}")
+            entry["notice_sources"] = sources
+            entry["declared_license"] = supplement["declared_license"]
+            entry["license_classifiers"] = supplement["license_classifiers"]
+            entry["notice_origin"] = "Hash-verified locked source archive"
+            entry["gaps"] = []
 
     lock_bytes = (ROOT / "engine/package-lock.json").read_bytes()
     inventories["engine"] = {
@@ -137,6 +178,17 @@ def collect(output, node_modules, saxes_license):
         (target / "inventory.json").write_text(
             json.dumps(inventories[scope], ensure_ascii=False, indent=2) + "\n"
         )
+    if python_supplements:
+        target = output / "python"
+        shutil.copyfile(supplement_file, target / "supplements.json")
+        for item in supplements.values():
+            for source in item["notice_sources"]:
+                relative = Path(source["path"])
+                if relative.is_absolute() or ".." in relative.parts:
+                    raise ValueError("Supplement paths must stay within their source directory")
+                destination = target / relative
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copyfile(supplement_file.parent / relative, destination)
     return output
 
 
@@ -145,5 +197,6 @@ if __name__ == "__main__":
     parser.add_argument("output")
     parser.add_argument("--node-modules", required=True)
     parser.add_argument("--saxes-license")
+    parser.add_argument("--python-supplements")
     args = parser.parse_args()
-    print(collect(args.output, args.node_modules, args.saxes_license))
+    print(collect(args.output, args.node_modules, args.saxes_license, args.python_supplements))

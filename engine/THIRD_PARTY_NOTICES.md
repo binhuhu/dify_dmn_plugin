@@ -8,12 +8,16 @@ them or waives their notice, source, patent or other requirements.
 
 - Python: all **44 reachable runtime packages** in `plugin/uv.lock`, including
   platform-conditional dependencies. The reviewed Python 3.12 reference
-  environment supplied exact-version notices for **41**; three gaps are below.
+  environment supplied exact-version notices for **41**; the remaining **3**
+  are supplied from original locked source archives whose SHA-256 values were
+  verified against `uv.lock`. All **44** now have exact-version original notices.
   This is a lockfile/reference snapshot, not the dependency set actually resolved
   by a target Dify daemon from `requirements.txt`.
 - Node engine: all **17 production npm packages** in `engine/package-lock.json`.
   Original notice texts are supplied for **16**; one gap is below. Development
-  tools, the Node runtime and base-image operating-system packages are excluded.
+  tools are excluded from the application snapshot. The runtime image additionally
+  retains Node's combined `/usr/local/LICENSE` and original copyright files for
+  all 88 installed Debian packages; see the separate image evidence.
 - The viewer npm project contains development/test tools (`jsdom`, Playwright)
   that are not bundled into the plugin's static viewer. Those development
   dependencies are not part of this runtime-notice snapshot; retain and audit
@@ -36,6 +40,24 @@ the Python scope; the engine directory/image carries the engine scope. Links to
 other scopes or commercial preparation documents refer to the source repository.
 No dependencies' code is vendored by these notice files.
 
+## Runtime image materials
+
+The engine Dockerfile uses the original pinned Node image to install the locked
+application dependencies, then removes npm, Yarn, Corepack and package-manager
+shims in that build stage. A fresh final stage copies the resulting filesystem,
+so removed build-tool bytes are not retained in lower layers of the distributed
+runtime image. The Node interpreter, system runtime, existing copyright files,
+engine source and 17 application dependencies remain.
+
+An arm64 review build passed non-root execution, authenticated and unauthenticated
+health checks, and the repository's synthetic plan. All 88 installed Debian
+packages retain their copyright documents, and Node retains its supplied combined
+license. Exact image/package and file hashes are recorded in
+`docs/commercial/runtime-image-inventory.json` and verification documentation.
+Notice presence does not establish complete per-file compatibility or fulfil
+every corresponding-source obligation; those must be addressed for the actual
+distributed image and its dependencies. amd64 has not been exercised here.
+
 Direct Python dependencies are `dify-plugin@0.10.2` (Apache-2.0),
 `httpx@0.28.1` (BSD-3-Clause), `jsonschema@4.26.0` (MIT), and
 `rfc8785@0.1.4` (Apache-2.0). These four are not the full runtime inventory.
@@ -48,13 +70,24 @@ its license file, so its original license was fetched from the upstream
 [v6.0.0 tag](https://github.com/lddubeau/saxes/blob/v6.0.0/LICENSE), retaining
 its inherited notices as supplied. All exact versions are in the inventory.
 
-## Outstanding notice gaps
+## Supplemented Python notices
+
+`cffi@2.1.1` (MIT-0), `pycparser@3.0` (BSD-3-Clause), and
+`python-dotenv@1.2.3` (BSD-3-Clause) were downloaded from the exact PyPI source
+archive URLs in `uv.lock`, without installing or executing the archives. Their
+SHA-256 values matched the lockfile. Original notice members, member hashes,
+archive URLs and archive hashes are preserved in
+`third_party/python/supplements.json`; original files are in its `supplements/`
+directory and are also included in `NOTICES.txt`.
+
+This resolves the reference environment's missing packages and version mismatch
+for notice collection. It does not change installed dependencies or claim that a
+target daemon uses this precise locked set.
+
+## Outstanding notice gap
 
 | Scope / component | Evidence and required follow-up |
 | --- | --- |
-| Python `cffi@2.1.1` | In lockfile, absent from reference environment; obtain exact-version original notices for applicable target platforms. |
-| Python `pycparser@3.0` | In lockfile, absent from reference environment; obtain exact-version original notices for applicable target platforms. |
-| Python `python-dotenv@1.2.3` | Reference environment contains 1.2.4; that version's notices were deliberately not substituted. Obtain 1.2.3 material. |
 | Engine `dmn-elements@0.3.0` | Installed package and upstream v0.3.0 tree contain no LICENSE/NOTICE/COPYING file; package.json declares MIT. Obtain an authoritative copyright/permission notice from upstream before representing full notice coverage. Tag commit: `c943df0ab2da49af508d123c0c3870199bab7ed3`. |
 
 The snapshot is **not a completed third-party compliance audit**. Before a new
@@ -75,7 +108,8 @@ without obtaining the original material.
 ```sh
 python scripts/collect-third-party.py /tmp/new-reviewed-notices \
   --node-modules /path/to/reviewed/engine/node_modules \
-  --saxes-license /path/to/upstream/saxes-6.0.0-LICENSE
+  --saxes-license /path/to/upstream/saxes-6.0.0-LICENSE \
+  --python-supplements third_party/python/supplements.json
 # Review and replace the canonical third_party/ snapshot, then:
 python3.12 scripts/sync-license-files.py
 python3.12 scripts/check-licensing.py

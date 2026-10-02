@@ -1,5 +1,7 @@
 # 许可准备验证（2026-10-02）
 
+第一轮材料和包摘要记录如下。后续已补齐三个 Python 精确版原文（44/44），并完成 arm64 Docker 构建与运行验证；剩余原文缺口为 dmn-elements。第二轮接入与交付证据在本文件后续记录，旧审查包不重写为新结果。
+
 本检查基于 main `37fd28a0e2c5aebb53763216b4f11a081e34fe08`，在独立 `feat/commercial-dual-license` 工作树完成。没有接入 RC4/0.5.0-dev 运行时变更，没有发布新 Release，也没有修改历史资产。下列包是本地审查材料，保留旧版本号，不能作为新许可版本发布。
 
 ## 已通过
@@ -22,8 +24,8 @@ CLI 使用官方 darwin-arm64 资产，其 SHA-256 与 GitHub Release 的 digest
 
 ## 预期失败和未验证
 
-`python3.12 scripts/check-licensing.py --require-complete-notices` 正确以非零状态报告四个原文缺口：`cffi@2.1.1`、`pycparser@3.0`、`python-dotenv@1.2.3`、`dmn-elements@0.3.0`。参考快照覆盖 Python 44 个运行依赖（41 个有精确版原文），Node 17 个生产依赖（16 个有原文）。详细证据见 [第三方说明](../../THIRD_PARTY_NOTICES.md)。普通静态检查通过不等于完整许可证审计通过。
+第一轮严格检查报告了四个原文缺口。后续从 uv.lock 固定的 PyPI 源码归档补齐 cffi、pycparser 和 python-dotenv，下载 hash 与锁文件一致，原成员/hash 和离线重收集结果已保存。当前 `--require-complete-notices --notice-scope python` 通过；默认全范围严格检查仍以非零状态报告 `dmn-elements@0.3.0`。详细证据见 [第三方说明](../../THIRD_PARTY_NOTICES.md)。普通静态检查通过不等于完整许可证审计通过。
 
-Docker CLI 存在，但 daemon 不可连接；未构建镜像。Dockerfile 已复制 `/app` 下的许可材料和 engine 第三方原文，保留原构建上下文及运行设置；实际镜像、Node/OS 依赖审计和对应源码供应仍需验证。
+第一轮 Docker daemon 不可连接。后续已启动本地 Docker，完成 arm64 实际构建和检查：基础 Node digest 未变，运行镜像保留许可材料，剔除 npm/Yarn/Corepack 构建工具并使用新最终阶段防止其字节留在基础层。17 个应用依赖版本一致；非 root UID 10001、无外部网络、只读运行、认证健康检查 200、未认证 401、合成计划 SUCCEEDED 均通过。88 个 Debian 包的版权文件以及 Node 组合许可均保留；详见 runtime-image-inventory.json。对应源码供应和完整许可法律核验仍是实际发行义务。
 
 未进行目标 Dify 安装/升级、真实 API、商业业务履约或生产验收；没有签名或 Marketplace 审核。本变更未改变决策/查询运行代码，验证集中在元数据、脚本、SDK manifest 与官方 CLI 打包。历史权利链、贡献者签署记录、合同法律适用、正式报价和商业合同生效均未由这些检查确认，见 [权利与发行核对](release-readiness.md)。

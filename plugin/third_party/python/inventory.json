@@ -82,10 +82,18 @@
     {
       "name": "cffi",
       "version": "2.1.1",
-      "notice_sources": [],
-      "gaps": [
-        "Not installed in reference environment; exact-version notices missing."
-      ]
+      "notice_sources": [
+        {
+          "url": "https://files.pythonhosted.org/packages/9e/ef/008a1939e372c06329a3fce4279c02f328488f3526744906eeec3da7ad5f/cffi-2.1.1.tar.gz",
+          "archive_sha256": "dd31f52ea1086513bb9df30f8fcee9b8918323ae067a3d5b78bc826a000712be",
+          "member": "cffi-2.1.1/LICENSE",
+          "sha256": "5ba24ddc57067f9249add644c3afc41a5d6dc37e23433ef759d95df370b0af63"
+        }
+      ],
+      "gaps": [],
+      "declared_license": "MIT-0",
+      "license_classifiers": [],
+      "notice_origin": "Hash-verified locked source archive"
     },
     {
       "name": "charset-normalizer",
@@ -368,10 +376,18 @@
     {
       "name": "pycparser",
       "version": "3.0",
-      "notice_sources": [],
-      "gaps": [
-        "Not installed in reference environment; exact-version notices missing."
-      ]
+      "notice_sources": [
+        {
+          "url": "https://files.pythonhosted.org/packages/1b/7d/92392ff7815c21062bea51aa7b87d45576f649f16458d78b7cf94b9ab2e6/pycparser-3.0.tar.gz",
+          "archive_sha256": "600f49d217304a5902ac3c37e1281c9fe94e4d0489de643a9504c5cdfdfc6b29",
+          "member": "pycparser-3.0/LICENSE",
+          "sha256": "0c846399369ea76ddd7b5c44fe6d16497415fcf015f5cbb508c24bf98b81c5b1"
+        }
+      ],
+      "gaps": [],
+      "declared_license": "BSD-3-Clause",
+      "license_classifiers": [],
+      "notice_origin": "Hash-verified locked source archive"
     },
     {
       "name": "pydantic",
@@ -420,11 +436,25 @@
     {
       "name": "python-dotenv",
       "version": "1.2.3",
-      "notice_sources": [],
-      "gaps": [
-        "Reference version differs from lock; notices not copied."
+      "notice_sources": [
+        {
+          "url": "https://files.pythonhosted.org/packages/6a/53/ed9d74092561d4b01a2ef1349d52cdbc135e526c245f366b089cfca6de49/python_dotenv-1.2.3.tar.gz",
+          "archive_sha256": "a20a594dabeaa385725aa239d5244871c143ecb356add8a20fcf23773a6c3a35",
+          "member": "python_dotenv-1.2.3/LICENSE",
+          "sha256": "80619b7049f08c81683ad0e01f08f257a840652dd71ee83146d36658c7d2c2b9"
+        },
+        {
+          "url": "https://files.pythonhosted.org/packages/6a/53/ed9d74092561d4b01a2ef1349d52cdbc135e526c245f366b089cfca6de49/python_dotenv-1.2.3.tar.gz",
+          "archive_sha256": "a20a594dabeaa385725aa239d5244871c143ecb356add8a20fcf23773a6c3a35",
+          "member": "python_dotenv-1.2.3/docs/license.md",
+          "sha256": "80619b7049f08c81683ad0e01f08f257a840652dd71ee83146d36658c7d2c2b9"
+        }
       ],
-      "reference_version": "1.2.4"
+      "gaps": [],
+      "reference_version": "1.2.4",
+      "declared_license": "BSD-3-Clause",
+      "license_classifiers": [],
+      "notice_origin": "Hash-verified locked source archive"
     },
     {
       "name": "pyyaml",
@@ -657,5 +687,5 @@
       "license_classifiers": []
     }
   ],
-  "notice_file_sha256": "d53462cbe920ddc09f7b50688c1c90ea6fe9c2e5a5d9d0ae1cf6668b85014974"
+  "notice_file_sha256": "c5effc0d85842ed869cb258f6e56c5d77127df7a899a254d282fb09e8d0e7194"
 }
