@@ -36,7 +36,8 @@
   },
   "ci": {
     "workflow": ".github/workflows/check.yml",
-    "remote_run": "PENDING_PUSH"
+    "remote_run": "SUCCESS_FOR_IMPLEMENTATION_2093542731cb69b24571dc1a4efb076752cacc09",
+    "url": "https://github.com/binhuhu/dify_dmn_plugin/actions/runs/36969018726"
   },
   "daemon_environment": {
     "docker_engine": "28.4.0",
@@ -48,8 +49,10 @@
     "redis_image": "redis:6-alpine",
     "dependency_downloads": "FAILED: Docker Hub unauthenticated pull rate limit",
     "existing_dependency_instances": false,
-    "nonproduction_dify_inner_api": "NOT_PROVIDED",
-    "daemon_started": false
+    "nonproduction_dify_inner_api": "NOT_ESTABLISHED_AS_REQUIRED: empty-settings native encryption short-circuit; entire host path still NOT_RUN",
+    "daemon_started": false,
+    "system_postgres_redis": "NO_INSTALLED_SERVERS_EXECUTABLES_PROCESSES_OR_STANDARD_LISTENERS",
+    "signature_prerequisite": "Original RC4 unsigned; approved signed artifact/trust route needed under mandatory verification"
   },
   "real_host_stages": {
     "install_original_rc4": "NOT_RUN",

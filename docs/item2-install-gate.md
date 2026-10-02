@@ -40,10 +40,23 @@ Error response from daemon: toomanyrequests: You have reached your unauthenticat
 
 No cached dependency images or running DB/Redis instances were available. No registry credentials, proxy settings, permission controls or signature checks were changed, and no alternate registry was used to circumvent the limit. An environment owner must provide authorized registry access, preloaded approved images, or isolated PostgreSQL/Redis services before the daemon can be started.
 
-Endpoint creation additionally calls the real Dify internal encryption API even for this viewer's empty settings. A nonproduction Dify internal API and its matching test credentials must be provided with the isolated daemon. No such test service was supplied. A mock of that API would not establish the requested host acceptance. The original RC4 package is unsigned; package trust must follow the test environment's authorized installation policy, without disabling security checks to manufacture a PASS.
+Dependency correction after tracing the native 0.5.1 implementation: Endpoint setup calls `InvokeEncrypt`, but the real implementation returns locally when `EncryptRequired` is false. That predicate requires a secret-input configuration. This viewer has `settings: []`, so its setup does **not** require an HTTP encryption call to Dify. A full Dify API is therefore not established as a mandatory dependency for this narrow empty-settings Endpoint plus local, credential-free tool test. The daemon still requires inner-API URL/key configuration; these fields are not proof of an actual HTTP call. Real host execution has not yet verified the entire path. Do not substitute a mock; any unexpected backwards invocation must fail the test and be recorded.
+
+The original RC4 archive has no signature/verification entry. Daemon 0.5.1 defaults `FORCE_VERIFYING_SIGNATURE=true` and rejects an unverified package on upload. Even after the DB/Redis gap is resolved, installing these exact unsigned archive bytes under that policy cannot pass. An approved signed artifact/trust configuration is a separate prerequisite; no signature checks will be disabled. If a signed derivative is approved, retain the original, verify all code entries against it, record the new archive hash and actual identifier, and never describe the derivative as byte-identical to the original.
+
+System recheck found no `postgres`, `pg_ctl`, `psql` or `redis-server` executable, no installed PostgreSQL/Redis server package, no corresponding process, and no listeners on the standard local service ports. The package database's similarly named optional PostgreSQL entries are `not-installed`, not usable servers. No containers are running. Installing official software or configuring new test credentials/trust needs explicit authorization; neither was done during the dependency investigation.
+
+Minimal continuation options:
+
+1. Supply approved preloaded `postgres:15-alpine` / `redis:6-alpine` images or isolated authenticated PostgreSQL/Redis services, plus an approved signed RC4 artifact/trust route. Continue with the already downloaded pinned daemon image, a private test network and disposable data directories. No model, vector DB, web UI, worker or production Dify workspace is needed for the proposed narrow local tool path; this remains source-based inference until the real run.
+2. Alternatively authorize official PostgreSQL/Redis software installation and a test-only signing/trust setup explicitly. This introduces software, local service/data directories and a trusted signing key into the isolated test instance; it must not affect system services, production trust, credentials or the retained original artifact. Review concrete versions/configuration before execution.
+
+The executable acceptance sequence remains: hash/check original → verify approved signature policy → start DB/Redis and pinned daemon → upload/install and await completion → create empty-settings Endpoint → dispatch one public synthetic local decision tool → capture response bytes, logs and identities → remove only test resources. Each stage fails closed. No stage has been promoted from NOT_RUN during this investigation.
 
 Pinned upstream evidence:
 
+- [0.5.1 encryption short-circuit](https://github.com/langgenius/dify-plugin-daemon/blob/96b51115cb30f008bf4eda7e3787ea27d39c18e2/internal/core/dify_invocation/calldify/http_request.go#L169)
+- [0.5.1 secret-input predicate](https://github.com/langgenius/dify-plugin-daemon/blob/96b51115cb30f008bf4eda7e3787ea27d39c18e2/internal/core/dify_invocation/types.go#L230)
 - [0.5.1 Endpoint setup and encryption call](https://github.com/langgenius/dify-plugin-daemon/blob/96b51115cb30f008bf4eda7e3787ea27d39c18e2/internal/service/setup_endpoint.go)
 - [0.5.1 configuration and required dependencies](https://github.com/langgenius/dify-plugin-daemon/blob/96b51115cb30f008bf4eda7e3787ea27d39c18e2/internal/types/app/config.go)
 - [0.5.1 package verification](https://github.com/langgenius/dify-plugin-daemon/blob/96b51115cb30f008bf4eda7e3787ea27d39c18e2/internal/service/plugin_decoder.go)
@@ -51,7 +64,7 @@ Pinned upstream evidence:
 | Required real stage | Result | Evidence boundary |
 | --- | --- | --- |
 | Install original RC4 plugin in daemon 0.5.1 | NOT_RUN | Dependency image acquisition blocked before daemon startup |
-| Create Endpoint through daemon setup | NOT_RUN | No running isolated daemon/Dify internal API |
+| Create Endpoint through daemon setup | NOT_RUN | No running isolated daemon |
 | Invoke a tool through daemon dispatch | NOT_RUN | Installation never started |
 
 Consequently there are no real install/setup/dispatch request results or daemon runtime logs to report. Image-pull logs and local gate/test outputs are retained outside the repository. Earlier SDK tests are not substituted for these three stages. Item 2 remains incomplete until all three succeed in the nonproduction environment.
