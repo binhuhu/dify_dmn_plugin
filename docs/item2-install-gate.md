@@ -6,7 +6,7 @@
 
 `scripts/check-manifest-permissions.py` accepts manifest YAML or a `.difypkg`. Nonempty `plugins.endpoints` requires boolean `resource.permission.endpoint.enabled: true`; missing/false/null/string/numeric permissions, malformed declarations and duplicate mapping keys fail closed. No declared Endpoint needs no Endpoint permission. It checks the root manifest without extracting or executing the package.
 
-The gate runs first in `scripts/check.sh`; `DMN_ENGINE_DIR` enables integration tests. The GitHub Checks workflow executes the same script with Python 3.12 and Node 24 and fetches tags for frozen fixtures. Twenty new positive/negative cases passed. Full regression: **685 Python + 99 Node, 0 skipped**, lint/format passed. [Implementation CI](https://github.com/binhuhu/dify_dmn_plugin/actions/runs/36970019605) succeeded on `8745f10bd6d5c77dc15c00c7df74f2aabbad2a5c`.
+The gate runs first in `scripts/check.sh`; `DMN_ENGINE_DIR` enables integration tests. The GitHub Checks workflow executes the same script with Python 3.12 and Node 24 and fetches tags for frozen fixtures. Twenty new positive/negative cases passed. Full regression: **685 Python + 99 Node, 0 skipped**, lint/format passed. [Implementation CI](https://github.com/binhuhu/dify_dmn_plugin/actions/runs/36970019605) succeeded on `8745f10bd6d5c77dc15c00c7df74f2aabbad2a5c`. [Receipt commit CI](https://github.com/binhuhu/dify_dmn_plugin/actions/runs/36977782164) succeeded on `fdd5439db707680d476b6e677aca5ba4c6af8920`. These are historical item-2 checks, not acceptance of subsequent patches.
 
 | Original package | Bytes | SHA-256 | Gate exit |
 | --- | ---: | --- | ---: |
@@ -57,6 +57,12 @@ The earlier Docker Hub anonymous rate limit was not retried or circumvented usin
 [Machine-readable receipt](item2-install-gate.receipt.json) and [evidence digest inventory](evidence/item2-native/SHA256SUMS) link to sanitized request/response captures, package declaration, install-task result, daemon logs, versions, isolation configuration and cleanup confirmation. Authentication values are omitted; the ephemeral public hook is redacted. The safe config intentionally excludes credential values. No private business handoff or user data is included.
 
 The test container and its writable filesystem/database were removed; there were no mounted persistent volumes. The host temporary credential file and wheel staging directory were deleted. A read-only check confirmed the container no longer existed and the loopback health URL was closed. The original RC4 archive still has the exact original SHA-256. No signing key or persistent trust configuration was created.
+
+## Evidence completeness correction
+
+The fixed commit `fdd5439db707680d476b6e677aca5ba4c6af8920` contains only **29 of the 30** evidence files listed in `SHA256SUMS`. `daemon-offline.log` existed locally but was ignored by `*.log`; the original successful local checksum check therefore did not prove clean-checkout completeness. This correction adds the reviewed existing log using an exact-path ignore exception. Its SHA-256 remains `237aba7759132d2b488f6243e91cae91c43e9c55838595318ce59adc07cb6f49`; no capture or manifest bytes were rewritten. The ephemeral hook is redacted and no authentication values are included. Verify all 30 entries from a fresh checkout of the correction commit.
+
+The receipt also removes unused `postgres_image` / `redis_image` plan fields. The actual run used the APT package versions documented above inside the disposable daemon container, not separate database/cache images. These corrections do not rerun or broaden the original development-mode acceptance.
 
 ## Repeat under the same explicit authorization
 

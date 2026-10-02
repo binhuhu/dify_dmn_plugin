@@ -1015,3 +1015,73 @@ def test_combined_batch_pagination_stops_on_timeout_or_cancel(case, server, mode
     assert len(server[1]["calls"]) == 3
     time.sleep(0.12)
     assert len(server[1]["calls"]) == 3
+
+
+@pytest.mark.parametrize("reverse", [False, True])
+@pytest.mark.parametrize("required_record", [False, True])
+@pytest.mark.parametrize("dependent", [False, True])
+def test_local_page_limit_is_not_global(case, server, reverse, required_record, dependent):
+    d = deploy(case, server)
+    single_operation(case, d)
+    op = d.operations["mock.interactions.read@1"]
+    op["pagination"] = {"parameter": "cursor", "items_key": "items", "max_pages": 1}
+    plan = case[2]
+    plan["budget"]["max_pages"] = 4
+    source_id = plan["nodes"][0]["node_id"]
+    plan["nodes"].append(
+        {
+            "node_id": "late_user",
+            "operation_ref": "mock.user.read@1",
+            "depends_on": [source_id] if dependent else [],
+            "input_bindings": {"user_id": {"literal": "U-100"}},
+        }
+    )
+    plan["outputs"]["user"] = {"from": {"source": "api", "node_id": "late_user", "path": ["data"]}}
+    schema = case[0]["capabilities"]["demo.case_context@1.0.0"]["output_schema"]
+    schema["properties"]["user"] = {"type": "object"}
+    schema["required"].append("user")
+    d.capabilities["demo.case_context@1.0.0"]["optional_outputs"] = (
+        [] if required_record else ["record"]
+    )
+    if reverse:
+        plan["nodes"].reverse()
+    relock(case, d)
+    server[1]["change"] = lambda kind, answer: (
+        {**answer, "next_cursor": "more"} if kind == "interactions" else answer
+    )
+    result = run(case, d)
+    paths = [path for path, _ in server[1]["calls"]]
+    assert paths.count("/interactions") == 1
+    assert paths.count("/user") == (0 if dependent else 1)
+    if required_record or dependent:
+        assert result["execution_status"] == "BLOCKED", result
+        assert result["error"]["code"] == "QUERY_PARTIAL", result
+    else:
+        assert result["execution_status"] == "SUCCEEDED", result
+        query = result["outputs"]["query"]
+        assert query["completeness"] == "PARTIAL"
+        assert query["data"]["record"]["quality"] == "UNKNOWN"
+        assert query["data"]["user"]["user_id"] == "U-100"
+    if dependent:
+        assert result["trace"]["api_calls"][-1]["status"] == "NOT_EXECUTED"
+
+
+def test_local_and_global_page_limit_coincide(case, server):
+    d = deploy(case, server)
+    combined_batch_pagination(case, d)
+    d.operations["mock.interactions.read@1"]["pagination"]["max_pages"] = 1
+    case[2]["budget"]["max_pages"] = 1
+    case[2]["nodes"].append(
+        {
+            "node_id": "late_user",
+            "operation_ref": "mock.user.read@1",
+            "depends_on": [],
+            "input_bindings": {"user_id": {"literal": "U-100"}},
+        }
+    )
+    relock(case, d)
+    server[1]["change"] = lambda kind, answer: {**answer, "next_cursor": "more"}
+    result = run(case, d)
+    assert result["error"]["code"] == "QUERY_PARTIAL"
+    assert len(server[1]["calls"]) == 1
+    assert result["trace"]["api_calls"][-1]["status"] == "NOT_EXECUTED"

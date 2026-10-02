@@ -113,3 +113,46 @@ test("explicit null templates are preserved and counts describe actual structure
       .flatMap((s) => s.graph.nodes).length,
   );
 });
+
+test("display fields reject coercion objects at the boundary", () => {
+  const changes = [
+    (b, w) => {
+      w.name = {};
+    },
+    (b, w) => {
+      w.scope = [];
+    },
+    (b, w, p) => {
+      p.name = { toString: 1, valueOf: 1 };
+    },
+    (b, w, p, s) => {
+      s.name = null;
+    },
+    (b, w, p, s) => {
+      s.graph.nodes[0].kind = {};
+    },
+    (b, w, p, s) => {
+      s.graph.nodes[0].model_ref = {};
+    },
+    (b, w, p, s) => {
+      s.graph.edges[0].source_port = {};
+    },
+    (b) => {
+      Object.values(b.models)[0].hit_policy = {};
+    },
+    (b) => {
+      Object.values(b.models)[0].rules[0].rule_id = {};
+    },
+    (b) => {
+      Object.values(b.models)[0].rules[0].output_template_ref = {};
+    },
+  ];
+  for (const change of changes) {
+    const b = sample(),
+      w = b.workflows[0],
+      p = w.phases[0],
+      s = p.steps[0];
+    change(b, w, p, s);
+    assert.throws(() => adapt(JSON.stringify(b)), /字符串/);
+  }
+});
