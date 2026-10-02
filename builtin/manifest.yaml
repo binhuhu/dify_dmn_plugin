@@ -1,4 +1,4 @@
-version: 0.4.0-rc3
+version: 0.4.0-rc4
 type: plugin
 author: hu8627
 name: dmn_json
@@ -13,7 +13,9 @@ description:
 icon: icon.svg
 resource:
   memory: 268435456
-  permission: {}
+  permission:
+    endpoint:
+      enabled: true
 plugins:
   tools:
   - provider/dmn.yaml
