@@ -1,0 +1,65 @@
+{
+  "item": 2,
+  "status": "ENVIRONMENT_BLOCKED",
+  "offline_gate": "PASS",
+  "base_commit": "ecfb0a333fde771cb804f4173e4dffee170ced7d",
+  "branch": "feat/item2-install-gate",
+  "original_package_gate_results": [
+    {
+      "version": "rc3",
+      "package": "hu8627-dmn_json-0.4.0-rc3-5ecad8f.difypkg",
+      "package_sha256": "e68c0a66fda9afddaa547183d1247806541174391af34cfd120d4dff600d108f",
+      "bytes": 88888,
+      "exit_code": 1,
+      "expected_exit_code": 1,
+      "matches_expected": true
+    },
+    {
+      "version": "rc4",
+      "package": "hu8627-dmn_json-0.4.0-rc4.difypkg",
+      "package_sha256": "5ba96ab76d88a98bc603417b4584a604fd58dc9de27ad1c3a2de0601128b453b",
+      "bytes": 88896,
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "matches_expected": true
+    }
+  ],
+  "local_checks": {
+    "check_sh_exit": 0,
+    "new_gate_tests": 20,
+    "python_passed": 685,
+    "python_skipped": 0,
+    "node_passed": 99,
+    "node_skipped": 0,
+    "lint_format": "PASS",
+    "sdk_warnings": 20
+  },
+  "ci": {
+    "workflow": ".github/workflows/check.yml",
+    "remote_run": "PENDING_PUSH"
+  },
+  "daemon_environment": {
+    "docker_engine": "28.4.0",
+    "compose": "v2.40.3",
+    "image": "langgenius/dify-plugin-daemon:0.5.1-local",
+    "image_digest": "sha256:8269050f192e7564b8bf1d51fdfbc430fcb03bc5c0bcdd86fa087bcf2d774ee8",
+    "image_download": "PASS",
+    "postgres_image": "postgres:15-alpine",
+    "redis_image": "redis:6-alpine",
+    "dependency_downloads": "FAILED: Docker Hub unauthenticated pull rate limit",
+    "existing_dependency_instances": false,
+    "nonproduction_dify_inner_api": "NOT_PROVIDED",
+    "daemon_started": false
+  },
+  "real_host_stages": {
+    "install_original_rc4": "NOT_RUN",
+    "create_endpoint": "NOT_RUN",
+    "invoke_tool": "NOT_RUN"
+  },
+  "judgment_semantics": "UNCHANGED: no packaged runtime or contract edits",
+  "central_control_upgrade": "NOT_PERFORMED",
+  "production_installation": "NOT_PERFORMED",
+  "new_release": "NOT_CREATED",
+  "item3": "NOT_STARTED",
+  "item12_notes": "RECORDED_ONLY"
+}
