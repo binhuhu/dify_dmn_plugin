@@ -1,37 +1,48 @@
 {
-  "scope": "Read-only Phase/Step/Node structure viewer; no workbench",
-  "base_commit": "c29fcc55fd19f2b97b9ff06c2d1fc397ab546273",
+  "scope": "Read-only Phase/actual Step/Node viewer; no workbench, storage or execution trace",
+  "base_commit": "60f381d4cf915e6720119c052e740af357f7aa7c",
+  "candidate_version": "0.4.0-rc3",
   "python_regression": {
     "passed": 665,
     "skipped": 0,
-    "live_node_engine": true
+    "live_node_engine": true,
+    "ruff_check": "PASS",
+    "ruff_format": "PASS"
   },
   "node_engine_regression": {
     "passed": 99
   },
   "viewer_adapter_tests": {
-    "passed": 7
+    "passed": 9
+  },
+  "viewer_dom_tests": {
+    "passed": 5,
+    "limitations": "jsdom; no layout/CSP/network acceptance"
   },
   "real_sdk": {
     "static_endpoint_calls": 6,
     "static_bytes_match": true,
     "legacy_tool_calls": 14,
     "node_tool_calls": 6,
-    "credentials": "empty"
+    "credentials": "empty",
+    "staged_and_unpacked": true
   },
-  "staging": {
-    "files": 50,
-    "path_in_test_environment": "/tmp/dmn-json-0.4.0-rc2-candidate"
+  "official_packaging": {
+    "cli": "0.6.10",
+    "archive_files": 49,
+    "all_archive_bytes_match_stage": true,
+    "omitted_stage_files": [
+      ".env.example"
+    ],
+    "bytes": 88888,
+    "sha256": "e68c0a66fda9afddaa547183d1247806541174391af34cfd120d4dff600d108f"
   },
   "browser_pixel_interaction_network_observation": {
     "status": "NOT_RUN",
-    "blocker": "Sandboxed Chromium aborts before page load: SUID helper incorrectly configured"
+    "blocker": "Normally sandboxed Chromium aborts before page load: SUID helper incorrectly configured; no bypass attempted"
   },
-  "network_privacy_evidence": "Source inspection: no remote request, upload or browser storage code; Endpoint and HTML CSP connect-src none. Actual browser observation NOT_RUN.",
-  "official_packaging_this_candidate": "NOT_RUN",
+  "network_privacy_evidence": "Source inspection and Endpoint response headers: connect-src none; no remote request, upload, browser storage or JS evaluator in delivered UI. Actual browser observation NOT_RUN.",
   "target_host_install": "NOT_RUN",
-  "private_reference": "Not transferred or copied; layout guidance supplied by parent only",
-  "published_main_and_release": "Unchanged; no new production acceptance claimed",
-  "candidate_version": "0.4.0-rc2",
-  "publication_status": "BLOCKED: no installed official CLI; configured GitHub Release API returned Forbidden"
+  "private_business_data": "NONE; all fixtures synthetic",
+  "publication_status": "Package verified; exact feature/main SHAs and published asset are recorded in the GitHub prerelease. Existing releases/tags are preserved."
 }

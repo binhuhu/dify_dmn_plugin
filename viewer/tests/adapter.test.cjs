@@ -64,3 +64,52 @@ test("hostile labels retained as inert strings", () => {
     /innerHTML|eval\(|fetch\(|XMLHttpRequest|localStorage|sessionStorage/,
   );
 });
+test("missing template is located and never falls back to inline output", () => {
+  const b = sample();
+  const w = b.workflows[0],
+    p = w.phases[0],
+    s = p.steps[0];
+  const n = s.graph.nodes.find((n) => n.kind === "DECISION");
+  const m = b.models[n.model_ref];
+  m.hit_policy = "FUTURE_POLICY";
+  m.rules = [
+    {
+      rule_id: "missing-template-rule",
+      output_template_ref: "absent",
+      output: { state: "DO_NOT_USE" },
+    },
+  ];
+  const projected = adapt(JSON.stringify(b));
+  const diagnostic = projected.diagnostics.find(
+    (d) => d.rule_id === "missing-template-rule",
+  );
+  assert.equal(diagnostic.node_id, n.node_id);
+  assert.equal(diagnostic.phase_id, p.phase_id);
+  assert.equal(projected.output(m, m.rules[0]).value, undefined);
+  assert.equal(projected.output(m, m.rules[0]).missing, true);
+  assert.ok(
+    projected.diagnostics.some((d) => d.message.includes("FUTURE_POLICY")),
+  );
+  assert.equal(projected.models[n.model_ref].hit_policy, "FUTURE_POLICY");
+  assert.equal(
+    projected.models[n.model_ref].rules[0].output.state,
+    "DO_NOT_USE",
+  );
+});
+test("explicit null templates are preserved and counts describe actual structure", () => {
+  const p = adapt(JSON.stringify(sample()));
+  assert.deepEqual(
+    p.output(
+      { result_templates: { nil: null } },
+      { output_template_ref: "nil", output: "fallback" },
+    ),
+    { referenced: true, missing: false, value: null },
+  );
+  assert.equal(
+    p.counts.nodes,
+    p.workflows
+      .flatMap((w) => w.phases)
+      .flatMap((p) => p.steps)
+      .flatMap((s) => s.graph.nodes).length,
+  );
+});
