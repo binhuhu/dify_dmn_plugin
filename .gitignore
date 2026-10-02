@@ -8,6 +8,7 @@ __pycache__/
 .env.*
 !.env.example
 *.log
+!/docs/evidence/item2-native/daemon-offline.log
 .DS_Store
 dist/
 *.difypkg

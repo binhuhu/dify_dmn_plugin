@@ -1,0 +1,15 @@
+{
+  "image_id": "sha256:d91da9ab03a04d8a46d431f539ed3dc9bff7a1c339a6591e9462eafa3911086d",
+  "privileged": false,
+  "binds": null,
+  "mounts": [],
+  "port_bindings": {
+    "5002/tcp": [
+      {
+        "HostIp": "127.0.0.1",
+        "HostPort": "15002"
+      }
+    ]
+  },
+  "network_mode": "bridge"
+}

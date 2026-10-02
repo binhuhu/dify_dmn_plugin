@@ -1,0 +1,7 @@
+{
+  "status_code": 200,
+  "content_type": "text/html; charset=utf-8",
+  "csp": "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'none'; img-src 'none'; object-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'",
+  "asset_sha256": "ba7b27c06b14e09a4628813c2434e704a93b278536030fcb8e10f3fba0b6ffc7",
+  "bytes_equal_to_original_package": true
+}

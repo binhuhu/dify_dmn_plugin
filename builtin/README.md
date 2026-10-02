@@ -1,4 +1,4 @@
-# 内置 JSON 五工具 0.4.0-rc3
+# 内置 JSON 五工具 0.4.0-rc5
 
 带本声明的新修订采用 [AGPL-3.0-only](LICENSE)＋[Brian Hu 商业双许可](COMMERCIAL-LICENSE.md)。遵守 AGPL 的商业使用无需付费；依赖保留原许可，见[第三方说明](THIRD_PARTY_NOTICES.md)。这些许可文件随 staging 进入发行目录；历史包与哈希保持原记录，新许可包须另行升级版本与验收。
 
@@ -38,7 +38,7 @@ AND 中 FALSE 优先于 UNKNOWN。FIRST 的已选规则之前存在 UNKNOWN 或 
 
 ## 构建与验收
 
-从仓库根目录运行 `python scripts/stage-builtin.py /tmp/dmn-json-0.4.0-rc3`，然后用已安装的官方 Dify CLI：`dify plugin package /tmp/dmn-json-0.4.0-rc3 -o hu8627-dmn_json-0.4.0-rc3.difypkg`。没有 CLI 时 staging 目录不是安装包，不用普通 zip 冒充 difypkg。不重试已拒绝的下载/API，不修改旧 Release。包未签名，遵循平台签名策略。
+从仓库根目录运行 `python scripts/stage-builtin.py /tmp/dmn-json-0.4.0-rc5`，然后用已安装的官方 Dify CLI：`dify plugin package /tmp/dmn-json-0.4.0-rc5 -o hu8627-dmn_json-0.4.0-rc5.difypkg`。没有 CLI 时 staging 目录不是安装包，不用普通 zip 冒充 difypkg。不重试已拒绝的下载/API，不修改旧 Release。包未签名，遵循平台签名策略。
 
 依赖沿用仓库固定 requirements.txt；首次安装仍需要平台正常解析 Python 依赖。免 Key/无外部决策服务指工具调用路径，不是离线安装保证。目标 UI 安装与真实调用仍需验收。
 

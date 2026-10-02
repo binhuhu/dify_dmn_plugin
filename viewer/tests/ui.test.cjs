@@ -160,3 +160,126 @@ test("mobile directory expands nodes and close restores visible directory focus"
   $("close").click();
   assert.equal(w.document.activeElement, link);
 });
+
+test("invalid display types preserve source, selected node and graph", async (t) => {
+  const { $, importFile } = await setup(t);
+  const button = $("canvas").querySelector(".node");
+  button.click();
+  const before = $("canvas").innerHTML;
+  const bad = fixture();
+  bad.workflows[0].phases[0].name = { toString: 1, valueOf: 1 };
+  await importFile(JSON.stringify(bad), "bad-type.json");
+  assert.equal($("canvas").innerHTML, before);
+  assert.equal($("canvas").querySelector(".node"), button);
+  assert.equal($("drawer").hidden, false);
+  assert.match($("source").textContent, /synthetic.json/);
+  assert.match(
+    $("status").textContent,
+    /bad-type.json.*synthetic.json.*字符串/,
+  );
+});
+
+test("render exception rolls back DOM identity, listeners, focus and pending frames", async (t) => {
+  const { w, $, importFile } = await setup(t);
+  const button = $("canvas").querySelector(".node");
+  button.click();
+  const before = $("canvas").innerHTML;
+  const tree = $("tree").firstChild;
+  const source = $("source").textContent;
+  const original = w.document.createElement.bind(w.document);
+  let injected = false;
+  w.document.createElement = (tag, ...args) => {
+    if (tag === "h3" && !injected) {
+      injected = true;
+      throw Error("synthetic render failure");
+    }
+    return original(tag, ...args);
+  };
+  await importFile(JSON.stringify(fixture()), "render-failed.json");
+  w.document.createElement = original;
+  assert.ok(injected);
+  assert.equal($("canvas").innerHTML, before);
+  assert.equal($("canvas").querySelector(".node"), button);
+  assert.equal($("tree").firstChild, tree);
+  assert.equal($("source").textContent, source);
+  assert.equal($("drawer").hidden, false);
+  assert.equal(w.document.activeElement, $("close"));
+  $("close").click();
+  assert.equal(w.document.activeElement, button);
+  button.click();
+  assert.equal($("drawer").hidden, false);
+  await importFile(JSON.stringify(fixture()), "recovered.json");
+  assert.match($("source").textContent, /recovered.json/);
+  assert.equal($("canvas").querySelectorAll("path[data-source]").length, 1);
+});
+
+for (const staleFailure of [false, true]) {
+  test(`late ${staleFailure ? "failure" : "success"} cannot overwrite newer import`, async (t) => {
+    const { $, w } = await setup(t);
+    const input = $("file");
+    let resolve, reject;
+    const pending = new Promise((r, j) => {
+      resolve = r;
+      reject = j;
+    });
+    function start(name, text) {
+      Object.defineProperty(input, "files", {
+        configurable: true,
+        value: [{ name, size: 100, text }],
+      });
+      return input.onchange({ target: input });
+    }
+    const a = start("A.json", () => pending);
+    await start("B.json", async () => JSON.stringify(fixture()));
+    if (staleFailure) reject(Error("old read failure"));
+    else resolve(JSON.stringify(fixture()));
+    await a;
+    await new Promise((r) => w.requestAnimationFrame(r));
+    assert.match($("source").textContent, /B.json/);
+    assert.equal($("status").textContent, "");
+  });
+}
+
+test("stale finally cannot clear a newer pending input", async (t) => {
+  const { $ } = await setup(t);
+  const input = $("file");
+  let value = "A",
+    resolveA,
+    resolveB;
+  Object.defineProperty(input, "value", {
+    configurable: true,
+    get: () => value,
+    set: (next) => {
+      value = next;
+    },
+  });
+  const start = (name, text) => {
+    Object.defineProperty(input, "files", {
+      configurable: true,
+      value: [{ name, size: 100, text }],
+    });
+    return input.onchange({ target: input });
+  };
+  const a = start(
+    "A.json",
+    () =>
+      new Promise((r) => {
+        resolveA = r;
+      }),
+  );
+  value = "B";
+  const b = start(
+    "B.json",
+    () =>
+      new Promise((r) => {
+        resolveB = r;
+      }),
+  );
+  resolveA(JSON.stringify(fixture()));
+  await a;
+  assert.equal(value, "B");
+  resolveB(JSON.stringify(fixture()));
+  await b;
+  assert.equal(value, "");
+  assert.match($("source").textContent, /B.json/);
+});

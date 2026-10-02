@@ -681,7 +681,8 @@ def execute_query(
                             _fail("QUERY_OUTPUT_INVALID", "Unsupported or repeated cursor")
                         seen_cursors.add(cursor)
                         if page >= op["pagination"]["max_pages"]:
-                            page_budget_exhausted = True
+                            # A local truncation must not suppress independent nodes.
+                            page_budget_exhausted = total_pages >= plan["budget"]["max_pages"]
                             _fail("QUERY_PARTIAL", "Pagination budget exhausted")
                         params = {**batch, op["pagination"]["parameter"]: cursor}
                 if collected or op.get("pagination") or op.get("batch"):

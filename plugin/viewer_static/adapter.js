@@ -61,6 +61,12 @@
       if (!Array.isArray(v)) throw Error(path + " 必须为数组");
       return v;
     }
+    function strings(object, keys, path) {
+      keys.forEach((key) => {
+        if (Object.hasOwn(object, key) && typeof object[key] !== "string")
+          throw Error(`${path}.${key} 必须为字符串`);
+      });
+    }
     function unique(items, key, path) {
       const seen = new Set();
       items.forEach((x) => {
@@ -72,10 +78,16 @@
     Object.entries(models).forEach(([ref, model]) => {
       if (!model || typeof model !== "object" || Array.isArray(model))
         throw Error("模型必须为对象: " + ref);
+      strings(model, ["hit_policy"], `models.${ref}`);
       if (model.rules !== undefined)
         array(model.rules, "rules").forEach((rule) => {
           if (!rule || typeof rule !== "object" || Array.isArray(rule))
             throw Error("规则必须为对象");
+          strings(
+            rule,
+            ["rule_id", "id", "output_template_ref"],
+            `models.${ref}.rules`,
+          );
         });
     });
     const workflows = array(data.workflows, "workflows");
@@ -84,13 +96,18 @@
     let nodes = 0,
       edges = 0;
     workflows.forEach((w) => {
+      strings(w, ["name", "scope"], w.workflow_id);
       if (!["LOCATE", "SOLVE"].includes(w.flow_type))
         throw Error("flow_type 必须为 LOCATE 或 SOLVE");
       const phases = array(w.phases, "phases");
       unique(phases, "phase_id", w.workflow_id);
       const steps = [];
       phases.forEach((p) => {
+        strings(p, ["name"], p.phase_id);
         array(p.steps, "steps").forEach((s) => {
+          if (!s || typeof s !== "object" || Array.isArray(s))
+            throw Error("Step 必须为对象");
+          strings(s, ["name"], "steps");
           steps.push(s);
           if (!s.graph) throw Error("Step 缺少 graph");
           const ns = array(s.graph.nodes, "nodes"),
@@ -101,10 +118,12 @@
           unique(es, "edge_id", s.step_id);
           const ids = new Set(ns.map((n) => n.node_id));
           es.forEach((e) => {
+            strings(e, ["source", "target", "source_port"], e.edge_id);
             if (!ids.has(e.source) || !ids.has(e.target))
               throw Error("控制边引用未知节点: " + e.edge_id);
           });
           ns.forEach((n) => {
+            strings(n, ["name", "kind", "category", "model_ref"], n.node_id);
             if (n.kind !== "DECISION") return;
             const warn = (message, rule_id) =>
               diagnostics.push({
