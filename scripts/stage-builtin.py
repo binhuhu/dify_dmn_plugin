@@ -1,8 +1,8 @@
 """Stage the credential-free companion from reviewed shared sources; no packaging/network."""
 
 import argparse
-from pathlib import Path
 import shutil
+from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -29,6 +29,11 @@ def stage(destination):
     shutil.copyfile(ROOT / "builtin/provider.py", destination / "provider/dmn.py")
     shutil.copyfile(ROOT / "builtin/README.md", destination / "README.md")
     shutil.copyfile(ROOT / "builtin/PRIVACY.md", destination / "PRIVACY.md")
+    for name in ("LICENSE", "NOTICE", "COMMERCIAL-LICENSE.md", "THIRD_PARTY_NOTICES.md"):
+        shutil.copyfile(ROOT / name, destination / name)
+    shutil.copytree(
+        ROOT / "third_party/python", destination / "third_party/python", dirs_exist_ok=True
+    )
     project = destination / "pyproject.toml"
     project.write_text(
         project.read_text()

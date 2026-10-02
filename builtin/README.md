@@ -1,5 +1,7 @@
 # 内置 JSON 五工具 0.4.0-rc3
 
+带本声明的新修订采用 [AGPL-3.0-only](LICENSE)＋[Brian Hu 商业双许可](COMMERCIAL-LICENSE.md)。遵守 AGPL 的商业使用无需付费；依赖保留原许可，见[第三方说明](THIRD_PARTY_NOTICES.md)。这些许可文件随 staging 进入发行目录；历史包与哈希保持原记录，新许可包须另行升级版本与验收。
+
 这是同一仓库的独立免凭据安装包 `hu8627/dmn_json`。原有 `hu8627/dmn` 外部 XML 插件和其他已安装插件保留，不卸载、不替换。新建“内置 JSON 决策表 / evaluate_json_table”节点无需 Key、引擎地址或外部服务。现有外部工具仍通过原插件配置 Node 服务，未配置时返回 INVALID_CONFIGURATION。两个包的模型格式和语义不能互换。
 
 采用独立包是为保留旧凭据接口：Dify 1.11.1 对任何非空 credentials_schema 都要求授权，required:false 不能解除；daemon 0.5.1 解码多个 provider 文件时仅保留最后一个。因此不在单包内伪装两套授权模式。此版本是 JSON 能力新增发布，不自动迁移旧 XML 节点。已有 JSON companion 后续版本可按相同身份升级。

@@ -1,0 +1,225 @@
+{
+  "lockfile": "engine/package-lock.json",
+  "scope": "Locked production npm packages; excludes dev tools, Node runtime and OS image.",
+  "packages": [
+    {
+      "name": "@lezer/common",
+      "version": "1.5.3",
+      "declared_license": "MIT",
+      "integrity": "sha512-H0iErY4e43LpXbYDyBci5W4v/RwTgGV3YzYOlJPiGZ8RY8w51kVE+xLn1tg3Z6UmSfyETvtsUK3r7YsgDQEI7Q==",
+      "notice_sources": [
+        {
+          "path": "LICENSE",
+          "sha256": "568902fb66eaf1f11750e966b33fd7b5d7c618e65af09f35ef843635bcf5f1ba"
+        }
+      ],
+      "gaps": []
+    },
+    {
+      "name": "@lezer/highlight",
+      "version": "1.2.5",
+      "declared_license": "MIT",
+      "integrity": "sha512-O1GMVKgtf5YspFaRzpmqkVgMtIk2HG9uMAbH6wdAIdNh3TVzCsch/+cRi+6l2//UGDKe6NB9BW3cvuR5ezMQ0w==",
+      "notice_sources": [
+        {
+          "path": "LICENSE",
+          "sha256": "568902fb66eaf1f11750e966b33fd7b5d7c618e65af09f35ef843635bcf5f1ba"
+        }
+      ],
+      "gaps": []
+    },
+    {
+      "name": "@lezer/lr",
+      "version": "1.4.10",
+      "declared_license": "MIT",
+      "integrity": "sha512-rnCpTIBafOx4mRp43xOxDJbFipJm/c0cia/V5TiGlhmMa+wsSdoGmUN3w5Bqrks/09Q/D4tNAmWaT8p6NRi77A==",
+      "notice_sources": [
+        {
+          "path": "LICENSE",
+          "sha256": "568902fb66eaf1f11750e966b33fd7b5d7c618e65af09f35ef843635bcf5f1ba"
+        }
+      ],
+      "gaps": []
+    },
+    {
+      "name": "dmn-elements",
+      "version": "0.3.0",
+      "declared_license": "MIT",
+      "integrity": "sha512-lxwscdSSSkKcjNKkJSLoxwELHj7RG0gdgU5l5eVJu7HblrnSIhZrXnwlncygKhcqbzhgBdmmQQHjUUlUqdzWnw==",
+      "notice_sources": [],
+      "gaps": [
+        "License text absent in installed package; upstream notice must be obtained."
+      ]
+    },
+    {
+      "name": "dmn-moddle",
+      "version": "12.0.1",
+      "declared_license": "MIT",
+      "integrity": "sha512-nTKEfIpVCt2YRQo4XqO+qCHj9WcnXUXyBeY/jxLEby7XEFXcxh+ni4mhYuxl08ZXqTRV7h73L+F8NNh5iX1hDw==",
+      "notice_sources": [
+        {
+          "path": "LICENSE",
+          "sha256": "294d7be66b9f34bf0762cfcab238764e491ea19c04d448b8e32e45aec040196b"
+        }
+      ],
+      "gaps": []
+    },
+    {
+      "name": "feelin",
+      "version": "8.2.0",
+      "declared_license": "MIT",
+      "integrity": "sha512-o/oUBp7hzcsupV3Pf+Kn+43y+gul/sSVqYYkJq9+hkYuFuBfk0rocy//H2goKlWJJbuONnE59Iqb4U34VyZpjA==",
+      "notice_sources": [
+        {
+          "path": "LICENSE",
+          "sha256": "c44793e4edca03fb5447fecc6daff71bd9e6ceee00c3fd3cbc89def451523a0e"
+        }
+      ],
+      "gaps": []
+    },
+    {
+      "name": "jsonc-parser",
+      "version": "3.3.1",
+      "declared_license": "MIT",
+      "integrity": "sha512-HUgH65KyejrUFPvHFPbqOY0rsFip3Bo5wb4ngvdi1EpCYWUQDC5V+Y7mZws+DLkr4M//zQJoanu1SP+87Dv1oQ==",
+      "notice_sources": [
+        {
+          "path": "LICENSE.md",
+          "sha256": "c3a24c02d678e5f0711623dcf3ab3f243b273c2633f638a1fa8e35fb7c7f8e4d"
+        }
+      ],
+      "gaps": []
+    },
+    {
+      "name": "lezer-feel",
+      "version": "3.0.1",
+      "declared_license": "MIT",
+      "integrity": "sha512-tTOBq2ZOwfekNXg7eflg9WK/jl4LW4pryR3wiGRp1/ODXBG3ngo2mqXcriULylTjdxCnz42ByMMFEgbOK0L7kg==",
+      "notice_sources": [
+        {
+          "path": "LICENSE",
+          "sha256": "1c2354815e46cd9e25db44f8f154b827c613eac431089ac0e8ce6207dbc8db89"
+        }
+      ],
+      "gaps": []
+    },
+    {
+      "name": "min-dash",
+      "version": "5.1.0",
+      "declared_license": "MIT",
+      "integrity": "sha512-HAvN6XzmCQj+js43G9sJRRw8kj/7DvoxN7qhoIN9Xo5ZN1NMljtpyKs/NunXmw0QSWwlgZzNv6tLeEa4xaZ0tg==",
+      "notice_sources": [
+        {
+          "path": "LICENSE",
+          "sha256": "21b28e21af7e43fbdc4a77d166146024baacc509cf9c8c4986fb0248724fdd30"
+        }
+      ],
+      "gaps": []
+    },
+    {
+      "name": "moddle",
+      "version": "8.2.1",
+      "declared_license": "MIT",
+      "integrity": "sha512-20qzO/ZpMGO9j9gdQgXk9bfGxb9wA3JKnGth/21YZKODLrZE4RW/uVMIL5pTskYm34Z61DucBEPkq93qByNsBQ==",
+      "notice_sources": [
+        {
+          "path": "LICENSE",
+          "sha256": "39e5358fd556ba6cb3b7eb1ff69ff43766e2f29c4e1d67e43cab08ad74016632"
+        }
+      ],
+      "gaps": []
+    },
+    {
+      "name": "moddle-xml",
+      "version": "12.3.1",
+      "declared_license": "MIT",
+      "integrity": "sha512-XbAQDWCG2ZRch3odmQigJ4GwTqrOVBx0+JHEAgdw0U3MkBsWa9LAbO//S5RPdYMcRO87E63r/R/I3CoMef6ncA==",
+      "notice_sources": [
+        {
+          "path": "LICENSE",
+          "sha256": "39e5358fd556ba6cb3b7eb1ff69ff43766e2f29c4e1d67e43cab08ad74016632"
+        }
+      ],
+      "gaps": []
+    },
+    {
+      "name": "saxen",
+      "version": "11.2.0",
+      "declared_license": "MIT",
+      "integrity": "sha512-2bG564AAJcm/3vyZC0Uhs/mACrH+4AHMaKHKAB2M5xMqomUZa27FQ7MYaQGFKVcJk/MVzSEQ34A8QZWW+eiWEw==",
+      "notice_sources": [
+        {
+          "path": "LICENSE",
+          "sha256": "dbda1f03cbd146adb0da20657a72432d83eae3134dffacdfeff6db4c5e32207a"
+        }
+      ],
+      "gaps": []
+    },
+    {
+      "name": "saxes",
+      "version": "6.0.0",
+      "declared_license": "ISC",
+      "integrity": "sha512-xAg7SOnEhrm5zI3puOOKyy1OMcMlIJZYNJY7xLBwSze0UjhPLnWfj2GF2EpT0jmzaJKIWKHLsaSSajf35bcYnA==",
+      "notice_sources": [
+        {
+          "url": "https://raw.githubusercontent.com/lddubeau/saxes/v6.0.0/LICENSE",
+          "sha256": "0fac2374380621b22e6b50451057721a9c52935b02d16d106a9f04897f061d0e"
+        }
+      ],
+      "gaps": []
+    },
+    {
+      "name": "temporal-polyfill",
+      "version": "1.0.5",
+      "declared_license": "MIT",
+      "integrity": "sha512-+H/mmY74i6wXCMcjIhGuSnODcyZnc4eois2myhOyX0UqRAKNXQY5m9iB1en5jQ/n4SXtjLXo1ElBI5bmn8tZwQ==",
+      "notice_sources": [
+        {
+          "path": "LICENSE",
+          "sha256": "c29814b29591d08896b63870ffdd652785f5b2e3f902860645f00871b596068d"
+        }
+      ],
+      "gaps": []
+    },
+    {
+      "name": "temporal-spec",
+      "version": "1.0.1",
+      "declared_license": "Apache-2.0",
+      "integrity": "sha512-wxVoanmDeavXie1vu2JaQ3WIc3JZnWAOYFBsJyATaVsXsycKYUflGsyBmrRSnoCpZJpwPyr38VpgSUlQ8CbFxg==",
+      "notice_sources": [
+        {
+          "path": "LICENSE",
+          "sha256": "fea66f1be8df22727cd9750a85865270949107151b6414986c23ebe1929f66b3"
+        }
+      ],
+      "gaps": []
+    },
+    {
+      "name": "temporal-utils",
+      "version": "1.0.3",
+      "declared_license": "MIT",
+      "integrity": "sha512-9jbTSX3HvkOWvDpNpFzwX/d1mkCrgQgwLmVTOEiuocZGKHsrQJtttGZFmybJ2zYP5zCSZuU5ZyeS8+eOEPABiQ==",
+      "notice_sources": [
+        {
+          "path": "LICENSE",
+          "sha256": "c29814b29591d08896b63870ffdd652785f5b2e3f902860645f00871b596068d"
+        }
+      ],
+      "gaps": []
+    },
+    {
+      "name": "xmlchars",
+      "version": "2.2.0",
+      "declared_license": "MIT",
+      "integrity": "sha512-JZnDKK8B0RCDw84FNdDAIpZK+JuJw+s7Lz8nksI7SIuU3UXJJslUthsi+uWBUYOwPFwW7W7PRLRfUKpxjtjFCw==",
+      "notice_sources": [
+        {
+          "path": "LICENSE",
+          "sha256": "45d196313c2647d313cc65ca9b093d2d6974b64d35ee7346f2c60c9d518dff2c"
+        }
+      ],
+      "gaps": []
+    }
+  ],
+  "notice_file_sha256": "ead8c00a77577309c383c66731e3116f9026791de9167b562a22d964bc6cfb1a"
+}

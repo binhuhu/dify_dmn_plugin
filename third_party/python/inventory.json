@@ -1,0 +1,661 @@
+{
+  "lockfile": "plugin/uv.lock",
+  "lock_sha256": "7df4118b62bf21ecf7bbb3fbc43396f7b9062e9e76989d5f94a109eb4a7c5f37",
+  "scope": "All reachable locked runtime packages, including platform-conditional packages; reference environment notices only, not the daemon's actual resolved dependencies.",
+  "packages": [
+    {
+      "name": "annotated-types",
+      "version": "0.8.0",
+      "notice_sources": [
+        {
+          "path": "annotated_types-0.8.0.dist-info/licenses/LICENSE",
+          "sha256": "fe1049884b1a0d9342901e88e07f32925d24b3121d9972b6a6805fb9824b095d"
+        }
+      ],
+      "gaps": [],
+      "reference_version": "0.8.0",
+      "declared_license": "MIT",
+      "license_classifiers": [
+        "License :: OSI Approved :: MIT License"
+      ]
+    },
+    {
+      "name": "anyio",
+      "version": "4.15.1",
+      "notice_sources": [
+        {
+          "path": "anyio-4.15.1.dist-info/licenses/LICENSE",
+          "sha256": "5361ac9dc58f2ef5fd2e9b09c68297c17f04950909bbc8023bdb82eacf22c2b0"
+        }
+      ],
+      "gaps": [],
+      "reference_version": "4.15.1",
+      "declared_license": "MIT",
+      "license_classifiers": []
+    },
+    {
+      "name": "attrs",
+      "version": "26.1.0",
+      "notice_sources": [
+        {
+          "path": "attrs-26.1.0.dist-info/licenses/LICENSE",
+          "sha256": "882115c95dfc2af1eeb6714f8ec6d5cbcabf667caff8729f42420da63f714e9f"
+        }
+      ],
+      "gaps": [],
+      "reference_version": "26.1.0",
+      "declared_license": "MIT",
+      "license_classifiers": []
+    },
+    {
+      "name": "blinker",
+      "version": "1.9.0",
+      "notice_sources": [
+        {
+          "path": "blinker-1.9.0.dist-info/LICENSE.txt",
+          "sha256": "9eb73a1f38597a4aa17025d2ae1be3839624c795e985d4f0e9769ce29faca467"
+        }
+      ],
+      "gaps": [],
+      "reference_version": "1.9.0",
+      "declared_license": "",
+      "license_classifiers": [
+        "License :: OSI Approved :: MIT License"
+      ]
+    },
+    {
+      "name": "certifi",
+      "version": "2026.7.22",
+      "notice_sources": [
+        {
+          "path": "certifi-2026.7.22.dist-info/licenses/LICENSE",
+          "sha256": "e93716da6b9c0d5a4a1df60fe695b370f0695603d21f6f83f053e42cfc10caf7"
+        }
+      ],
+      "gaps": [],
+      "reference_version": "2026.7.22",
+      "declared_license": "MPL-2.0",
+      "license_classifiers": [
+        "License :: OSI Approved :: Mozilla Public License 2.0 (MPL 2.0)"
+      ]
+    },
+    {
+      "name": "cffi",
+      "version": "2.1.1",
+      "notice_sources": [],
+      "gaps": [
+        "Not installed in reference environment; exact-version notices missing."
+      ]
+    },
+    {
+      "name": "charset-normalizer",
+      "version": "3.5.2",
+      "notice_sources": [
+        {
+          "path": "charset_normalizer-3.5.2.dist-info/licenses/LICENSE",
+          "sha256": "6d0d41bfe170ac6c7dc248c9a63e254d0fb45a60d50a8257d0af92c6e249b887"
+        }
+      ],
+      "gaps": [],
+      "reference_version": "3.5.2",
+      "declared_license": "MIT",
+      "license_classifiers": []
+    },
+    {
+      "name": "click",
+      "version": "8.5.0",
+      "notice_sources": [
+        {
+          "path": "click-8.5.0.dist-info/licenses/LICENSE.txt",
+          "sha256": "9a8ad106a394e853bfe21f42f4e72d592819a22805d991b5f3275029292b658d"
+        }
+      ],
+      "gaps": [],
+      "reference_version": "8.5.0",
+      "declared_license": "BSD-3-Clause",
+      "license_classifiers": []
+    },
+    {
+      "name": "dify-plugin",
+      "version": "0.10.2",
+      "notice_sources": [
+        {
+          "path": "dify_plugin-0.10.2.dist-info/licenses/LICENSE",
+          "sha256": "84a9d51749a83b2d49e20211778158b52fa2ecc0af0b65365206d652218bda85"
+        }
+      ],
+      "gaps": [],
+      "reference_version": "0.10.2",
+      "declared_license": "Apache-2.0",
+      "license_classifiers": []
+    },
+    {
+      "name": "flask",
+      "version": "3.1.3",
+      "notice_sources": [
+        {
+          "path": "flask-3.1.3.dist-info/licenses/LICENSE.txt",
+          "sha256": "489a8e1108509ed98a37bb983e11e0f7e1d31f0bd8f99a79c8448e7ff37d07ea"
+        }
+      ],
+      "gaps": [],
+      "reference_version": "3.1.3",
+      "declared_license": "BSD-3-Clause",
+      "license_classifiers": []
+    },
+    {
+      "name": "gevent",
+      "version": "26.9.0",
+      "notice_sources": [
+        {
+          "path": "gevent-26.9.0.dist-info/licenses/LICENSE",
+          "sha256": "4d46bc11d19e3853d54325973b8e2c53090f5638a7bf27fa1f5f1232c78901f7"
+        }
+      ],
+      "gaps": [],
+      "reference_version": "26.9.0",
+      "declared_license": "MIT",
+      "license_classifiers": []
+    },
+    {
+      "name": "greenlet",
+      "version": "3.5.6",
+      "notice_sources": [
+        {
+          "path": "greenlet-3.5.6.dist-info/licenses/LICENSE",
+          "sha256": "769831d6e5dfaf2c20802faccff1fafb4c2025dd8f6253dfa47fcad59d4d0979"
+        },
+        {
+          "path": "greenlet-3.5.6.dist-info/licenses/LICENSE.PSF",
+          "sha256": "e5ff3c23c110e494cd7d736c10fd96d462457bafeca310840db6527298c7d46b"
+        }
+      ],
+      "gaps": [],
+      "reference_version": "3.5.6",
+      "declared_license": "MIT AND PSF-2.0",
+      "license_classifiers": []
+    },
+    {
+      "name": "h11",
+      "version": "0.16.0",
+      "notice_sources": [
+        {
+          "path": "h11-0.16.0.dist-info/licenses/LICENSE.txt",
+          "sha256": "37db5bb85926db28a427a25867f10b1232003aea1be69ccb851138adb8e6f361"
+        }
+      ],
+      "gaps": [],
+      "reference_version": "0.16.0",
+      "declared_license": "MIT",
+      "license_classifiers": [
+        "License :: OSI Approved :: MIT License"
+      ]
+    },
+    {
+      "name": "httpcore",
+      "version": "1.0.9",
+      "notice_sources": [
+        {
+          "path": "httpcore-1.0.9.dist-info/licenses/LICENSE.md",
+          "sha256": "fdcb59154c74cbaba16a11242f7740bea9f23d6feb5547917d8c5f94a80392a5"
+        }
+      ],
+      "gaps": [],
+      "reference_version": "1.0.9",
+      "declared_license": "BSD-3-Clause",
+      "license_classifiers": [
+        "License :: OSI Approved :: BSD License"
+      ]
+    },
+    {
+      "name": "httpx",
+      "version": "0.28.1",
+      "notice_sources": [
+        {
+          "path": "httpx-0.28.1.dist-info/licenses/LICENSE.md",
+          "sha256": "4ec59d544f12b5f539a3a716fd321ac58ccd8030b465221f2c880200cdf28d8d"
+        }
+      ],
+      "gaps": [],
+      "reference_version": "0.28.1",
+      "declared_license": "BSD-3-Clause",
+      "license_classifiers": [
+        "License :: OSI Approved :: BSD License"
+      ]
+    },
+    {
+      "name": "idna",
+      "version": "3.20",
+      "notice_sources": [
+        {
+          "path": "idna-3.20.dist-info/licenses/LICENSE.md",
+          "sha256": "1a9a4f0e3d479a27240ddd59a9137a66ab4a0f9dfdc8ca6188cc0bfd85187f04"
+        }
+      ],
+      "gaps": [],
+      "reference_version": "3.20",
+      "declared_license": "BSD-3-Clause",
+      "license_classifiers": []
+    },
+    {
+      "name": "itsdangerous",
+      "version": "2.2.0",
+      "notice_sources": [
+        {
+          "path": "itsdangerous-2.2.0.dist-info/LICENSE.txt",
+          "sha256": "63af09891b6be8ad1a4252ed43af0f4efba7fc948e228367bed7f3c5ae0b09d7"
+        }
+      ],
+      "gaps": [],
+      "reference_version": "2.2.0",
+      "declared_license": "",
+      "license_classifiers": [
+        "License :: OSI Approved :: BSD License"
+      ]
+    },
+    {
+      "name": "jinja2",
+      "version": "3.1.6",
+      "notice_sources": [
+        {
+          "path": "jinja2-3.1.6.dist-info/licenses/LICENSE.txt",
+          "sha256": "3b49dcee4105eb37bac10faf1be260408fe85d252b8e9df2e0979fc1e094437b"
+        }
+      ],
+      "gaps": [],
+      "reference_version": "3.1.6",
+      "declared_license": "",
+      "license_classifiers": [
+        "License :: OSI Approved :: BSD License"
+      ]
+    },
+    {
+      "name": "jsonschema",
+      "version": "4.26.0",
+      "notice_sources": [
+        {
+          "path": "jsonschema-4.26.0.dist-info/licenses/COPYING",
+          "sha256": "4f92a015a13c4d1a040bef018aa13430b4f1bc73b41b16bb846c346766de7439"
+        }
+      ],
+      "gaps": [],
+      "reference_version": "4.26.0",
+      "declared_license": "MIT",
+      "license_classifiers": []
+    },
+    {
+      "name": "jsonschema-specifications",
+      "version": "2025.9.1",
+      "notice_sources": [
+        {
+          "path": "jsonschema_specifications-2025.9.1.dist-info/licenses/COPYING",
+          "sha256": "42dcd63495f87b4eb7c7757afa379bb55a53f94afd7a5f657d9adf57236e515c"
+        }
+      ],
+      "gaps": [],
+      "reference_version": "2025.9.1",
+      "declared_license": "MIT",
+      "license_classifiers": []
+    },
+    {
+      "name": "markupsafe",
+      "version": "3.0.3",
+      "notice_sources": [
+        {
+          "path": "markupsafe-3.0.3.dist-info/licenses/LICENSE.txt",
+          "sha256": "489a8e1108509ed98a37bb983e11e0f7e1d31f0bd8f99a79c8448e7ff37d07ea"
+        }
+      ],
+      "gaps": [],
+      "reference_version": "3.0.3",
+      "declared_license": "BSD-3-Clause",
+      "license_classifiers": []
+    },
+    {
+      "name": "multidict",
+      "version": "7.0.0",
+      "notice_sources": [
+        {
+          "path": "multidict-7.0.0.dist-info/licenses/LICENSE",
+          "sha256": "2e4be5fc6c4c72a466fcb665d726e049a6891981fe536c4f04b6366749461d23"
+        }
+      ],
+      "gaps": [],
+      "reference_version": "7.0.0",
+      "declared_license": "Apache License 2.0",
+      "license_classifiers": []
+    },
+    {
+      "name": "packaging",
+      "version": "26.3",
+      "notice_sources": [
+        {
+          "path": "packaging-26.3.dist-info/licenses/LICENSE",
+          "sha256": "cad1ef5bd340d73e074ba614d26f7deaca5c7940c3d8c34852e65c4909686c48"
+        },
+        {
+          "path": "packaging-26.3.dist-info/licenses/LICENSE.APACHE",
+          "sha256": "0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594"
+        },
+        {
+          "path": "packaging-26.3.dist-info/licenses/LICENSE.BSD",
+          "sha256": "b70e7e9b742f1cc6f948b34c16aa39ffece94196364bc88ff0d2180f0028fac5"
+        }
+      ],
+      "gaps": [],
+      "reference_version": "26.3",
+      "declared_license": "Apache-2.0 OR BSD-2-Clause",
+      "license_classifiers": []
+    },
+    {
+      "name": "propcache",
+      "version": "0.5.4",
+      "notice_sources": [
+        {
+          "path": "propcache-0.5.4.dist-info/licenses/LICENSE",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        },
+        {
+          "path": "propcache-0.5.4.dist-info/licenses/NOTICE",
+          "sha256": "56d6ac6c8105c0a51304c21db060e361af9a8ea0af9a75c239c28b5d13693838"
+        }
+      ],
+      "gaps": [],
+      "reference_version": "0.5.4",
+      "declared_license": "Apache-2.0",
+      "license_classifiers": []
+    },
+    {
+      "name": "pycparser",
+      "version": "3.0",
+      "notice_sources": [],
+      "gaps": [
+        "Not installed in reference environment; exact-version notices missing."
+      ]
+    },
+    {
+      "name": "pydantic",
+      "version": "2.13.5",
+      "notice_sources": [
+        {
+          "path": "pydantic-2.13.5.dist-info/licenses/LICENSE",
+          "sha256": "a9e186f3ca16b5eef84318e7a701721351a00cb7b8ae3a4394b67b49e3529ef3"
+        }
+      ],
+      "gaps": [],
+      "reference_version": "2.13.5",
+      "declared_license": "MIT",
+      "license_classifiers": []
+    },
+    {
+      "name": "pydantic-core",
+      "version": "2.46.5",
+      "notice_sources": [
+        {
+          "path": "pydantic_core-2.46.5.dist-info/licenses/LICENSE",
+          "sha256": "2afdd30d54b4d62b6f488a6bcc1546e84ec5061f13f4209c03d012348783795a"
+        }
+      ],
+      "gaps": [],
+      "reference_version": "2.46.5",
+      "declared_license": "MIT",
+      "license_classifiers": []
+    },
+    {
+      "name": "pydantic-settings",
+      "version": "2.15.0",
+      "notice_sources": [
+        {
+          "path": "pydantic_settings-2.15.0.dist-info/licenses/LICENSE",
+          "sha256": "eb355a753e020346d33d83bf9769135b89fc610568ac531a01c295bcee7fd998"
+        }
+      ],
+      "gaps": [],
+      "reference_version": "2.15.0",
+      "declared_license": "MIT",
+      "license_classifiers": [
+        "License :: OSI Approved :: MIT License"
+      ]
+    },
+    {
+      "name": "python-dotenv",
+      "version": "1.2.3",
+      "notice_sources": [],
+      "gaps": [
+        "Reference version differs from lock; notices not copied."
+      ],
+      "reference_version": "1.2.4"
+    },
+    {
+      "name": "pyyaml",
+      "version": "6.0.3",
+      "notice_sources": [
+        {
+          "path": "pyyaml-6.0.3.dist-info/licenses/LICENSE",
+          "sha256": "8d3928f9dc4490fd635707cb88eb26bd764102a7282954307d3e5167a577e8a4"
+        }
+      ],
+      "gaps": [],
+      "reference_version": "6.0.3",
+      "declared_license": "MIT",
+      "license_classifiers": [
+        "License :: OSI Approved :: MIT License"
+      ]
+    },
+    {
+      "name": "referencing",
+      "version": "0.37.0",
+      "notice_sources": [
+        {
+          "path": "referencing-0.37.0.dist-info/licenses/COPYING",
+          "sha256": "42dcd63495f87b4eb7c7757afa379bb55a53f94afd7a5f657d9adf57236e515c"
+        }
+      ],
+      "gaps": [],
+      "reference_version": "0.37.0",
+      "declared_license": "MIT",
+      "license_classifiers": []
+    },
+    {
+      "name": "regex",
+      "version": "2026.9.29",
+      "notice_sources": [
+        {
+          "path": "regex-2026.9.29.dist-info/licenses/LICENSE.txt",
+          "sha256": "bff55ef4cdcc8c14ce259f8e8ab60e264418440d6335f4dc138273fbd506144d"
+        }
+      ],
+      "gaps": [],
+      "reference_version": "2026.9.29",
+      "declared_license": "Apache-2.0 AND CNRI-Python",
+      "license_classifiers": []
+    },
+    {
+      "name": "requests",
+      "version": "2.34.2",
+      "notice_sources": [
+        {
+          "path": "requests-2.34.2.dist-info/licenses/LICENSE",
+          "sha256": "09e8a9bcec8067104652c168685ab0931e7868f9c8284b66f5ae6edae5f1130b"
+        },
+        {
+          "path": "requests-2.34.2.dist-info/licenses/NOTICE",
+          "sha256": "f5110972dedad2b4e9d314518daf3b7d72d6e02e499acd802181de6f74571dcc"
+        }
+      ],
+      "gaps": [],
+      "reference_version": "2.34.2",
+      "declared_license": "Apache-2.0",
+      "license_classifiers": [
+        "License :: OSI Approved :: Apache Software License"
+      ]
+    },
+    {
+      "name": "rfc8785",
+      "version": "0.1.4",
+      "notice_sources": [
+        {
+          "path": "rfc8785-0.1.4.dist-info/LICENSE",
+          "sha256": "0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594"
+        }
+      ],
+      "gaps": [],
+      "reference_version": "0.1.4",
+      "declared_license": "",
+      "license_classifiers": [
+        "License :: OSI Approved :: Apache Software License"
+      ]
+    },
+    {
+      "name": "rpds-py",
+      "version": "2026.6.3",
+      "notice_sources": [
+        {
+          "path": "rpds_py-2026.6.3.dist-info/licenses/LICENSE",
+          "sha256": "314e4e91be3baa93c0fb4bccc9e4e97cd643eb839b065af921782c2175fe9909"
+        }
+      ],
+      "gaps": [],
+      "reference_version": "2026.6.3",
+      "declared_license": "MIT",
+      "license_classifiers": []
+    },
+    {
+      "name": "socksio",
+      "version": "1.0.0",
+      "notice_sources": [
+        {
+          "path": "socksio-1.0.0.dist-info/LICENSE",
+          "sha256": "7087f0f5f7c2993f3c4ed117baa3622c1063626e7c692e9ea116475b5fc1396c"
+        }
+      ],
+      "gaps": [],
+      "reference_version": "1.0.0",
+      "declared_license": "UNKNOWN",
+      "license_classifiers": [
+        "License :: OSI Approved :: MIT License"
+      ]
+    },
+    {
+      "name": "tiktoken",
+      "version": "0.14.0",
+      "notice_sources": [
+        {
+          "path": "tiktoken-0.14.0.dist-info/licenses/LICENSE",
+          "sha256": "418cb499b436128d653d79941333a5437b7be2ea9213dcc2f04d15d5d2c51d86"
+        }
+      ],
+      "gaps": [],
+      "reference_version": "0.14.0",
+      "declared_license": "MIT License",
+      "license_classifiers": []
+    },
+    {
+      "name": "typing-extensions",
+      "version": "4.16.0",
+      "notice_sources": [
+        {
+          "path": "typing_extensions-4.16.0.dist-info/licenses/LICENSE",
+          "sha256": "3b2f81fe21d181c499c59a256c8e1968455d6689d269aa85373bfb6af41da3bf"
+        }
+      ],
+      "gaps": [],
+      "reference_version": "4.16.0",
+      "declared_license": "PSF-2.0",
+      "license_classifiers": []
+    },
+    {
+      "name": "typing-inspection",
+      "version": "0.4.4",
+      "notice_sources": [
+        {
+          "path": "typing_inspection-0.4.4.dist-info/licenses/LICENSE",
+          "sha256": "804b59b25f2c31bd278f9202a19ae49a3945aa2664387e2d0a128c7cacc61ec3"
+        }
+      ],
+      "gaps": [],
+      "reference_version": "0.4.4",
+      "declared_license": "MIT",
+      "license_classifiers": []
+    },
+    {
+      "name": "urllib3",
+      "version": "2.8.0",
+      "notice_sources": [
+        {
+          "path": "urllib3-2.8.0.dist-info/licenses/LICENSE.txt",
+          "sha256": "130e3a64d5fdd5d096a752694634a7d9df284469de86e5732100268041e3d686"
+        }
+      ],
+      "gaps": [],
+      "reference_version": "2.8.0",
+      "declared_license": "MIT",
+      "license_classifiers": []
+    },
+    {
+      "name": "werkzeug",
+      "version": "3.1.9",
+      "notice_sources": [
+        {
+          "path": "werkzeug-3.1.9.dist-info/licenses/LICENSE.txt",
+          "sha256": "3b49dcee4105eb37bac10faf1be260408fe85d252b8e9df2e0979fc1e094437b"
+        },
+        {
+          "path": "werkzeug/debug/shared/ICON_LICENSE.md",
+          "sha256": "0e103a6358149792707e0d0d14df518f8556213b7cb54c7422f7467f4bb1f7eb"
+        }
+      ],
+      "gaps": [],
+      "reference_version": "3.1.9",
+      "declared_license": "BSD-3-Clause",
+      "license_classifiers": []
+    },
+    {
+      "name": "yarl",
+      "version": "1.25.1",
+      "notice_sources": [
+        {
+          "path": "yarl-1.25.1.dist-info/licenses/LICENSE",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        },
+        {
+          "path": "yarl-1.25.1.dist-info/licenses/NOTICE",
+          "sha256": "56d6ac6c8105c0a51304c21db060e361af9a8ea0af9a75c239c28b5d13693838"
+        }
+      ],
+      "gaps": [],
+      "reference_version": "1.25.1",
+      "declared_license": "Apache-2.0",
+      "license_classifiers": []
+    },
+    {
+      "name": "zope-event",
+      "version": "6.2",
+      "notice_sources": [
+        {
+          "path": "zope_event-6.2.dist-info/licenses/LICENSE.txt",
+          "sha256": "3e671db11df687516cc1db5b3d65e4aa383eaca3c20cea3faf53a0f7335d0a3c"
+        }
+      ],
+      "gaps": [],
+      "reference_version": "6.2",
+      "declared_license": "ZPL-2.1",
+      "license_classifiers": []
+    },
+    {
+      "name": "zope-interface",
+      "version": "8.6",
+      "notice_sources": [
+        {
+          "path": "zope_interface-8.6.dist-info/licenses/LICENSE.txt",
+          "sha256": "3e671db11df687516cc1db5b3d65e4aa383eaca3c20cea3faf53a0f7335d0a3c"
+        }
+      ],
+      "gaps": [],
+      "reference_version": "8.6",
+      "declared_license": "ZPL-2.1",
+      "license_classifiers": []
+    }
+  ],
+  "notice_file_sha256": "d53462cbe920ddc09f7b50688c1c90ea6fe9c2e5a5d9d0ae1cf6668b85014974"
+}
