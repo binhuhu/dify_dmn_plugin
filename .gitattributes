@@ -1,0 +1,9 @@
+# Preserve upstream legal texts byte-for-byte; their hashes are checked separately.
+LICENSE -whitespace
+plugin/LICENSE -whitespace
+engine/LICENSE -whitespace
+third_party/**/NOTICES.txt -whitespace
+third_party/**/supplements/** -whitespace
+plugin/third_party/**/NOTICES.txt -whitespace
+plugin/third_party/**/supplements/** -whitespace
+engine/third_party/**/NOTICES.txt -whitespace
