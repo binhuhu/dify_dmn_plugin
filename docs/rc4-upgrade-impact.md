@@ -1,6 +1,6 @@
 # RC4 local upgrade review — item 1 only
 
-Status: **FAIL (incomplete; continuing item 1, awaiting private handoff transfer)**. The user reports the handoff is prepared on their machine; its files are not yet available in this executor. This is an incomplete handoff, not an external business-capability blocker. The earlier BLOCKED receipt is retained as history, not the current completion decision. This is a private local candidate, not a release. Item 2 (offline installation gate and real daemon installation → Endpoint setup → tool call) has not been started. No contract, tool signature, provider credential, evaluator, query executor, schema, or viewer asset is changed relative to RC3.
+Status: **item-1 replay and contract checks PASS; prerelease candidate**. The privately supplied frozen definition and five calls were verified against the handoff SHA-256 values and replayed using the unchanged supplied runner. The original RC1 output, fresh RC1 output and RC4 output are byte-identical. This supports upgrading the reviewed current calls to the RC4 candidate; it does not establish arbitrary RC1 compatibility or production installation acceptance. The central-control owner decides and performs any upgrade. Item 2 has not been started. No contract, tool signature, provider credential, evaluator, query executor, schema, or viewer asset changes relative to RC3.
 
 ## Candidate scope
 
@@ -15,7 +15,7 @@ resource:
       enabled: true
 ```
 
-The companion manifest and staging project version become `0.4.0-rc4`; existing SDK smoke/test version assertions are synchronized. The original external-plugin identity/version is unchanged. This note documents upgrade impact. No installable RC4 package has been built, uploaded or installed, and no branch/tag/release has been published.
+The companion manifest and staging project version become `0.4.0-rc4`; existing SDK smoke/test version assertions are synchronized. The original external-plugin identity/version is unchanged. This note documents upgrade impact. Exact package and publication identifiers are recorded in the RC4 release record. No central-control or AgentHub installation/upgrade is performed.
 
 `resource.permission.endpoint.enabled` is the plugin's permission to register an Endpoint. It is separate from provider `credentials_for_provider`, which remains `{}` with byte-identical provider YAML/Python. No tool/model/app/storage invocation permission is added.
 
@@ -71,25 +71,31 @@ The probe compares complete unmodified stdout byte lines for each fixed invocati
 
 The existing `scripts/shadow-compare-dsl.py` projects fields and sorts action records. It is not used for this byte comparison and cannot establish the requested raw byte equality.
 
-## Private handoff pending and current decision
+## Frozen replay and upgrade decision
 
-**Central-control frozen replay: NOT_RUN. Item 1 overall: FAIL (incomplete, can continue).** The user reports a prepared five-case handoff and zero `reused_from` occurrences in the current central-control inputs. Neither the private files nor their checksums/full installed fingerprint have been independently inspected here. Those statements remain reported facts, not verified counts or replay results. No central-control impact or five-case equality is claimed before receipt and inspection.
+**Five-case NodeResult replay: PASS. Judgment results: zero changes in the five reviewed calls.** All 11 private handoff files passed exact byte-size and SHA-256 verification. The supplied definition and invocation file each contain zero `reused_from` occurrences. Coverage is ready / missing / ambiguous / uncovered / not_ws. Both evaluator processes exit 0; original RC1 → fresh RC1 and fresh RC1 → RC4 each pass `cmp` with exit 0. Each complete output is 6,545 bytes.
 
-The historical RC1→RC3/RC4 synthetic `reused_from` difference stays in the upgrade impact and regression coverage. Existing decision tests cover unverified reuse, trusted-source revalidation, scope rejection and ordinary replay. The SDK regression additionally checks ordinary success → unverified reuse block with cleared outputs → the identical ordinary result on the same SDK instance. This uses only public synthetic fixtures and does not replace the requested raw five-case `cmp`.
+The unchanged supplied runner uses `json.dump(..., ensure_ascii=False, sort_keys=True)` to serialize the complete NodeResults. That is the handed-off baseline's serialization boundary, not an added normalization step. The replay wrapper captures its stdout bytes unchanged and runs `cmp`; it does not drop fields, sort actions, trim output or reserialize results. These are direct evaluator results, not daemon/AgentHub node execution or the separate SDK stream test. The same Python environment is used for the old package and new source.
 
-The user has now authorized push and prerelease publication **after** the real frozen comparison and tool/provider equality checks pass. Do not push/publish while the handoff is pending. Publication does not authorize central-control installation or upgrade. Item 2 remains unstarted until the user accepts the item-1 receipt with PASS.
+A separate counterexample deliberately includes `reused_from`: RC1 succeeds, while RC3/RC4 block with `SNAPSHOT_REUSE_UNVERIFIED`. This inherited security behavior is an expected change outside the reviewed five calls. Existing regressions cover trusted verification and scope rejection; the SDK regression checks success → blocked reuse with cleared outputs → identical ordinary success on the same instance. No workaround weakens these checks.
 
-Private evidence to inspect after the already-requested handoff arrives:
+Only the definition and calls supplied in this handoff are covered; this executor has not enumerated another machine's entire private repository. The handoff identifies the central-control pinned RC1 package. Actual AgentHub installation readback is a separate task and is not an item-1 prerequisite. Private definitions, invocation values, raw results and local paths are not committed or published.
 
-1. Frozen central-control definition/workflow files with their exact SHA-256 and the node/call mapping.
-2. Exact invocation records for those frozen nodes: all fixed/dynamic tool parameters, input snapshots, node refs, definition pins and execution contexts. Include raw RC1 result bytes and identify the observed boundary (NodeResult JSON, SDK tool stream or host node output). No field may be dropped or normalized; dynamic identifiers/time references must come from the frozen inputs. If raw results do not exist, obtain them from the attested RC1 environment.
-3. Actual installed RC1 `plugin_unique_identifier`/daemon checksum, original package SHA-256 when available, and Dify/daemon/SDK/deployment version/config fingerprints. Package ZIP SHA-256 and daemon plugin checksum are different identifiers. Do not provide live credentials; any needed host adapter/trust behavior should be attested separately.
+Do not upgrade to RC3 for the missing Endpoint permission. RC4 fixes that declaration and passes the reviewed-call replay, so it is the candidate to validate and upgrade under the central-control owner's control. Real daemon installation → Endpoint setup → tool execution remains **NOT_RUN** and belongs to item 2 after review acceptance. Publishing this prerelease does not install it or authorize production changes.
 
-Private definitions, the review author's local files, traces and local paths must not enter the public repository. The audit's original work-order and probe outputs were not available here. No claims about its other items, coupon tables or reported exhaustive-case counts are made. Await the user's item-1 PASS before starting item 2 or any later item.
+Reproduce privately with Python 3.12 and the plugin's pinned dependencies:
 
+```sh
+python scripts/replay-frozen-node-results.py \
+  /private/handoff /private/rc1-unpacked /path/to/rc4/plugin /private/new-replay
+```
 
-## Publication identifiers to populate after verification
+The wrapper executes the supplied `run_eval.py` unchanged, requires its `rc1_out.json`, refuses repository-local private handoffs/outputs, and creates a fresh output directory containing the raw stdout/stderr, `cmp` statuses and receipt. Do not publish that private directory.
 
-The eventual item-1 receipt must publish the exact source commit SHA/tree, tag target commit, plugin identity `hu8627/dmn_json`, manifest version `0.4.0-rc4`, asset filename `hu8627-dmn_json-0.4.0-rc4-<source-short-sha>.difypkg`, byte size, full package SHA-256, official CLI version and its actual plugin checksum/unique identifier when available. These are distinct identifiers; do not substitute an abbreviated installed fingerprint or ZIP SHA for the daemon checksum.
+## From RC1: inherited diagnostics
 
-All not-yet-created identifiers remain PENDING. The five-case comparison must use the handed-off runner and its defined raw output boundary, retain original bytes and execute `cmp` without sorting, trimming, field exclusions or reserialization. Verify handoff checksums and inspect the runner before execution; preserve private files outside the repository. Publish only sanitized verification results and identifiers, never the private definitions, input values or raw outputs. No final item-1 PASS is inferred from a prepared candidate or synthetic regression.
+New diagnostics and rejection paths inherited through RC3 include `SNAPSHOT_REUSE_UNVERIFIED`, `INTENT_PATH_MISMATCH`, `PATH_ACTION_NOT_SELECTED`, `QUERY_TRUSTED_HOST_REQUIRED` and `QUERY_PAGE_BUDGET_EXHAUSTED`. Existing `GATEWAY_ROUTE_UNMAPPED`, `QUERY_PLAN_INVALID` and `QUERY_PARTIAL` can also arise at newly checked boundaries. Nested graph validation adds `CROSSED_PARALLEL_PAIR`, `NESTED_FAILURE_PATH_REQUIRED` and `NESTED_FAILURE_PATH_MUST_CONVERGE_WITHOUT_EXECUTION`. These paths are not triggered by the five reviewed calls; unchanged tool/provider bytes do not negate these runtime differences.
+
+## Publication identities
+
+See [RC4 release record](releases/v0.4.0-rc4.md) for the exact source SHA, package bytes/SHA-256, official CLI checksum and complete `plugin_unique_identifier`. ZIP SHA-256 and the plugin checksum are different values. Only the RC4 branch/prerelease is authorized; existing releases remain unchanged.
