@@ -25,6 +25,38 @@
     const models = data.models || {};
     if (!models || Array.isArray(models) || typeof models !== "object")
       throw Error("models 必须为对象");
+    const policies = new Set([
+      "UNIQUE",
+      "FIRST",
+      "PRIORITY",
+      "ANY",
+      "COLLECT",
+      "RULE ORDER",
+      "OUTPUT ORDER",
+      "U",
+      "F",
+      "P",
+      "A",
+      "C",
+      "R",
+      "O",
+    ]);
+    function output(model, rule) {
+      const referenced = Object.hasOwn(rule, "output_template_ref");
+      const found =
+        referenced &&
+        model.result_templates &&
+        Object.hasOwn(model.result_templates, rule.output_template_ref);
+      return {
+        referenced,
+        missing: referenced && !found,
+        value: referenced
+          ? found
+            ? model.result_templates[rule.output_template_ref]
+            : undefined
+          : rule.output,
+      };
+    }
     function array(v, path) {
       if (!Array.isArray(v)) throw Error(path + " 必须为数组");
       return v;
@@ -73,10 +105,34 @@
               throw Error("控制边引用未知节点: " + e.edge_id);
           });
           ns.forEach((n) => {
-            if (n.kind === "DECISION" && !Object.hasOwn(models, n.model_ref))
-              diagnostics.push(
-                `${w.workflow_id}/${s.step_id}/${n.node_id}: 未提供模型 ${n.model_ref || ""}`,
+            if (n.kind !== "DECISION") return;
+            const warn = (message, rule_id) =>
+              diagnostics.push({
+                workflow_id: w.workflow_id,
+                phase_id: p.phase_id,
+                step_id: s.step_id,
+                node_id: n.node_id,
+                rule_id,
+                message,
+              });
+            const model = Object.hasOwn(models, n.model_ref)
+              ? models[n.model_ref]
+              : undefined;
+            if (!model) {
+              warn(`未提供模型 ${n.model_ref || ""}`);
+              return;
+            }
+            if (!policies.has(model.hit_policy))
+              warn(
+                `Hit Policy ${model.hit_policy === undefined ? "未提供" : "未知：" + JSON.stringify(model.hit_policy)}；不推断语义`,
               );
+            (model.rules || []).forEach((r) => {
+              if (output(model, r).missing)
+                warn(
+                  `未提供输出模板 ${JSON.stringify(r.output_template_ref)}；不回退 inline output`,
+                  r.rule_id ?? r.id,
+                );
+            });
           });
         });
       });
@@ -84,7 +140,23 @@
     });
     if (nodes > 600 || edges > 1800)
       throw Error("展示上限为 600 节点 / 1800 控制边");
-    return { data, workflows, models, diagnostics };
+    return {
+      data,
+      workflows,
+      models,
+      diagnostics,
+      counts: {
+        workflows: workflows.length,
+        phases: workflows.reduce((n, w) => n + w.phases.length, 0),
+        steps: workflows.reduce(
+          (n, w) => n + w.phases.reduce((n, p) => n + p.steps.length, 0),
+          0,
+        ),
+        nodes,
+        edges,
+      },
+      output,
+    };
   }
   const api = { adapt, MAX_BYTES };
   if (typeof module !== "undefined") module.exports = api;

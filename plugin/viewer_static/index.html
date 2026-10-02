@@ -33,16 +33,35 @@
       只读展示，不执行规则或请求接口。文件仅在本页内存读取；链接、哈希与
       source_refs 仅作原文展示，不代表验证或授权。
     </div>
+    <div id="source"></div>
     <div id="status" role="status"></div>
+    <details id="diagnostics">
+      <summary>定义诊断</summary>
+      <div id="diagnostic-list"></div>
+    </details>
     <div class="toolbar">
       <button id="out" aria-label="缩小">−</button
-      ><button id="fit">适应画布</button
+      ><button id="fit">适应全部</button
       ><button id="in" aria-label="放大">＋</button
-      ><span>拖动画布平移 · 滚轮缩放 · 点击节点查看完整定义</span>
+      ><button id="actual">100%</button
+      ><button id="fit-step">适应当前 Step</button
+      ><output id="zoom-level"></output>
+      <span>滚轮滚动 · Ctrl/⌘ + 滚轮缩放 · 点击节点查看定义</span>
     </div>
-    <main id="viewport" tabindex="0" aria-label="流程结构画布">
-      <div id="canvas"></div>
-    </main>
+    <div class="workspace">
+      <section id="directory" aria-label="Phase Step 目录">
+        <label for="search">搜索名称 / ID / ruleID</label
+        ><input
+          id="search"
+          type="search"
+          placeholder="查找 Phase、Step、Node 或规则"
+        />
+        <div id="tree"></div>
+      </section>
+      <main id="viewport" tabindex="0" aria-label="流程结构画布">
+        <div id="canvas"></div>
+      </main>
+    </div>
     <aside id="drawer" hidden aria-label="节点详情">
       <button id="close">关闭详情 ×</button>
       <div id="detail"></div>

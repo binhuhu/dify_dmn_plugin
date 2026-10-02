@@ -1,14 +1,14 @@
 # Dify DMN 插件：显式查询 + 显式决策
 
-已发布 [v0.4.0-rc1 预发布](https://github.com/binhuhu/dify_dmn_plugin/releases/tag/v0.4.0-rc1)，精确源码 `3065505baa3828f0925f95ed6b69cea60528ba21`。官方 CLI 0.6.10 打包通过，42 个归档文件逐字节匹配，解包五工具注册与 SDK 验证通过；包 69265 bytes，SHA256 `f158645791f879c81a45fcb53e26d8893b26abb4bf6ade701828599b3e83d097`。真实 API、目标宿主安装升级及生产验收仍阻断。
+当前版本为 **0.4.0-rc3**：只读 Phase → 实际 Step → Node 查看器，支持可折叠目录、名称/ID/ruleID 搜索、分组决策表、可定位诊断及本地 JSON 来源提示。入口与验收边界见[结构查看器说明](docs/structure-viewer.md)及 [RC3 发布记录](docs/releases/v0.4.0-rc3.md)。查看器随插件 Endpoint 同包提供；本地导入不上传，不执行规则，也不注入 Dify 宿主画布。
 
-当前 feature 为 [RC1 后续开发候选](docs/dsl-v0.4-followup.md)，新增变更以 Git SHA 区分，尚未官方打包或发布；不包含于上述 RC1 包。保留三个旧工具，新增 execute_query/evaluate_decision 与独立参考宿主。
+上次已发布 [v0.4.0-rc2](https://github.com/binhuhu/dify_dmn_plugin/releases/tag/v0.4.0-rc2)，包源码 `e1f44c2f2d57fdb67df58266f92e223c62030557`，main 合并提交 `60f381d4cf915e6720119c052e740af357f7aa7c`，资产 `hu8627-dmn_json-0.4.0-rc2-e1f44c2.difypkg`（85,328 bytes）。真实 API、目标宿主安装升级及生产验收仍未完成。保留三个旧工具，并提供 execute_query/evaluate_decision 与独立参考宿主。
 
 此前新增免 Key 的 [内置 JSON 三工具 0.3.0](builtin/README.md)：决策、SYNTHETIC 查询、JSON 阶段计划均在 Python 插件进程内执行，无需外部决策服务。完整合同和转换边界见 [0.3.0 文档](docs/builtin-0.3.0.md)。为兼容 Dify 1.11.1 的提供商授权限制，使用独立身份 `hu8627/dmn_json`，保留已安装的原外部插件和其他插件。原路径如下。
 
 Java-free 候选原型。Dify Python 插件薄封装 → Node.js 执行服务 → 已注册只读查询能力 / DMN 决策。无 Java，不手写 FEEL 解释器，不执行赔付、改票或工单写操作。
 
-## 当前交付状态（2026-09-30）
+## 原外部插件历史交付（2026-09-30）
 
 修正版候选安装包已在原授权打包工作区用官方 Dify CLI **0.6.10** 生成，对应源码 [`d04f51c`](https://github.com/hu8627/dify_dmn_plugin/commit/d04f51ccdb67cb8c375f0c2900984c3a8bd7386c)，20 个包内文件已逐字节核对。后续文档提交不改变该安装包的源码归属。
 
@@ -22,8 +22,8 @@ Java-free 候选原型。Dify Python 插件薄封装 → Node.js 执行服务 �
 
 ## 0.2.0 历史内置候选交付
 
-- 0.2.0 当时仅注册 `evaluate_json_table`；当前 `builtin/manifest.yaml` 为 0.4.0-rc1 五工具候选。旧 XML/FEEL 三工具及其授权保持兼容。
-- 当前环境无官方 Dify CLI，尚未生成新的 `.difypkg`；`scripts/stage-builtin.py` 只准备精确候选目录。旧 v0.1.0 Release 保持不动。
+- 0.2.0 当时仅注册 `evaluate_json_table`；当前 `builtin/manifest.yaml` 为 0.4.0-rc3 五工具及只读 Endpoint 候选。旧 XML/FEEL 三工具及其授权保持兼容。
+- 0.2.0 当时只准备了 staging 目录；后续 RC 的打包与发布状态以对应发布记录为准。旧 v0.1.0 Release 保持不动。
 - 免凭据 SDK 注册/校验/调用已验证；新包的目标 UI 安装和真实业务调用未验证。见 [0.2.0 验收记录](docs/builtin-0.2.0.md)。
 
 ## 结构
