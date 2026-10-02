@@ -1,0 +1,125 @@
+{
+  "item": 2,
+  "status": "PASS_DEVELOPMENT_MODE_ONLY",
+  "offline_gate": "PASS",
+  "base_commit": "ecfb0a333fde771cb804f4173e4dffee170ced7d",
+  "branch": "feat/item2-install-gate",
+  "original_package_gate_results": [
+    {
+      "version": "rc3",
+      "package": "hu8627-dmn_json-0.4.0-rc3-5ecad8f.difypkg",
+      "package_sha256": "e68c0a66fda9afddaa547183d1247806541174391af34cfd120d4dff600d108f",
+      "bytes": 88888,
+      "exit_code": 1,
+      "expected_exit_code": 1,
+      "matches_expected": true
+    },
+    {
+      "version": "rc4",
+      "package": "hu8627-dmn_json-0.4.0-rc4.difypkg",
+      "package_sha256": "5ba96ab76d88a98bc603417b4584a604fd58dc9de27ad1c3a2de0601128b453b",
+      "bytes": 88896,
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "matches_expected": true
+    }
+  ],
+  "local_checks": {
+    "check_sh_exit": 0,
+    "new_gate_tests": 20,
+    "python_passed": 685,
+    "python_skipped": 0,
+    "node_passed": 99,
+    "node_skipped": 0,
+    "lint_format": "PASS",
+    "sdk_warnings": 20
+  },
+  "ci": {
+    "implementation_head": "8745f10bd6d5c77dc15c00c7df74f2aabbad2a5c",
+    "result": "SUCCESS",
+    "url": "https://github.com/binhuhu/dify_dmn_plugin/actions/runs/36977782164",
+    "native_host_test": "separate authorized manual run; not SDK substitution",
+    "implementation_url": "https://github.com/binhuhu/dify_dmn_plugin/actions/runs/36970019605",
+    "head_sha": "fdd5439db707680d476b6e677aca5ba4c6af8920"
+  },
+  "daemon_environment": {
+    "docker_engine": "28.4.0",
+    "compose": "v2.40.3",
+    "image": "langgenius/dify-plugin-daemon:0.5.1-local",
+    "image_digest": "sha256:8269050f192e7564b8bf1d51fdfbc430fcb03bc5c0bcdd86fa087bcf2d774ee8",
+    "image_download": "PASS",
+    "dependency_downloads": "Ubuntu official APT succeeded inside disposable daemon container; Docker Hub pulls not retried",
+    "existing_dependency_instances": false,
+    "nonproduction_dify_inner_api": "NOT_REQUIRED_FOR_TESTED_PATH; no mock or real inner API deployed",
+    "daemon_started": true,
+    "system_postgres_redis": "Host unchanged; temporary container packages/processes removed with container",
+    "signature_prerequisite": "Explicitly authorized FORCE_VERIFYING_SIGNATURE=false only in disposable test daemon; original unsigned package unchanged",
+    "postgres_version": "16.15-0ubuntu0.24.04.1",
+    "redis_version": "5:7.0.15-1ubuntu0.24.04.4",
+    "runtime_version": "96b51115cb30f008bf4eda7e3787ea27d39c18e2",
+    "python_dependencies": "42 wheel artifacts from official PyPI via host verified HTTPS; daemon supported PIP_EXTRA_ARGS=--no-index --find-links=/tmp/item2/wheels; no TLS bypass or CA changes",
+    "dependency_installation": "Official Ubuntu APT packages inside the disposable daemon container; no separate PostgreSQL or Redis image deployed"
+  },
+  "real_host_stages": {
+    "install_original_rc4": "PASS: asynchronous task success and completed_plugins=1",
+    "create_endpoint": "PASS: native setup true and enabled endpoint readback",
+    "invoke_tool": "PASS: native dispatch evaluate_json_table result answer=42 and evaluate_decision SUCCEEDED/ok"
+  },
+  "judgment_semantics": "UNCHANGED: no packaged runtime or contract edits",
+  "central_control_upgrade": "NOT_PERFORMED",
+  "production_installation": "NOT_PERFORMED",
+  "new_release": "NOT_CREATED",
+  "item3": "NOT_STARTED",
+  "item12_notes": "RECORDED_ONLY",
+  "authorization": "2026-10-02: isolated APT dependencies, unsigned original package development mode, ephemeral authentication and cleanup explicitly approved",
+  "package": {
+    "bytes": 88896,
+    "sha256": "5ba96ab76d88a98bc603417b4584a604fd58dc9de27ad1c3a2de0601128b453b",
+    "identifier": "hu8627/dmn_json:0.4.0-rc4@c5d2f618a1fa96e48a360b7e733a0c99264c3b9bde1e8af2517ecfc306c56c7b",
+    "unchanged_before_after": true
+  },
+  "additional_checks": {
+    "viewer_asset_exact_original_bytes": true,
+    "viewer_csp_connect_src_none": true,
+    "isolation": {
+      "image_id": "sha256:d91da9ab03a04d8a46d431f539ed3dc9bff7a1c339a6591e9462eafa3911086d",
+      "privileged": false,
+      "binds": null,
+      "mounts": [],
+      "port_bindings": {
+        "5002/tcp": [
+          {
+            "HostIp": "127.0.0.1",
+            "HostPort": "15002"
+          }
+        ]
+      },
+      "network_mode": "bridge"
+    }
+  },
+  "initial_failures": [
+    "First native installation failed on container PyPI TLS UnknownIssuer; both uv and system TLS refused. Switched to host verified-HTTPS wheel acquisition and native offline install without changing TLS controls.",
+    "First tool HTTP request omitted required X-Plugin-ID and returned 400. Retried documented header; preserved both responses."
+  ],
+  "cleanup": {
+    "container_removed": true,
+    "container_files_and_database_removed": true,
+    "temporary_auth_file_removed": true,
+    "loopback_endpoint_closed": true,
+    "persistent_signing_keys_created": false,
+    "host_services_modified": false,
+    "original_package_sha256_after_test": "5ba96ab76d88a98bc603417b4584a604fd58dc9de27ad1c3a2de0601128b453b"
+  },
+  "evidence": "docs/evidence/item2-native/SHA256SUMS",
+  "signature_enforced_mode": "NOT_TESTED",
+  "production_acceptance": "NOT_CLAIMED",
+  "evidence_completeness": {
+    "original_commit": "fdd5439db707680d476b6e677aca5ba4c6af8920",
+    "original_tracked_entries": 29,
+    "manifest_entries": 30,
+    "original_missing": "daemon-offline.log",
+    "cause": "Ignored by *.log; original local checksum check included the ignored working-tree file",
+    "correction": "Include reviewed existing log through exact-path ignore exception; unchanged manifest digest",
+    "daemon_log_sha256": "237aba7759132d2b488f6243e91cae91c43e9c55838595318ce59adc07cb6f49"
+  }
+}

@@ -115,7 +115,7 @@ from provider.dmn import JsonTableProvider
 r=PluginRegistration(DifyPluginEnv())
 assert r.configuration.author == "hu8627"
 assert r.configuration.name == "dmn_json"
-assert r.configuration.version == "0.4.0-rc3"
+assert r.configuration.version == "0.4.0-rc5"
 c=r.tools_configuration[0]
 assert not c.credentials_schema
 assert [t.identity.name for t in c.tools] == ["evaluate_json_table", "query_local", "execute_json_plan", "execute_query", "evaluate_decision"]
@@ -146,7 +146,7 @@ def test_staged_node_sdk_stdio(tmp_path):
     )
     evidence = json.loads((tmp_path / "evidence.json").read_text())
     assert evidence["node_calls"] == 6
-    assert evidence["manifest"]["version"] == "0.4.0-rc3"
+    assert evidence["manifest"]["version"] == "0.4.0-rc5"
 
 
 def test_manifest_matches_official_cli_0610_version_format():
@@ -157,17 +157,28 @@ def test_manifest_matches_official_cli_0610_version_format():
     pattern = r"\d{1,4}(\.\d{1,4}){2}(-\w{1,16})?"
     manifest = yaml.safe_load((ROOT / "builtin/manifest.yaml").read_text())
     assert re.fullmatch(pattern, manifest["version"], flags=re.ASCII)
-    assert manifest["version"] == "0.4.0-rc3"
+    assert manifest["version"] == "0.4.0-rc5"
     assert not re.fullmatch(pattern, "0.4.0-rc.1", flags=re.ASCII)
     assert "RC" in manifest["label"]["en_US"]
 
 
 def test_sdk_reused_snapshot_without_trusted_host_is_blocked():
+    # SYNTHETIC lifecycle regression, not a central-control replay claim.
     tool = EvaluateDecisionTool.from_credentials({})
     params = parameters()
+    plain_result, plain_values = invoke(tool, params)
+    assert plain_result["execution_status"] == "SUCCEEDED"
+    assert plain_values["actions"]
+
     params["inputs_json"]["parameter_snapshot"]["reused_from"] = "previous-attempt"
     result, values = invoke(tool, params)
     assert result["execution_status"] == "BLOCKED"
+    assert result["output_port"] == "blocked"
     assert result["error"]["code"] == "SNAPSHOT_REUSE_UNVERIFIED"
     assert result["outputs"]["decision"] is None
     assert (values["state"], values["data"], values["actions"]) == ("", {}, [])
+
+    # Reusing this SDK instance must neither leak the old success into a block
+    # nor retain a blocked result on the next ordinary content-only replay.
+    del params["inputs_json"]["parameter_snapshot"]["reused_from"]
+    assert invoke(tool, params) == (plain_result, plain_values)

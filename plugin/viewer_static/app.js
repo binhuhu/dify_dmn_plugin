@@ -12,7 +12,9 @@ let projection,
   scale = 1,
   tx = 0,
   ty = 0;
-let renderRevision = 0;
+let renderRevision = 0,
+  nextRenderRevision = 0,
+  importRevision = 0;
 let selectedStep,
   returnFocus,
   entries = [],
@@ -260,7 +262,7 @@ function detail(w, p, s, n, origin, ruleId) {
   d.querySelector(".rule-match")?.scrollIntoView({ block: "nearest" });
 }
 function render() {
-  const revision = ++renderRevision;
+  const revision = (renderRevision = ++nextRenderRevision);
   $("drawer").hidden = true;
   const c = $("canvas");
   entries = [];
@@ -385,8 +387,69 @@ function selectFlow() {
     );
   render();
 }
+// Keep original DOM nodes (and their listeners/focus) for synchronous rollback.
+// Unique render revisions also invalidate animation callbacks from failed imports.
 function load(text, name) {
   const next = StructureAdapter.adapt(text);
+  const previous = {
+    projection,
+    sourceName,
+    entries,
+    selectedStep,
+    returnFocus,
+    scale,
+    tx,
+    ty,
+    renderRevision,
+  };
+  const active = document.activeElement;
+  const viewport = $("viewport");
+  const scroll = [viewport.scrollLeft, viewport.scrollTop];
+  const workflowValue = $("workflow").value;
+  const elements = [
+    "canvas",
+    "tree",
+    "workflow",
+    "source",
+    "status",
+    "scope",
+    "diagnostic-list",
+  ].map($);
+  elements.push($("diagnostics").querySelector("summary"));
+  const saved = elements.map((element) => ({
+    element,
+    children: [...element.childNodes],
+    style: element.getAttribute("style"),
+  }));
+  const drawerHidden = $("drawer").hidden;
+  try {
+    commitImport(next, name);
+  } catch (error) {
+    ({
+      projection,
+      sourceName,
+      entries,
+      selectedStep,
+      returnFocus,
+      scale,
+      tx,
+      ty,
+      renderRevision,
+    } = previous);
+    saved.forEach(({ element, children, style }) => {
+      element.replaceChildren(...children);
+      if (style === null) element.removeAttribute("style");
+      else element.setAttribute("style", style);
+    });
+    $("workflow").value = workflowValue;
+    $("drawer").hidden = drawerHidden;
+    $("zoom-level").textContent = `${Math.round(scale * 100)}%`;
+    if (active?.isConnected) active.focus({ preventScroll: true });
+    viewport.scrollTo(...scroll);
+    throw error;
+  }
+}
+function commitImport(next, name) {
   projection = next;
   sourceName = name;
   $("source").textContent = `当前来源：${name} · ${Object.entries(next.counts)
@@ -419,16 +482,21 @@ function load(text, name) {
   selectFlow();
 }
 $("file").onchange = async (e) => {
+  const input = e.target;
+  const file = input.files[0];
+  if (!file) return;
+  const revision = ++importRevision;
   try {
-    const f = e.target.files[0];
-    if (!f) return;
-    if (f.size > StructureAdapter.MAX_BYTES) throw Error("文件超过 2 MiB");
-    load(await f.text(), f.name);
+    if (file.size > StructureAdapter.MAX_BYTES) throw Error("文件超过 2 MiB");
+    const text = await file.text();
+    if (revision !== importRevision) return;
+    load(text, file.name);
   } catch (err) {
-    $("status").textContent =
-      `导入失败：${e.target.files[0]?.name || "未知文件"}；保留当前来源 ${sourceName}：${err.message}`;
+    if (revision === importRevision)
+      $("status").textContent =
+        `导入失败：${file.name}；保留当前来源 ${sourceName}：${err.message}`;
   } finally {
-    e.target.value = "";
+    if (revision === importRevision) input.value = "";
   }
 };
 document.querySelectorAll("[data-flow]").forEach(

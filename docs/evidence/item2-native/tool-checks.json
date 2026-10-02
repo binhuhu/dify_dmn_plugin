@@ -1,0 +1,6 @@
+{
+  "simple_tool": "PASS",
+  "typed_decision": "PASS",
+  "endpoint_asset": "PASS",
+  "daemon_dispatch_not_sdk_simulation": true
+}

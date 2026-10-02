@@ -1,0 +1,47 @@
+2026/10/02 07:10:00 pool.go:34: [32m[INFO]init routine pool, size: 128[0m
+2026/10/02 07:10:00 init.go:107: [32m[INFO]dify plugin db initialized[0m
+2026/10/02 07:10:00 manager.go:103: [32m[INFO]start plugin manager daemon...[0m
+2026/10/02 07:10:00 init.go:20: [32m[INFO]Persistence initialized[0m
+2026/10/02 07:10:00 server_local.go:15: [32m[INFO]start to handle new plugins in path: plugin[0m
+2026/10/02 07:10:00 server_local.go:16: [32m[INFO]launch plugins with max concurrency: 2[0m
+2026/10/02 07:10:00 cluster_lifetime.go:114: [32m[INFO]current node has become the master of the cluster[0m
+2026/10/02 07:10:10 node.go:213: [32m[INFO]node a9ce8d45-bebd-417d-8696-622f630286e3 has been removed from the cluster due to being disconnected[0m
+
+2026/10/02 07:10:18 [31;1m/app/internal/db/executor.go:259 [35;1mrecord not found
+[0m[33m[0.844ms] [34;1m[rows:0][0m SELECT * FROM "plugins" WHERE plugin_unique_identifier = 'hu8627/dmn_json:0.4.0-rc4@c5d2f618a1fa96e48a360b7e733a0c99264c3b9bde1e8af2517ecfc306c56c7b' ORDER BY "plugins"."id" LIMIT 1
+[GIN] 2026/10/02 - 07:10:18 | 200 |    3.481602ms |      172.17.0.1 | POST     "/plugin/00000000-0000-4000-8000-000000000002/management/install/identifiers"
+2026/10/02 07:10:18 recycle.go:22: [32m[INFO]start new install task 396846aa-d709-4335-b83d-a3a7fda6287f[0m
+[GIN] 2026/10/02 - 07:10:18 | 200 |     507.775µs |      172.17.0.1 | GET      "/plugin/00000000-0000-4000-8000-000000000002/management/install/tasks/396846aa-d709-4335-b83d-a3a7fda6287f"
+2026/10/02 07:10:18 logger.go:13: [32m[INFO]local runtime starting: hu8627/dmn_json:0.4.0-rc4@c5d2f618a1fa96e48a360b7e733a0c99264c3b9bde1e8af2517ecfc306c56c7b[0m
+2026/10/02 07:10:18 setup_python_environment.go:357: [32m[INFO]pre-compiling hu8627/dmn_json:0.4.0-rc4 - Listing '.'......[0m
+2026/10/02 07:10:18 setup_python_environment.go:357: [32m[INFO]pre-compiling hu8627/dmn_json:0.4.0-rc4 - Compiling './.venv/lib/python3.12/site-packages/charset_normalizer/legacy.py'......[0m
+2026/10/02 07:10:18 setup_python_environment.go:357: [32m[INFO]pre-compiling hu8627/dmn_json:0.4.0-rc4 - Compiling './.venv/lib/python3.12/site-packages/dify_plugin/entities/model/__init__.py'......[0m
+2026/10/02 07:10:18 setup_python_environment.go:357: [32m[INFO]pre-compiling hu8627/dmn_json:0.4.0-rc4 - Compiling './.venv/lib/python3.12/site-packages/dify_plugin/invocations/model/speech2text.py'......[0m
+2026/10/02 07:10:18 setup_python_environment.go:357: [32m[INFO]pre-compiling hu8627/dmn_json:0.4.0-rc4 - Compiling './.venv/lib/python3.12/site-packages/gevent/monkey/__init__.py'......[0m
+2026/10/02 07:10:19 setup_python_environment.go:357: [32m[INFO]pre-compiling hu8627/dmn_json:0.4.0-rc4 - Compiling './.venv/lib/python3.12/site-packages/gevent/tests/test__destroy.py'......[0m
+2026/10/02 07:10:19 setup_python_environment.go:357: [32m[INFO]pre-compiling hu8627/dmn_json:0.4.0-rc4 - Compiling './.venv/lib/python3.12/site-packages/gevent/tests/test__subprocess_interrupted.py'......[0m
+2026/10/02 07:10:19 setup_python_environment.go:357: [32m[INFO]pre-compiling hu8627/dmn_json:0.4.0-rc4 - Compiling './.venv/lib/python3.12/site-packages/httpcore/_sync/__init__.py'......[0m
+2026/10/02 07:10:19 setup_python_environment.go:357: [32m[INFO]pre-compiling hu8627/dmn_json:0.4.0-rc4 - Compiling './.venv/lib/python3.12/site-packages/jsonschema/benchmarks/unused_registry.py'......[0m
+2026/10/02 07:10:19 setup_python_environment.go:357: [32m[INFO]pre-compiling hu8627/dmn_json:0.4.0-rc4 - Compiling './.venv/lib/python3.12/site-packages/pydantic/_internal/_forward_ref.py'......[0m
+2026/10/02 07:10:19 setup_python_environment.go:357: [32m[INFO]pre-compiling hu8627/dmn_json:0.4.0-rc4 - Listing './.venv/lib/python3.12/site-packages/pydantic_core-2.46.5.dist-info'......[0m
+2026/10/02 07:10:19 setup_python_environment.go:357: [32m[INFO]pre-compiling hu8627/dmn_json:0.4.0-rc4 - Compiling './.venv/lib/python3.12/site-packages/tiktoken/model.py'......[0m
+2026/10/02 07:10:20 setup_python_environment.go:357: [32m[INFO]pre-compiling hu8627/dmn_json:0.4.0-rc4 - Compiling './.venv/lib/python3.12/site-packages/werkzeug/sansio/response.py'......[0m
+2026/10/02 07:10:20 setup_python_environment.go:357: [32m[INFO]pre-compiling hu8627/dmn_json:0.4.0-rc4 - Listing './.venv/lib/python3.12/site-packages/zope_event-6.2.dist-info'......[0m
+2026/10/02 07:10:20 setup_python_environment.go:390: [32m[INFO]pre-loaded the plugin hu8627/dmn_json:0.4.0-rc4[0m
+[GIN] 2026/10/02 - 07:10:20 | 200 |     651.661µs |      172.17.0.1 | GET      "/plugin/00000000-0000-4000-8000-000000000002/management/install/tasks/396846aa-d709-4335-b83d-a3a7fda6287f"
+2026/10/02 07:10:20 logger.go:47: [32m[INFO]local runtime scale up: hu8627/dmn_json:0.4.0-rc4@c5d2f618a1fa96e48a360b7e733a0c99264c3b9bde1e8af2517ecfc306c56c7b, instance nums: 1[0m
+2026/10/02 07:10:21 logger.go:18: [32m[INFO]local runtime ready: hu8627/dmn_json:0.4.0-rc4@c5d2f618a1fa96e48a360b7e733a0c99264c3b9bde1e8af2517ecfc306c56c7b[0m
+
+2026/10/02 07:10:21 [31;1m/app/internal/db/executor.go:259 [35;1mrecord not found
+[0m[33m[1.001ms] [34;1m[rows:0][0m SELECT * FROM "plugin_installations" WHERE plugin_id = 'hu8627/dmn_json' AND tenant_id = '00000000-0000-4000-8000-000000000002' ORDER BY "plugin_installations"."id" LIMIT 1
+
+2026/10/02 07:10:21 [31;1m/app/internal/db/executor.go:259 [35;1mrecord not found
+[0m[33m[0.354ms] [34;1m[rows:0][0m SELECT * FROM "plugins" WHERE plugin_unique_identifier = 'hu8627/dmn_json:0.4.0-rc4@c5d2f618a1fa96e48a360b7e733a0c99264c3b9bde1e8af2517ecfc306c56c7b' AND plugin_id = 'hu8627/dmn_json' AND install_type = 'local' ORDER BY "plugins"."id" LIMIT 1 FOR UPDATE
+2026/10/02 07:10:21 recycle.go:29: [32m[INFO]install task 396846aa-d709-4335-b83d-a3a7fda6287f finished[0m
+[GIN] 2026/10/02 - 07:10:22 | 200 |     650.535µs |      172.17.0.1 | GET      "/plugin/00000000-0000-4000-8000-000000000002/management/install/tasks/396846aa-d709-4335-b83d-a3a7fda6287f"
+[GIN] 2026/10/02 - 07:11:12 | 200 |    7.056114ms |      172.17.0.1 | POST     "/plugin/00000000-0000-4000-8000-000000000002/endpoint/setup"
+[GIN] 2026/10/02 - 07:11:12 | 200 |     805.432µs |      172.17.0.1 | GET      "/plugin/00000000-0000-4000-8000-000000000002/endpoint/list?page=1&page_size=10"
+[GIN] 2026/10/02 - 07:11:12 | 400 |      75.962µs |      172.17.0.1 | POST     "/plugin/00000000-0000-4000-8000-000000000002/dispatch/tool/invoke"
+[GIN] 2026/10/02 - 07:11:50 | 200 |   11.147553ms |      172.17.0.1 | POST     "/plugin/00000000-0000-4000-8000-000000000002/dispatch/tool/invoke"
+[GIN] 2026/10/02 - 07:12:40 | 200 |    4.956417ms |      172.17.0.1 | GET      "/e/[REDACTED_EPHEMERAL]/"
+[GIN] 2026/10/02 - 07:12:41 | 200 |   46.677425ms |      172.17.0.1 | POST     "/plugin/00000000-0000-4000-8000-000000000002/dispatch/tool/invoke"

@@ -1,0 +1,23 @@
+{
+  "id": "396846aa-d709-4335-b83d-a3a7fda6287f",
+  "created_at": "2026-10-02T07:10:18.334329Z",
+  "updated_at": "2026-10-02T07:10:21.294444Z",
+  "status": "success",
+  "tenant_id": "00000000-0000-4000-8000-000000000002",
+  "total_plugins": 1,
+  "completed_plugins": 1,
+  "plugins": [
+    {
+      "plugin_unique_identifier": "hu8627/dmn_json:0.4.0-rc4@c5d2f618a1fa96e48a360b7e733a0c99264c3b9bde1e8af2517ecfc306c56c7b",
+      "labels": {
+        "en_US": "JSON Decision Tools (RC)",
+        "zh_Hans": "JSON \u51b3\u7b56\u5de5\u5177\uff08RC\uff09"
+      },
+      "icon": "f847ac08f896e956894f3eab8870a64a511bb89cd2482eb5d91db5b107d310e7.svg",
+      "icon_dark": "",
+      "plugin_id": "hu8627/dmn_json",
+      "status": "success",
+      "message": "installed"
+    }
+  ]
+}

@@ -1,0 +1,74 @@
+{
+  "diagnostics": [],
+  "error": null,
+  "execution_status": "SUCCEEDED",
+  "node_ref": {
+    "node_id": "D1",
+    "phase_id": "P3",
+    "step_id": "P3.S1",
+    "workflow_id": "demo.solve"
+  },
+  "node_run_id": "EXAMPLE-NR-D1",
+  "output_port": "ok",
+  "outputs": {
+    "decision": {
+      "actions": [
+        {
+          "intent_id": "ask_meeting",
+          "kind": "INTERACTION",
+          "parameters": {
+            "order_id": "O-100",
+            "question_ref": "demo.ask_meeting@1"
+          },
+          "target_node_id": "A_ASK"
+        },
+        {
+          "intent_id": "control",
+          "kind": "CONTROL",
+          "route_ref": "ASK"
+        }
+      ],
+      "data": {
+        "required_parameter": "met_driver"
+      },
+      "state": "NEED_USER_INPUT"
+    }
+  },
+  "run_ref": {
+    "attempt_id": "EXAMPLE-ATTEMPT-1",
+    "step_run_id": "EXAMPLE-SR-P3-001",
+    "workflow_run_id": "EXAMPLE-WR-001"
+  },
+  "schema_version": "service-decision-dsl.node-result.v2",
+  "trace": {
+    "definition_digest": "1e65ec3becb62b4eca18a39bd67373a1c5b065452195cf649ed1633a93782730",
+    "engine_called": true,
+    "hit_policy": "UNIQUE",
+    "model_ref": "demo.meeting@1.0.0",
+    "model_sha256": "389b6540ad06626acdc6109cf579eddcfc355c3f11b5f4fbf92a9340e913b050",
+    "model_version": "1.0.0",
+    "profile": "service-decision-table-v1",
+    "rules": [
+      {
+        "match": "TRUE",
+        "rule_id": "unknown"
+      },
+      {
+        "match": "FALSE",
+        "rule_id": "met"
+      },
+      {
+        "match": "FALSE",
+        "rule_id": "not_met_ready"
+      },
+      {
+        "match": "FALSE",
+        "rule_id": "not_met_other_gap"
+      }
+    ],
+    "selected_rule_ids": [
+      "unknown"
+    ],
+    "trust": "CONTENT_ONLY_NOT_AUTHORIZATION"
+  }
+}
