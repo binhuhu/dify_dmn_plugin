@@ -163,11 +163,22 @@ def test_manifest_matches_official_cli_0610_version_format():
 
 
 def test_sdk_reused_snapshot_without_trusted_host_is_blocked():
+    # SYNTHETIC lifecycle regression, not a central-control replay claim.
     tool = EvaluateDecisionTool.from_credentials({})
     params = parameters()
+    plain_result, plain_values = invoke(tool, params)
+    assert plain_result["execution_status"] == "SUCCEEDED"
+    assert plain_values["actions"]
+
     params["inputs_json"]["parameter_snapshot"]["reused_from"] = "previous-attempt"
     result, values = invoke(tool, params)
     assert result["execution_status"] == "BLOCKED"
+    assert result["output_port"] == "blocked"
     assert result["error"]["code"] == "SNAPSHOT_REUSE_UNVERIFIED"
     assert result["outputs"]["decision"] is None
     assert (values["state"], values["data"], values["actions"]) == ("", {}, [])
+
+    # Reusing this SDK instance must neither leak the old success into a block
+    # nor retain a blocked result on the next ordinary content-only replay.
+    del params["inputs_json"]["parameter_snapshot"]["reused_from"]
+    assert invoke(tool, params) == (plain_result, plain_values)

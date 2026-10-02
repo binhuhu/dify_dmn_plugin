@@ -1,6 +1,6 @@
 # RC4 local upgrade review — item 1 only
 
-Status: **BLOCKED for central-control upgrade approval**. This is a private local candidate, not a release. Item 2 (offline installation gate and real daemon installation → Endpoint setup → tool call) has not been started. No contract, tool signature, provider credential, evaluator, query executor, schema, or viewer asset is changed relative to RC3.
+Status: **FAIL (incomplete; continuing item 1, awaiting private handoff transfer)**. The user reports the handoff is prepared on their machine; its files are not yet available in this executor. This is an incomplete handoff, not an external business-capability blocker. The earlier BLOCKED receipt is retained as history, not the current completion decision. This is a private local candidate, not a release. Item 2 (offline installation gate and real daemon installation → Endpoint setup → tool call) has not been started. No contract, tool signature, provider credential, evaluator, query executor, schema, or viewer asset is changed relative to RC3.
 
 ## Candidate scope
 
@@ -71,14 +71,25 @@ The probe compares complete unmodified stdout byte lines for each fixed invocati
 
 The existing `scripts/shadow-compare-dsl.py` projects fields and sorts action records. It is not used for this byte comparison and cannot establish the requested raw byte equality.
 
-## Missing evidence and decision
+## Private handoff pending and current decision
 
-**Central-control frozen replay: NOT_RUN. Item 1 overall: BLOCKED.** Neither the frozen definitions/call cases, actual installed RC1 fingerprint, raw output baseline nor historical deployment environment is present in this executor. Public examples, the report's claimed case counts and synthetic probe results do not replace them.
+**Central-control frozen replay: NOT_RUN. Item 1 overall: FAIL (incomplete, can continue).** The user reports a prepared five-case handoff and zero `reused_from` occurrences in the current central-control inputs. Neither the private files nor their checksums/full installed fingerprint have been independently inspected here. Those statements remain reported facts, not verified counts or replay results. No central-control impact or five-case equality is claimed before receipt and inspection.
 
-Minimum private handoff needed:
+The historical RC1→RC3/RC4 synthetic `reused_from` difference stays in the upgrade impact and regression coverage. Existing decision tests cover unverified reuse, trusted-source revalidation, scope rejection and ordinary replay. The SDK regression additionally checks ordinary success → unverified reuse block with cleared outputs → the identical ordinary result on the same SDK instance. This uses only public synthetic fixtures and does not replace the requested raw five-case `cmp`.
+
+The user has now authorized push and prerelease publication **after** the real frozen comparison and tool/provider equality checks pass. Do not push/publish while the handoff is pending. Publication does not authorize central-control installation or upgrade. Item 2 remains unstarted until the user accepts the item-1 receipt with PASS.
+
+Private evidence to inspect after the already-requested handoff arrives:
 
 1. Frozen central-control definition/workflow files with their exact SHA-256 and the node/call mapping.
 2. Exact invocation records for those frozen nodes: all fixed/dynamic tool parameters, input snapshots, node refs, definition pins and execution contexts. Include raw RC1 result bytes and identify the observed boundary (NodeResult JSON, SDK tool stream or host node output). No field may be dropped or normalized; dynamic identifiers/time references must come from the frozen inputs. If raw results do not exist, obtain them from the attested RC1 environment.
 3. Actual installed RC1 `plugin_unique_identifier`/daemon checksum, original package SHA-256 when available, and Dify/daemon/SDK/deployment version/config fingerprints. Package ZIP SHA-256 and daemon plugin checksum are different identifiers. Do not provide live credentials; any needed host adapter/trust behavior should be attested separately.
 
 Private definitions, the review author's local files, traces and local paths must not enter the public repository. The audit's original work-order and probe outputs were not available here. No claims about its other items, coupon tables or reported exhaustive-case counts are made. Await the user's item-1 PASS before starting item 2 or any later item.
+
+
+## Publication identifiers to populate after verification
+
+The eventual item-1 receipt must publish the exact source commit SHA/tree, tag target commit, plugin identity `hu8627/dmn_json`, manifest version `0.4.0-rc4`, asset filename `hu8627-dmn_json-0.4.0-rc4-<source-short-sha>.difypkg`, byte size, full package SHA-256, official CLI version and its actual plugin checksum/unique identifier when available. These are distinct identifiers; do not substitute an abbreviated installed fingerprint or ZIP SHA for the daemon checksum.
+
+All not-yet-created identifiers remain PENDING. The five-case comparison must use the handed-off runner and its defined raw output boundary, retain original bytes and execute `cmp` without sorting, trimming, field exclusions or reserialization. Verify handoff checksums and inspect the runner before execution; preserve private files outside the repository. Publish only sanitized verification results and identifiers, never the private definitions, input values or raw outputs. No final item-1 PASS is inferred from a prepared candidate or synthetic regression.
