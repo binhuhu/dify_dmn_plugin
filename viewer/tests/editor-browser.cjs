@@ -258,14 +258,12 @@ const assert = require("node:assert/strict");
       .phases.find((p) => p.phase_id === "P3").steps[0];
     typedStep.graph.nodes.find(
       (n) => n.node_id === "D1",
-    ).input_bindings.priority_score = { literal: 0 };
-    await page
-      .locator("#file")
-      .setInputFiles({
-        name: "typed.json",
-        mimeType: "application/json",
-        buffer: Buffer.from(JSON.stringify(typed)),
-      });
+    ).input_bindings.priority_score = { literal: 0, source_format: "VALUE" };
+    await page.locator("#file").setInputFiles({
+      name: "typed.json",
+      mimeType: "application/json",
+      buffer: Buffer.from(JSON.stringify(typed)),
+    });
     await page.locator("#node").selectOption(selected);
     const row = page.locator("#rules tr").first();
     await row
@@ -300,6 +298,18 @@ const assert = require("node:assert/strict");
     await row.getByLabel("条件值", { exact: true }).nth(3).selectOption("1");
     await page.getByLabel("priority_score value", { exact: true }).fill("10");
     await page.getByLabel("order_id value", { exact: true }).fill('"O-100"');
+    const validationResponse = page.waitForResponse(
+      (r) =>
+        r.url().endsWith("/api") &&
+        r.request().postDataJSON()?.operation === "validate",
+    );
+    await page.locator("#validate").click();
+    const validation = await validationResponse;
+    assert.equal(
+      validation.status(),
+      200,
+      JSON.stringify(await validation.json()),
+    );
     const trialResponse = page.waitForResponse(
       (r) =>
         r.url().endsWith("/api") &&
