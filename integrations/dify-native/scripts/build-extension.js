@@ -84,6 +84,7 @@ await fs.mkdir(path.join(out, "licenses"), { recursive: true });
 for (const [name, filename] of [
   ["react", "LICENSE"],
   ["react-dom", "LICENSE"],
+  ["scheduler", "LICENSE"],
   ["ajv", "LICENSE"],
   ["json-canonicalize", "LICENSE.md"],
 ]) {

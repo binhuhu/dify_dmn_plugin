@@ -93,4 +93,4 @@ EDITOR_PYTHON=plugin/.venv/bin/python node viewer/tests/chrome-sidepanel-browser
 
 历史资料：[内置 JSON 工具](docs/builtin-0.3.0.md)、[节点合同](docs/dsl-v0.4.md)、[RC4 隔离安装证据](docs/item2-install-gate.md)、[历史只读查看器](docs/structure-viewer.md)、[外部服务兼容性](docs/compatibility-1.11.1.md)。旧 Endpoint 编辑器保留在 Git 历史/源码中供回归，不再作为当前接入方案。
 
-商业许可工作仍在独立 PR #4；本草稿不代表版权链或第三方审计完成。扩展构建包含所用 React、React DOM、AJV 与 JSON canonicalize 的许可文本；这不替代整个仓库的许可审查。
+商业许可工作仍在独立 PR #4；本草稿不代表版权链或第三方审计完成。扩展构建包含所用 React、React DOM、Scheduler、AJV 与 JSON canonicalize 的许可文本；这不替代整个仓库的许可审查。

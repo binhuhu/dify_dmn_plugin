@@ -7,8 +7,9 @@ const json = (v) => JSON.stringify(v, null, 2);
 
 function JsonField({ label, value, onChange, onValidity }) {
   const [raw, setRaw] = useState(json(value));
+  const incomplete = useRef(false);
   useEffect(() => {
-    setRaw(json(value));
+    if (!incomplete.current) setRaw(json(value));
   }, [value]);
   return h(
     "label",
@@ -23,8 +24,10 @@ function JsonField({ label, value, onChange, onValidity }) {
         try {
           const parsed = JSON.parse(text);
           onChange(parsed);
+          incomplete.current = false;
           onValidity(label, true);
         } catch {
+          incomplete.current = true;
           onValidity(label, false);
         }
       },

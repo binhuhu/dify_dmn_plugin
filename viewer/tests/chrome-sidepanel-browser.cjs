@@ -74,13 +74,6 @@ const { execFileSync } = require("node:child_process");
     const original = await raw.inputValue();
     await raw.fill("{");
     await expect(exp).toBeDisabled();
-    await raw.fill(original);
-    await expect(exp).toBeEnabled();
-    // Native typed edit: same value preserves semantics and tests real DOM wiring.
-    const typed = page.getByLabel("条件值", { exact: true }).first();
-    const value = await typed.inputValue();
-    await typed.selectOption(value);
-    await expect(exp).toBeEnabled();
     await page
       .getByLabel("0:data", { exact: true })
       .fill(
@@ -88,6 +81,20 @@ const { execFileSync } = require("node:child_process");
           required_parameter: { literal: "synthetic_demo_review" },
         }),
       );
+    await expect(raw).toHaveValue("{");
+    await expect(exp).toBeDisabled();
+    await raw.fill(original);
+    await expect(exp).toBeEnabled();
+    // Native typed edit: same value preserves semantics and tests real DOM wiring.
+    const typed = page.getByLabel("条件值", { exact: true }).first();
+    const value = await typed.inputValue();
+    await typed.selectOption(value);
+    await expect(exp).toBeEnabled();
+    await page.getByLabel("0:data", { exact: true }).fill(
+      JSON.stringify({
+        required_parameter: { literal: "synthetic_demo_review" },
+      }),
+    );
     await expect(exp).toBeEnabled();
     const next = page.waitForEvent("download");
     await exp.click();
