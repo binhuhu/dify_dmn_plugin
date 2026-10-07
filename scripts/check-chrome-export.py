@@ -43,6 +43,20 @@ def verify(config):
         result = messages[0].message.json_object
         assert result["execution_status"] == "SUCCEEDED", result
         assert result["outputs"]["decision"] is not None
+        expected_state = {
+            ("UNKNOWN", None): "NEED_USER_INPUT",
+            ("KNOWN", True): "NEED_AUTHORIZATION_REVIEW",
+            ("KNOWN", False): "INFORMATION_SUFFICIENT",
+        }[(quality, value)]
+        assert result["outputs"]["decision"]["state"] == expected_state
+        if quality == "UNKNOWN":
+            expected_data = bundle["models"]["demo.meeting@1.0.0"]["result_templates"][
+                "ask"
+            ]["data"]["required_parameter"]["literal"]
+            assert (
+                result["outputs"]["decision"]["data"]["required_parameter"]
+                == expected_data
+            )
         results.append(result)
     tampered = copy.deepcopy(fixed)
     tampered["expected_definition_sha256"] = "0" * 64

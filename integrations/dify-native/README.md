@@ -1,40 +1,36 @@
-# Dify 原生 React 组件＋DMN Tool：草稿
+# Chrome 规则侧栏与共享 React 组件（草稿）
 
-当前方向是 Dify 前端源码内的 React 面板，使用现有 `evaluate_decision` Tool；不使用 Endpoint、iframe、浏览器插件密钥或前端 DMN 求值器。不合并、不发布、不安装到共享环境。旧 Endpoint 目录保留为历史草稿，新路径不引用它们。
+当前用户路线：Chrome Manifest V3 侧栏 + Dify DMN Tool，不使用 Endpoint、不修改 Dify 源码。`RuleEditor.js` 继续复用；此前宿主源码内嵌方案不再是本轮交付前提。完整构建和手动演示步骤见 [根 README](../../README.md)。
 
-`RuleEditor.js` 是可嵌入组件，沿用无网络依赖的条件控件：Phase/Step/Node 选择、原生类型条件和 AND/OR、完整高级 JSON、常驻 Hit Policy、参数质量契约、模板引用和 state/data/actions 分栏。编辑采用完整定义副本，保留未编辑字段、Step 和 checkpoint 合同。缺失模板不回退；编辑后旧试算结果失效。
+## 文件与职责
 
-## 宿主集成接口
+- `RuleEditor.js`：受控 React 规则表；原生类型条件、AND/OR、完整高级 JSON、参数契约、Hit Policy、模板引用和独立 state/data/actions。`manualMode` 隐藏不可用的宿主试算按钮。
+- `model.js`：无网络的定义副本编辑、节点引用和可选宿主 Tool 参数检查。
+- `extension/panel.js`：文件导入、Phase/Step/Node 目录、来源/结构计数、兼容性选择、下载定义和手动配置交接。
+- `extension/config.js`：有界 JSON、本地 Schema/模板/版本诊断、RFC8785 内容摘要；不执行规则。
+- `scripts/build-extension.js`：预编译 Schema 校验器并打包本地 React、CSS、许可文本和合成 Demo。不会下载远程运行代码。
+- `dist/chrome-sidepanel/`：本地构建结果，不提交到 Git；CI 提供可下载的构建与截图 artifact。
 
-```jsx
-import RuleEditor from './integrations/dify-native/RuleEditor'
+## 导出合同
 
-<RuleEditor
-  definition={draftDefinition}
-  onDefinitionChange={setDraftDefinition}
-  onNodeChange={setSelectedNodeRef}
-  hostBinding={reviewedBindingForThisExactDraftAndNode}
-  invokeTool={authenticatedHostToolInvoker}
-/>
-```
+`dmn.chrome-tool-config.v1` 包含 `tool_name: evaluate_decision`、`target_profile`、`fixed_parameters`、`runtime_parameters_required`、`validation_scope` 和 `authority: CONTENT_ONLY_NOT_AUTHORIZATION`。
 
-这段示例中的状态与回调由 Dify 宿主实现，仓库未提供假的可用 API。`invokeTool('evaluate_decision', args)` 必须返回完整 NodeResult，而不是原始 SDK 消息列表。宿主适配层负责拆包，不能丢失诊断、trace、错误或输出。
+`fixed_parameters` 的三个值直接对应现有 Tool 参数名；另两个运行参数由用户/宿主在 Dify 中绑定。文件不是 Dify DSL，不应直接导入应用。内容摘要可复现、可验证，但不赋予任何运行权限。普通导出不包含运行 ID、用户身份、凭据或 source_ref。
 
-`hostBinding` 包含五个现有 Tool 参数：`definition_bundle_json`、`node_ref`、`expected_definition_sha256`、`inputs_json`、`execution_context_json`。组件要求其定义和节点与当前草稿一致；组件不自行生成可信摘要、来源、运行 ID 或激活上下文。宿主必须用已有登录、租户/工作区权限和服务端 Tool 调用通道核验并绑定这些值；摘要本身不是授权。未接入时试算禁用。草稿编辑不会自动改写已发布的 Tool 配置。
+RC5 模式对整个定义检查 v1 profile，不只检查当前模型。任何 v2 组合/枚举都会阻止交给 RC5；不展开 OR、不改变 Hit Policy、不自动降低版本。开发模式仅供离线 0.5 内核回放。
 
-React 组件不会注册 Dify 自定义 Tool 参数类型，也不会通过插件包注入 Dify 画布。必须在实际 Dify 前端源码加入面板挂载点，并确认现有后端 Tool 调用通道的权限、CSRF、输入绑定和响应合同。只有插件仓库地址不足以完成该接线。已有 Dify 1.11.1 记录仅是参考，不是目标版本确认；仍需目标 Dify fork/commit 和前端源码。此处尚未声称原生宿主集成或真实浏览器验收通过。
+## 数据与页面边界
 
-## 本地验证与无 Endpoint staging
+仅请求 `sidePanel` 权限，没有网页读取或回填功能。扩展不依赖 Cloud 页面 DOM、内部 React 状态、私有 REST API 或用户 Cookie。`connect-src 'none'` 禁止主动网络连接，未启用浏览器存储和剪贴板自动读写。导出通过本地 Blob 下载，无 downloads API 权限。
 
-需要 Node 24、Python 3.12，且 plugin/.venv 安装了 plugin/requirements.txt。
+导入可接受 v2 definition 或 rule-workspace.v1 中的 definition_bundle；侧栏只编辑并导出定义，不提供该 workspace envelope 的 revision、parent metadata 或 freeze 签名维护。不会把未验证 freeze 文件当作可信来源。未知字段在定义内保留；原始缩进和文件字节不承诺保留。非法/未完成编辑必须修复或显式撤销后才能导出。
 
-```sh
-npm ci --ignore-scripts --prefix integrations/dify-native
-npm test --prefix integrations/dify-native
-plugin/.venv/bin/python scripts/stage-native-tool.py /tmp/dmn-native-tool-draft
-plugin/.venv/bin/python scripts/compatibility/dsl_stdio.py /tmp/dmn-native-tool-draft /tmp/dmn-native-tool-sdk.json
-```
+## 验收范围
 
-staging 目标必须不存在；不会覆盖目录。新 staging 删除 Endpoint 注册、权限与静态网页，只保留 Tool 插件。React 源码随 Dify 宿主构建，不打入 Tool 插件。该命令不打包、不安装、不发布。历史 `editor-preview.py` 是旧 Endpoint 方案，不作为当前路线的启动命令。
+单元测试：导出摘要与 Python 固定基线一致、字段无损、版本拒绝、缺模板、未知 Hit Policy、大小/类型边界、无网络权限、无动态 eval。
 
-本组件不是可独立启动的 Dify 应用；在宿主源码和版本明确前，不提供虚构的“一键启动”。本地测试使用合成数据和模拟的宿主回调；另外执行真实 SDK 工具边界回归。两者不等于完成 Dify 登录到 Tool 的端到端验收。
+真实浏览器：独立临时 profile 内加载解包扩展，正常 sandbox；页面编辑、导出、失败导入、窄屏、无外部请求；导出内容经 Python Tool 三个合成输入和错误摘要拒绝回归。浏览器打开扩展页面来测试侧栏内容，不伪称已经点击用户 Chrome 工具栏或完成用户工作流联调。
+
+仍待外部验收：目标 Cloud 已安装插件版本、实际工作流 DSL/参数绑定、Cloud 试运行、操作者加载扩展及点击图标打开侧栏。当前无登录会话和 DSL，不能声称这些已完成。
+
+可选宿主源码回调接口仍保留以兼容此前测试：`invokeTool('evaluate_decision', args)`、`hostBinding`，但 Chrome 入口不传入该回调，也不会调用它。

@@ -1,132 +1,96 @@
-# Dify DMN 插件：显式查询 + 显式决策
+# Dify DMN：Chrome 规则侧栏＋DMN Tool
 
-本开发分支为 **0.5.0-dev 草稿**：当前方向为 [Dify 原生 React 可视化组件＋DMN Tool](integrations/dify-native/README.md)，不使用 Endpoint。组件与无 Endpoint staging 已分离；真实 Dify 宿主接线待目标源码/版本确认。不合并、不发布、不安装到共享环境。原 Endpoint 编辑器仅保留为历史草稿；已发布 RC5 保持不变。
+本分支是 **0.5.0-dev 草稿**。当前交付方向是 **Chrome 侧栏扩展 + Dify 原生工作流画布 + DMN Tool 插件**：不修改 Dify 前端源码，不使用 Endpoint，不在浏览器执行规则。开发留在 [Draft PR #5](https://github.com/binhuhu/dify_dmn_plugin/pull/5)，不合并、不发布、不安装到共享环境或中控。
 
-当前预发布候选为 **0.4.0-rc5**：修复单 operation 分页截断误停独立查询、本地导入渲染失败丢图及异步导入竞态，补齐 item2 遗漏日志证据。只读查看器仍为 Phase → 实际 Step → Node，不含编辑、存储或协作。RC4 原包已完成隔离开发模式安装验收，范围见[item2 回执](docs/item2-install-gate.md)；这不代表 RC5 生产安装或强制签名模式验收。中控升级仍由 owner 执行。精确包标识、验收证据与未测范围见 [RC5 发布记录](docs/releases/v0.4.0-rc5.md)。
+已发布版本仍为 [v0.4.0-rc5](https://github.com/binhuhu/dify_dmn_plugin/releases/tag/v0.4.0-rc5)。RC5 原包、tag 和哈希不因本草稿变化；它包含历史只读 Endpoint 查看器，使用 Chrome 侧栏无需启用该 Endpoint。精确包标识及验收边界见 [RC5 发布记录](docs/releases/v0.4.0-rc5.md)。
 
-查看器始于 [v0.4.0-rc3](https://github.com/binhuhu/dify_dmn_plugin/releases/tag/v0.4.0-rc3)：只读 Phase → 实际 Step → Node 查看器，支持目录搜索、分组决策表、定位诊断及本地JSON来源提示。参见[查看器说明](docs/structure-viewer.md)及[RC3发布记录](docs/releases/v0.4.0-rc3.md)。查看器随Endpoint同包提供；本地导入不上传，不执行规则，不注入宿主画布。
+## 两个插件各做什么
 
-此前新增免 Key 的 [内置 JSON 三工具 0.3.0](builtin/README.md)：决策、SYNTHETIC 查询、JSON 阶段计划均在 Python 插件进程内执行，无需外部决策服务。完整合同和转换边界见 [0.3.0 文档](docs/builtin-0.3.0.md)。为兼容 Dify 1.11.1 的提供商授权限制，使用独立身份 `hu8627/dmn_json`，保留已安装的原外部插件和其他插件。原路径如下。
+| 部分 | 职责 |
+|---|---|
+| Chrome 扩展 | 本地导入定义、Phase → 实际 Step → DECISION Node 导航、类型化规则编辑、无损高级 JSON、Tool 配置导出 |
+| Dify 工作流 | 手动配置 Tool 节点、连接后续分支、在已有登录会话中试运行并查看结果 |
+| Dify DMN Tool | Python 内核校验定义和输入、执行规则，返回完整 NodeResult；actions 是意图，不是业务写入 |
 
-Java-free 候选原型。Dify Python 插件薄封装 → Node.js 执行服务 → 已注册只读查询能力 / DMN 决策。无 Java，不手写 FEEL 解释器，不执行赔付、改票或工单写操作。
+**真实决策运行仍需要 Dify 中已安装兼容的 DMN 插件。** Chrome 扩展不会替代它，也不会安装它。第一版不读取选中节点、不自动回填配置、不抓取运行结果、不获取 Cookie、Token 或页面内部状态。侧栏是浏览器扩展界面，不是注入 Dify 画布的原生面板。
 
-## 原外部插件历史交付（2026-09-30）
+## 本地构建
 
-修正版候选安装包已在原授权打包工作区用官方 Dify CLI **0.6.10** 生成，对应源码 [`d04f51c`](https://github.com/hu8627/dify_dmn_plugin/commit/d04f51ccdb67cb8c375f0c2900984c3a8bd7386c)，20 个包内文件已逐字节核对。后续文档提交不改变该安装包的源码归属。
+在仓库根目录执行，需要 Node.js 24 和 npm：
 
-- 文件：`hu8627-dmn-0.1.0-d04f51c.difypkg`，**53,718 bytes**
-- SHA-256：`122e68ef2627d9371eb6cae1d7ee9cfb51b50bcedab59c7e6afa58c3b1776fbf`
-- Dify checksum：`d720592666104edb8c86951dbeabf7233a41e8412b17a8e71d0bbd51f25028be`
-- 源码测试：**99 Node + 230 Python**，包含 26 次真实 SDK → 本地 HTTP → 隔离 Node 集成测试。
-- Dify 1.11.1 原始模型解析、真实 SDK stdio、全新 Python 3.12 依赖安装已通过；daemon Go 包解码和目标 DMN 调用尚未验证；旧包 UI 安装由用户后续确认成功。详见[兼容性证据](docs/compatibility-1.11.1.md)。
-
-**用户已发布公开 [v0.1.0 Release](https://github.com/hu8627/dify_dmn_plugin/releases/tag/v0.1.0)**（2026-09-30 11:23:49 UTC，非草稿、非预发布）；授权 GitHub 连接器已核验资产名称、53,718 字节及 SHA-256 与上述候选一致。[安装包链接](https://github.com/hu8627/dify_dmn_plugin/releases/download/v0.1.0/hu8627-dmn-0.1.0-d04f51c.difypkg)。用户已确认经旧版插件管理页面上传安装成功；新版工具页选择器不再排查。此安装反馈不代表目标真实 DMN 调用验收。安装包未签名、未经 Marketplace 审核；本地安装需符合工作区策略，若企业策略禁用则需管理员提供批准的安装渠道，不能关闭安全校验。安装后仍需独立、可达且配置鉴权的 Node 服务；目标服务尚未部署，目标 DMN 调用尚未验证。见[发布核对清单](docs/release-checklist.md)。
-
-## 0.2.0 历史内置候选交付
-
-- 0.2.0 当时仅注册 `evaluate_json_table`；当前 `builtin/manifest.yaml` 为 0.4.0-rc5 五工具及只读 Endpoint 候选。旧 XML/FEEL 三工具及其授权保持兼容。
-- 0.2.0 当时只准备了 staging 目录；后续 RC 的打包与发布状态以对应发布记录为准。旧 v0.1.0 Release 保持不动。
-- 免凭据 SDK 注册/校验/调用已验证；新包的目标 UI 安装和真实业务调用未验证。见 [0.2.0 验收记录](docs/builtin-0.2.0.md)。
-
-## 结构
-
-- **定位问题**：一个 Phase，里面可以有多个查询 Step、多个 DMN 决策 Step
-- **解决问题**：当前 P1–P5 即可，在 P5 输出处置建议；P6/P7 可暂缓，原 P1–P7 完整示例仍兼容
-- 查询和决策可交错，例如 查询工单 → DMN 定位 → 查询关联订单 → DMN 确认
-- 查询 Step 引用 capability_id、输入/输出合同和参数映射；决策 Step 引用模型、decision_id、Hit Policy
-- Step 显式依赖、按确定性顺序运行；无需把所有查询放在所有决策之前
-- L0 取数、L1 经审定的 ESM 事实计算器、真实写动作仍在 DMN 之外；P6/P7 在这里仅输出建议
-- 当前查询注册表只有 SYNTHETIC mock；没有连接真实客服数据、身份闸、底层能力库或千帆宿主
-
-这是可测试的运行基础，不是现有生产方案迁移或 scene-result.v2 接入验收。实际身份/绑定/结果合同、生产模型和独立历史案例尚未提供；候选格式名称明确带 candidate，不能冒充已冻结合同。
-
-定位与解决是两个独立可调用的流程能力，可按需要组合，不要求先定位再解决。`examples/solve-p1-p5-request.json` 演示当前解决范围，无需伪造 P6/P7 节点或接受其动作验收。
-
-## 目录
-
-- `plugin/`：Dify 工具插件，官方 Python SDK；发布包不内置 Node
-- `engine/`：Node 原生 HTTP 服务、隔离执行进程、DMN/查询/计划执行
-- `examples/`：仅合成数据和合成模型，非真实业务裁定
-- `docs/`：合同、支持边界、稳定性与验收说明
-- `compose.yaml`：可选 Docker 部署（不是必须）
-
-## 原生 Node 启动
-
-需 Node.js 22 或 24（开发验证使用 24.19.0）、npm。
-
-```bash
-cd engine
-npm ci --ignore-scripts
-npm test
-# 在受控终端设置你自己的随机长令牌；不要提交到仓库
-export DMN_API_TOKEN='替换为至少32字符的随机私密令牌'
-npm start
+```sh
+npm ci --ignore-scripts --prefix integrations/dify-native
+npm run build:extension --prefix integrations/dify-native
+npm test --prefix integrations/dify-native
+npm run test:extension --prefix integrations/dify-native
 ```
 
-服务默认仅监听 `127.0.0.1:8787`。示例令牌不是可用的生产密钥。`GET /health` 和全部 POST 接口均需 `Authorization: Bearer <token>`；请求 Content-Type 为 application/json。无鉴权请求返回 401。
+构建目录：`integrations/dify-native/dist/chrome-sidepanel/`。这是未发布的 Chrome Manifest V3 扩展，最低 Chrome 116。只有 `sidePanel` 权限；没有 host permissions、content scripts、cookies、storage、downloads 或 scripting 权限。CSP 使用 `connect-src 'none'`，所有脚本随构建产物提供；Schema 校验器在构建时生成，无运行时 JS 求值器。
 
-接口：
-- `/evaluate`：`{dmn_xml, inputs, decision_id, include_trace}`
-- `/query`：`{capability_id, parameters}`
-- `/execute_plan`：`{plan, models, inputs, include_trace}`
+需要演示时，由操作者在自己的测试 Chrome 中打开 `chrome://extensions`、启用开发者模式、选择“加载已解压的扩展程序”，选上述目录，再点击扩展图标打开侧栏。这是手动操作说明，自动化不会在用户浏览器安装或授予权限。如果组织策略不允许加载扩展，使用组织批准的渠道；不修改策略或关闭沙箱。
 
-完整计划与合成运行方式见 `docs/plan-contract.md`（交付时以该文件为准）。单表运行可直接导入 `engine/src/evaluate.js` 的 `evaluateRequest`；对外服务始终在受限子进程执行。
+## 五分钟合成 Demo
 
-## Docker 可选部署
+1. 在 Chrome 中打开 Dify Cloud 工作流，另开 DMN 侧栏。点击“加载合成 Demo”。不需要授权侧栏访问 Dify 页面。
+2. 在目录中选择 `SOLVE → P3 → P3.S1 → D1`。查看 Hit Policy、参数类型/质量、规则、模板引用及 `state / data / actions`。
+3. 使用字段、运算符和类型化值控件编辑条件。复杂或扩展条件保留高级 JSON；完整定义 JSON 可查看和修改其他字段。未完成的 JSON、缺失模板或不兼容版本会阻止导出。共享模板编辑影响所有引用规则。
+4. 核对 Dify 已安装插件的版本。默认选择 **RC5 / v1**，点击“导出 Tool 配置”。下载的 `dmn-tool-config.json` 是交接文件，不是 Dify 工作流 DSL，也不是可安装插件包。
+5. 在 Dify 的 `evaluate_decision` 节点中，逐项填写导出的三个固定参数；JSON 对象可使用对象或一层 JSON 字符串形式。`inputs_json` 和 `execution_context_json` 使用宿主绑定的运行数据。
+6. 未修改的合成 Demo 可参考构建目录 `demo/synthetic-invocation.json` 中的五个完整参数。该文件只用于合成演示；真实数据不能套用其身份、来源或激活声明。更改定义后，旧 Demo 的 snapshot digest 不再适用，不能直接复用。
+7. 在 Dify 自身点击试运行，检查 `execution_status`、命中规则、输出和诊断。侧栏不显示伪造结果；本项目尚未验收目标 Cloud 工作区的安装版本、字段绑定或实际运行。
 
-```bash
-# 先通过终端设置 DMN_API_TOKEN，不写入仓库
-# 在项目根目录
-docker compose up --build -d
+关闭侧栏前点击“下载完整定义”。当前无自动保存、服务器存储、协作或跨设备同步。文件在本地解析，不上传。导入上限 2 MiB、嵌套上限 64 层；导入失败保留旧图和来源。保留的是 JSON 字段及结构，不保证原文件空白/缩进的字节一致。
+
+## 导出和兼容性
+
+导出固定参数只有：
+
+- `definition_bundle_json`：完整定义，包含未编辑的 Step、edges、exits、reentry 等字段。
+- `node_ref`：所选实际 DECISION 的 workflow/phase/step/node 四个 ID。
+- `expected_definition_sha256`：定义的 RFC8785 内容摘要。
+
+摘要仅用于内容一致性，**不是授权**。扩展不生成生产运行上下文、可信来源、激活凭证或审定版本。Schema/引用检查也不替代 Python 内核完整语义校验。编辑定义产生新摘要，不迁移或解锁旧 checkpoint。
+
+| 目标 | 允许范围 | 演示边界 |
+|---|---|---|
+| RC5 / `service-decision-table-v1` | 平面 AND 条件，现有类型参数及 Hit Policy | 默认；实际安装版本仍须核对 |
+| 0.5 开发内核 / `service-decision-table-v2` | 增加 AND/OR 组合及参数枚举 | 仅离线开发验收；不能导出给 RC5，不安装开发包到共享空间 |
+| 未知插件版本 / 外部 XML-FEEL 插件 | 未建立兼容合同 | 不冒充兼容，不自动降级或改写规则 |
+
+添加 AND/OR 组会显式把对应模型标为 v2，并在 RC5 模式显示诊断、阻止导出。未知 Hit Policy 不猜测，缺失模板不回退到 inline。详细协议见 [侧栏与组件说明](integrations/dify-native/README.md)。
+
+## Tool-only 草稿与测试
+
+仅需现有 RC5 时不用重新构建 Dify 插件。开发者要核对不含 Endpoint 的 staging，可在 Python 3.12 虚拟环境安装 `plugin/requirements.txt` 后运行：
+
+```sh
+plugin/.venv/bin/python scripts/stage-native-tool.py /tmp/dmn-native-tool-draft
+plugin/.venv/bin/python scripts/compatibility/dsl_stdio.py /tmp/dmn-native-tool-draft /tmp/dmn-native-tool-sdk.json
+plugin/.venv/bin/python scripts/check-chrome-export.py integrations/dify-native/dist/chrome-sidepanel/demo/tool-config.json
 ```
 
-镜像固定官方 Node 24.19.0 及 digest；容器只读、非 root、capabilities 全禁，512 MiB、1 CPU、64 pid，默认仅映射宿主 loopback。并发默认 2，单请求子进程默认 5 秒后硬终止。当前环境没有 Docker，Docker 启动步骤尚未实测。
+目标 staging 目录必须不存在。脚本删除 Endpoint 注册、权限和静态网页；不会打包、安装或发布。原 `stage-builtin.py` 保留历史 Endpoint 构建用途，**不是当前 Chrome＋Tool-only 路径**。
 
-Dify 运行在容器时，它的 `127.0.0.1` 不是宿主机。需由部署人员把插件 daemon 与服务置于受控共同网络，或配置可达的 HTTPS 地址。不要开放未加密的公网端口。Dify Cloud 也无法访问你的本机 loopback。
+浏览器验收使用隔离临时 profile、正常沙箱 Chromium 和合成数据：加载真实解包扩展、核对权限、编辑/导出/失败导入回滚、检查无外部请求，并把导出的配置回放到真实 Python Tool。命令：
 
-## Dify 安装
-
-1. 在插件管理中选择 **From GitHub**，填写 `https://github.com/hu8627/dify_dmn_plugin`，选择 `v0.1.0` 及 `hu8627-dmn-0.1.0-d04f51c.difypkg`，按工作区批准流程安装。若本地导入被策略禁用，不绕过该策略。自行打包见 `plugin/README.md`
-2. 配置 Engine URL 和相同 API Token。公网使用 HTTPS。仅受控内网调试可显式启用 insecure HTTP
-3. 工具 `query_capability` 展示查询，`evaluate_dmn` 展示一个决策，`execute_plan` 执行一条显式多 Step 计划
-4. 输入和输出均为结构化 JSON。技术成功仍须检查业务结论，NOT_FOUND 不代表可继续；状态不是成功就不能继续执行实际业务动作；`WAITING_INPUT` 进入补证或人工分支
-5. 客服 UI 按实际结果合同渲染，不能把工具返回的业务数据直接展示给客户。默认关闭 trace；trace 只含规则/决策元数据，不含原始查询参数
-
-目前完成的是 SDK/工具单测、服务本地集成和打包验证；没有在你的真实 Dify 实例导入执行，也没有 Marketplace 发布。
-
-## 重要边界
-
-- 执行器为 `dmn-elements 0.3.0`、`feelin 8.2.0`、`dmn-moddle 12.0.1`，精确依赖见 lockfile；dmn-elements 较新，需要试点回归，不宣称生产成熟度
-- 配置 `dmn13-safe-v1` 只接受 DMN 1.3 单文件 DRG、决策表和 literal expressions，白名单 UNIQUE / FIRST / COLLECT
-- UNKNOWN 业务状态可作为显式值参与 DMN；缺失输入/属性产生技术 `UNKNOWN_INPUT`，不会自动变成 false 或 DMN null
-- JavaScript 使用 IEEE-754；`0.1 + 0.2 = 0.3` 在所钉版本中为 false。金额用整数最小单位并验证中间结果上界；不宣称 DECIMAL128 一致性
-- 上游提供 matched rules，没有提供最终 selected/contributing rules。`selected_rule_ids=null`、`selection_trace_available=false`，绝不把所有条件命中冒称最终执行规则
-- 已知 FEEL 语义中的 `1/0` 可返回无警告 null；本插件保留该语义，与缺失输入区分。需要业务拒绝 null 时，在 DMN 中显式建模
-- 新包发布、真实取数、生产规则切换、稳定性/质量达标均需独立验收，不能用合成测试代替历史业务回归
-
-详见 `docs/stability.md`、`docs/support-matrix.md`。
-
-## 来源
-
-- [Dify 官方工具插件指南](https://docs.dify.ai/en/develop-plugin/dev-guides-and-walkthroughs/tool-plugin)
-- [Dify Python SDK](https://github.com/langgenius/dify-plugin-sdks)
-- [dmn-elements API / trace](https://github.com/zerodep/dmn-elements)
-- [feelin](https://github.com/nikku/feelin)
-- [dmn-moddle](https://github.com/bpmn-io/dmn-moddle)
-
-使用这些依赖不表示本项目获得了上游 DMN 全规范或生产认证。
-
-## 合成端到端验证
-
-服务启动后，在项目根目录运行（沿用相同 DMN_API_TOKEN）：
-
-```bash
-node scripts/smoke.mjs examples/locate-request.json
-node scripts/smoke.mjs examples/solve-request.json
+```sh
+npm ci --ignore-scripts --prefix viewer
+(cd viewer && npx playwright install chromium)
+EDITOR_PYTHON=plugin/.venv/bin/python node viewer/tests/chrome-sidepanel-browser.cjs
 ```
 
-第一条包含 query → decision → query → decision；第二条包含 P1–P7、P3 显式跳过、DMN-A/DMN-B/优先关系、处置建议和工单建议。示例金额不会自动补填，缺口不会自动宣称 LINKED。`examples/fact-calculator.mjs` 是外部 L1 ESM 计算器示意，不会被模型动态加载。真实阶段包含慢查询时，应由 Dify 逐 Step 编排、分别显示状态；`execute_plan` 当前只适合总时限内的小型候选计划，不是长流程编排平台。
+如 Linux 环境无法启动沙箱，不关闭沙箱或绕过系统策略；使用仓库的 macOS CI 验收。CI 的浏览器结果不等于目标 Dify Cloud 联调；扩展工具栏实际打开侧栏的交互也需操作者验证。完整工程回归仍由 `scripts/check.sh` 执行。
 
-## 只读结构展示
+## 仓库结构与历史能力
 
-直接打开 `plugin/viewer_static/index.html`，查看定位／解决的真实 Phase → Step → Node 归属并导入本地 JSON。无工作台、编辑、执行或服务端存储。[格式、入口及验证限制](docs/structure-viewer.md)。
+- `integrations/dify-native/`：复用的 React 编辑器、Chrome MV3 扩展源码、锁定依赖、构建及单元测试。
+- `plugin/`：Dify Python 工具及共享内核。五个 builtin 工具为 `evaluate_decision`、`execute_query`、`evaluate_json_table`、`query_local`、`execute_json_plan`。
+- `builtin/`：内置 JSON 插件声明；新路线使用 Tool-only staging 覆盖历史 Endpoint 声明。
+- `specs/service-decision-dsl-v2/`：Schema、合同和合成示例。
+- `viewer/`：已有查看器测试和新增扩展浏览器验收。
+- `engine/`、`compose.yaml`：历史可选 Node XML/FEEL 服务；不是 Chrome＋内置 JSON Tool Demo 的前置依赖。
+- `docs/`：版本、兼容性、安装及合同证据。
+
+历史资料：[内置 JSON 工具](docs/builtin-0.3.0.md)、[节点合同](docs/dsl-v0.4.md)、[RC4 隔离安装证据](docs/item2-install-gate.md)、[历史只读查看器](docs/structure-viewer.md)、[外部服务兼容性](docs/compatibility-1.11.1.md)。旧 Endpoint 编辑器保留在 Git 历史/源码中供回归，不再作为当前接入方案。
+
+商业许可工作仍在独立 PR #4；本草稿不代表版权链或第三方审计完成。扩展构建包含所用 React、React DOM、AJV 与 JSON canonicalize 的许可文本；这不替代整个仓库的许可审查。

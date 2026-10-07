@@ -89,6 +89,7 @@ export function diagnostics(bundle, target) {
   return errors;
 }
 export async function exportConfig(bundle, nodeRef, target = "rc5") {
+  if (!["rc5", "dev"].includes(target)) throw Error("未知兼容目标");
   checkJson(bundle);
   const errors = diagnostics(bundle, target);
   if (errors.length) throw Error(errors.slice(0, 5).join("\n"));

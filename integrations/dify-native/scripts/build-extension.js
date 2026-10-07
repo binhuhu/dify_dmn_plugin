@@ -1,4 +1,7 @@
 import fs from "node:fs/promises";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
+const exec = promisify(execFile);
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { build } from "esbuild";
@@ -22,6 +25,7 @@ await fs.writeFile(
   path.join(source, "generated/validate.cjs"),
   standaloneCode(ajv, ajv.compile(schema)),
 );
+await fs.rm(out, { recursive: true, force: true });
 await fs.mkdir(out, { recursive: true });
 await build({
   entryPoints: [path.join(source, "panel.js")],
@@ -88,3 +92,30 @@ for (const [name, filename] of [
     path.join(out, "licenses", name + ".txt"),
   );
 }
+
+await fs.copyFile(path.join(root, "README.md"), path.join(out, "README.md"));
+
+await fs.copyFile(
+  path.join(source, "INSTALL.md"),
+  path.join(out, "INSTALL.md"),
+);
+await fs.writeFile(
+  path.join(out, "source.json"),
+  JSON.stringify(
+    {
+      repository: "binhuhu/dify_dmn_plugin",
+      commit: (
+        await exec("git", ["rev-parse", "HEAD"], { cwd: root })
+      ).stdout.trim(),
+      dirty: Boolean(
+        (
+          await exec("git", ["status", "--porcelain"], { cwd: root })
+        ).stdout.trim(),
+      ),
+      release: false,
+      cloud_acceptance: "NOT_RUN",
+    },
+    null,
+    2,
+  ) + "\n",
+);

@@ -83,3 +83,13 @@ test("built extension requests sidePanel only and ships no remote code/evaluator
   );
   assert.doesNotMatch(js, /\beval\s*\(|new Function\s*\(/);
 });
+test("import bounds reject oversize and deep content; unknown export target fails closed", async () => {
+  assert.throws(
+    () => parseDefinition(" ".repeat(2 * 1024 * 1024 + 1)),
+    /2 MiB/,
+  );
+  let nested = {};
+  for (let i = 0; i < 66; i++) nested = { child: nested };
+  assert.throws(() => parseDefinition(JSON.stringify(nested)), /64/);
+  await assert.rejects(exportConfig(bundle, node, "unknown"), /未知兼容目标/);
+});

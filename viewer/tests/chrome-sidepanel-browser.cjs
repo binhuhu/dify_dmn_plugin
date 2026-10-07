@@ -81,6 +81,14 @@ const { execFileSync } = require("node:child_process");
     const value = await typed.inputValue();
     await typed.selectOption(value);
     await expect(exp).toBeEnabled();
+    await page
+      .getByLabel("0:data", { exact: true })
+      .fill(
+        JSON.stringify({
+          required_parameter: { literal: "synthetic_demo_review" },
+        }),
+      );
+    await expect(exp).toBeEnabled();
     const next = page.waitForEvent("download");
     await exp.click();
     await (await next).saveAs("/tmp/chrome-dmn-edited-export.json");
@@ -89,15 +97,25 @@ const { execFileSync } = require("node:child_process");
       ["scripts/check-chrome-export.py", "/tmp/chrome-dmn-edited-export.json"],
       { stdio: "inherit" },
     );
+    const edited = JSON.parse(
+      fs.readFileSync("/tmp/chrome-dmn-edited-export.json"),
+    );
+    const baseline = JSON.parse(fs.readFileSync("/tmp/chrome-dmn-export.json"));
+    expect(edited.fixed_parameters.expected_definition_sha256).not.toBe(
+      baseline.fixed_parameters.expected_definition_sha256,
+    );
+    expect(
+      edited.fixed_parameters.definition_bundle_json.models[
+        "demo.meeting@1.0.0"
+      ].result_templates.ask.data.required_parameter.literal,
+    ).toBe("synthetic_demo_review");
     // Invalid import retains the previously displayed source/graph.
     const before = await page.getByLabel("来源", { exact: true }).textContent();
-    await page
-      .getByLabel("导入 JSON", { exact: true })
-      .setInputFiles({
-        name: "broken.json",
-        mimeType: "application/json",
-        buffer: Buffer.from("{"),
-      });
+    await page.getByLabel("导入 JSON", { exact: true }).setInputFiles({
+      name: "broken.json",
+      mimeType: "application/json",
+      buffer: Buffer.from("{"),
+    });
     await expect(page.getByRole("alert").first()).toContainText("保留原图");
     await expect(page.getByLabel("来源", { exact: true })).toHaveText(before);
     // Explicit dev groups cannot be exported for RC5.
