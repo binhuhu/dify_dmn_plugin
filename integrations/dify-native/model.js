@@ -44,8 +44,10 @@ export function editRule(bundle, modelRef, index, field, value) {
   const next = copy(bundle),
     model = next.models[modelRef],
     rule = model.rules[index];
-  if (field === "when") rule.when = copy(value);
-  else if (field === "rule_id") rule.rule_id = value;
+  if (field === "when") {
+    if (!Array.isArray(value)) throw Error("when 必须为数组；保留未完成编辑");
+    rule.when = copy(value);
+  } else if (field === "rule_id") rule.rule_id = value;
   else {
     const output = Object.hasOwn(rule, "output_template_ref")
       ? model.result_templates[rule.output_template_ref]

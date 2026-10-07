@@ -58,6 +58,9 @@ export default function RuleEditor({
   hostBinding,
   invokeTool,
   onNodeChange,
+  onValidityChange,
+  selectedNodeRef,
+  manualMode = false,
 }) {
   const [selected, setSelected] = useState(0),
     [result, setResult] = useState(null);
@@ -65,9 +68,18 @@ export default function RuleEditor({
     [pending, setPending] = useState(false);
   const [invalid, setInvalid] = useState(new Set());
   const generation = useRef(0);
-  const nodes = decisions(definition),
-    node = nodes[selected];
+  const nodes = decisions(definition);
+  const controlledIndex = selectedNodeRef
+    ? nodes.findIndex(
+        (n) => JSON.stringify(reference(n)) === JSON.stringify(selectedNodeRef),
+      )
+    : -1;
+  const activeIndex = controlledIndex >= 0 ? controlledIndex : selected;
+  const node = nodes[activeIndex];
   const model = node && definition.models[node.model_ref];
+  useEffect(() => {
+    onValidityChange?.(invalid.size === 0);
+  }, [invalid, onValidityChange]);
   const selectedRef = node ? JSON.stringify(reference(node)) : null;
   useEffect(() => {
     onNodeChange?.(selectedRef ? JSON.parse(selectedRef) : null);
@@ -123,17 +135,24 @@ export default function RuleEditor({
   return h(
     "section",
     { "aria-label": "DMN 原生规则组件" },
-    h("p", null, "草稿 · 通过宿主 DMN Tool 试算 · 不执行 actions"),
+    h(
+      "p",
+      null,
+      manualMode
+        ? "本地草稿 · 手动导出到 Dify Tool · 不在浏览器执行规则"
+        : "草稿 · 通过宿主 DMN Tool 试算 · 不执行 actions",
+    ),
     h(
       "select",
       {
         "aria-label": "Phase / Step / Node",
-        value: selected,
+        value: activeIndex,
         disabled: invalid.size > 0,
         onChange: (e) => {
           generation.current++;
           setResult(null);
           setSelected(Number(e.target.value));
+          onNodeChange?.(reference(nodes[Number(e.target.value)]));
           setInvalid(new Set());
         },
       },
@@ -181,7 +200,7 @@ export default function RuleEditor({
                   : rule.output;
                 const field = (name, value) =>
                   h(JsonField, {
-                    key: `${selected}:${index}:${name}`,
+                    key: `${activeIndex}:${index}:${name}`,
                     label: `${index}:${name}`,
                     value,
                     onChange: (v) => change(index, name, v),
@@ -238,16 +257,18 @@ export default function RuleEditor({
               }),
             ),
           ),
-          h(
-            "button",
-            {
-              onClick: trial,
-              disabled:
-                pending || invalid.size > 0 || !hostBinding || !invokeTool,
-            },
-            pending ? "试算中" : "通过 DMN Tool 试算",
-          ),
-          !hostBinding &&
+          !manualMode &&
+            h(
+              "button",
+              {
+                onClick: trial,
+                disabled:
+                  pending || invalid.size > 0 || !hostBinding || !invokeTool,
+              },
+              pending ? "试算中" : "通过 DMN Tool 试算",
+            ),
+          !manualMode &&
+            !hostBinding &&
             h("p", null, "等待宿主绑定当前定义、节点、摘要、输入与执行上下文"),
         ),
     error && h("p", { role: "alert" }, error),
