@@ -34,3 +34,7 @@ RC5 模式对整个定义检查 v1 profile，不只检查当前模型。任何 v
 仍待外部验收：目标 Cloud 已安装插件版本、实际工作流 DSL/参数绑定、Cloud 试运行、操作者加载扩展及点击图标打开侧栏。当前无登录会话和 DSL，不能声称这些已完成。
 
 可选宿主源码回调接口仍保留以兼容此前测试：`invokeTool('evaluate_decision', args)`、`hostBinding`，但 Chrome 入口不传入该回调，也不会调用它。
+
+## Restricted DSL / request / result handoff
+
+See [the exact allowlist and content-binding contract](../../docs/chrome-handoff-contract.md). Build includes a synthetic `demo/redacted-dify.json`; this is a single-tool JSON projection, not an arbitrary Cloud export parser. Handoff tests invoke the actual Python Tool; set `EDITOR_PYTHON` to the Python environment with `plugin/requirements.txt` installed. Imported content never executes.

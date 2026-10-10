@@ -95,7 +95,7 @@ export async function exportConfig(bundle, nodeRef, target = "rc5") {
   if (errors.length) throw Error(errors.slice(0, 5).join("\n"));
   if (
     !decisions(bundle).some(
-      (n) => JSON.stringify(reference(n)) === JSON.stringify(nodeRef),
+      (n) => canonicalize(reference(n)) === canonicalize(nodeRef),
     )
   )
     throw Error("请选择实际 DECISION 节点");

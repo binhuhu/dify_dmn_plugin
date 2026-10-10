@@ -18,8 +18,8 @@ jobs:
       - run: npm ci --ignore-scripts --prefix integrations/dify-native
       - run: npm run build:extension --prefix integrations/dify-native
       - run: npm test --prefix integrations/dify-native
-      - run: npm run test:extension --prefix integrations/dify-native
       - run: python -m pip install -r plugin/requirements.txt
+      - run: npm run test:extension --prefix integrations/dify-native
       - run: npm ci --ignore-scripts --prefix viewer
       - run: cd viewer && npx playwright install chromium
       - name: Sandboxed unpacked extension and actual Tool export replay
@@ -32,4 +32,6 @@ jobs:
             integrations/dify-native/dist/chrome-sidepanel
             /tmp/chrome-sidepanel-*.png
             /tmp/chrome-dmn-*-export.json
+            /tmp/chrome-dmn-request.json
+            /tmp/chrome-dmn-result.json
           if-no-files-found: warn

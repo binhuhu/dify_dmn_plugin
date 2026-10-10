@@ -25,6 +25,19 @@ await fs.writeFile(
   path.join(source, "generated/validate.cjs"),
   standaloneCode(ajv, ajv.compile(schema)),
 );
+const resultSchema = JSON.parse(
+  await fs.readFile(
+    path.join(
+      root,
+      "../../specs/service-decision-dsl-v2/schemas/node-result.schema.json",
+    ),
+    "utf8",
+  ),
+);
+await fs.writeFile(
+  path.join(source, "generated/result.cjs"),
+  standaloneCode(ajv, ajv.compile(resultSchema)),
+);
 await fs.rm(out, { recursive: true, force: true });
 await fs.mkdir(out, { recursive: true });
 await build({
@@ -80,6 +93,10 @@ for (const [name, value] of Object.entries({
     path.join(out, "demo", name),
     JSON.stringify(value, null, 2) + "\n",
   );
+await fs.copyFile(
+  path.join(root, "test/fixtures/redacted-dify.json"),
+  path.join(out, "demo/redacted-dify.json"),
+);
 await fs.mkdir(path.join(out, "licenses"), { recursive: true });
 for (const [name, filename] of [
   ["react", "LICENSE"],

@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import RuleEditor from "../RuleEditor.js";
 import { decisions, reference, copy } from "../model.js";
 import { parseDefinition, diagnostics, exportConfig } from "./config.js";
+import { importDsl, exportRequest, importResult } from "./handoff.js";
 import demo from "../../../specs/service-decision-dsl-v2/examples/architecture_bundle.json";
 const h = React.createElement;
 const text = (value) => JSON.stringify(value, null, 2);
@@ -75,6 +76,9 @@ function Panel() {
   const [error, setError] = useState(""),
     [target, setTarget] = useState("rc5"),
     [exported, setExported] = useState(null);
+  const [runtime, setRuntime] = useState(""),
+    [request, setRequest] = useState(null),
+    [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const generation = useRef(0),
     imports = useRef(0);
@@ -82,13 +86,17 @@ function Panel() {
     generation.current++;
     setSelected(ref);
     setExported(null);
+    setRequest(null);
+    setResult(null);
   }, []);
   const onValidity = useCallback((ok) => {
     generation.current++;
     setValid(ok);
     setExported(null);
+    setRequest(null);
+    setResult(null);
   }, []);
-  function install(bundle, name) {
+  function install(bundle, name, handoff = null) {
     const next = parseDefinition(text(bundle));
     generation.current++;
     setDefinition(next);
@@ -96,17 +104,23 @@ function Panel() {
     setDirty(false);
     setValid(true);
     const candidates = decisions(next);
+    setRuntime(handoff ? text(handoff.runtime) : "");
+    if (handoff) setTarget(handoff.target);
     setSelected(
-      candidates.length
-        ? reference(
-            candidates.find((n) => n.model_ref === "demo.meeting@1.0.0") ||
-              candidates[0],
-          )
-        : null,
+      handoff
+        ? handoff.node
+        : candidates.length
+          ? reference(
+              candidates.find((n) => n.model_ref === "demo.meeting@1.0.0") ||
+                candidates[0],
+            )
+          : null,
     );
     setSource(name);
     setRevision((v) => v + 1);
     setExported(null);
+    setRequest(null);
+    setResult(null);
     setError("");
   }
   function change(next) {
@@ -114,6 +128,8 @@ function Panel() {
     setDefinition(next);
     setRaw(text(next));
     setExported(null);
+    setRequest(null);
+    setResult(null);
     setError("");
   }
   const issues = definition ? diagnostics(definition, target) : [];
@@ -123,12 +139,58 @@ function Panel() {
     const current = ++generation.current;
     setError("");
     setExported(null);
+    setRequest(null);
+    setResult(null);
     try {
       const config = await exportConfig(definition, selected, target);
       if (current === generation.current) {
         setExported(config);
         download("dmn-tool-config.json", config);
       }
+    } catch (e) {
+      if (current === generation.current) setError(e.message);
+    }
+  }
+  async function importHandoff(event, kind) {
+    const input = event.target,
+      file = input.files[0];
+    if (!file) return;
+    const current = ++generation.current;
+    imports.current = current;
+    setLoading(true);
+    try {
+      if (file.size > 2 * 1024 * 1024) throw Error("文件超过 2 MiB");
+      const content = await file.text();
+      const next =
+        kind === "dsl"
+          ? await importDsl(content)
+          : await importResult(content, request);
+      if (current !== generation.current) return;
+      if (kind === "dsl")
+        install(next.bundle, file.name + " · Dify " + next.difyNodeId, next);
+      else {
+        setResult(next);
+        setError("");
+      }
+    } catch (e) {
+      if (current === generation.current)
+        setError("导入失败，保留原状态：" + e.message);
+    } finally {
+      if (current === imports.current) {
+        setLoading(false);
+        input.value = "";
+      }
+    }
+  }
+  async function exportFullRequest() {
+    const current = ++generation.current;
+    try {
+      const next = await exportRequest(definition, selected, target, runtime);
+      if (current !== generation.current) return;
+      setRequest(next);
+      setResult(null);
+      setError("");
+      download("dmn-tool-request.json", next);
     } catch (e) {
       if (current === generation.current) setError(e.message);
     }
@@ -141,7 +203,7 @@ function Panel() {
       null,
       h("span", { className: "badge" }, "LOCAL DRAFT · 无 Endpoint"),
       h("h1", null, "DMN 规则侧栏"),
-      h("p", null, "编辑 → 导出配置 → 手动填入 Dify → 在 Dify 试运行"),
+      h("p", null, "导入脱敏配置 → 编辑 → 导出请求 → 手动运行 → 导入结果核对"),
     ),
     h(
       "aside",
@@ -163,16 +225,15 @@ function Panel() {
           onChange: async (e) => {
             const file = e.target.files[0];
             if (!file) return;
-            const current = ++imports.current;
-            generation.current++;
-            setExported(null);
+            const current = ++generation.current;
+            imports.current = current;
             setLoading(true);
             try {
               if (file.size > 2 * 1024 * 1024) throw Error("文件超过 2 MiB");
               const bundle = parseDefinition(await file.text());
-              if (current === imports.current) install(bundle, file.name);
+              if (current === generation.current) install(bundle, file.name);
             } catch (err) {
-              if (current === imports.current)
+              if (current === generation.current)
                 setError("导入失败，保留原图及来源：" + err.message);
             } finally {
               if (current === imports.current) {
@@ -181,6 +242,18 @@ function Panel() {
               }
             }
           },
+        }),
+      ),
+      h(
+        "label",
+        { className: "file" },
+        "导入脱敏 Dify DSL JSON",
+        h("input", {
+          type: "file",
+          accept: ".json,application/json",
+          "aria-label": "导入脱敏 Dify DSL JSON",
+          disabled: dirty || !valid,
+          onChange: (e) => importHandoff(e, "dsl"),
         }),
       ),
       h(
@@ -228,6 +301,8 @@ function Panel() {
             generation.current++;
             setTarget(e.target.value);
             setExported(null);
+            setRequest(null);
+            setResult(null);
           },
         },
         h("option", { value: "rc5" }, "RC5 / v1（已安装版本需自行核对）"),
@@ -261,6 +336,8 @@ function Panel() {
           generation.current++;
           setSelected(ref);
           setExported(null);
+          setRequest(null);
+          setResult(null);
         },
       }),
     definition &&
@@ -291,6 +368,8 @@ function Panel() {
             setRaw(e.target.value);
             setDirty(true);
             setExported(null);
+            setRequest(null);
+            setResult(null);
           },
         }),
         h(
@@ -359,6 +438,59 @@ function Panel() {
           ),
         ),
     ),
+    definition &&
+      h(
+        "section",
+        { className: "export" },
+        h("h2", null, "请求 / 结果绑定核对"),
+        h(
+          "p",
+          null,
+          "输入完整的 inputs_json 与 execution_context_json 对象。仅手工脱敏数据；侧栏不会运行规则。编辑、切换节点或目标后旧请求与结果失效。",
+        ),
+        h("textarea", {
+          "aria-label": "运行参数 JSON",
+          value: runtime,
+          disabled: loading,
+          onChange: (e) => {
+            generation.current++;
+            setRuntime(e.target.value);
+            setRequest(null);
+            setResult(null);
+          },
+        }),
+        h(
+          "button",
+          { disabled: blocked || !runtime, onClick: exportFullRequest },
+          "导出完整 Tool 请求",
+        ),
+        request &&
+          h("p", { "aria-label": "当前请求摘要" }, request.request_sha256),
+        h(
+          "label",
+          { className: "file" },
+          "导入执行结果 JSON",
+          h("input", {
+            type: "file",
+            accept: ".json,application/json",
+            "aria-label": "导入执行结果 JSON",
+            disabled: !request || dirty || !valid,
+            onChange: (e) => importHandoff(e, "result"),
+          }),
+        ),
+        result &&
+          h(
+            "div",
+            { "aria-label": "绑定核对结果" },
+            h(
+              "p",
+              null,
+              "内容绑定一致（非真实性、授权或生产验收证明） · " +
+                result.result.execution_status,
+            ),
+            h("pre", null, text(result.result)),
+          ),
+      ),
     h(
       "footer",
       null,

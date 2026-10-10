@@ -8,7 +8,7 @@
 
 | 部分 | 职责 |
 |---|---|
-| Chrome 扩展 | 本地导入定义、Phase → 实际 Step → DECISION Node 导航、类型化规则编辑、无损高级 JSON、Tool 配置导出 |
+| Chrome 扩展 | 本地导入定义、Phase → 实际 Step → DECISION Node 导航、类型化规则编辑、无损高级 JSON、Tool 配置/完整请求导出、受限脱敏 DSL 与执行结果导入及内容绑定核对 |
 | Dify 工作流 | 手动配置 Tool 节点、连接后续分支、在已有登录会话中试运行并查看结果 |
 | Dify DMN Tool | Python 内核校验定义和输入、执行规则，返回完整 NodeResult；actions 是意图，不是业务写入 |
 
@@ -16,13 +16,13 @@
 
 ## 本地构建
 
-在仓库根目录执行，需要 Node.js 24 和 npm：
+在仓库根目录执行，需要 Node.js 24、npm；交接测试还需要在 `plugin/.venv` 安装 `plugin/requirements.txt`：
 
 ```sh
 npm ci --ignore-scripts --prefix integrations/dify-native
 npm run build:extension --prefix integrations/dify-native
 npm test --prefix integrations/dify-native
-npm run test:extension --prefix integrations/dify-native
+EDITOR_PYTHON="$PWD/plugin/.venv/bin/python" npm run test:extension --prefix integrations/dify-native
 ```
 
 构建目录：`integrations/dify-native/dist/chrome-sidepanel/`。这是未发布的 Chrome Manifest V3 扩展，最低 Chrome 116。只有 `sidePanel` 权限；没有 host permissions、content scripts、cookies、storage、downloads 或 scripting 权限。CSP 使用 `connect-src 'none'`，所有脚本随构建产物提供；Schema 校验器在构建时生成，无运行时 JS 求值器。
@@ -37,9 +37,15 @@ npm run test:extension --prefix integrations/dify-native
 4. 核对 Dify 已安装插件的版本。默认选择 **RC5 / v1**，点击“导出 Tool 配置”。下载的 `dmn-tool-config.json` 是交接文件，不是 Dify 工作流 DSL，也不是可安装插件包。
 5. 在 Dify 的 `evaluate_decision` 节点中，逐项填写导出的三个固定参数；JSON 对象可使用对象或一层 JSON 字符串形式。`inputs_json` 和 `execution_context_json` 使用宿主绑定的运行数据。
 6. 未修改的合成 Demo 可参考构建目录 `demo/synthetic-invocation.json` 中的五个完整参数。该文件只用于合成演示；真实数据不能套用其身份、来源或激活声明。更改定义后，旧 Demo 的 snapshot digest 不再适用，不能直接复用。
-7. 在 Dify 自身点击试运行，检查 `execution_status`、命中规则、输出和诊断。侧栏不显示伪造结果；本项目尚未验收目标 Cloud 工作区的安装版本、字段绑定或实际运行。
+7. 需要回传核对时，在侧栏“运行参数 JSON”填写两个运行参数并“导出完整 Tool 请求”，手动运行其五个参数。把真实 Tool NodeResult 包装为结果交接 JSON 后导入，检查状态、命中规则、输出和内容绑定。仅摘要/运行 ID 一致不证明执行真实性；本项目尚未验收目标 Cloud 工作区的安装版本、字段绑定或实际运行。
 
 关闭侧栏前点击“下载完整定义”。当前无自动保存、服务器存储、协作或跨设备同步。文件在本地解析，不上传。导入上限 2 MiB、嵌套上限 64 层；导入失败保留旧图和来源。保留的是 JSON 字段及结构，不保证原文件空白/缩进的字节一致。
+
+## 受限 DSL 与结果交接
+
+新增“导入脱敏 Dify DSL JSON”：仅接受固定 RC5 插件标识、`evaluate_decision`、tool node v1 / 参数格式 v2、DSL 0.5.0 的单节点 JSON 投影及五个固定值参数。完整 YAML/工作流、动态引用、模板和未知版本均拒绝，不执行导入内容，也不自动脱敏。构建目录 `demo/redacted-dify.json` 提供合成样例。
+
+“导出完整 Tool 请求”绑定定义、所选节点、运行参数和上下文；“导入执行结果 JSON”核对请求摘要、节点及运行标识，并显示完整 NodeResult。编辑后旧结果失效，导入失败保留原状态，过期异步操作不能覆盖新操作。完整字段、手工包装格式和验证边界见 [交接合同](docs/chrome-handoff-contract.md)。真实 Cloud 所需的脱敏 DSL、插件版本及运行结果仍缺失，只声明隔离验证。
 
 ## 导出和兼容性
 
