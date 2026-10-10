@@ -65,7 +65,7 @@ def run(stage, output):
 
     try:
         manifest = receive(lambda x: x.get("type") == "plugin")
-        assert manifest["name"] == "dmn_json" and manifest["version"] == "0.4.0-rc5"
+        assert manifest["name"] == "dmn_json" and manifest["version"] == "0.5.0-dev"
         cred = send("credentials", "validate_tool_credentials")
         assert cred[0] == {"type": "stream", "data": {"result": True}}, cred
         for policy in ["FIRST", "COLLECT"]:

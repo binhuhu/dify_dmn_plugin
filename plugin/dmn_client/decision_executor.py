@@ -12,6 +12,8 @@ from datetime import datetime
 import rfc8785
 
 from dmn_client.bindings import bind_inputs
+from dmn_client.condition_tree import evaluate as evaluate_conditions
+from dmn_client.condition_tree import leaves
 from dmn_client.json_table import condition, equal
 from dmn_client.node_contract import ContractError, make_result, prepare_invocation
 
@@ -79,6 +81,12 @@ def validate_snapshot(prepared):
             fail("INPUT_TYPE_MISMATCH", "Parameter does not satisfy its declared type.", name)
         if record["quality"] == "KNOWN" and value is None and not contract["nullable"]:
             fail("INPUT_TYPE_MISMATCH", "Known null is forbidden for this parameter.", name)
+        if (
+            record["quality"] == "KNOWN"
+            and "enum" in contract
+            and not any(equal(value, candidate) for candidate in contract["enum"])
+        ):
+            fail("INPUT_TYPE_MISMATCH", "Parameter is outside its declared enum.", name)
         if record["quality"] != "KNOWN" and value is not None:
             fail("INPUT_TYPE_MISMATCH", "Non-known records require a null carrier.", name)
         if record["quality"] not in contract["allowed_quality"]:
@@ -99,8 +107,7 @@ def validate_snapshot(prepared):
 
 
 def _rule(rule, params):
-    states = []
-    for predicate in rule["when"]:
+    def match(predicate):
         path = predicate["path"]
         if (
             len(path) < 3
@@ -116,13 +123,18 @@ def _rule(rule, params):
             state = "UNKNOWN"
         else:
             state = condition(predicate, {"parameters": params})["state"]
-        states.append(state)
-    return "FALSE" if "FALSE" in states else "UNKNOWN" if "UNKNOWN" in states else "TRUE"
+        return state
+
+    return evaluate_conditions(rule["when"], match)
 
 
 def _select(model, params, trace):
     policy = model["hit_policy"]
-    if model["profile"] != PROFILE or policy not in ("UNIQUE", "FIRST", "COLLECT"):
+    if model["profile"] not in (PROFILE, "service-decision-table-v2") or policy not in (
+        "UNIQUE",
+        "FIRST",
+        "COLLECT",
+    ):
         fail("UNSUPPORTED_RULE_SEMANTICS", "Only the declared service profile U/F/C is supported.")
     if len(model["rules"]) > 128:
         fail("DEFINITION_LIMIT_EXCEEDED", "A table is limited to 128 rules.")
@@ -132,7 +144,7 @@ def _select(model, params, trace):
         if rule["rule_id"] in seen or len(rule["when"]) > 32:
             fail("INVALID_MODEL", "Duplicate rule ID or condition budget exceeded.")
         seen.add(rule["rule_id"])
-        for predicate in rule["when"]:
+        for predicate in leaves(rule["when"], model["profile"]):
             if len(predicate["path"]) < 3 or predicate["path"][1] not in model["parameters"]:
                 fail("UNREGISTERED_REFERENCE", "Rule references an undeclared parameter.")
             if predicate["op"] in ("exists", "is_null") and type(predicate["value"]) is not bool:

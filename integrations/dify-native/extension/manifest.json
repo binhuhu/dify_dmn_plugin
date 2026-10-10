@@ -1,0 +1,13 @@
+{
+  "manifest_version": 3,
+  "name": "DMN Rule Side Panel — Draft",
+  "version": "0.5.0",
+  "version_name": "0.5.0-dev (local demo)",
+  "minimum_chrome_version": "116",
+  "description": "Local rule editing and manual Dify Tool configuration export. No page access or network.",
+  "permissions": ["sidePanel"],
+  "action": {"default_title": "Open DMN rule side panel"},
+  "background": {"service_worker": "worker.js"},
+  "side_panel": {"default_path": "sidepanel.html"},
+  "content_security_policy": {"extension_pages": "script-src 'self'; object-src 'none'; connect-src 'none'; base-uri 'none'"}
+}

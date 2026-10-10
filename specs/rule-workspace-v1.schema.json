@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Content-only rule workspace v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "container_profile",
+    "document_id",
+    "revision",
+    "parent_definition_sha256",
+    "definition_bundle"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "service-decision-dsl.rule-workspace.v1"
+    },
+    "container_profile": {
+      "const": "phase-step-node.v1"
+    },
+    "document_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]{1,80}$"
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 2147483647
+    },
+    "parent_definition_sha256": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      ]
+    },
+    "definition_bundle": {
+      "type": "object",
+      "required": [
+        "schema_version"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "service-decision-dsl.node-architecture.v2"
+        }
+      },
+      "$comment": "Additionally validate with the pinned v2 architecture schema and validate_definition; never strip exits/reentry or treat an authoring envelope as an execution authorization."
+    }
+  }
+}

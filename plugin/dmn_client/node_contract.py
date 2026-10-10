@@ -15,6 +15,7 @@ import rfc8785
 from jsonschema import Draft202012Validator, FormatChecker
 
 from .client import MAX_RESPONSE_BYTES, EngineError, json_object
+from .condition_tree import leaves
 
 PORTS = {
     "SUCCEEDED": "ok",
@@ -549,12 +550,24 @@ def _validate_step_strict(step: dict, bundle: dict) -> None:
                         "FAILED_DECISION_BUSINESS_EXIT",
                     )
             model = bundle["models"][node["model_ref"]]
+            for parameter in model["parameters"].values():
+                for value in parameter.get("enum", []):
+                    require(
+                        parameter["nullable"]
+                        if value is None
+                        else Draft202012Validator({"type": parameter["type"]}).is_valid(value),
+                        "INVALID_MODEL",
+                    )
             require(
                 set(node["input_bindings"]) == set(model["parameters"]),
                 "PARAMETER_BINDING_MISMATCH",
             )
             for rule in model["rules"]:
-                for condition in rule["when"]:
+                try:
+                    predicates = leaves(rule["when"], model["profile"])
+                except ValueError as error:
+                    raise ContractError("INVALID_MODEL", str(error)) from error
+                for condition in predicates:
                     path = condition["path"]
                     require(
                         len(path) >= 3

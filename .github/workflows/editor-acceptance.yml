@@ -1,0 +1,50 @@
+name: Editor acceptance
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  packaged-parity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install -r plugin/requirements.txt
+      - name: Download and verify official CLI 0.6.10
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download 0.6.10 --repo langgenius/dify-plugin-daemon --pattern dify-plugin-linux-amd64 --dir /tmp/editor-cli
+          echo '0cef74bcae375a4337c2ff7d42e4787717981a795e1c23cf56bb27ec07ec8304  /tmp/editor-cli/dify-plugin-linux-amd64' | sha256sum -c -
+          chmod +x /tmp/editor-cli/dify-plugin-linux-amd64
+      - name: Package, unpack and compare actual Endpoint and Tool
+        run: |
+          python scripts/stage-builtin.py /tmp/editor-stage
+          /tmp/editor-cli/dify-plugin-linux-amd64 plugin package /tmp/editor-stage -o /tmp/editor.difypkg
+          python scripts/check-manifest-permissions.py /tmp/editor.difypkg
+          python -m zipfile -e /tmp/editor.difypkg /tmp/editor-unpacked
+          python scripts/compatibility/editor_stdio.py /tmp/editor-unpacked
+  browser:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install -r plugin/requirements.txt
+      - run: npm ci --ignore-scripts --prefix viewer
+      - run: cd viewer && npx playwright install chromium
+      - name: Sandboxed Chromium and real Python Endpoint
+        run: node viewer/tests/editor-browser.cjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: rule-editor-browser-evidence
+          path: /tmp/rule-editor-*.png
+          if-no-files-found: warn

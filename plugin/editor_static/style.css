@@ -1,0 +1,174 @@
+:root {
+  font-family: system-ui, sans-serif;
+  color: #17312e;
+  background: #f4f7f5;
+}
+body {
+  margin: 0;
+  padding: 24px;
+}
+header,
+.toolbar,
+nav {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+header {
+  justify-content: space-between;
+}
+h1 {
+  font-size: 26px;
+  margin: 6px 0;
+}
+small {
+  color: #49786a;
+}
+.notice {
+  padding: 14px;
+  background: #fff5d8;
+  border-left: 4px solid #9b761b;
+}
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  border: 1px solid #92aaa2;
+  border-radius: 6px;
+  padding: 8px;
+  background: white;
+  color: inherit;
+}
+button {
+  cursor: pointer;
+}
+button[aria-pressed="true"] {
+  background: #175b49;
+  color: white;
+}
+button:focus-visible,
+a:focus-visible {
+  outline: 3px solid #b66b16;
+  outline-offset: 3px;
+}
+textarea {
+  width: 100%;
+  min-width: 150px;
+  box-sizing: border-box;
+  font-family: monospace;
+  font-size: 13px;
+}
+main > section,
+main > details {
+  background: white;
+  padding: 18px;
+  margin-top: 20px;
+  border: 1px solid #d2dfd9;
+  border-radius: 12px;
+}
+.table-scroll {
+  overflow: auto;
+  max-height: 540px;
+}
+table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 14px;
+}
+th,
+td {
+  text-align: left;
+  padding: 10px;
+  border-bottom: 1px solid #d2dfd9;
+  vertical-align: top;
+  min-width: 160px;
+}
+th {
+  position: sticky;
+  top: 0;
+  background: #e7f0eb;
+  z-index: 1;
+}
+td:first-child {
+  position: sticky;
+  left: 0;
+  background: #f4f7f5;
+  min-width: 190px;
+}
+td input {
+  max-width: 170px;
+}
+td label {
+  display: block;
+  font-size: 12px;
+  margin-bottom: 6px;
+}
+td textarea {
+  min-height: 105px;
+}
+#status {
+  padding: 14px 0;
+  font-weight: 600;
+  white-space: pre-wrap;
+}
+.error {
+  color: #a33221;
+}
+.results {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 14px;
+}
+pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 13px;
+}
+#version {
+  font-size: 12px;
+  overflow-wrap: anywhere;
+  margin-bottom: 16px;
+}
+#node {
+  max-width: 650px;
+}
+@media (max-width: 650px) {
+  body {
+    padding: 12px;
+  }
+  .results {
+    grid-template-columns: 1fr;
+  }
+  #node {
+    max-width: 90vw;
+  }
+  h1 {
+    font-size: 22px;
+  }
+  .toolbar {
+    gap: 8px;
+  }
+}
+
+#rules fieldset {
+  min-width: 240px;
+  border: 1px solid #b4cbc0;
+  margin: 8px 0;
+  border-radius: 8px;
+}
+#rules fieldset label {
+  margin: 6px 0;
+}
+#rules fieldset select,
+#rules fieldset input {
+  max-width: 220px;
+  width: 100%;
+}
+#rules fieldset fieldset {
+  background: #f4f8f5;
+}
+#rules details {
+  margin-top: 12px;
+}

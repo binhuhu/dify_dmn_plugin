@@ -1,0 +1,56 @@
+{
+  "schema_version": "dmn.chrome-handoff-acceptance.v1",
+  "baseline": "201ec701f52da696f92f06759eeaa6adc7c30a48",
+  "scope": "ISOLATED_SYNTHETIC_ONLY",
+  "implementation": "Restricted Dify 1.11.1-shaped single Tool DSL JSON; fixed RC5 identity; five-parameter content-bound requests; complete NodeResult import; atomic import and stale-response protection",
+  "local": {
+    "handoff_and_extension_tests": 10,
+    "component_tests": 3,
+    "viewer_tests": 23,
+    "engine_tests": 99,
+    "python_regression": "721 passed initially; two historical tag tests required fetching v0.4.0-rc3 and v0.4.0-rc4, then all 20 manifest tests passed",
+    "tool_replays": "UNKNOWN, KNOWN true, KNOWN false, typed failure, nested v2 and binding mismatch rejection",
+    "browser": "BLOCKED_BEFORE_PAGE_LOAD: Chromium SUID sandbox helper is not configured correctly; sandbox was not disabled"
+  },
+  "ci": {
+    "verified_implementation_sha": "7dc672e862923f0e1217ac3b30016d77689b3b8d",
+    "extension_browser": "PASS",
+    "run": "https://github.com/binhuhu/dify_dmn_plugin/actions/runs/38071745490",
+    "browser": "153.0.8010.12",
+    "chromiumSandbox": true,
+    "actualUnpackedExtension": true,
+    "permissions": [
+      "sidePanel"
+    ],
+    "origins": [],
+    "unexpectedRequests": 0,
+    "artifact": "chrome-sidepanel-review",
+    "artifact_download": "HTTP 403 from artifact storage; no manual screenshot inspection claimed",
+    "full_regression": {
+      "status": "PASS",
+      "run": "https://github.com/binhuhu/dify_dmn_plugin/actions/runs/38071619473",
+      "sha": "076467f639845fad5a5771d0ef4fef900295637c",
+      "python_passed": 723,
+      "engine_passed": 99,
+      "lint_and_format": "PASS",
+      "subsequent_changes": "Only regression tests and this evidence receipt changed after this full-regression SHA; latest-head CI remains independently visible on PR #5."
+    }
+  },
+  "cloud": {
+    "status": "NOT_RUN",
+    "missing": [
+      "target redacted DSL",
+      "installed plugin identity/version",
+      "actual run result"
+    ]
+  },
+  "boundaries": [
+    "No real browser access or new permissions",
+    "No shared Dify or control-center changes",
+    "No imported code execution or JS rule evaluator",
+    "No Endpoint implementation added",
+    "No merge or release",
+    "Commercial-license PR #4 untouched",
+    "Content binding is not authenticity or authorization"
+  ]
+}

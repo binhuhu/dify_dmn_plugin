@@ -12,3 +12,4 @@ __pycache__/
 .DS_Store
 dist/
 *.difypkg
+/integrations/dify-native/extension/generated/

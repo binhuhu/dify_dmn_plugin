@@ -1,0 +1,37 @@
+name: Chrome side panel draft
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  extension-browser:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: npm ci --ignore-scripts --prefix integrations/dify-native
+      - run: npm run build:extension --prefix integrations/dify-native
+      - run: npm test --prefix integrations/dify-native
+      - run: python -m pip install -r plugin/requirements.txt
+      - run: npm run test:extension --prefix integrations/dify-native
+      - run: npm ci --ignore-scripts --prefix viewer
+      - run: cd viewer && npx playwright install chromium
+      - name: Sandboxed unpacked extension and actual Tool export replay
+        run: node viewer/tests/chrome-sidepanel-browser.cjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: chrome-sidepanel-review
+          path: |
+            integrations/dify-native/dist/chrome-sidepanel
+            /tmp/chrome-sidepanel-*.png
+            /tmp/chrome-dmn-*-export.json
+            /tmp/chrome-dmn-request.json
+            /tmp/chrome-dmn-result.json
+          if-no-files-found: warn
