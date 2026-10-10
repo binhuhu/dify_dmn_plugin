@@ -80,12 +80,18 @@ test("reject unrecognized DSL identity, version, parameters, dynamic content and
       "provider_type",
       "tool_name",
       "version",
+      "tool_node_version",
     ].map((k) => (d) => (d.workflow.graph.nodes[0].data[k] = "unsupported")),
     (d) =>
-      (d.workflow.graph.nodes[0].data.tool_configurations.expected_definition_sha256 =
+      (d.workflow.graph.nodes[0].data.tool_configurations.expected_definition_sha256.value =
         "0".repeat(64)),
     (d) =>
       (d.workflow.graph.nodes[0].data.tool_configurations.extra = "ignored?"),
+    ...["definition_bundle_json", "node_ref", "expected_definition_sha256"].map(
+      (k) => (d) =>
+        (d.workflow.graph.nodes[0].data.tool_configurations[k].type =
+          "variable"),
+    ),
     (d) =>
       (d.workflow.graph.nodes[0].data.tool_parameters.inputs_json.type =
         "variable"),

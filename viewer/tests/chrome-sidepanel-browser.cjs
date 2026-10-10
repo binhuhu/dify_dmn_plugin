@@ -198,6 +198,37 @@ const { execFileSync } = require("node:child_process");
       await upload(resultInput, "result.json", response);
       await expect(bound).toContainText("内容绑定一致");
     }
+    // An old finally must not clear a newer pending import's loading state.
+    await page.evaluate(() => {
+      const original = window.originalFileText;
+      File.prototype.text = function () {
+        if (["old-pending.json", "new-pending.json"].includes(this.name))
+          return new Promise((resolve) => {
+            window[
+              this.name === "old-pending.json" ? "releaseOld" : "releaseNew"
+            ] = () => original.call(this).then(resolve);
+          });
+        return original.call(this);
+      };
+    });
+    await upload(resultInput, "old-pending.json", response);
+    await upload(dslInput, "new-pending.json", dsl);
+    await page.evaluate(() => window.releaseOld());
+    await expect(page.getByLabel("来源", { exact: true })).toContainText(
+      "正在导入",
+    );
+    await expect(fullExport).toBeDisabled();
+    await page.evaluate(() => window.releaseNew());
+    await expect(page.getByLabel("来源", { exact: true })).toContainText(
+      "new-pending.json",
+    );
+    await expect(fullExport).toBeEnabled();
+    await expect(bound).toHaveCount(0);
+    const freshRequest = page.waitForEvent("download");
+    await fullExport.click();
+    await freshRequest;
+    await upload(resultInput, "result.json", response);
+    await expect(bound).toContainText("内容绑定一致");
     // Editing an input invalidates the result even if run IDs were reused.
     const runtimeInput = page.getByLabel("运行参数 JSON", { exact: true });
     const runtime = JSON.parse(await runtimeInput.inputValue());

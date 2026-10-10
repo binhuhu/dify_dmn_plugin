@@ -12,10 +12,37 @@
     "tool_replays": "UNKNOWN, KNOWN true, KNOWN false, typed failure, nested v2 and binding mismatch rejection",
     "browser": "BLOCKED_BEFORE_PAGE_LOAD: Chromium SUID sandbox helper is not configured correctly; sandbox was not disabled"
   },
-  "ci": "Pending first implementation push; established macOS sandboxed extension workflow is the browser acceptance gate",
+  "ci": {
+    "verified_implementation_sha": "076467f639845fad5a5771d0ef4fef900295637c",
+    "extension_browser": "PASS",
+    "run": "https://github.com/binhuhu/dify_dmn_plugin/actions/runs/38071617116",
+    "browser": "153.0.8010.12",
+    "chromiumSandbox": true,
+    "actualUnpackedExtension": true,
+    "permissions": [
+      "sidePanel"
+    ],
+    "origins": [],
+    "unexpectedRequests": 0,
+    "artifact": "chrome-sidepanel-review",
+    "artifact_download": "HTTP 403 from artifact storage; no manual screenshot inspection claimed",
+    "full_regression": "Pending at receipt capture; consult latest head checks"
+  },
   "cloud": {
     "status": "NOT_RUN",
-    "missing": ["target redacted DSL", "installed plugin identity/version", "actual run result"]
+    "missing": [
+      "target redacted DSL",
+      "installed plugin identity/version",
+      "actual run result"
+    ]
   },
-  "boundaries": ["No real browser access or new permissions", "No shared Dify or control-center changes", "No imported code execution or JS rule evaluator", "No Endpoint implementation added", "No merge or release", "Commercial-license PR #4 untouched", "Content binding is not authenticity or authorization"]
+  "boundaries": [
+    "No real browser access or new permissions",
+    "No shared Dify or control-center changes",
+    "No imported code execution or JS rule evaluator",
+    "No Endpoint implementation added",
+    "No merge or release",
+    "Commercial-license PR #4 untouched",
+    "Content binding is not authenticity or authorization"
+  ]
 }
