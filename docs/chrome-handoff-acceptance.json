@@ -13,9 +13,9 @@
     "browser": "BLOCKED_BEFORE_PAGE_LOAD: Chromium SUID sandbox helper is not configured correctly; sandbox was not disabled"
   },
   "ci": {
-    "verified_implementation_sha": "076467f639845fad5a5771d0ef4fef900295637c",
+    "verified_implementation_sha": "7dc672e862923f0e1217ac3b30016d77689b3b8d",
     "extension_browser": "PASS",
-    "run": "https://github.com/binhuhu/dify_dmn_plugin/actions/runs/38071617116",
+    "run": "https://github.com/binhuhu/dify_dmn_plugin/actions/runs/38071745490",
     "browser": "153.0.8010.12",
     "chromiumSandbox": true,
     "actualUnpackedExtension": true,
@@ -26,7 +26,15 @@
     "unexpectedRequests": 0,
     "artifact": "chrome-sidepanel-review",
     "artifact_download": "HTTP 403 from artifact storage; no manual screenshot inspection claimed",
-    "full_regression": "Pending at receipt capture; consult latest head checks"
+    "full_regression": {
+      "status": "PASS",
+      "run": "https://github.com/binhuhu/dify_dmn_plugin/actions/runs/38071619473",
+      "sha": "076467f639845fad5a5771d0ef4fef900295637c",
+      "python_passed": 723,
+      "engine_passed": 99,
+      "lint_and_format": "PASS",
+      "subsequent_changes": "Only regression tests and this evidence receipt changed after this full-regression SHA; latest-head CI remains independently visible on PR #5."
+    }
   },
   "cloud": {
     "status": "NOT_RUN",
