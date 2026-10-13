@@ -1,6 +1,6 @@
 # 0.4.1 候选：节点执行与参考宿主
 
-这是 `hu8627/dmn_json` 基于 RC5 的 0.4.1 准备分支（尚未发布），保留 0.3.0 三工具及其合同，新增 `execute_query`、`evaluate_decision`。不是正式 0.4 发布，也不是目标 Dify/业务接口生产验收。逐条范围、产品证据与外部缺口见 [67项验收记录](dsl-v0.4-acceptance.md)。原外部 `hu8627/dmn` XML/Node 插件保持独立。
+这是 `hu8627/dmn_json` 基于 RC5 的 0.4.1 候选源码（发布资产以 GitHub Release 为准），保留 0.3.0 三工具及其合同，新增 `execute_query`、`evaluate_decision`。不是正式 0.4 发布，也不是目标 Dify/业务接口生产验收。逐条范围、产品证据与外部缺口见 [67项验收记录](dsl-v0.4-acceptance.md)。原外部 `hu8627/dmn` XML/Node 插件保持独立。
 
 依据是最终架构 v2.0 原 ZIP（SHA256 `db08451e4c763e4e621082c69f0b9adad8c92a7a291c58b0069c415c63b01c97`）。43 个文本文件逐项 SHA 校验一致；可移植正本位于 [specs](../specs/service-decision-dsl-v2/README.md)，来源清单见 SOURCE.json。原包 70 项文档静态检查不是产品测试。
 
