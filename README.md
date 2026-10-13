@@ -1,6 +1,6 @@
 # Dify DMN 插件：显式查询 + 显式决策
 
-当前准备版本为 **0.4.1**（尚未发布），基于 RC5 选择性移植上传附件：两个节点工具移除 `expected_definition_sha256`，保留部署侧定义锁、授权与 RC5 安全修复、只读查看器。Python 宿主调用需迁移到四个参数，见[调用迁移](docs/dsl-v0.4.md#041-调用迁移)。本轮验证和安装包身份见 [0.4.1 准备记录](docs/releases/v0.4.1-preparation.md)。当前已发布预览包仍是 [RC5](docs/releases/v0.4.0-rc5.md)；目标生产安装与真实业务 API 尚未验收。
+当前候选版本为 **0.4.1**，基于 RC5 选择性移植上传附件：两个节点工具移除 `expected_definition_sha256`，保留部署侧定义锁、授权与 RC5 安全修复、只读查看器。Python 宿主调用需迁移到四个参数，见[调用迁移](docs/dsl-v0.4.md#041-调用迁移)。本轮验证和安装包身份见 [0.4.1 准备记录](docs/releases/v0.4.1-preparation.md)。安装包以 [v0.4.1 GitHub Release](https://github.com/binhuhu/dify_dmn_plugin/releases/tag/v0.4.1) 的实际资产为准，旧 [RC5](docs/releases/v0.4.0-rc5.md) 保留；目标生产安装与真实业务 API 尚未验收。
 
 查看器始于 [v0.4.0-rc3](https://github.com/binhuhu/dify_dmn_plugin/releases/tag/v0.4.0-rc3)：只读 Phase → 实际 Step → Node 查看器，支持目录搜索、分组决策表、定位诊断及本地JSON来源提示。参见[查看器说明](docs/structure-viewer.md)及[RC3发布记录](docs/releases/v0.4.0-rc3.md)。查看器随Endpoint同包提供；本地导入不上传，不执行规则，不注入宿主画布。
 
