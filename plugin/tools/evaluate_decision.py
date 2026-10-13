@@ -11,7 +11,6 @@ class EvaluateDecisionTool(Tool):
         result = evaluate_decision(
             tool_parameters.get("definition_bundle_json"),
             tool_parameters.get("node_ref"),
-            tool_parameters.get("expected_definition_sha256"),
             tool_parameters.get("inputs_json"),
             tool_parameters.get("execution_context_json"),
         )

@@ -125,7 +125,6 @@ def run(case, deployment=None):
     return execute_query(
         bundle,
         invocation["node_ref"],
-        definition_digest(bundle),
         invocation["inputs"],
         invocation["execution_context"],
         deployment=deployment,
@@ -476,7 +475,6 @@ def test_configured_sdk_invoke_with_empty_credentials(case, server, tmp_path, mo
     params = dict(
         definition_bundle_json=case[0],
         node_ref=inv["node_ref"],
-        expected_definition_sha256=digest,
         inputs_json=inv["inputs"],
         execution_context_json=inv["execution_context"],
     )
@@ -560,15 +558,11 @@ def test_configured_staged_sdk_stdio_and_invalid_tokens(case, server, tmp_path):
             params = dict(
                 definition_bundle_json=case[0],
                 node_ref=inv["node_ref"],
-                expected_definition_sha256=digest,
                 inputs_json=inv["inputs"],
                 execution_context_json=context,
             )
             if mode == "json":
-                params = {
-                    k: v if k == "expected_definition_sha256" else json.dumps(v)
-                    for k, v in params.items()
-                }
+                params = {k: json.dumps(v) for k, v in params.items()}
             sid = f"query-{mode}"
             before = len(server[1]["calls"])
             request = {
@@ -703,7 +697,6 @@ def test_optional_query_gap_binds_and_decides_unknown(case, server):
     result = evaluate_decision(
         case[0],
         decision["node_ref"],
-        definition_digest(case[0]),
         decision["inputs"],
         decision["execution_context"],
     )
@@ -1085,3 +1078,11 @@ def test_local_and_global_page_limit_coincide(case, server):
     assert result["error"]["code"] == "QUERY_PARTIAL"
     assert len(server[1]["calls"]) == 1
     assert result["trace"]["api_calls"][-1]["status"] == "NOT_EXECUTED"
+
+
+def test_removed_caller_pin_does_not_bypass_deployment_definition(case, server):
+    deployment = deploy(case, server)
+    deployment.definition_sha256 = "0" * 64
+    result = run(case, deployment)
+    assert result["error"]["code"] == "DEFINITION_DIGEST_MISMATCH"
+    assert not server[1]["calls"]

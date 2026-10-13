@@ -274,7 +274,6 @@
                 "required": [
                   "schema_version",
                   "prepared_for",
-                  "definition_digest",
                   "subject_scope_ref",
                   "as_of",
                   "parameters",

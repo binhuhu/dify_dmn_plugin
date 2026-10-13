@@ -46,11 +46,6 @@ def validate_snapshot(prepared):
     ctx, ref = prepared["context"], prepared["node_ref"]
     if snapshot["prepared_for"] != ref or snapshot["subject_scope_ref"] != ctx["subject_scope_ref"]:
         fail("SNAPSHOT_SCOPE_MISMATCH", "Snapshot node or subject does not match this invocation.")
-    if snapshot["definition_digest"] != prepared["digest"]:
-        fail(
-            "DEFINITION_DIGEST_MISMATCH",
-            "Snapshot definition does not match the pinned definition.",
-        )
     as_of = _time(ctx["as_of"])
     if _time(snapshot["as_of"]) != as_of:
         fail("SNAPSHOT_STALE", "Snapshot must use this invocation's explicit reference time.")
@@ -301,7 +296,6 @@ def _render(prepared, templates, params):
 def evaluate_decision(
     definition_bundle_json,
     node_ref,
-    expected_definition_sha256,
     inputs_json,
     execution_context_json,
     *,
@@ -329,7 +323,6 @@ def evaluate_decision(
         prepared = prepare_invocation(
             definition_bundle_json,
             node_ref,
-            expected_definition_sha256,
             inputs_json,
             execution_context_json,
             "DECISION",

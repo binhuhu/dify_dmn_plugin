@@ -24,7 +24,7 @@ def bundle():
     )
 
 
-def query(bundle, ref, pin, inputs, context):
+def query(bundle, ref, inputs, context):
     """Declared SYNTHETIC host transport: real decision kernel, no real business API."""
     if ref["node_id"] == "Q_CONTEXT":
         data = {"order_id": "O-100", "trip": {}, "interactions": {}}
@@ -225,7 +225,7 @@ def test_parallel_all_success_one_decision(bundle, tmp_path):
 def test_parallel_failure_cancels_unstarted_and_late_receipt(bundle, tmp_path):
     calls = []
 
-    def failing(b, ref, pin, inputs, ctx):
+    def failing(b, ref, inputs, ctx):
         calls.append(ref["node_id"])
         return make_result(ref, ctx, "FAILED", outputs={"query": None})
 
@@ -376,11 +376,11 @@ def test_unavailable_binding_does_not_start_source(bundle, tmp_path):
     # A real failing source leaves no data. No host fallback query is invented.
     calls = []
 
-    def absent(b, ref, pin, inputs, ctx):
+    def absent(b, ref, inputs, ctx):
         calls.append(ref["node_id"])
         if ref["node_id"] == "Q_CONTEXT":
             return make_result(ref, ctx, "BLOCKED", outputs={"query": None})
-        return query(b, ref, pin, inputs, ctx)
+        return query(b, ref, inputs, ctx)
 
     host = runtime(bundle, tmp_path, execute_query=absent)
     state = start(host)
@@ -812,7 +812,7 @@ def test_nested_failure_closes_parent_once_and_late_receipt_cannot_reopen(bundle
     def fail_extra(*args):
         calls.append(args[1]["node_id"])
         if args[1]["node_id"] == "Q_EXTRA":
-            return make_result(args[1], args[4], "FAILED", outputs={"query": None})
+            return make_result(args[1], args[3], "FAILED", outputs={"query": None})
         return query(*args)
 
     host = runtime(nested_query_bundle(bundle), tmp_path, execute_query=fail_extra)
@@ -933,7 +933,7 @@ def test_nested_error_follows_registered_merge_edge_without_losing_failure(bundl
 
     def fail_extra(*args):
         if args[1]["node_id"] == "Q_EXTRA":
-            return make_result(args[1], args[4], "FAILED", outputs={"query": None})
+            return make_result(args[1], args[3], "FAILED", outputs={"query": None})
         return query(*args)
 
     state = start(runtime(bundle, tmp_path, execute_query=fail_extra), False)

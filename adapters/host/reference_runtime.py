@@ -489,7 +489,7 @@ class ReferenceRuntime:
                         ],
                     }
                 result = self.executors[node["kind"]](
-                    self.bundle, ref, self.digest, inputs, context
+                    self.bundle, ref, inputs, context
                 )
         except (ContractError, ValidationError) as exc:
             if isinstance(exc, ValidationError):

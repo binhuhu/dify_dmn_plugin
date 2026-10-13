@@ -250,11 +250,11 @@ def test_trusted_host_rebind_rejects_tampered_decision_snapshot(tmp_path):
         host, sent = demo.make_runtime(tmp_path / "rebind.sqlite", url)
         executor = host.executors["DECISION"]
 
-        def tampered(bundle, ref, digest, inputs, context):
+        def tampered(bundle, ref, inputs, context):
             if ref["phase_id"] == "P2":
                 inputs = copy.deepcopy(inputs)
                 inputs["parameter_snapshot"]["parameters"]["accepted"]["value"] = False
-            return executor(bundle, ref, digest, inputs, context)
+            return executor(bundle, ref, inputs, context)
 
         host.executors["DECISION"] = tampered
         state = demo.start(host)
