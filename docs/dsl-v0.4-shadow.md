@@ -53,3 +53,5 @@ plugin/.venv/bin/python scripts/shadow-compare-dsl.py reviewed-cases.json \
 全文件先校验后调用；限制 8 MiB、最多 100 个唯一案例，复用生产 JSON 深度/数值/重复键检查。四个对象入参必须为对象，拒绝二次编码和未知字段。exit code：0 全部 MATCH，1 存在 DIFFERENT，2 输入/文件错误。报告不会覆盖输入文件。
 
 本执行器只做 CONTENT_ONLY 决策重放，不注入可信宿主 policy，因此不能代替来源授权、年龄/租户复用验证，或依赖可信 context/node 输出绑定的目标部署重放。每份报告明确 `baseline_approval_verified=false` 与 `OFFLINE_CONTENT_ONLY_NOT_HISTORICAL_ACCEPTANCE`。SYNTHETIC golden、变异、离线与 CLI 测试验证执行器本身；已审核历史数据的新旧运行、政策差异批准、目标版本记录仍需提供，AC-057 产品验收不得标 PASS。
+
+0.4.1 兼容说明：上述 v1 档案仍要求定义摘要，离线比较脚本自行核验后调用四参数执行器；该字段不再是 Dify 节点工具参数，亦不授予任何授权。

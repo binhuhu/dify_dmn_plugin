@@ -13,7 +13,6 @@ import jsonschema
 import pytest
 import yaml
 
-from dmn_client.node_contract import definition_digest
 from tools.evaluate_decision import EvaluateDecisionTool
 from tools.execute_query import ExecuteQueryTool
 
@@ -32,7 +31,6 @@ def parameters(executor="evaluate_decision"):
     return dict(
         definition_bundle_json=bundle,
         node_ref=inv["node_ref"],
-        expected_definition_sha256=definition_digest(bundle),
         inputs_json=inv["inputs"],
         execution_context_json=inv["execution_context"],
     )
@@ -115,13 +113,13 @@ from provider.dmn import JsonTableProvider
 r=PluginRegistration(DifyPluginEnv())
 assert r.configuration.author == "hu8627"
 assert r.configuration.name == "dmn_json"
-assert r.configuration.version == "0.4.0-rc5"
+assert r.configuration.version == "0.4.1"
 c=r.tools_configuration[0]
 assert not c.credentials_schema
 assert [t.identity.name for t in c.tools] == ["evaluate_json_table", "query_local", "execute_json_plan", "execute_query", "evaluate_decision"]
 for t in c.tools[-2:]:
-    assert len(t.parameters)==5
-    assert [(p.name,p.form.value) for p in t.parameters] == [("definition_bundle_json","form"),("node_ref","form"),("expected_definition_sha256","form"),("inputs_json","llm"),("execution_context_json","llm")]
+    assert len(t.parameters)==4
+    assert [(p.name,p.form.value) for p in t.parameters] == [("definition_bundle_json","form"),("node_ref","form"),("inputs_json","llm"),("execution_context_json","llm")]
 JsonTableProvider().validate_credentials({})
 """
     subprocess.run([sys.executable, "-c", code], cwd=dest, check=True, capture_output=True)
@@ -146,7 +144,7 @@ def test_staged_node_sdk_stdio(tmp_path):
     )
     evidence = json.loads((tmp_path / "evidence.json").read_text())
     assert evidence["node_calls"] == 6
-    assert evidence["manifest"]["version"] == "0.4.0-rc5"
+    assert evidence["manifest"]["version"] == "0.4.1"
 
 
 def test_manifest_matches_official_cli_0610_version_format():
@@ -157,7 +155,7 @@ def test_manifest_matches_official_cli_0610_version_format():
     pattern = r"\d{1,4}(\.\d{1,4}){2}(-\w{1,16})?"
     manifest = yaml.safe_load((ROOT / "builtin/manifest.yaml").read_text())
     assert re.fullmatch(pattern, manifest["version"], flags=re.ASCII)
-    assert manifest["version"] == "0.4.0-rc5"
+    assert manifest["version"] == "0.4.1"
     assert not re.fullmatch(pattern, "0.4.0-rc.1", flags=re.ASCII)
     assert "RC" in manifest["label"]["en_US"]
 

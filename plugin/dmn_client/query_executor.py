@@ -491,15 +491,11 @@ def _check_response(response, op, context):
         _fail("QUERY_PARTIAL", "Adapter reported incomplete coverage")
 
 
-def execute_query(
-    bundle_json, node_ref, expected_sha, inputs_json, context_json, *, deployment=None
-):
+def execute_query(bundle_json, node_ref, inputs_json, context_json, *, deployment=None):
     """Execute one fixed QUERY capability; never follow a workflow edge."""
     invocation, calls, responses, gaps, provenance = None, [], {}, {}, []
     try:
-        invocation = prepare_invocation(
-            bundle_json, node_ref, expected_sha, inputs_json, context_json, "QUERY"
-        )
+        invocation = prepare_invocation(bundle_json, node_ref, inputs_json, context_json, "QUERY")
         if deployment is None:
             _fail("QUERY_CONNECTION_NOT_CONFIGURED")
         if not isinstance(deployment, QueryDeployment):

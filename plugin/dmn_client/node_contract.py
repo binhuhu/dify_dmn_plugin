@@ -593,7 +593,6 @@ def resolve_node(bundle: dict, node_ref: dict) -> tuple[dict, dict, dict, dict]:
 def prepare_invocation(
     bundle_json: Any,
     node_ref: Any,
-    expected_sha: str,
     inputs_json: Any,
     context_json: Any,
     kind: str,
@@ -602,8 +601,9 @@ def prepare_invocation(
     ref = decode_object(node_ref, "node_ref", 4096)
     inputs = decode_object(inputs_json, "inputs_json", 262144)
     context = decode_object(context_json, "execution_context_json", 32768)
+    # A caller-supplied pin is not authorization. Keep the digest for trace and
+    # trusted deployment checks; platform publication is not attested here.
     digest = definition_digest(bundle)
-    require(type(expected_sha) is str and digest == expected_sha, "DEFINITION_DIGEST_MISMATCH")
     require(kind in {"QUERY", "DECISION", "ACTION"}, "NODE_TYPE_MISMATCH")
     invocation = {
         "schema_version": "service-decision-dsl.node-invocation.v2",

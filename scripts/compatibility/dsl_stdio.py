@@ -45,7 +45,7 @@ def run(stage, output):
 
     try:
         manifest = receive(lambda item: item.get("type") == "plugin")
-        assert manifest["name"] == "dmn_json" and manifest["version"] == "0.4.0-rc5"
+        assert manifest["name"] == "dmn_json" and manifest["version"] == "0.4.1"
         count = 0
         for tool, case in (
             ("evaluate_decision", "ok"),
@@ -66,13 +66,12 @@ def run(stage, output):
                 params = dict(
                     definition_bundle_json=bundle,
                     node_ref=inv["node_ref"],
-                    expected_definition_sha256=digest,
                     inputs_json=inv["inputs"],
                     execution_context_json=inv["execution_context"],
                 )
                 if not native:
                     params = {
-                        k: v if k == "expected_definition_sha256" else json.dumps(v)
+                        k: json.dumps(v)
                         for k, v in params.items()
                     }
                 sid = f"{tool}-{case}-{native}"

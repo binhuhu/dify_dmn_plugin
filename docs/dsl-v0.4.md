@@ -1,12 +1,12 @@
-# 0.4.0-rc1：节点执行与参考宿主
+# 0.4.1 候选：节点执行与参考宿主
 
-这是 `hu8627/dmn_json` 已发布 RC1 之后的开发候选源码（以 Git SHA 区分；不包含于原 RC1 包），保留 0.3.0 三工具及其合同，新增 `execute_query`、`evaluate_decision`。不是正式 0.4 发布，也不是目标 Dify/业务接口生产验收。逐条范围、产品证据与外部缺口见 [67项验收记录](dsl-v0.4-acceptance.md)。原外部 `hu8627/dmn` XML/Node 插件保持独立。
+这是 `hu8627/dmn_json` 基于 RC5 的 0.4.1 准备分支（尚未发布），保留 0.3.0 三工具及其合同，新增 `execute_query`、`evaluate_decision`。不是正式 0.4 发布，也不是目标 Dify/业务接口生产验收。逐条范围、产品证据与外部缺口见 [67项验收记录](dsl-v0.4-acceptance.md)。原外部 `hu8627/dmn` XML/Node 插件保持独立。
 
 依据是最终架构 v2.0 原 ZIP（SHA256 `db08451e4c763e4e621082c69f0b9adad8c92a7a291c58b0069c415c63b01c97`）。43 个文本文件逐项 SHA 校验一致；可移植正本位于 [specs](../specs/service-decision-dsl-v2/README.md)，来源清单见 SOURCE.json。原包 70 项文档静态检查不是产品测试。
 
 ## 工具调用
 
-两个新工具固定配置 `definition_bundle_json`、`node_ref`、`expected_definition_sha256`；动态绑定 `inputs_json`、`execution_context_json`。对象或 JSON 对象字符串仅解码外层一次，双重编码、重复键、非有限/不安全数值、超深/超大内容拒绝。摘要使用固定 RFC8785 实现，覆盖完整定义及资产锁；摘要匹配只证明内容一致，不授予执行权限。
+两个新工具固定配置 `definition_bundle_json`、`node_ref`；动态绑定 `inputs_json`、`execution_context_json`。对象或 JSON 对象字符串仅解码外层一次，双重编码、重复键、非有限/不安全数值、超深/超大内容拒绝。摘要使用固定 RFC8785 实现，覆盖完整定义及资产锁；不再接收调用者的固定摘要参数。摘要仍用于 trace 和可信查询部署的定义匹配，不授予执行权限。快照 `definition_digest` 可省略，提供时也不再做一致性校验；可信宿主必须验证来源、定义版本、作用域和授权。
 
 `evaluate_decision` 在插件内执行 `service-decision-table-v1`，无需 Key 或网络。严格类型先于比较；布尔参数不能用字符串、数字或 null 冒充。U/F/C 使用保守 UNKNOWN 规则，零命中遵循显式 `on_no_match`，状态/数据/动作冲突拒绝，先归约 Data 再生成 intent。失败的 decision 为 null，便捷变量 state/data/actions 清空。纯调用验证内容合同；生产来源、租户、授权、最大年龄需要可信宿主 policy 验证，调用者自报快照不是证明。
 
@@ -35,9 +35,9 @@ PYTHONPATH=plugin plugin/.venv/bin/python scripts/run-reference-dsl.py --help
 ## 构建、兼容与验收
 
 ```bash
-python scripts/stage-builtin.py /tmp/dmn-json-0.4.0-rc1
+python scripts/stage-builtin.py /tmp/dmn-json-0.4.1
 # 在已有官方 CLI 的授权打包环境运行：
-dify plugin package /tmp/dmn-json-0.4.0-rc1 -o hu8627-dmn_json-0.4.0-rc1.difypkg
+dify plugin package /tmp/dmn-json-0.4.1 -o hu8627-dmn_json-0.4.1.difypkg
 ```
 
 manifest 保持 author/name，created_at 是带引号的 RFC3339 字符串。staging 不等于官方包，也不等于宿主安装。依赖正常安装后纯决策调用可断网；首次依赖解析并非离线安装保证。不要以普通 zip 代替 difypkg。
@@ -46,7 +46,7 @@ manifest 保持 author/name，created_at 是带引号的 RFC3339 字符串。sta
 
 官方打包/解包/安装、真实只读多 API、目标宿主分支交互等待恢复、审核生产规则、历史 shadow 对比及真实回滚记录均需独立验收。证据脚本的 release gate 会保持阻断，不把离线测试升级成生产 PASS。
 
-本次后续源码验证：99 Node + 662 Python，全通过、无跳过；67项索引的引用测试另行实跑（属于上述测试的子集，不累加，计数见验证记录）。真实 SDK stdio 为旧工具14、新节点6、SYNTHETIC配置查询6次（含有效签名生产配置拒绝）。lint/format通过。可复核文件摘要和结果见 [本地验证记录](../acceptance/dsl-v0.4-local-verification.json)。
+历史后续源码验证（不作为 0.4.1 本轮证据）：99 Node + 662 Python，全通过、无跳过；67项索引的引用测试另行实跑（属于上述测试的子集，不累加，计数见验证记录）。真实 SDK stdio 为旧工具14、新节点6、SYNTHETIC配置查询6次（含有效签名生产配置拒绝）。lint/format通过。可复核文件摘要和结果见 [本地验证记录](../acceptance/dsl-v0.4-local-verification.json)。
 
 官方 CLI 0.6.10 已实际拒绝旧候选 `0.4.0-rc.1`（未产包）。核对其固定提交 [1310a18 version.go](https://github.com/langgenius/dify-plugin-daemon/blob/1310a18b2f6bc6f18768a0a6265484830891433c/pkg/entities/manifest_entities/version.go) 后改为支持的 `0.4.0-rc1`；后缀仅允许 word 字符，不允许点号。显示标签保留 RC。精确提交3065505已由官方 CLI 0.6.10 打包、42文件字节匹配及解包SDK验证后发布 prerelease；包摘要见后续候选说明。本轮新代码未重打官方包或发布，不能据RC1包证明本轮产物或正式验收。
 
@@ -55,3 +55,9 @@ manifest 保持 author/name，created_at 是带引号的 RFC3339 字符串。sta
 需求传输记录澄清：Library 官方 helper 的正常 materialization 请求先前失败；随后平台 `download_file` 使用用户已给定的 file_id 成功将授权附件下载到本环境。没有猜测下载 URL、替换凭据或读取令牌。核验的是原 ZIP 哈希及43个文本逐项哈希；未解码 Base64 tar，也未声称验证该 tar 的独立哈希。
 
 RC1 后续范围、本地可补项及外部输入见 [后续候选说明](dsl-v0.4-followup.md)，离线结构比对见 [影子比对](dsl-v0.4-shadow.md)。原 RC1 安装包不随 feature 提交更新。
+
+## 0.4.1 调用迁移
+
+Dify 两个节点工具现在仅保留四项参数：固定 `definition_bundle_json`、`node_ref`，动态 `inputs_json`、`execution_context_json`。升级工作流时删除旧 `expected_definition_sha256` 配置；SDK 直接调用残留该项不会获得校验。Python 调用者必须从五个位置参数迁移到四个；旧位置参数/关键字调用不兼容，应同步升级宿主。查询 `QueryDeployment.definition_sha256` 和授权回调不变，不得删除部署侧校验。
+
+离线 shadow-input.v1 档案仍保留其定义摘要字段，比较脚本在调用四参数执行器前自行核验，以保持历史档案完整性合同。规格原文与旧验收记录保持历史原貌；0.4.1 包和测试必须单独核验。

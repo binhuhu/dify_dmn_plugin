@@ -156,7 +156,17 @@ def run_suite(document, expected_suite_sha256):
         validate_baseline(case["baseline"])
     results = []
     for case in cases:
-        actual = projection(evaluate_decision(**case["invocation"]))
+        # Preserve the v1 offline archive integrity contract independently of the
+        # four-argument runtime API. This pin never grants execution authority.
+        invocation = dict(case["invocation"])
+        expected_sha = invocation.pop("expected_definition_sha256")
+        if digest(invocation["definition_bundle_json"]) != expected_sha:
+            actual = projection({
+                "execution_status": "FAILED", "output_port": "error",
+                "error": {"code": "DEFINITION_DIGEST_MISMATCH"},
+            })
+        else:
+            actual = projection(evaluate_decision(**invocation))
         expected = normalized(case["baseline"])
         actual = normalized(actual)
         changed = sorted(

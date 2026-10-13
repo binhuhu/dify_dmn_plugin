@@ -129,7 +129,7 @@ def test_content_only_invocation_and_no_mutation():
     b = bundle()
     original = deepcopy(b)
     prepared = prepare_invocation(
-        json.dumps(b), json.dumps(ref()), definition_digest(b), invocation(b), context(), "DECISION"
+        json.dumps(b), json.dumps(ref()), invocation(b), context(), "DECISION"
     )
     assert prepared["node"]["node_id"] == "D"
     assert b == original
@@ -150,10 +150,9 @@ def test_digest_canonical_and_covers_graph():
     changed = deepcopy(b)
     changed["workflows"][0]["version"] = "2"
     assert definition_digest(b) != definition_digest(changed)
-    with pytest.raises(ContractError, match="Contract"):
-        prepare_invocation(
-            changed, ref(), definition_digest(b), invocation(b), context(), "DECISION"
-        )
+    # No caller pin: a changed definition is evaluated as published and its digest traced.
+    prepared = prepare_invocation(changed, ref(), invocation(b), context(), "DECISION")
+    assert prepared["digest"] == definition_digest(changed)
 
 
 @pytest.mark.parametrize(
@@ -234,7 +233,7 @@ def test_dynamic_cannot_change_definition():
     i = invocation(b)
     i["model_ref"] = "attacker"
     with pytest.raises(ContractError):
-        prepare_invocation(b, ref(), definition_digest(b), i, context(), "DECISION")
+        prepare_invocation(b, ref(), i, context(), "DECISION")
 
 
 def original_bundle():
@@ -359,7 +358,7 @@ def call_decision(b, i):
 
     digest = definition_digest(b)
     i["inputs"]["parameter_snapshot"]["definition_digest"] = digest
-    return evaluate_decision(b, i["node_ref"], digest, i["inputs"], i["execution_context"])
+    return evaluate_decision(b, i["node_ref"], i["inputs"], i["execution_context"])
 
 
 def test_collect_data_only_and_route_templates_real_executor():
@@ -445,7 +444,7 @@ def test_real_decision_output_amplification_fails_without_success_payload():
 
     digest = definition_digest(b)
     i["parameter_snapshot"]["definition_digest"] = digest
-    r = evaluate_decision(b, ref(), digest, i, context())
+    r = evaluate_decision(b, ref(), i, context())
     assert r["execution_status"] == "FAILED"
     assert r["output_port"] == "error"
     assert r["outputs"] == {"decision": None}

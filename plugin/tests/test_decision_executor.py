@@ -26,7 +26,6 @@ def run(case, policy=None):
     return evaluate_decision(
         bundle,
         invocation["node_ref"],
-        digest,
         invocation["inputs"],
         invocation["execution_context"],
         trusted_policy=policy,
@@ -267,7 +266,7 @@ def test_replay_uses_no_clock_and_does_not_mutate_input(case, monkeypatch):
 
 @pytest.mark.parametrize("value", [None, [], "not JSON", '"double encoded"'])
 def test_malformed_boundary_is_a_node_result(value):
-    result = evaluate_decision(value, value, "0" * 64, value, value)
+    result = evaluate_decision(value, value, value, value)
     assert result["execution_status"] == "FAILED"
     assert result["outputs"] == {"decision": None}
 
@@ -285,16 +284,20 @@ def test_ac035_unsupported_semantics_rejected(case, change):
     assert result["outputs"] == {"decision": None}
 
 
-def test_digest_mismatch_has_no_result(case):
+def test_snapshot_digest_is_optional_and_ignored(case):
+    """Content evaluation does not attest platform publication or snapshot authority."""
+    expected = run(case)
     bundle, invocation = case
-    result = evaluate_decision(
-        bundle,
-        invocation["node_ref"],
-        "0" * 64,
-        invocation["inputs"],
-        invocation["execution_context"],
-    )
-    assert_failure(result, "DEFINITION_DIGEST_MISMATCH")
+    snapshot = invocation["inputs"]["parameter_snapshot"]
+    for stale in (True, False):
+        if stale:
+            snapshot["definition_digest"] = "0" * 64
+        else:
+            snapshot.pop("definition_digest")
+        actual = evaluate_decision(
+            bundle, invocation["node_ref"], invocation["inputs"], invocation["execution_context"]
+        )
+        assert actual == expected
 
 
 def test_plain_json_and_object_inputs_identical(case):
@@ -303,7 +306,6 @@ def test_plain_json_and_object_inputs_identical(case):
     actual = evaluate_decision(
         json.dumps(bundle),
         json.dumps(invocation["node_ref"]),
-        definition_digest(bundle),
         json.dumps(invocation["inputs"]),
         json.dumps(invocation["execution_context"]),
     )
@@ -443,7 +445,6 @@ def test_sdk_trusted_binding_failure_clears_previous_success(case, monkeypatch):
                 {
                     "definition_bundle_json": bundle,
                     "node_ref": invocation["node_ref"],
-                    "expected_definition_sha256": definition_digest(bundle),
                     "inputs_json": invocation["inputs"],
                     "execution_context_json": invocation["execution_context"],
                 }
