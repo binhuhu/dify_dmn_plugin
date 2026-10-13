@@ -1,0 +1,2 @@
+1bab469a63e8f4f4bc5e3ec6454dd9cbff45cd619d3d42b92d5109f2e6eadd5b  hu8627-dmn_json-0.4.1.difypkg
+bfdb2c64077d36dd5ef6df964d9e81762deccc69dd23aef0ef5300bf8777b7a4  hu8627-dmn_json-0.4.1.difypkg.b64
