@@ -1,0 +1,473 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:psn-structure:v1",
+  "title": "Stable PSN structure (offline; no deployment identity)",
+  "type": "object",
+  "properties": {
+    "format": {
+      "const": "psn-structure/v1"
+    },
+    "process": {
+      "$ref": "#/$defs/process"
+    }
+  },
+  "required": [
+    "format",
+    "process"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "process": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "const": "DELIVERY"
+        },
+        "family": {
+          "const": "DELIVERY"
+        },
+        "level": {
+          "const": "PROCESS"
+        },
+        "status": {
+          "enum": [
+            "ACTIVE",
+            "PAUSED"
+          ]
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "phases": {
+          "type": "array",
+          "items": {
+            "allOf": [
+              {
+                "$ref": "#/$defs/phase"
+              },
+              {
+                "properties": {
+                  "id": {
+                    "enum": [
+                      "O1",
+                      "O2",
+                      "O3",
+                      "O4",
+                      "O5",
+                      "O6"
+                    ]
+                  }
+                }
+              }
+            ]
+          },
+          "minItems": 6,
+          "maxItems": 6
+        },
+        "workflows": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/workflow"
+          },
+          "minItems": 1
+        }
+      },
+      "required": [
+        "key",
+        "family",
+        "level",
+        "status",
+        "name",
+        "phases",
+        "workflows"
+      ],
+      "additionalProperties": false
+    },
+    "workflow": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string",
+          "pattern": "^[A-Z]+(\\.[a-z0-9-]+)?$",
+          "anyOf": [
+            {
+              "enum": [
+                "TARGET",
+                "DISPATCH",
+                "HANDLE"
+              ]
+            },
+            {
+              "pattern": "^SOLUTION\\.[a-z0-9-]+$"
+            }
+          ]
+        },
+        "family": {
+          "enum": [
+            "TARGET",
+            "DISPATCH",
+            "SOLUTION",
+            "HANDLE"
+          ]
+        },
+        "level": {
+          "const": "WORKFLOW"
+        },
+        "status": {
+          "enum": [
+            "ACTIVE",
+            "PAUSED"
+          ]
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "phases": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/phase"
+          }
+        }
+      },
+      "required": [
+        "key",
+        "family",
+        "level",
+        "status",
+        "name",
+        "phases"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "family": {
+                "const": "TARGET"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "phases": {
+                "minItems": 4,
+                "maxItems": 4,
+                "items": {
+                  "properties": {
+                    "id": {
+                      "enum": [
+                        "T1",
+                        "T2",
+                        "T3",
+                        "T4"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "family": {
+                "const": "DISPATCH"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "phases": {
+                "minItems": 1,
+                "maxItems": 1,
+                "items": {
+                  "properties": {
+                    "id": {
+                      "enum": [
+                        "D1"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "family": {
+                "const": "SOLUTION"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "phases": {
+                "minItems": 5,
+                "maxItems": 5,
+                "items": {
+                  "properties": {
+                    "id": {
+                      "enum": [
+                        "P1",
+                        "P2",
+                        "P3",
+                        "P4",
+                        "P5"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "family": {
+                "const": "HANDLE"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "phases": {
+                "minItems": 2,
+                "maxItems": 2,
+                "items": {
+                  "properties": {
+                    "id": {
+                      "enum": [
+                        "P6",
+                        "P7"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "key": {
+                "const": "TARGET"
+              }
+            },
+            "required": [
+              "key"
+            ]
+          },
+          "then": {
+            "properties": {
+              "family": {
+                "const": "TARGET"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "key": {
+                "const": "DISPATCH"
+              }
+            },
+            "required": [
+              "key"
+            ]
+          },
+          "then": {
+            "properties": {
+              "family": {
+                "const": "DISPATCH"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "key": {
+                "pattern": "^SOLUTION\\."
+              }
+            },
+            "required": [
+              "key"
+            ]
+          },
+          "then": {
+            "properties": {
+              "family": {
+                "const": "SOLUTION"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "key": {
+                "const": "HANDLE"
+              }
+            },
+            "required": [
+              "key"
+            ]
+          },
+          "then": {
+            "properties": {
+              "family": {
+                "const": "HANDLE"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "phase": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Z][1-9][0-9]*$"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "steps": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/step"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "steps"
+      ],
+      "additionalProperties": false
+    },
+    "step": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Z][1-9][0-9]*\\.S[1-9][0-9]*$"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "nodes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/node"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "nodes"
+      ],
+      "additionalProperties": false
+    },
+    "node": {
+      "type": "object",
+      "properties": {
+        "node_key": {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,63}$"
+        },
+        "ref": {
+          "type": "string",
+          "pattern": "^[A-Z]+(\\.[a-z0-9-]+)?/[A-Z][1-9][0-9]*\\.S[1-9][0-9]*\\.N[1-9][0-9]*$"
+        },
+        "kind": {
+          "enum": [
+            "DECISION",
+            "CALL",
+            "TOOL",
+            "TRANSFORM",
+            "QUERY",
+            "MODEL",
+            "JOIN",
+            "LOOP"
+          ]
+        },
+        "order": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "status": {
+          "enum": [
+            "ACTIVE",
+            "retired"
+          ]
+        },
+        "retired_reason": {
+          "type": "string",
+          "minLength": 1
+        },
+        "moved_to": {
+          "type": "string",
+          "pattern": "^[A-Z]+(\\.[a-z0-9-]+)?/[A-Z][1-9][0-9]*\\.S[1-9][0-9]*\\.N[1-9][0-9]*$"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "node_key",
+        "ref",
+        "kind",
+        "order",
+        "status",
+        "name"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "retired"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "retired_reason"
+            ]
+          },
+          "else": {
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "retired_reason"
+                  ]
+                },
+                {
+                  "required": [
+                    "moved_to"
+                  ]
+                }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  }
+}

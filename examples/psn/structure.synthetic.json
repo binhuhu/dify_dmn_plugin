@@ -1,0 +1,312 @@
+{
+  "format": "psn-structure/v1",
+  "process": {
+    "key": "DELIVERY",
+    "family": "DELIVERY",
+    "level": "PROCESS",
+    "status": "ACTIVE",
+    "name": "Synthetic DELIVERY",
+    "phases": [
+      {
+        "id": "O1",
+        "name": "Synthetic O1",
+        "steps": [
+          {
+            "id": "O1.S1",
+            "name": "Synthetic step 1",
+            "nodes": [
+              {
+                "node_key": "delivery_node_1",
+                "ref": "DELIVERY/O1.S1.N1",
+                "kind": "TRANSFORM",
+                "order": 10,
+                "status": "ACTIVE",
+                "name": "Synthetic delivery_node_1"
+              }
+            ]
+          },
+          {
+            "id": "O1.S2",
+            "name": "Synthetic step 2",
+            "nodes": [
+              {
+                "node_key": "delivery_node_2",
+                "ref": "DELIVERY/O1.S2.N1",
+                "kind": "TRANSFORM",
+                "order": 10,
+                "status": "ACTIVE",
+                "name": "Synthetic delivery_node_2"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "O2",
+        "name": "Synthetic O2",
+        "steps": []
+      },
+      {
+        "id": "O3",
+        "name": "Synthetic O3",
+        "steps": []
+      },
+      {
+        "id": "O4",
+        "name": "Synthetic O4",
+        "steps": []
+      },
+      {
+        "id": "O5",
+        "name": "Synthetic O5",
+        "steps": []
+      },
+      {
+        "id": "O6",
+        "name": "Synthetic O6",
+        "steps": []
+      }
+    ],
+    "workflows": [
+      {
+        "key": "TARGET",
+        "family": "TARGET",
+        "level": "WORKFLOW",
+        "status": "ACTIVE",
+        "name": "Synthetic TARGET",
+        "phases": [
+          {
+            "id": "T1",
+            "name": "Synthetic T1",
+            "steps": [
+              {
+                "id": "T1.S1",
+                "name": "Synthetic step 1",
+                "nodes": [
+                  {
+                    "node_key": "target_node_1",
+                    "ref": "TARGET/T1.S1.N1",
+                    "kind": "TRANSFORM",
+                    "order": 10,
+                    "status": "ACTIVE",
+                    "name": "Synthetic target_node_1"
+                  }
+                ]
+              },
+              {
+                "id": "T1.S2",
+                "name": "Synthetic step 2",
+                "nodes": [
+                  {
+                    "node_key": "target_node_2",
+                    "ref": "TARGET/T1.S2.N1",
+                    "kind": "TRANSFORM",
+                    "order": 10,
+                    "status": "ACTIVE",
+                    "name": "Synthetic target_node_2"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "T2",
+            "name": "Synthetic T2",
+            "steps": []
+          },
+          {
+            "id": "T3",
+            "name": "Synthetic T3",
+            "steps": []
+          },
+          {
+            "id": "T4",
+            "name": "Synthetic T4",
+            "steps": []
+          }
+        ]
+      },
+      {
+        "key": "DISPATCH",
+        "family": "DISPATCH",
+        "level": "WORKFLOW",
+        "status": "ACTIVE",
+        "name": "Synthetic DISPATCH",
+        "phases": [
+          {
+            "id": "D1",
+            "name": "Synthetic D1",
+            "steps": [
+              {
+                "id": "D1.S1",
+                "name": "Synthetic step 1",
+                "nodes": [
+                  {
+                    "node_key": "dispatch_node_1",
+                    "ref": "DISPATCH/D1.S1.N1",
+                    "kind": "TRANSFORM",
+                    "order": 10,
+                    "status": "ACTIVE",
+                    "name": "Synthetic dispatch_node_1"
+                  }
+                ]
+              },
+              {
+                "id": "D1.S2",
+                "name": "Synthetic step 2",
+                "nodes": [
+                  {
+                    "node_key": "dispatch_node_2",
+                    "ref": "DISPATCH/D1.S2.N1",
+                    "kind": "TRANSFORM",
+                    "order": 10,
+                    "status": "ACTIVE",
+                    "name": "Synthetic dispatch_node_2"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "key": "SOLUTION.coupon-use",
+        "family": "SOLUTION",
+        "level": "WORKFLOW",
+        "status": "ACTIVE",
+        "name": "Synthetic SOLUTION",
+        "phases": [
+          {
+            "id": "P1",
+            "name": "Synthetic P1",
+            "steps": [
+              {
+                "id": "P1.S1",
+                "name": "Synthetic step 1",
+                "nodes": [
+                  {
+                    "node_key": "solution_node_1",
+                    "ref": "SOLUTION.coupon-use/P1.S1.N1",
+                    "kind": "TRANSFORM",
+                    "order": 10,
+                    "status": "ACTIVE",
+                    "name": "Synthetic solution_node_1"
+                  },
+                  {
+                    "node_key": "synthetic_removed",
+                    "ref": "SOLUTION.coupon-use/P1.S1.N2",
+                    "kind": "TOOL",
+                    "order": 20,
+                    "status": "retired",
+                    "retired_reason": "Synthetic removal",
+                    "name": "Synthetic removed node"
+                  },
+                  {
+                    "node_key": "synthetic_moved",
+                    "ref": "SOLUTION.coupon-use/P1.S1.N3",
+                    "kind": "DECISION",
+                    "order": 30,
+                    "status": "retired",
+                    "retired_reason": "Synthetic move to second step",
+                    "moved_to": "SOLUTION.coupon-use/P1.S2.N2",
+                    "name": "Synthetic moved node"
+                  }
+                ]
+              },
+              {
+                "id": "P1.S2",
+                "name": "Synthetic step 2",
+                "nodes": [
+                  {
+                    "node_key": "solution_node_2",
+                    "ref": "SOLUTION.coupon-use/P1.S2.N1",
+                    "kind": "TRANSFORM",
+                    "order": 10,
+                    "status": "ACTIVE",
+                    "name": "Synthetic solution_node_2"
+                  },
+                  {
+                    "node_key": "synthetic_moved",
+                    "ref": "SOLUTION.coupon-use/P1.S2.N2",
+                    "kind": "DECISION",
+                    "order": 5,
+                    "status": "ACTIVE",
+                    "name": "Synthetic moved node"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "P2",
+            "name": "Synthetic P2",
+            "steps": []
+          },
+          {
+            "id": "P3",
+            "name": "Synthetic P3",
+            "steps": []
+          },
+          {
+            "id": "P4",
+            "name": "Synthetic P4",
+            "steps": []
+          },
+          {
+            "id": "P5",
+            "name": "Synthetic P5",
+            "steps": []
+          }
+        ]
+      },
+      {
+        "key": "HANDLE",
+        "family": "HANDLE",
+        "level": "WORKFLOW",
+        "status": "PAUSED",
+        "name": "Synthetic HANDLE",
+        "phases": [
+          {
+            "id": "P6",
+            "name": "Synthetic P6",
+            "steps": [
+              {
+                "id": "P6.S1",
+                "name": "Synthetic step 1",
+                "nodes": [
+                  {
+                    "node_key": "handle_node_1",
+                    "ref": "HANDLE/P6.S1.N1",
+                    "kind": "TRANSFORM",
+                    "order": 10,
+                    "status": "ACTIVE",
+                    "name": "Synthetic handle_node_1"
+                  }
+                ]
+              },
+              {
+                "id": "P6.S2",
+                "name": "Synthetic step 2",
+                "nodes": [
+                  {
+                    "node_key": "handle_node_2",
+                    "ref": "HANDLE/P6.S2.N1",
+                    "kind": "TRANSFORM",
+                    "order": 10,
+                    "status": "ACTIVE",
+                    "name": "Synthetic handle_node_2"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "P7",
+            "name": "Synthetic P7",
+            "steps": []
+          }
+        ]
+      }
+    ]
+  }
+}
