@@ -541,7 +541,22 @@ scripts/smoke.mjs: OK
 
 ## PR / CI
 
-草稿 PR 待本次文档提交后创建；创建后补记 URL 和实际 CI 状态。浏览器检查交由现有 macOS CI 执行，本地未运行 Chromium；不得将 adapter/DOM 20 项称作浏览器验收。
+草稿 PR：[#7](https://github.com/binhuhu/dify_dmn_plugin/pull/7)，base `main`，head `docs/psn-step-0-baseline`，已核实 `isDraft=true`、`state=OPEN`，只含上述两份文档。
+
+首个文档提交 `3e3f618c2cf0d3734e58ccb5ce58a2600789d896` 的 push / pull_request 共四项 CI 已全部完成成功。`gh pr checks 7 --json name,state,bucket,link` 原样输出：
+
+```text
+```
+
+PR Checks 日志实际计数为 `695 passed, 18 warnings in 81.00s (0:01:21)`；engine 99 pass / 0 fail / 0 skipped。CI warnings 与本地 19 条不同，分别按实测记录。
+
+macOS CI 的 Chromium 开启 sandbox，实际日志原文：
+
+```text
+browser	Chromium with sandbox enabled	2026-10-15T15:07:16.7523950Z Browser PASS: desktop/mobile, imports, rules, focus, wheel, no remote requests
+```
+
+本地未运行 Chromium；adapter/DOM 20 项与 CI 浏览器检查分别记录。本回执补记 PR/CI 会产生一个后继文档提交，以上四项成功仅归属于明确列出的 `3e3f618`，不冒充后继 SHA 的结果。交接前还须检查后继提交的四项 CI；其精确 SHA/最终结果在交接消息及 [PR checks](https://github.com/binhuhu/dify_dmn_plugin/pull/7/checks) 中核对，避免在文件中自引用自身提交哈希。
 
 ## 待裁 / 未验证与停止条件
 
