@@ -135,4 +135,47 @@ Dify 节点类型与 kind 的对应：
 
 合成样例 `examples/psn/graph.solution.synthetic.json` 由 `plugin/tests/psn_fixtures.py` 生成，测试保证两者一致。其中 `solution_decision` 带的是仓库可求值示例定义包，id 换成编号族形式（SOLUTION / N1），所以同一张图既能查，也能写编号后真求值。
 
-stamp / from-graph、assign / diff、运行时 psn_ref 和查看器在后面各项。既有版本清单不修改，不发布新版本。
+## 把编号写进图：`psn stamp` / `psn from-graph`（第 3 项）
+
+```sh
+python -m dmn_client.psn stamp --structure S --graph G --workflow KEY --out STAMPED
+python -m dmn_client.psn from-graph --graph STAMPED --workflow KEY [--structure S]
+```
+
+`stamp` 先跑一次 `psn check`。图和结构对不上时一个字都不写，退出码 1。对不上的情况包括：未归位、已退役、kind 不符、node_ref 缺失、不一致或解析不到。
+
+- **只改编号节点的 `data.title` 和 `data.desc`。** 其余字节都不变，包括连线、位置、代码和工具参数。
+- **标题。**
+  - 先去掉已有前缀：自己的 `P4.S2.N3 · `，以及旧式的 `P4.S1：`、`P1：`、`P1–P5 `（W7）。再写成 `<Phase>.S<n>.N<m> · <名称>`。
+  - 只有阶段码的标题（如 `P1`）没有名称，写成编号本身 `P1.S2.N2`。
+- **描述。** 已有文字原样保留，末尾放一行 `psn:<实例 ref>`。旧的 psn 行先删掉，所以不会叠加。
+- **不编号的 GATE / EVENT 节点一个字节都不动。** 与发布时写编号的规则相同。
+- **决策节点的 `node_ref` 一律不写（W6）。** 它和节点自带定义包里的编号是同一个号，只改一处会解析不到；缺失或不一致都由生成节点的构建脚本连同定义包一起改。
+- **同一张图 stamp 两次，结果相同。**
+- **写编号前后，用同一份输入调 `evaluate_decision`，结果完全相同。** 测试用合成样例里那个可求值的决策节点验证。
+
+`from-graph` 从已写编号的图里，按描述中的 psn 行读回编号节点的骨架（step、node_key、ref、kind），可以和结构的骨架比对。不编号节点不带 psn 行，读回时跳过。
+
+## 只增不改的编号：`psn assign` / `psn diff`（第 4 项）
+
+```sh
+python -m dmn_client.psn assign --structure S --placement P.json --out S2
+python -m dmn_client.psn diff --old S --new S2 [--json]
+```
+
+`assign` 按文件顺序执行 placement 里的条目，同样的输入一定得到同样的输出：
+
+| action | 字段 | 做什么 |
+| --- | --- | --- |
+| add | workflow, node_key, step, kind, name, step_name（新 Step 才要） | 编号节点取该 Step 下一个空号（墓碑也算占号）；GATE / EVENT 的 ref 为 null。node_key 已有号时拒绝：`RENUMBER_REFUSED` |
+| move | workflow, node_key, step, reason, to_workflow（可跨 workflow，W9） | 旧号转为墓碑并写 `moved_to`，新位置取空号 |
+| retire | workflow, node_key, reason | 编号节点留墓碑；不编号节点直接移除（它没有号可保留） |
+| kind | workflow, node_key, kind | 只改 kind，号不变（W8）；编号和不编号之间互换被拒：`KIND_CHANGE_REFUSED` |
+
+`diff` 按编号比对两份结构，分类列出 added、retired、moved、moved_cross_workflow、renamed、kind_changed。以下情况不通过（退出码 1）：
+- `REF_REMOVED`：号码或墓碑被删；
+- `REF_REUSED`：号码换了 node_key；
+- `RETIRED_REF_REVIVED`：墓碑又变回 ACTIVE；
+- `RENUMBERED`：同一个 node_key 没有迁移记录就换了号。
+
+运行时 psn_ref 和查看器在后面各项。既有版本清单不修改，不发布新版本。

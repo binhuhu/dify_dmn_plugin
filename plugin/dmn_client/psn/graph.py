@@ -64,6 +64,27 @@ def find_graph(value):
 
 def load_graph(path) -> dict:
     """Load a readback JSON or a DSL YAML file and return its graph object."""
+    return load_document(path)[1]
+
+
+def is_yaml(path) -> bool:
+    return Path(path).suffix.lower() in {".yml", ".yaml"}
+
+
+def dump_document(document, path) -> None:
+    """Write a whole readback / DSL document back in the format its name says."""
+    path = Path(path)
+    if is_yaml(path):
+        import yaml
+
+        text = yaml.safe_dump(document, allow_unicode=True, sort_keys=False)
+    else:
+        text = json.dumps(document, ensure_ascii=False, indent=2) + "\n"
+    path.write_text(text, encoding="utf-8")
+
+
+def load_document(path) -> tuple:
+    """(whole document, the graph object inside it). Editing the graph edits the document."""
     path = Path(path)
     text = path.read_text(encoding="utf-8")
     if path.suffix.lower() in {".yml", ".yaml"}:
@@ -88,7 +109,7 @@ def load_graph(path) -> dict:
             raise GraphInputError("Every graph node needs a string id.")
         if not isinstance(node.get("data"), dict):
             raise GraphInputError(f"Node {node.get('id')} has no data object.")
-    return graph
+    return value, graph
 
 
 def is_dmn(data: dict) -> bool:
@@ -161,7 +182,9 @@ def stamp_title(tail: str, name: str) -> str:
 
 def title_is_stamped(title: str, instance_ref: str) -> bool:
     tail = instance_ref.split("/", 1)[1]
-    return isinstance(title, str) and title.startswith(f"{tail}{STAMP_SEPARATOR}")
+    if not isinstance(title, str):
+        return False
+    return title == tail or title.startswith(f"{tail}{STAMP_SEPARATOR}")
 
 
 def desc_is_stamped(desc, instance_ref: str) -> bool:

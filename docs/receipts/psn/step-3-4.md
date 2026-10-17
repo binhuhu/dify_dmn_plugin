@@ -1,0 +1,27 @@
+# PSN step-3 / step-4 回执：stamp、from-graph、assign、diff（Claude，2026-10-17）
+
+- **交付：**
+  - `plugin/dmn_client/psn/stamp.py`：stamp、from-graph、skeleton；
+  - `plugin/dmn_client/psn/registry.py`：assign、diff；
+  - 命令行 `stamp`、`from-graph`、`assign`、`diff`；
+  - `plugin/tests/test_psn_stamp.py`、`plugin/tests/test_psn_registry.py`；
+  - 文档两节。
+- **第 3 项：**
+  - stamp 不写 node_ref，缺失或不一致都拒绝并退出 1（W6）；
+  - 旧式标题前缀会被替换，不会叠成双前缀；已有描述原样保留（W7）；
+  - 不编号节点不动；
+  - 幂等；
+  - 写编号前后用同一份输入调 `evaluate_decision`，结果逐字段相同；
+  - 用 from-graph 读回，和结构一致。
+- **第 4 项：**
+  - 同一 Step 一次插入 3 个新节点，取到下三个空号，两次运行结果相同；
+  - 墓碑占号；
+  - 同 node_key 改 kind，报 `kind_changed`，号不变（W8）；
+  - 跨 workflow 迁移单列为 `moved_cross_workflow`（W9）；
+  - 手工改号、复用号码都被 diff 判不通过。
+- **测试：** PSN 四组共 171 项全过；ruff 通过。
+- **现网读回验收：** 在本仓外跑，输出放在临时目录，没有进仓库，也没有碰 AgentHub。脚本是 80 仓 `交付全链路评审_20261015/psn-acceptance/stamp_live.py`。四张现网图都满足：
+  - 只改了标题和描述：交付流程 35、定位 45、受理 3、券方案 63 个编号节点；
+  - 读回结构一致；
+  - NOT_STAMPED 降到 0；剩下的告警只有已知的决策节点两项，由定版批的 2.2a / 2.2b 处理；
+  - 写出的图与 PSN 合规会话的写编号预览逐节点完全相同，共 180 个节点。集成会话已确认它的发布写编号与这份预览一致。
