@@ -226,6 +226,14 @@
                     "retired_reason": "Synthetic move to second step",
                     "moved_to": "SOLUTION.coupon-use/P1.S2.N2",
                     "name": "Synthetic moved node"
+                  },
+                  {
+                    "node_key": "solution_start",
+                    "ref": null,
+                    "kind": "EVENT",
+                    "order": 0,
+                    "status": "ACTIVE",
+                    "name": "Synthetic start"
                   }
                 ]
               },
@@ -269,7 +277,30 @@
           {
             "id": "P3",
             "name": "Synthetic P3",
-            "steps": []
+            "steps": [
+              {
+                "id": "P3.S1",
+                "name": "Synthetic decision step",
+                "nodes": [
+                  {
+                    "node_key": "solution_decision",
+                    "ref": "SOLUTION.coupon-use/P3.S1.N1",
+                    "kind": "DECISION",
+                    "order": 10,
+                    "status": "ACTIVE",
+                    "name": "Synthetic decision"
+                  },
+                  {
+                    "node_key": "solution_project",
+                    "ref": "SOLUTION.coupon-use/P3.S1.N2",
+                    "kind": "TRANSFORM",
+                    "order": 20,
+                    "status": "ACTIVE",
+                    "name": "Synthetic status check"
+                  }
+                ]
+              }
+            ]
           },
           {
             "id": "P4",

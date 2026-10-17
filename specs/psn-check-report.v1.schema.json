@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:psn-check-report:v1",
+  "title": "Result of checking one Dify graph against a psn-structure/v1 entry (offline)",
+  "type": "object",
+  "properties": {
+    "format": {"const": "psn-check-report/v1"},
+    "workflow": {"type": "string", "pattern": "^[A-Z]+(\\.[a-z0-9-]+)?$"},
+    "strict": {"type": "boolean"},
+    "ok": {"type": "boolean"},
+    "graph_nodes": {"type": "integer", "minimum": 0},
+    "counts": {
+      "type": "object",
+      "propertyNames": {"pattern": "^[A-Z_]+$"},
+      "additionalProperties": {"type": "integer", "minimum": 1}
+    },
+    "issues": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "enum": [
+              "UNPLACED_NODE",
+              "RETIRED_NODE_IN_GRAPH",
+              "MISSING_NODE",
+              "KIND_MISMATCH",
+              "UNKNOWN_NODE_TYPE",
+              "NODE_REF_MISSING",
+              "NODE_REF_MISMATCH",
+              "NODE_REF_UNRESOLVABLE",
+              "FAIL_BRANCH_DANGLING",
+              "NOT_STAMPED",
+              "SILENT_DMN_DEFAULT",
+              "DMN_STATUS_UNCHECKED"
+            ]
+          },
+          "severity": {"enum": ["FAIL", "WARN"]},
+          "node_key": {"type": "string"},
+          "ref": {"type": "string"},
+          "message": {"type": "string"}
+        },
+        "required": ["code", "severity", "message"],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": ["format", "workflow", "strict", "ok", "graph_nodes", "counts", "issues"],
+  "additionalProperties": false
+}

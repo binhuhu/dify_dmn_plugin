@@ -93,4 +93,46 @@ PY
 | VERSION_FIELD_IN_STRUCTURE | 结构任何深度含版本/部署身份字段 |
 | INVALID_LEVEL / INVALID_STRUCTURE | 层级错误或其余类型、字段、输入边界错误 |
 
-图读取/对照、stamp/from-graph、assign/diff、运行时 psn_ref、viewer 和发布都不在本项。既有版本清单不修改，不发布新版本。
+## 图对结构：`psn check`（第 2 项）
+
+```sh
+cd plugin
+python -m dmn_client.psn check --structure ../examples/psn/structure.synthetic.json \
+  --graph ../examples/psn/graph.solution.synthetic.json --workflow SOLUTION.coupon-use [--strict] [--json]
+```
+
+- `--graph` 接受发布读回（任意包含 `graph.nodes` / `graph.edges` 的 JSON）或 Dify DSL 的 YAML 导出。
+- `--workflow` 用结构里的实例键。
+- 报告格式见 [`specs/psn-check-report.v1.schema.json`](../specs/psn-check-report.v1.schema.json)。报告只用 node_key 和 PSN 编号指认节点，不带 Dify 应用 id、发布 workflow_id 或任何哈希。
+- 退出码：0 通过，1 有 FAIL，2 输入读不了或结构本身不合法。`--strict` 把 WARN 当 FAIL。
+
+| 码 | 级别 | 触发条件 |
+| --- | --- | --- |
+| UNPLACED_NODE | FAIL | 图里的节点在该 workflow 的结构里没有位置 |
+| RETIRED_NODE_IN_GRAPH | FAIL | 结构已经把它退役（retired），图里还有 |
+| MISSING_NODE | FAIL | 结构里 ACTIVE 的节点不在图里（PAUSED 的 workflow 不查） |
+| KIND_MISMATCH | FAIL | 按 Dify 节点类型算出的 kind 与结构不同 |
+| UNKNOWN_NODE_TYPE | WARN | 不认识的 Dify 节点类型 |
+| NODE_REF_MISSING | FAIL | 决策节点没有 `node_ref` |
+| NODE_REF_MISMATCH | FAIL | `node_ref` 的「编号族 + phase + step + node」与结构编号不同（R5、R6） |
+| NODE_REF_UNRESOLVABLE | FAIL | 用插件自己的 `resolve_node`，在节点自带的 `definition_bundle_json` 里解析不到 |
+| FAIL_BRANCH_DANGLING | FAIL | `error_strategy: fail-branch`，但没有 `sourceHandle: fail-branch` 的出边 |
+| NOT_STAMPED | WARN | 编号节点的标题没有 `<Phase>.S<n>.N<m> · ` 前缀，或描述里没有 `psn:<实例 ref>` 一行（GATE / EVENT 不查） |
+| SILENT_DMN_DEFAULT | WARN | 决策节点用 `default-value`：插件本身崩溃或超时时，错误被默认值替代 |
+| DMN_STATUS_UNCHECKED | WARN | 从决策节点沿连线往下，没有任何代码节点同时引用这个节点的输出和 `execution_status` |
+
+**`DMN_STATUS_UNCHECKED` 是启发式检查。** 插件判不出来时不让节点报错，而是正常返回 `execution_status`（BLOCKED / FAILED）和空结果，所以要看下游有没有核对。这条只看下游代码节点的变量选择和代码文本：通过不等于状态一定被正确处理；不通过也不等于静默，更远处的消费者可能读的是转手后的结果。
+
+Dify 节点类型与 kind 的对应：
+- 决策插件的工具节点是 DECISION，工作流工具是 CALL，其他工具是 TOOL；
+- code / assigner / template-transform 是 TRANSFORM；
+- http-request / knowledge-retrieval 是 QUERY；
+- llm / agentic / agent / question-classifier / parameter-extractor 是 MODEL；
+- variable-aggregator 是 JOIN；
+- iteration / loop 是 LOOP；
+- if-else 是 GATE；
+- start / end / answer / iteration-start / loop-start 是 EVENT。
+
+合成样例 `examples/psn/graph.solution.synthetic.json` 由 `plugin/tests/psn_fixtures.py` 生成，测试保证两者一致。其中 `solution_decision` 带的是仓库可求值示例定义包，id 换成编号族形式（SOLUTION / N1），所以同一张图既能查，也能写编号后真求值。
+
+stamp / from-graph、assign / diff、运行时 psn_ref 和查看器在后面各项。既有版本清单不修改，不发布新版本。

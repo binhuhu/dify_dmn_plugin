@@ -261,7 +261,8 @@ def test_display_order_and_array_position_never_allocate_numbers():
         )
     )
     assert validate_structure(value) == []
-    assert {n["ref"].split(".")[-1] for n in ss[0]["nodes"]} == {"N1", "N2", "N3", "N4"}
+    numbered = [n for n in ss[0]["nodes"] if n["ref"] is not None]
+    assert {n["ref"].split(".")[-1] for n in numbered} == {"N1", "N2", "N3", "N4"}
 
 
 @pytest.mark.parametrize("change", ["missing", "same-step", "wrong-key", "cycle", "merge"])

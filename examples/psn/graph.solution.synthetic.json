@@ -1,0 +1,274 @@
+{
+  "graph": {
+    "nodes": [
+      {
+        "id": "solution_start",
+        "type": "custom",
+        "data": {
+          "type": "start",
+          "title": "Synthetic start",
+          "desc": ""
+        },
+        "position": {
+          "x": 0,
+          "y": 0
+        }
+      },
+      {
+        "id": "solution_node_1",
+        "type": "custom",
+        "data": {
+          "type": "code",
+          "title": "P1.S1.N1 · Synthetic solution_node_1",
+          "desc": "psn:SOLUTION.coupon-use/P1.S1.N1",
+          "code_language": "python3",
+          "code": "def main(r):\n    return {'ok': True}\n",
+          "variables": [],
+          "outputs": {
+            "ok": {
+              "type": "boolean"
+            }
+          }
+        },
+        "position": {
+          "x": 300,
+          "y": 0
+        }
+      },
+      {
+        "id": "synthetic_moved",
+        "type": "custom",
+        "data": {
+          "type": "tool",
+          "provider_id": "hu8627/dmn_json/dmn_json",
+          "provider_name": "dmn_json",
+          "provider_type": "builtin",
+          "tool_name": "evaluate_decision",
+          "title": "P1.S2.N2 · Synthetic moved node",
+          "desc": "psn:SOLUTION.coupon-use/P1.S2.N2",
+          "error_strategy": "fail-branch",
+          "tool_configurations": {
+            "definition_bundle_json": {
+              "type": "constant",
+              "value": "{\"workflows\": [{\"phases\": [{\"phase_id\": \"P1\", \"steps\": [{\"graph\": {\"nodes\": [{\"node_id\": \"N2\"}]}, \"step_id\": \"P1.S2\"}]}], \"workflow_id\": \"SOLUTION\"}]}"
+            },
+            "node_ref": {
+              "type": "constant",
+              "value": "{\"node_id\": \"N2\", \"phase_id\": \"P1\", \"step_id\": \"P1.S2\", \"workflow_id\": \"SOLUTION\"}"
+            }
+          },
+          "tool_parameters": {
+            "inputs_json": {
+              "type": "variable",
+              "value": [
+                "solution_node_1",
+                "inputs"
+              ]
+            },
+            "execution_context_json": {
+              "type": "variable",
+              "value": [
+                "solution_node_1",
+                "context"
+              ]
+            }
+          }
+        },
+        "position": {
+          "x": 600,
+          "y": 0
+        }
+      },
+      {
+        "id": "solution_node_2",
+        "type": "custom",
+        "data": {
+          "type": "code",
+          "title": "P1.S2.N1 · Synthetic solution_node_2",
+          "desc": "psn:SOLUTION.coupon-use/P1.S2.N1",
+          "code_language": "python3",
+          "code": "def main(r):\n    if r.get('execution_status') != 'SUCCEEDED':\n        return {'gap': 'GAP_DMN_FAILED'}\n    return {'ok': True}\n",
+          "variables": [
+            {
+              "variable": "r",
+              "value_selector": [
+                "synthetic_moved",
+                "results"
+              ]
+            }
+          ],
+          "outputs": {
+            "ok": {
+              "type": "boolean"
+            }
+          }
+        },
+        "position": {
+          "x": 900,
+          "y": 0
+        }
+      },
+      {
+        "id": "solution_decision",
+        "type": "custom",
+        "data": {
+          "type": "tool",
+          "provider_id": "hu8627/dmn_json/dmn_json",
+          "provider_name": "dmn_json",
+          "provider_type": "builtin",
+          "tool_name": "evaluate_decision",
+          "title": "P3.S1.N1 · Synthetic decision",
+          "desc": "psn:SOLUTION.coupon-use/P3.S1.N1",
+          "error_strategy": "fail-branch",
+          "tool_configurations": {
+            "definition_bundle_json": {
+              "type": "constant",
+              "value": "{\"asset_locks\": {\"demo.context@1.0.0\": {\"digest_kind\": \"SHA256_BYTES\", \"kind\": \"QUERY_PLAN\", \"path\": \"examples/query_plan.json\", \"sha256\": \"b776613cc3bca56036b8e5c348ff612c34df24f2f86dcf1d6876b23e9be30c4d\"}, \"demo.host-mapping@1.0.0\": {\"digest_kind\": \"SHA256_BYTES\", \"kind\": \"HOST_MAPPING\", \"path\": \"examples/host_mapping.example.json\", \"sha256\": \"b1bfe9e029639520d3074b88bcf2279a601caea711428c7af1d0b1896d4f86b2\"}, \"demo.operations@1.0.0\": {\"digest_kind\": \"SHA256_BYTES\", \"kind\": \"OPERATION_REGISTRY\", \"path\": \"examples/operation_registry.json\", \"sha256\": \"96b0b83ea5c4e8ae22075ea07e212d815c3e385e52f2045f0e2d2159c6d44803\"}}, \"capabilities\": {\"demo.ask_meeting@1\": {\"implementation\": \"HOST\", \"input_schema\": {\"additionalProperties\": false, \"properties\": {\"order_id\": {\"minLength\": 1, \"type\": \"string\"}, \"question_ref\": {\"type\": \"string\"}}, \"required\": [\"question_ref\", \"order_id\"], \"type\": \"object\"}, \"kind\": \"INTERACTION\", \"output_schema\": {\"additionalProperties\": false, \"properties\": {\"operation_id\": {\"type\": \"string\"}}, \"type\": \"object\"}, \"read_only\": false}, \"demo.case_context@1.0.0\": {\"implementation\": \"QUERY_PLAN\", \"input_schema\": {\"additionalProperties\": false, \"properties\": {\"ticket_id\": {\"minLength\": 1, \"type\": \"string\"}}, \"required\": [\"ticket_id\"], \"type\": \"object\"}, \"kind\": \"QUERY\", \"output_schema\": {\"additionalProperties\": false, \"properties\": {\"interactions\": {\"type\": \"object\"}, \"order_id\": {\"minLength\": 1, \"type\": \"string\"}, \"trip\": {\"type\": \"object\"}}, \"required\": [\"order_id\", \"trip\", \"interactions\"], \"type\": \"object\"}, \"query_plan_ref\": \"demo.context@1.0.0\", \"read_only\": true}, \"demo.history@1.0.0\": {\"implementation\": \"MOCK\", \"input_schema\": {\"additionalProperties\": false, \"properties\": {\"ticket_id\": {\"minLength\": 1, \"type\": \"string\"}}, \"required\": [\"ticket_id\"], \"type\": \"object\"}, \"kind\": \"QUERY\", \"output_schema\": {\"additionalProperties\": false, \"properties\": {\"other_information_complete\": {\"additionalProperties\": false, \"properties\": {\"diagnostic_codes\": {\"items\": {\"minLength\": 1, \"type\": \"string\"}, \"type\": \"array\"}, \"observed_at\": {\"format\": \"date-time\", \"type\": \"string\"}, \"quality\": {\"enum\": [\"KNOWN\", \"UNKNOWN\", \"NOT_APPLICABLE\", \"CONFLICT\"]}, \"source_refs\": {\"items\": {\"minLength\": 1, \"type\": \"string\"}, \"type\": \"array\"}, \"value\": {}, \"version\": {\"minLength\": 1, \"type\": \"string\"}}, \"required\": [\"quality\", \"value\", \"source_refs\"], \"type\": \"object\"}}, \"required\": [\"other_information_complete\"], \"type\": \"object\"}, \"read_only\": true}}, \"deployment\": {\"action_backend\": \"HOST\", \"business_enabled\": false, \"enabled_node_kinds\": [\"QUERY\", \"DECISION\", \"ACTION\", \"EXCLUSIVE\", \"PARALLEL\", \"START\", \"WAIT\", \"END\"], \"runtime_owner\": \"HOST\"}, \"example_only\": true, \"models\": {\"demo.end@1\": {\"hit_policy\": \"FIRST\", \"on_no_match\": \"ERROR\", \"parameters\": {}, \"profile\": \"service-decision-table-v1\", \"result_templates\": {\"done\": {\"actions\": [{\"intent_id\": \"control\", \"kind\": \"CONTROL\", \"route_ref\": \"DONE\"}], \"data\": {}, \"state\": \"DEMO_FRAGMENT_COMPLETED\"}}, \"rules\": [{\"output_template_ref\": \"done\", \"rule_id\": \"demo_only\", \"when\": []}], \"version\": \"1.0.0\"}, \"demo.locate@1\": {\"hit_policy\": \"FIRST\", \"on_no_match\": \"ERROR\", \"parameters\": {}, \"profile\": \"service-decision-table-v1\", \"result_templates\": {\"located\": {\"actions\": [{\"intent_id\": \"control\", \"kind\": \"CONTROL\", \"route_ref\": \"LOCATED\"}], \"data\": {\"candidates\": {\"literal\": []}, \"matches\": {\"literal\": [{\"domain_id\": \"fulfilment\", \"scene_id\": \"driver_no_pickup\", \"target\": {\"id\": \"O-100\", \"type\": \"Order\"}}]}}, \"state\": \"LOCATED\"}}, \"rules\": [{\"output_template_ref\": \"located\", \"rule_id\": \"demo_only\", \"when\": []}], \"version\": \"1.0.0\"}, \"demo.meeting@1.0.0\": {\"hit_policy\": \"UNIQUE\", \"on_no_match\": \"ERROR\", \"parameters\": {\"met_driver\": {\"allowed_quality\": [\"KNOWN\", \"UNKNOWN\"], \"nullable\": false, \"record_required\": true, \"type\": \"boolean\"}, \"order_id\": {\"allowed_quality\": [\"KNOWN\"], \"nullable\": false, \"record_required\": true, \"type\": \"string\"}, \"other_information_complete\": {\"allowed_quality\": [\"KNOWN\"], \"nullable\": false, \"record_required\": true, \"type\": \"boolean\"}}, \"profile\": \"service-decision-table-v1\", \"result_templates\": {\"ask\": {\"actions\": [{\"intent_id\": \"ask_meeting\", \"kind\": \"INTERACTION\", \"target_node_id\": \"A_ASK\"}, {\"intent_id\": \"control\", \"kind\": \"CONTROL\", \"route_ref\": \"ASK\"}], \"data\": {\"required_parameter\": {\"literal\": \"met_driver\"}}, \"state\": \"NEED_USER_INPUT\"}, \"auth\": {\"actions\": [{\"intent_id\": \"control\", \"kind\": \"CONTROL\", \"route_ref\": \"AUTH\"}], \"data\": {}, \"state\": \"NEED_AUTHORIZATION_REVIEW\"}, \"other\": {\"actions\": [{\"intent_id\": \"control\", \"kind\": \"CONTROL\", \"route_ref\": \"OTHER\"}], \"data\": {}, \"state\": \"NEED_OTHER_INFORMATION\"}, \"ready\": {\"actions\": [{\"intent_id\": \"control\", \"kind\": \"CONTROL\", \"route_ref\": \"CONTINUE\"}], \"data\": {}, \"state\": \"INFORMATION_SUFFICIENT\"}}, \"rules\": [{\"output_template_ref\": \"ask\", \"rule_id\": \"unknown\", \"when\": [{\"op\": \"eq\", \"path\": [\"parameters\", \"met_driver\", \"quality\"], \"value\": \"UNKNOWN\"}]}, {\"output_template_ref\": \"auth\", \"rule_id\": \"met\", \"when\": [{\"op\": \"eq\", \"path\": [\"parameters\", \"met_driver\", \"quality\"], \"value\": \"KNOWN\"}, {\"op\": \"eq\", \"path\": [\"parameters\", \"met_driver\", \"value\"], \"value\": true}]}, {\"output_template_ref\": \"ready\", \"rule_id\": \"not_met_ready\", \"when\": [{\"op\": \"eq\", \"path\": [\"parameters\", \"met_driver\", \"quality\"], \"value\": \"KNOWN\"}, {\"op\": \"eq\", \"path\": [\"parameters\", \"met_driver\", \"value\"], \"value\": false}, {\"op\": \"eq\", \"path\": [\"parameters\", \"other_information_complete\", \"value\"], \"value\": true}]}, {\"output_template_ref\": \"other\", \"rule_id\": \"not_met_other_gap\", \"when\": [{\"op\": \"eq\", \"path\": [\"parameters\", \"met_driver\", \"quality\"], \"value\": \"KNOWN\"}, {\"op\": \"eq\", \"path\": [\"parameters\", \"met_driver\", \"value\"], \"value\": false}, {\"op\": \"eq\", \"path\": [\"parameters\", \"other_information_complete\", \"value\"], \"value\": false}]}], \"version\": \"1.0.0\"}}, \"schema_version\": \"service-decision-dsl.node-architecture.v2\", \"workflows\": [{\"domain_id\": \"cross_domain\", \"entry_phase\": \"LOCATE\", \"flow_type\": \"LOCATE\", \"phases\": [{\"entry_step\": \"LOCATE.S1\", \"phase_id\": \"LOCATE\", \"steps\": [{\"entry_node\": \"S\", \"exits\": {\"ERROR\": {\"class\": \"TECHNICAL\", \"destination\": {\"kind\": \"RETURN\", \"outcome\": \"ERROR\"}}, \"LOCATED\": {\"class\": \"RETURN\", \"destination\": {\"kind\": \"RETURN\", \"outcome\": \"LOCATED\"}}}, \"graph\": {\"edges\": [{\"edge_id\": \"S_ok_D\", \"source\": \"S\", \"source_port\": \"ok\", \"target\": \"D\"}, {\"edge_id\": \"D_ok_G\", \"source\": \"D\", \"source_port\": \"ok\", \"target\": \"G\"}, {\"edge_id\": \"D_blocked_E_ERR\", \"source\": \"D\", \"source_port\": \"blocked\", \"target\": \"E_ERR\"}, {\"edge_id\": \"D_error_E_ERR\", \"source\": \"D\", \"source_port\": \"error\", \"target\": \"E_ERR\"}, {\"edge_id\": \"G_error_E_ERR\", \"source\": \"G\", \"source_port\": \"error\", \"target\": \"E_ERR\"}, {\"edge_id\": \"G_LOCATED_E_LOCATED\", \"source\": \"G\", \"source_port\": \"LOCATED\", \"target\": \"E_LOCATED\"}], \"nodes\": [{\"category\": \"EVENT\", \"kind\": \"START\", \"name\": \"S\", \"node_id\": \"S\", \"ports\": [\"ok\"]}, {\"category\": \"EXECUTION\", \"input_bindings\": {}, \"kind\": \"DECISION\", \"model_ref\": \"demo.locate@1\", \"name\": \"D\", \"node_id\": \"D\", \"ports\": [\"ok\", \"blocked\", \"error\"]}, {\"category\": \"GATEWAY\", \"kind\": \"EXCLUSIVE\", \"mode\": \"SPLIT\", \"name\": \"G\", \"node_id\": \"G\", \"ports\": [\"LOCATED\", \"error\"], \"selector\": {\"node_id\": \"D\", \"source\": \"DECISION_CONTROL\"}}, {\"category\": \"EVENT\", \"exit_ref\": \"ERROR\", \"kind\": \"END\", \"name\": \"E_ERR\", \"node_id\": \"E_ERR\", \"ports\": []}, {\"category\": \"EVENT\", \"exit_ref\": \"LOCATED\", \"kind\": \"END\", \"name\": \"E_LOCATED\", \"node_id\": \"E_LOCATED\", \"ports\": []}]}, \"main_decision_node\": \"D\", \"max_attempts\": 1, \"name\": \"合成定位入口；只返回已知演示匹配，不调用解决入口\", \"profile\": \"decision-step-v2\", \"purpose\": \"合成定位入口；只返回已知演示匹配，不调用解决入口\", \"reentry_exhausted_exit\": \"ERROR\", \"step_id\": \"LOCATE.S1\", \"version\": \"1.0.0\"}]}], \"scene_ref\": null, \"scope\": \"EXAMPLE_FRAGMENT\", \"version\": \"1.0.0\", \"workflow_id\": \"demo.locate\"}, {\"domain_id\": \"fulfilment\", \"entry_phase\": \"P3\", \"flow_type\": \"SOLVE\", \"phases\": [{\"entry_step\": \"P3.S1\", \"phase_id\": \"P3\", \"steps\": [{\"entry_node\": \"S\", \"exits\": {\"AUTH\": {\"class\": \"BUSINESS\", \"destination\": {\"kind\": \"RETURN\", \"outcome\": \"NEED_AUTHORIZATION_REVIEW\"}}, \"CANCEL\": {\"class\": \"TECHNICAL\", \"destination\": {\"kind\": \"RETURN\", \"outcome\": \"CANCELLED\"}}, \"FAILED\": {\"class\": \"TECHNICAL\", \"destination\": {\"kind\": \"RETURN\", \"outcome\": \"TECHNICAL_FAILURE\"}}, \"NEXT\": {\"class\": \"BUSINESS\", \"destination\": {\"kind\": \"PHASE\", \"phase_id\": \"P4\"}}, \"OTHER\": {\"class\": \"BUSINESS\", \"destination\": {\"kind\": \"RETURN\", \"outcome\": \"NEED_OTHER_INFORMATION\"}}, \"RETRY\": {\"class\": \"REENTRY\", \"destination\": {\"kind\": \"REENTER_STEP\"}}, \"TIMEOUT\": {\"class\": \"TECHNICAL\", \"destination\": {\"kind\": \"RETURN\", \"outcome\": \"WAIT_TIMEOUT\"}}}, \"graph\": {\"edges\": [{\"edge_id\": \"S_ok_F\", \"source\": \"S\", \"source_port\": \"ok\", \"target\": \"F\"}, {\"branch_id\": \"context\", \"edge_id\": \"F_context_Q_CONTEXT\", \"source\": \"F\", \"source_port\": \"context\", \"target\": \"Q_CONTEXT\"}, {\"branch_id\": \"history\", \"edge_id\": \"F_history_Q_HISTORY\", \"source\": \"F\", \"source_port\": \"history\", \"target\": \"Q_HISTORY\"}, {\"edge_id\": \"Q_CONTEXT_ok_J\", \"source\": \"Q_CONTEXT\", \"source_port\": \"ok\", \"target\": \"J\"}, {\"edge_id\": \"Q_CONTEXT_blocked_J\", \"source\": \"Q_CONTEXT\", \"source_port\": \"blocked\", \"target\": \"J\"}, {\"edge_id\": \"Q_CONTEXT_error_J\", \"source\": \"Q_CONTEXT\", \"source_port\": \"error\", \"target\": \"J\"}, {\"edge_id\": \"Q_HISTORY_ok_J\", \"source\": \"Q_HISTORY\", \"source_port\": \"ok\", \"target\": \"J\"}, {\"edge_id\": \"Q_HISTORY_blocked_J\", \"source\": \"Q_HISTORY\", \"source_port\": \"blocked\", \"target\": \"J\"}, {\"edge_id\": \"Q_HISTORY_error_J\", \"source\": \"Q_HISTORY\", \"source_port\": \"error\", \"target\": \"J\"}, {\"edge_id\": \"J_ok_D1\", \"source\": \"J\", \"source_port\": \"ok\", \"target\": \"N1\"}, {\"edge_id\": \"J_error_E_FAILED\", \"source\": \"J\", \"source_port\": \"error\", \"target\": \"E_FAILED\"}, {\"edge_id\": \"D1_ok_G_ROUTE\", \"source\": \"N1\", \"source_port\": \"ok\", \"target\": \"G_ROUTE\"}, {\"edge_id\": \"D1_blocked_E_FAILED\", \"source\": \"N1\", \"source_port\": \"blocked\", \"target\": \"E_FAILED\"}, {\"edge_id\": \"D1_error_E_FAILED\", \"source\": \"N1\", \"source_port\": \"error\", \"target\": \"E_FAILED\"}, {\"edge_id\": \"G_ROUTE_ASK_A_ASK\", \"source\": \"G_ROUTE\", \"source_port\": \"ASK\", \"target\": \"A_ASK\"}, {\"edge_id\": \"G_ROUTE_AUTH_E_AUTH\", \"source\": \"G_ROUTE\", \"source_port\": \"AUTH\", \"target\": \"E_AUTH\"}, {\"edge_id\": \"G_ROUTE_OTHER_E_OTHER\", \"source\": \"G_ROUTE\", \"source_port\": \"OTHER\", \"target\": \"E_OTHER\"}, {\"edge_id\": \"G_ROUTE_CONTINUE_E_NEXT\", \"source\": \"G_ROUTE\", \"source_port\": \"CONTINUE\", \"target\": \"E_NEXT\"}, {\"edge_id\": \"G_ROUTE_error_E_FAILED\", \"source\": \"G_ROUTE\", \"source_port\": \"error\", \"target\": \"E_FAILED\"}, {\"edge_id\": \"A_ASK_ok_W_ANSWER\", \"source\": \"A_ASK\", \"source_port\": \"ok\", \"target\": \"W_ANSWER\"}, {\"edge_id\": \"A_ASK_error_E_FAILED\", \"source\": \"A_ASK\", \"source_port\": \"error\", \"target\": \"E_FAILED\"}, {\"edge_id\": \"A_ASK_blocked_E_FAILED\", \"source\": \"A_ASK\", \"source_port\": \"blocked\", \"target\": \"E_FAILED\"}, {\"edge_id\": \"W_ANSWER_received_E_RETRY\", \"source\": \"W_ANSWER\", \"source_port\": \"received\", \"target\": \"E_RETRY\"}, {\"edge_id\": \"W_ANSWER_timeout_E_TIMEOUT\", \"source\": \"W_ANSWER\", \"source_port\": \"timeout\", \"target\": \"E_TIMEOUT\"}, {\"edge_id\": \"W_ANSWER_cancelled_E_CANCEL\", \"source\": \"W_ANSWER\", \"source_port\": \"cancelled\", \"target\": \"E_CANCEL\"}, {\"edge_id\": \"W_ANSWER_error_E_FAILED\", \"source\": \"W_ANSWER\", \"source_port\": \"error\", \"target\": \"E_FAILED\"}], \"nodes\": [{\"category\": \"EVENT\", \"kind\": \"START\", \"name\": \"S\", \"node_id\": \"S\", \"ports\": [\"ok\"]}, {\"category\": \"GATEWAY\", \"kind\": \"PARALLEL\", \"mode\": \"SPLIT\", \"name\": \"F\", \"node_id\": \"F\", \"pair_ref\": \"J\", \"ports\": [\"context\", \"history\"]}, {\"capability_ref\": \"demo.case_context@1.0.0\", \"category\": \"EXECUTION\", \"input_bindings\": {\"ticket_id\": {\"from\": {\"path\": [\"ticket_id\"], \"source\": \"context\"}}}, \"kind\": \"QUERY\", \"name\": \"Q_CONTEXT\", \"node_id\": \"Q_CONTEXT\", \"ports\": [\"ok\", \"blocked\", \"error\"], \"requires_intent\": false}, {\"capability_ref\": \"demo.history@1.0.0\", \"category\": \"EXECUTION\", \"input_bindings\": {\"ticket_id\": {\"from\": {\"path\": [\"ticket_id\"], \"source\": \"context\"}}}, \"kind\": \"QUERY\", \"name\": \"Q_HISTORY\", \"node_id\": \"Q_HISTORY\", \"ports\": [\"ok\", \"blocked\", \"error\"], \"requires_intent\": false}, {\"category\": \"GATEWAY\", \"failure_policy\": \"CANCEL_REMAINING\", \"join_policy\": \"ALL_SUCCESS\", \"kind\": \"PARALLEL\", \"mode\": \"JOIN\", \"name\": \"J\", \"node_id\": \"J\", \"pair_ref\": \"F\", \"ports\": [\"ok\", \"error\"]}, {\"category\": \"EXECUTION\", \"input_bindings\": {\"met_driver\": {\"from\": {\"path\": [\"parameters\", \"met_driver\"], \"source\": \"context\"}, \"source_format\": \"PARAMETER\"}, \"order_id\": {\"from\": {\"node_id\": \"Q_CONTEXT\", \"path\": [\"query\", \"data\", \"order_id\"], \"source\": \"node\"}, \"source_format\": \"VALUE\"}, \"other_information_complete\": {\"from\": {\"node_id\": \"Q_HISTORY\", \"path\": [\"query\", \"data\", \"other_information_complete\"], \"source\": \"node\"}, \"source_format\": \"PARAMETER\"}}, \"kind\": \"DECISION\", \"model_ref\": \"demo.meeting@1.0.0\", \"name\": \"N1\", \"node_id\": \"N1\", \"ports\": [\"ok\", \"blocked\", \"error\"]}, {\"category\": \"GATEWAY\", \"kind\": \"EXCLUSIVE\", \"mode\": \"SPLIT\", \"name\": \"G_ROUTE\", \"node_id\": \"G_ROUTE\", \"ports\": [\"ASK\", \"AUTH\", \"CONTINUE\", \"OTHER\", \"error\"], \"selector\": {\"node_id\": \"N1\", \"source\": \"DECISION_CONTROL\"}}, {\"action_kind\": \"INTERACTION\", \"action_ref\": \"demo.ask_meeting@1\", \"category\": \"EXECUTION\", \"input_bindings\": {\"order_id\": {\"from\": {\"path\": [\"order_id\", \"value\"], \"source\": \"parameters\"}}, \"question_ref\": {\"literal\": \"demo.ask_meeting@1\"}}, \"kind\": \"ACTION\", \"name\": \"A_ASK\", \"node_id\": \"A_ASK\", \"ports\": [\"ok\", \"blocked\", \"error\"]}, {\"category\": \"EVENT\", \"correlation_fields\": [\"workflow_run_id\", \"step_run_id\", \"attempt_id\", \"intent_id\"], \"event_bindings\": {\"met_driver\": {\"from\": {\"path\": [\"met_driver\"], \"source\": \"event\"}, \"source_format\": \"VALUE\"}}, \"event_schema\": {\"additionalProperties\": false, \"properties\": {\"met_driver\": {\"type\": \"boolean\"}}, \"required\": [\"met_driver\"], \"type\": \"object\"}, \"event_type\": \"demo.meeting_answer.v1\", \"kind\": \"WAIT\", \"name\": \"W_ANSWER\", \"node_id\": \"W_ANSWER\", \"ports\": [\"received\", \"timeout\", \"cancelled\", \"error\"], \"pre_register_before\": \"A_ASK\", \"timeout_ms\": 300000}, {\"category\": \"EVENT\", \"exit_ref\": \"NEXT\", \"kind\": \"END\", \"name\": \"E_NEXT\", \"node_id\": \"E_NEXT\", \"ports\": []}, {\"category\": \"EVENT\", \"exit_ref\": \"AUTH\", \"kind\": \"END\", \"name\": \"E_AUTH\", \"node_id\": \"E_AUTH\", \"ports\": []}, {\"category\": \"EVENT\", \"exit_ref\": \"OTHER\", \"kind\": \"END\", \"name\": \"E_OTHER\", \"node_id\": \"E_OTHER\", \"ports\": []}, {\"category\": \"EVENT\", \"exit_ref\": \"RETRY\", \"kind\": \"END\", \"name\": \"E_RETRY\", \"node_id\": \"E_RETRY\", \"ports\": []}, {\"category\": \"EVENT\", \"exit_ref\": \"TIMEOUT\", \"kind\": \"END\", \"name\": \"E_TIMEOUT\", \"node_id\": \"E_TIMEOUT\", \"ports\": []}, {\"category\": \"EVENT\", \"exit_ref\": \"CANCEL\", \"kind\": \"END\", \"name\": \"E_CANCEL\", \"node_id\": \"E_CANCEL\", \"ports\": []}, {\"category\": \"EVENT\", \"exit_ref\": \"FAILED\", \"kind\": \"END\", \"name\": \"E_FAILED\", \"node_id\": \"E_FAILED\", \"ports\": []}]}, \"main_decision_node\": \"N1\", \"max_attempts\": 3, \"name\": \"确认是否碰面（合成结构样板）\", \"profile\": \"decision-step-v2\", \"purpose\": \"示范先查询、单决策、分流、提问等待和重入；不包含完整生产授权政策。\", \"reentry_exhausted_exit\": \"FAILED\", \"step_id\": \"P3.S1\", \"version\": \"1.0.0\"}]}, {\"entry_step\": \"P4.S1\", \"phase_id\": \"P4\", \"steps\": [{\"entry_node\": \"S\", \"exits\": {\"DONE\": {\"class\": \"RETURN\", \"destination\": {\"kind\": \"RETURN\", \"outcome\": \"DEMO_FRAGMENT_COMPLETED\"}}, \"ERROR\": {\"class\": \"TECHNICAL\", \"destination\": {\"kind\": \"RETURN\", \"outcome\": \"ERROR\"}}}, \"graph\": {\"edges\": [{\"edge_id\": \"S_ok_D\", \"source\": \"S\", \"source_port\": \"ok\", \"target\": \"D\"}, {\"edge_id\": \"D_ok_G\", \"source\": \"D\", \"source_port\": \"ok\", \"target\": \"G\"}, {\"edge_id\": \"D_blocked_E_ERR\", \"source\": \"D\", \"source_port\": \"blocked\", \"target\": \"E_ERR\"}, {\"edge_id\": \"D_error_E_ERR\", \"source\": \"D\", \"source_port\": \"error\", \"target\": \"E_ERR\"}, {\"edge_id\": \"G_error_E_ERR\", \"source\": \"G\", \"source_port\": \"error\", \"target\": \"E_ERR\"}, {\"edge_id\": \"G_DONE_E_DONE\", \"source\": \"G\", \"source_port\": \"DONE\", \"target\": \"E_DONE\"}], \"nodes\": [{\"category\": \"EVENT\", \"kind\": \"START\", \"name\": \"S\", \"node_id\": \"S\", \"ports\": [\"ok\"]}, {\"category\": \"EXECUTION\", \"input_bindings\": {}, \"kind\": \"DECISION\", \"model_ref\": \"demo.end@1\", \"name\": \"D\", \"node_id\": \"D\", \"ports\": [\"ok\", \"blocked\", \"error\"]}, {\"category\": \"GATEWAY\", \"kind\": \"EXCLUSIVE\", \"mode\": \"SPLIT\", \"name\": \"G\", \"node_id\": \"G\", \"ports\": [\"DONE\", \"error\"], \"selector\": {\"node_id\": \"D\", \"source\": \"DECISION_CONTROL\"}}, {\"category\": \"EVENT\", \"exit_ref\": \"ERROR\", \"kind\": \"END\", \"name\": \"E_ERR\", \"node_id\": \"E_ERR\", \"ports\": []}, {\"category\": \"EVENT\", \"exit_ref\": \"DONE\", \"kind\": \"END\", \"name\": \"E_DONE\", \"node_id\": \"E_DONE\", \"ports\": []}]}, \"main_decision_node\": \"D\", \"max_attempts\": 1, \"name\": \"结构样例的末端；不进行真实判责或处置\", \"profile\": \"decision-step-v2\", \"purpose\": \"结构样例的末端；不进行真实判责或处置\", \"reentry_exhausted_exit\": \"ERROR\", \"step_id\": \"P4.S1\", \"version\": \"1.0.0\"}]}], \"scene_ref\": \"driver_no_pickup@1.0.0\", \"scope\": \"EXAMPLE_FRAGMENT\", \"version\": \"1.0.0\", \"workflow_id\": \"SOLUTION\"}]}"
+            },
+            "node_ref": {
+              "type": "constant",
+              "value": "{\"node_id\": \"N1\", \"phase_id\": \"P3\", \"step_id\": \"P3.S1\", \"workflow_id\": \"SOLUTION\"}"
+            }
+          },
+          "tool_parameters": {
+            "inputs_json": {
+              "type": "variable",
+              "value": [
+                "solution_node_2",
+                "inputs"
+              ]
+            },
+            "execution_context_json": {
+              "type": "variable",
+              "value": [
+                "solution_node_2",
+                "context"
+              ]
+            }
+          }
+        },
+        "position": {
+          "x": 1200,
+          "y": 0
+        }
+      },
+      {
+        "id": "solution_project",
+        "type": "custom",
+        "data": {
+          "type": "code",
+          "title": "P3.S1.N2 · Synthetic status check",
+          "desc": "psn:SOLUTION.coupon-use/P3.S1.N2",
+          "code_language": "python3",
+          "code": "def main(r):\n    if r.get('execution_status') != 'SUCCEEDED':\n        return {'gap': 'GAP_DMN_FAILED'}\n    return {'ok': True}\n",
+          "variables": [
+            {
+              "variable": "r",
+              "value_selector": [
+                "solution_decision",
+                "results"
+              ]
+            }
+          ],
+          "outputs": {
+            "ok": {
+              "type": "boolean"
+            }
+          }
+        },
+        "position": {
+          "x": 1500,
+          "y": 0
+        }
+      },
+      {
+        "id": "solution_end",
+        "type": "custom",
+        "data": {
+          "type": "end",
+          "title": "Synthetic end",
+          "desc": "",
+          "outputs": []
+        },
+        "position": {
+          "x": 1800,
+          "y": 0
+        }
+      }
+    ],
+    "edges": [
+      {
+        "id": "solution_start-source-solution_node_1",
+        "type": "custom",
+        "source": "solution_start",
+        "target": "solution_node_1",
+        "sourceHandle": "source",
+        "targetHandle": "target",
+        "data": {}
+      },
+      {
+        "id": "solution_node_1-source-synthetic_moved",
+        "type": "custom",
+        "source": "solution_node_1",
+        "target": "synthetic_moved",
+        "sourceHandle": "source",
+        "targetHandle": "target",
+        "data": {}
+      },
+      {
+        "id": "synthetic_moved-source-solution_node_2",
+        "type": "custom",
+        "source": "synthetic_moved",
+        "target": "solution_node_2",
+        "sourceHandle": "source",
+        "targetHandle": "target",
+        "data": {}
+      },
+      {
+        "id": "solution_node_2-source-solution_decision",
+        "type": "custom",
+        "source": "solution_node_2",
+        "target": "solution_decision",
+        "sourceHandle": "source",
+        "targetHandle": "target",
+        "data": {}
+      },
+      {
+        "id": "solution_decision-source-solution_project",
+        "type": "custom",
+        "source": "solution_decision",
+        "target": "solution_project",
+        "sourceHandle": "source",
+        "targetHandle": "target",
+        "data": {}
+      },
+      {
+        "id": "solution_project-source-solution_end",
+        "type": "custom",
+        "source": "solution_project",
+        "target": "solution_end",
+        "sourceHandle": "source",
+        "targetHandle": "target",
+        "data": {}
+      },
+      {
+        "id": "synthetic_moved-fail-branch-solution_end",
+        "type": "custom",
+        "source": "synthetic_moved",
+        "target": "solution_end",
+        "sourceHandle": "fail-branch",
+        "targetHandle": "target",
+        "data": {}
+      },
+      {
+        "id": "solution_decision-fail-branch-solution_end",
+        "type": "custom",
+        "source": "solution_decision",
+        "target": "solution_end",
+        "sourceHandle": "fail-branch",
+        "targetHandle": "target",
+        "data": {}
+      }
+    ]
+  }
+}
