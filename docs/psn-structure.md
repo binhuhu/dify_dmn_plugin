@@ -1,6 +1,36 @@
-# PSN structure v1（第 1 项）
+# PSN structure v1
 
-这是离线结构注册表：Process → workflows → phases → steps → nodes。只提供 schema 和单份快照校验，不读取或改写 Dify 图，不执行 DMN，也不分配编号。本项按 2026-10-15 最新修订包含 R6；后续 `check`、`stamp`、`assign/diff` 和运行时改动尚未实现。
+PSN 结构是一份离线注册表，层级是 Process → workflows → phases → steps → nodes。它给每个节点一个稳定编号，不随 Dify 图的发布、版本和 id 变化。
+
+围绕它的工具都是离线的，只读写本地文件：
+- `validate_structure`：结构校验（第 1 项）；
+- `python -m dmn_client.psn check`：图对结构（第 2 项）；
+- `psn stamp` / `psn from-graph`：把编号写进图，再读回来（第 3 项）；
+- `psn assign` / `psn diff`：只增不改地分配编号（第 4 项）。
+
+运行时只多一个只读回显 `trace.psn_ref`（第 5 项）。查看器可以导入结构（第 6 项）。
+
+## 规则一览
+
+| 规则 | 内容 | 由谁把关 |
+| --- | --- | --- |
+| R1 稳定 id | workflow 键 `^[A-Z]+(\.[a-z0-9-]+)?$`；每个 workflow 声明固定 phase 列表；step `{Phase}.S{n}`；node `N{m}`；`node_key` 是 Dify 节点 id，纯数字报 `UNSTABLE_NODE_KEY` | `validate_structure` |
+| R2 只增不改 | S、N 一经分配不改、不复用；删除 = retired 墓碑；换 Step = 墓碑 + 新号 + `moved_to`；显示顺序用 `order`，与号码无关 | 单份快照：`validate_structure`；前后两版：`psn diff`，新号由 `psn assign` 分配 |
+| R3 结构里没有版本 | 任何层级出现版本、发布或平台身份字段即失败（`VERSION_FIELD_IN_STRUCTURE`），字段清单见下文 | `validate_structure`、查看器导入 |
+| R4 层级 | DELIVERY 是 PROCESS，其余是 WORKFLOW；状态 ACTIVE / PAUSED；P6、P7 只在 HANDLE | `validate_structure` |
+| R5 一致 | 决策节点的 `node_ref` 与它在结构里的编号一致 | `psn check`：`NODE_REF_MISMATCH`、`NODE_REF_UNRESOLVABLE` |
+| R6 实例键与编号族 | 结构和给人看的编号用实例键（`SOLUTION.coupon-use/P4.S2.N3`）；DMN `node_ref.workflow_id` 用编号族（`SOLUTION`） | `psn check`；运行时 `psn_ref` 用编号族形式 |
+
+W1–W9 是 10-16 的合并修订，散在各节里：
+- W1：GATE / EVENT 节点不编号，但仍归属 Step；
+- W2：workflow 键与编号族，即 R6；
+- W3：R3 只扫描结构实例；
+- W4：`NODE_REF_UNRESOLVABLE`；
+- W5：`FAIL_BRANCH_DANGLING`；
+- W6：stamp 不写 `node_ref`；
+- W7：标题前缀的替换规则；
+- W8：只增不改的分配；
+- W9：迁移可以跨 workflow。
 
 ## 结构与实例身份（R1、R4、R6）
 
@@ -31,13 +61,13 @@ phase 字段：`id`、`name`、`steps`。step 字段：`id`、`name`、`nodes`�
 | `moved_to` | 仅编号节点的 retired 墓碑可带，指向同一文件内另一 Step 中同一 node_key 的完整实例 ref；目标可以在另一个 workflow（W9），因为实例 ref 已经带 workflow 键 |
 | `name` | 非空显示名 |
 
-开始、结束、if-else、iteration-start、loop-start 不分配 PSN 编号；本项没有图节点类型映射或图覆盖检查，不能据此判断某个真实节点是否应该出现在注册表。
+开始、结束、if-else、iteration-start、loop-start 不分配 PSN 编号。Dify 节点类型与 kind 的对应，以及图有没有覆盖结构，见下文 `psn check` 一节。
 
 ## 不重号与墓碑（R2）
 
 S、N 一经分配不改、不复用。新增节点应使用该 Step 已分配号码（含 retired）之后的新号，`order` 与号码独立。删除保留 `retired`、原因和旧 ref；迁移保留旧墓碑并以 `moved_to` 指向新号。目标可以随后再次迁移或退休，形成无环、无合流的历史链；同一 workflow 内重复 node_key 只有在同一条已记录迁移链上才合法；不编号节点没有迁移链，它的 node_key 在同一 workflow 内不得重复。迁移目标必须存在且属于另一 Step，不能通过改写 node_key 偷换身份。
 
-校验器检查当前快照的重复 Step、重复 ref、retired ref 被复用、断裂/循环迁移及重复身份。**单份快照无法证明历史上的墓碑未被删除、旧号未被改写或重新启用**；必须保存可信前版，第 4 项再实现历史 diff 与 assign。第 1 项不接受 `previous` 参数，也不声称完成历史 R2 验证。
+校验器检查当前快照的重复 Step、重复 ref、retired ref 被复用、断裂/循环迁移及重复身份。**单份快照无法证明历史上的墓碑未被删除、旧号未被改写或重新启用**；前后两版的比对用第 4 项的 `psn diff`，新号用 `psn assign` 分配，见下文。
 
 ## 结构与 DMN 引用（修订 R5、R6）
 
@@ -47,11 +77,16 @@ S、N 一经分配不改、不复用。新增节点应使用该 Step 已分配�
 {"workflow_id":"SOLUTION","phase_id":"P4","step_id":"P4.S2","node_id":"N3"}
 ```
 
-这里的 `workflow_id` 是**家族名**，不是 `SOLUTION.coupon-use`。未来 R5 比对使用家族名 + phase + step + node。仓内现有 [`resolve_node`](../plugin/dmn_client/node_contract.py) 精确比较定义包的 `workflows[].workflow_id`；新增合成测试直接调用原函数，证明家族名能解析、实例键不能冒充家族名。现有 resolver、evaluate_decision 和工具参数均未修改，结构校验器也不调用它们。
+这里的 `workflow_id` 是**家族名**，不是 `SOLUTION.coupon-use`。R5 比对使用家族名 + phase + step + node。
+
+仓内的 [`resolve_node`](../plugin/dmn_client/node_contract.py) 精确比较定义包的 `workflows[].workflow_id`。合成测试直接调用这个函数，证明家族名能解析，实例键不能冒充家族名。`psn check` 用这个函数逐个解析图里决策节点自带的定义包。resolver 和工具参数没有改动。`evaluate_decision` 只新增了 `trace.psn_ref` 回显（第 5 项）。
 
 “现网 43 个决策节点的内嵌定义包写 SOLUTION、使用 default-value”是用户提供的**宿主观测，非本仓验证**；本项不访问宿主或处理该缺陷。
 
-后续约束仅记录，不提前实现：第 2 项必须真正调用插件 `resolve_node` 校验内嵌定义包，失败报 `NODE_REF_UNRESOLVABLE`；第 3 项 stamp 不改 DMN `node_ref`，不一致报 `NODE_REF_MISMATCH` 并停止，且同一输入的 evaluate_decision 状态/结果前后不变；第 5 项运行时 workflow_id 语法为 `^[A-Z]+$`，回显 `psn_ref` 用家族形式，因为插件不知道实例键。
+这些约束已经在第 2、3、5 项实现，见对应各节：
+- 第 2 项用 `resolve_node` 解析内嵌定义包，解析不到时报 `NODE_REF_UNRESOLVABLE`；
+- 第 3 项 stamp 不改 `node_ref`，遇到不一致就停下，并保证 `evaluate_decision` 的结果前后不变；
+- 第 5 项的 `psn_ref` 用编号族形式。
 
 ## 禁止部署字段（R3）
 
@@ -156,6 +191,19 @@ python -m dmn_client.psn from-graph --graph STAMPED --workflow KEY [--structure 
 
 `from-graph` 从已写编号的图里，按描述中的 psn 行读回编号节点的骨架（step、node_key、ref、kind），可以和结构的骨架比对。不编号节点不带 psn 行，读回时跳过。
 
+**stamp 前后对照**（实例键为 `SOLUTION.coupon-use`；以下取自 `plugin/tests/test_psn_stamp.py` 的合成用例）：
+
+| 节点 | stamp 前 `title` | stamp 后 `title` | stamp 后 `desc` 最后一行 |
+| --- | --- | --- | --- |
+| 编号节点，旧式 Step 前缀 | `P1.S1：old step name` | `P1.S1.N1 · old step name` | `psn:SOLUTION.coupon-use/P1.S1.N1` |
+| 编号节点，旧式阶段前缀 | `P1：old phase name` | `P1.S2.N1 · old phase name` | `psn:SOLUTION.coupon-use/P1.S2.N1` |
+| 编号节点，只有阶段码 | `P1` | `P3.S1.N1` | `psn:SOLUTION.coupon-use/P3.S1.N1` |
+| 编号节点，区间前缀 | `P1–P5 whole chain` | `P3.S1.N2 · whole chain` | `psn:SOLUTION.coupon-use/P3.S1.N2` |
+| 编号节点，旧编号写错了 | `P9.S9.N9 · already stamped wrong` | `P1.S2.N2 · already stamped wrong` | `psn:SOLUTION.coupon-use/P1.S2.N2` |
+| GATE / EVENT 节点 | 任意 | 不动 | 不动 |
+
+stamp 前描述里的其他文字原样保留，只把旧的 psn 行换掉。比如 `keeps this` / `psn:…/P9.S9.N9` / `and this` 三行，stamp 后变成 `keeps this` / `and this` / `psn:SOLUTION.coupon-use/P1.S1.N1`。决策节点的 `tool_configurations.node_ref` 和定义包一个字节都不变。
+
 ## 只增不改的编号：`psn assign` / `psn diff`（第 4 项）
 
 ```sh
@@ -195,3 +243,42 @@ python -m dmn_client.psn diff --old S --new S2 [--json]
 - 全结构可以按编号搜索。
 
 文件里出现 R3 版本类字段时拒绝导入，并给出字段路径。详见 [structure-viewer.md](structure-viewer.md)。
+
+## Dify 字段对照
+
+| 结构字段 | Dify 图里的位置 | 说明 |
+| --- | --- | --- |
+| `node_key` | `graph.nodes[].id` | 身份键，不随发布变化；纯数字 id 报 `UNSTABLE_NODE_KEY` |
+| `kind` | `data.type`；工具节点再看 `provider_name` / `provider_id`（决策插件 → DECISION）和 `provider_type`（workflow → CALL） | 对应表见 `psn check` 一节 |
+| `ref`（实例键形式） | `data.title` 前缀 `<Phase>.S<n>.N<m> · `，以及 `data.desc` 最后一行 `psn:<实例 ref>` | 由 `psn stamp` 写，`NOT_STAMPED` 检查 |
+| R6 编号族形式 | 决策节点 `data.tool_configurations.node_ref`（或 `tool_parameters` 里的常量），`{"workflow_id":"SOLUTION","phase_id":"P4","step_id":"P4.S2","node_id":"N3"}` | 与节点自带的 `definition_bundle_json` 同号；由生成节点的构建脚本连同定义包一起写，stamp 不写 |
+| — | `data.error_strategy`、`edges[].sourceHandle == "fail-branch"` | `SILENT_DMN_DEFAULT`、`FAIL_BRANCH_DANGLING` 检查，见下一节 |
+| workflow `key` / `status` | 不在图里 | 键与 Dify app 的绑定、发布版本和哈希都放在证据或台账里（R3） |
+
+## 决策节点出错时：用 fail-branch，并在下游核对状态
+
+决策插件有两种「没判出来」。
+
+1. **插件本身出错**（崩溃、超时）：Dify 按节点的 `error_strategy` 处理。
+   - 用 `default-value` 时，默认值（常见是 `[]`）替代整个输出，下游看到的是「没命中」，错误被吞掉（`SILENT_DMN_DEFAULT`）。
+   - **推荐 `error_strategy: fail-branch`**，并从 `sourceHandle: fail-branch` 连一条边到显式的处理节点：记录、转人工或返回明确的失败结果。只设 fail-branch 而不连边会报 `FAIL_BRANCH_DANGLING`。
+2. **插件正常返回但没判出来**：节点成功，输出变量 `execution_status` 是 BLOCKED / FAILED / PENDING / UNKNOWN / CANCELLED / SKIPPED，`state` 为空、`data` 为 `{}`、`actions` 为 `[]`。这种情况不走 fail-branch，**必须由下游代码节点读 `execution_status` 分流**（`DMN_STATUS_UNCHECKED` 会提示没核对的节点）。
+
+下游代码节点的写法示意。变量选择器取决策节点（id 为 `<决策节点 id>`）的 `execution_status` 和 `state`：
+
+```python
+def main(execution_status: str, state: str) -> dict:
+    if execution_status != "SUCCEEDED":
+        # 没判出来：显式走失败出口，不当作「没命中」
+        return {"route": "decision_not_succeeded", "execution_status": execution_status}
+    return {"route": state, "execution_status": execution_status}
+```
+
+后面再接 if-else，按 `route` 分流。不要在下游把空结果当作「没有命中规则」。没命中应该由决策结果本身表达，比如规则表里的兜底规则或明确的输出，不要从空输出推断。
+
+## 规则数上限
+
+- 一张 DSL v2 决策表最多 128 条规则。第 129 条起，`evaluate_decision` 返回 `execution_status: FAILED`，错误码是 `DEFINITION_LIMIT_EXCEEDED`。
+- json-table-v1 表要求 1 到 128 条规则，否则返回 `INVALID_TABLE`（`Expected 1..128 rules.`）。
+
+两处边界都有测试，见 `plugin/tests/test_rule_limits.py`：128 条照常求值，129 条被拒。
