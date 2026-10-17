@@ -6,6 +6,8 @@ It must never be obtained from dynamic tool JSON.
 """
 
 import hashlib
+import json
+import re
 from copy import deepcopy
 from datetime import datetime
 
@@ -28,6 +30,36 @@ BLOCKING = {
 
 def fail(code, message, path="", stage="decision"):
     raise ContractError(code, message, path=path, stage=stage)
+
+
+_PSN_FAMILY = re.compile(r"^[A-Z]+$")
+_PSN_PHASE = re.compile(r"^[A-Z][1-9][0-9]*$")
+_PSN_NODE = re.compile(r"^N[1-9][0-9]*$")
+
+
+def psn_ref(node_ref):
+    """`SOLUTION/P4.S2.N3` when node_ref uses the PSN family form, else None.
+
+    Read-only echo for traces. The plugin does not know the structure's instance key
+    (SOLUTION.coupon-use), so it echoes the family form; references in other forms are
+    still evaluated as before and simply carry no psn_ref.
+    """
+    if isinstance(node_ref, str):
+        try:
+            node_ref = json.loads(node_ref)
+        except ValueError:
+            return None
+    if not isinstance(node_ref, dict):
+        return None
+    family, phase = node_ref.get("workflow_id"), node_ref.get("phase_id")
+    step, node = node_ref.get("step_id"), node_ref.get("node_id")
+    if not all(isinstance(x, str) for x in (family, phase, step, node)):
+        return None
+    if not (_PSN_FAMILY.match(family) and _PSN_PHASE.match(phase) and _PSN_NODE.match(node)):
+        return None
+    if not re.fullmatch(re.escape(phase) + r"\.S[1-9][0-9]*", step):
+        return None
+    return f"{family}/{step}.{node}"
 
 
 def _time(value):
@@ -319,6 +351,9 @@ def evaluate_decision(
         "rules": [],
         "trust": "CONTENT_ONLY_NOT_AUTHORIZATION",
     }
+    echo = psn_ref(node_ref)
+    if echo is not None:
+        trace["psn_ref"] = echo
     try:
         prepared = prepare_invocation(
             definition_bundle_json,

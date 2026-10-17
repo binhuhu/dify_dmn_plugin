@@ -178,4 +178,12 @@ python -m dmn_client.psn diff --old S --new S2 [--json]
 - `RETIRED_REF_REVIVED`：墓碑又变回 ACTIVE；
 - `RENUMBERED`：同一个 node_key 没有迁移记录就换了号。
 
-运行时 psn_ref 和查看器在后面各项。既有版本清单不修改，不发布新版本。
+## 运行时回显编号：`trace.psn_ref`（第 5 项，0.4.2 候选）
+
+`evaluate_decision` 的结果里，`trace` 多一个只读字段 `psn_ref`，格式是编号族形式的编号，比如 `SOLUTION/P3.S1.N1`。插件不知道结构里的实例键（`SOLUTION.coupon-use`），实例键由结构文件映射。成功和失败的结果都带。
+
+只有当 `node_ref` 是编号族形式（`workflow_id` 匹配 `^[A-Z]+$`，phase、step、node 符合编号语法）时才回显；其他写法（比如仓库示例里的 `demo.solve` / `D1`）照旧求值，只是不带 `psn_ref`，结果与 0.4.1 逐字节相同。
+
+**与工单第 5 项原文不同的一处：** 原文要求对不合语法的 node_ref 返回新码 `NODE_REF_INVALID`。这样会让仓库自带示例和任何不用编号形式的使用方一律失败，与同一项的验收「仓内所有 examples 新旧版本重放，除新增 psn_ref 外逐字节一致」矛盾。所以只回显、不拒绝。编号形式是否正确，由离线的 `psn check`（`NODE_REF_MISMATCH` / `NODE_REF_UNRESOLVABLE`）把关。
+
+查看器在后面一项。
