@@ -85,7 +85,7 @@ checksum = hashlib.sha256(b''.join(
 
 两种摘要不等同。核验脚本与逐文件结果保存在本执行环境 `/workspace/release-042-evidence/`；包保留于上述 build 路径，未重打包。
 
-## 4. tag 成功；Release 上传阻塞
+## 4. 首次尝试：tag 成功；Release 上传 401（历史记录）
 
 ```bash
 git tag -a v0.4.2 09a394a321ae18a3f900457bd54d9ce15a2b1027 -m 'v0.4.2: PSN structure tooling and trace identity'
@@ -100,7 +100,7 @@ HTTP 401: Bad credentials (https://uploads.github.com/repos/binhuhu/dify_dmn_plu
 Try authenticating with:  gh auth login
 ```
 
-`gh api .../releases/415747304` 返回 404；`gh release view v0.4.2` 输出 `release not found`；release 列表没有 v0.4.2。当前无已发布 Release、无资产，不能标发布完成或提供成功的 Release URL。Git/API 鉴权可用，上传域鉴权未解决；现有连接器无资产上传操作，未绕道创建 release-assets 分支。
+`gh api .../releases/415747304` 返回 404；`gh release view v0.4.2` 输出 `release not found`；release 列表没有 v0.4.2。该次尝试后无已发布 Release、无资产，当时未标发布完成。Git/API 鉴权可用，但上传域返回 401；现有连接器无资产上传操作，未绕道创建 release-assets 分支。后续普通浏览器发布恢复及独立下载验证见第 6 节。
 
 `git ls-remote origin 'refs/tags/v0.4.2*'` 原样输出：
 
@@ -111,8 +111,48 @@ Try authenticating with:  gh auth login
 
 ## 5. 不受阻塞影响的文档 / PR 收尾
 
-仅更新 `docs/releases/v0.4.2.md` 与本回执，实际结果写为“已打包；Release 上传阻塞”。收尾提交 SHA 与最终 main SHA 在交接消息给出；tag 固定指向 09a394a，不随文档提交移动。
+首次仅文档收尾提交 `edba136ec2a5ebb76e8a297cfbf5de3e32bad9a3` 只更新 `docs/releases/v0.4.2.md` 与本回执，当时如实写为“已打包；Release 上传阻塞”。tag 固定指向 09a394a，不随文档提交移动。
 
 PR #7 随 fast-forward 被 GitHub 自动标记 MERGED（2026-10-17T10:41:34Z）；不对已合入 PR 再做 merge/close。按要求对 #7、#8 留言“内容已随 main 09a394a 合入（WO-20261015 第 0–7 项）”，执行 `gh pr close 8`，不删除分支。未修改其他 tag / Release；前后既有 Release metadata/assets 一致。
 
-待继续：修复当前执行环境的 Release 上传鉴权，再复用已核验文件和现有 tag 完成唯一资产 Release。本单未访问 AgentHub、Dify 或 GCP。目标安装/升级、真实调用、上传后的资产读回均**未验证**。
+该阶段待办为恢复发布；随后按第 6 节经浏览器完成，上传后的资产已独立读回核实。CLI 上传鉴权是否恢复仍未验证。本单未访问 AgentHub、Dify 或 GCP；目标安装/升级、真实调用仍**未验证**。
+
+## 6. 浏览器发布恢复与最终独立核验
+
+父任务通过同账户正常浏览器路径发布，随后本执行环境只读核验，不再次创建 Release、上传资产、移动 tag 或重复评论 PR。Release：[v0.4.2](https://github.com/binhuhu/dify_dmn_plugin/releases/tag/v0.4.2)。
+
+```bash
+gh release view v0.4.2 --json url,isDraft,isPrerelease,tagName,assets,targetCommitish
+gh release download v0.4.2 -p hu8627-dmn_json-0.4.2.difypkg -D /workspace/release-042-evidence/downloaded
+sha256sum /workspace/release-042-evidence/downloaded/hu8627-dmn_json-0.4.2.difypkg
+/workspace/release-042-evidence/tool/dify-plugin-linux-amd64 plugin checksum /workspace/release-042-evidence/downloaded/hu8627-dmn_json-0.4.2.difypkg
+```
+
+API 实测：`isDraft=false`，`isPrerelease=false`；资产数 1，asset ID `650241029`，name `hu8627-dmn_json-0.4.2.difypkg`，size 111394，state `uploaded`。`targetCommitish=main` 不取代 tag 解引用核验，v0.4.2 仍指向精确 09a394a。命令 exit 0；关键原样输出：
+
+```text
+5882206d1b9b0bc9e597929286ffabfc985899156ee4c8dce6e819c2fb9085ec  /workspace/release-042-evidence/downloaded/hu8627-dmn_json-0.4.2.difypkg
+2026/10/17 11:00:50 INFO plugin checksum checksum=e7e24e8b412e501d6ddd521155c81899bbf6c00aefaed92229c70c0405bf28f2
+```
+
+对下载文件用第 3 节 Python 算法重新计算，并解析包内 YAML、比较原包字节，原样结果：
+
+```json
+{
+  "assets": 1,
+  "size_bytes": 111394,
+  "file_sha256": "5882206d1b9b0bc9e597929286ffabfc985899156ee4c8dce6e819c2fb9085ec",
+  "dify_checksum": "e7e24e8b412e501d6ddd521155c81899bbf6c00aefaed92229c70c0405bf28f2",
+  "identity": "hu8627/dmn_json:0.4.2@e7e24e8b412e501d6ddd521155c81899bbf6c00aefaed92229c70c0405bf28f2",
+  "download_equals_original": true,
+  "archive_files": 57
+}
+```
+
+复读 `git ls-remote --tags/--heads` 与 `gh api repos/binhuhu/dify_dmn_plugin/releases --paginate`，与本单发布前快照逐项比较：
+
+```text
+Other tags/releases/assets/branches unchanged; only v0.4.2 added and main advanced
+```
+
+本次恢复收尾仍只改上述两份文档，最终 main/收尾 SHA 与该提交 CI 在交接消息给出。源码验收仍对应第 2 节精确 09a394a 的两项成功 CI；不会用后继文档 CI 替代包源码 CI。PR #7/#8 不重复操作。已发布资产验证完成，未声明宿主验收通过。
