@@ -389,7 +389,10 @@
           "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,63}$"
         },
         "ref": {
-          "type": "string",
+          "type": [
+            "string",
+            "null"
+          ],
           "pattern": "^[A-Z]+(\\.[a-z0-9-]+)?/[A-Z][1-9][0-9]*\\.S[1-9][0-9]*\\.N[1-9][0-9]*$"
         },
         "kind": {
@@ -401,7 +404,9 @@
             "QUERY",
             "MODEL",
             "JOIN",
-            "LOOP"
+            "LOOP",
+            "GATE",
+            "EVENT"
           ]
         },
         "order": {

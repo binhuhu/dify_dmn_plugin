@@ -23,19 +23,19 @@ phase 字段：`id`、`name`、`steps`。step 字段：`id`、`name`、`nodes`�
 | 字段 | 含义 |
 | --- | --- |
 | `node_key` | 稳定 Dify 节点身份键，`^[A-Za-z][A-Za-z0-9_-]{0,63}$`；纯数字拒绝 |
-| `ref` | 完整实例编号，如 `SOLUTION.coupon-use/P4.S2.N3`；N 从 1 起、不带前导零 |
-| `kind` | DECISION / CALL / TOOL / TRANSFORM / QUERY / MODEL / JOIN / LOOP |
+| `ref` | 完整实例编号，如 `SOLUTION.coupon-use/P4.S2.N3`；N 从 1 起、不带前导零。GATE / EVENT 节点的 `ref` 必须为 `null`，其余 kind 必须有号（W1） |
+| `kind` | DECISION / CALL / TOOL / TRANSFORM / QUERY / MODEL / JOIN / LOOP，以及不编号的 GATE（Dify if-else）和 EVENT（start、end、iteration-start、loop-start） |
 | `order` | 非负整数，独立的显示排序值；不参与身份分配，可有相同值 |
 | `status` | ACTIVE 或 retired（区分大小写） |
 | `retired_reason` | retired 必填且非空白，ACTIVE 不得带此字段 |
-| `moved_to` | 仅 retired 可带，指向同一文件内另一 Step 中同一 node_key 的完整实例 ref |
+| `moved_to` | 仅编号节点的 retired 墓碑可带，指向同一文件内另一 Step 中同一 node_key 的完整实例 ref；目标可以在另一个 workflow（W9），因为实例 ref 已经带 workflow 键 |
 | `name` | 非空显示名 |
 
 开始、结束、if-else、iteration-start、loop-start 不分配 PSN 编号；本项没有图节点类型映射或图覆盖检查，不能据此判断某个真实节点是否应该出现在注册表。
 
 ## 不重号与墓碑（R2）
 
-S、N 一经分配不改、不复用。新增节点应使用该 Step 已分配号码（含 retired）之后的新号，`order` 与号码独立。删除保留 `retired`、原因和旧 ref；迁移保留旧墓碑并以 `moved_to` 指向新号。目标可以随后再次迁移或退休，形成无环、无合流的历史链；同一 workflow 内重复 node_key 只有在同一条已记录迁移链上才合法。迁移目标必须存在且属于另一 Step，不能通过改写 node_key 偷换身份。
+S、N 一经分配不改、不复用。新增节点应使用该 Step 已分配号码（含 retired）之后的新号，`order` 与号码独立。删除保留 `retired`、原因和旧 ref；迁移保留旧墓碑并以 `moved_to` 指向新号。目标可以随后再次迁移或退休，形成无环、无合流的历史链；同一 workflow 内重复 node_key 只有在同一条已记录迁移链上才合法；不编号节点没有迁移链，它的 node_key 在同一 workflow 内不得重复。迁移目标必须存在且属于另一 Step，不能通过改写 node_key 偷换身份。
 
 校验器检查当前快照的重复 Step、重复 ref、retired ref 被复用、断裂/循环迁移及重复身份。**单份快照无法证明历史上的墓碑未被删除、旧号未被改写或重新启用**；必须保存可信前版，第 4 项再实现历史 diff 与 assign。第 1 项不接受 `previous` 参数，也不声称完成历史 R2 验证。
 
@@ -88,7 +88,8 @@ PY
 | INVALID_REF / REF_MISMATCH | ref 格式错误或与所属实例/Step 不一致 |
 | DUPLICATE_WORKFLOW_KEY / DUPLICATE_NODE_KEY | 重复实例或无迁移链的重复节点身份 |
 | DUPLICATE_REF / RETIRED_REF_REUSED | 节点重号，或任一冲突号已被 retired 占用 |
-| INVALID_MOVE | 迁移目标不存在、同 Step、不同身份、合流或环 |
+| UNNUMBERED_NODE_HAS_REF / NUMBERED_NODE_MISSING_REF | GATE / EVENT 带了号，或其他 kind 没有号（W1） |
+| INVALID_MOVE | 迁移目标不存在、同 Step、不同身份、合流或环；不编号节点带 `moved_to` |
 | VERSION_FIELD_IN_STRUCTURE | 结构任何深度含版本/部署身份字段 |
 | INVALID_LEVEL / INVALID_STRUCTURE | 层级错误或其余类型、字段、输入边界错误 |
 

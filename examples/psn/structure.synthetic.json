@@ -16,12 +16,28 @@
             "name": "Synthetic step 1",
             "nodes": [
               {
+                "node_key": "delivery_start",
+                "ref": null,
+                "kind": "EVENT",
+                "order": 0,
+                "status": "ACTIVE",
+                "name": "Synthetic start"
+              },
+              {
                 "node_key": "delivery_node_1",
                 "ref": "DELIVERY/O1.S1.N1",
                 "kind": "TRANSFORM",
                 "order": 10,
                 "status": "ACTIVE",
                 "name": "Synthetic delivery_node_1"
+              },
+              {
+                "node_key": "delivery_mode_gate",
+                "ref": null,
+                "kind": "GATE",
+                "order": 20,
+                "status": "ACTIVE",
+                "name": "Synthetic mode gate"
               }
             ]
           },
@@ -232,6 +248,14 @@
                     "order": 5,
                     "status": "ACTIVE",
                     "name": "Synthetic moved node"
+                  },
+                  {
+                    "node_key": "solution_end",
+                    "ref": null,
+                    "kind": "EVENT",
+                    "order": 90,
+                    "status": "ACTIVE",
+                    "name": "Synthetic end"
                   }
                 ]
               }

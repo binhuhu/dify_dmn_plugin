@@ -357,3 +357,104 @@ def test_validation_does_not_attempt_network(monkeypatch):
     value = sample()
     value["$ref"] = "https://invalid.example/schema"
     assert "INVALID_STRUCTURE" in codes(value)
+
+
+# --- W1: unnumbered GATE / EVENT nodes are placed in a Step without a number ---------------
+
+
+def delivery_step(value):
+    return value["process"]["phases"][0]["steps"][0]
+
+
+def test_sample_places_unnumbered_gate_and_events():
+    value = sample()
+    placed = [
+        n
+        for w in [value["process"], *value["process"]["workflows"]]
+        for p in w["phases"]
+        for s in p["steps"]
+        for n in s["nodes"]
+        if n["kind"] in {"GATE", "EVENT"}
+    ]
+    assert {n["kind"] for n in placed} == {"GATE", "EVENT"}
+    assert len(placed) >= 3
+    assert all(n["ref"] is None for n in placed)
+    assert validate_structure(value) == []
+
+
+@pytest.mark.parametrize("kind", ["GATE", "EVENT"])
+def test_unnumbered_kind_with_a_number_is_rejected(kind):
+    value = sample()
+    node = delivery_step(value)["nodes"][0]
+    node["kind"] = kind
+    node["ref"] = "DELIVERY/O1.S1.N9"
+    assert "UNNUMBERED_NODE_HAS_REF" in codes(value)
+
+
+@pytest.mark.parametrize(
+    "kind", ["DECISION", "CALL", "TOOL", "TRANSFORM", "QUERY", "MODEL", "JOIN", "LOOP"]
+)
+def test_numbered_kind_without_a_number_is_rejected(kind):
+    value = sample()
+    node = delivery_step(value)["nodes"][1]
+    node["kind"] = kind
+    node["ref"] = None
+    assert "NUMBERED_NODE_MISSING_REF" in codes(value)
+
+
+def test_unnumbered_node_cannot_move():
+    value = sample()
+    node = delivery_step(value)["nodes"][0]
+    assert node["kind"] == "EVENT"
+    node["status"] = "retired"
+    node["retired_reason"] = "synthetic"
+    node["moved_to"] = "DELIVERY/O1.S1.N1"
+    assert "INVALID_MOVE" in codes(value)
+
+
+def test_unnumbered_node_key_may_not_repeat_in_a_workflow():
+    value = sample()
+    step = delivery_step(value)
+    dup = deepcopy(step["nodes"][0])
+    dup["order"] = 99
+    step["nodes"].append(dup)
+    assert "DUPLICATE_NODE_KEY" in codes(value)
+
+
+def test_unnumbered_node_key_may_repeat_across_workflows():
+    value = sample()
+    other = deepcopy(delivery_step(value)["nodes"][0])
+    solution(value)["phases"][0]["steps"][0]["nodes"].append(other)
+    assert validate_structure(value) == []
+
+
+# --- W9: a numbered node may move to another workflow, keeping its node key ----------------
+
+
+def test_cross_workflow_move_is_a_valid_tombstone_chain():
+    value = sample()
+    source = delivery_step(value)["nodes"][1]
+    assert source["ref"] == "DELIVERY/O1.S1.N1"
+    target_step = value["process"]["workflows"][0]["phases"][0]["steps"][0]
+    assert target_step["id"] == "T1.S1"
+    target_step["nodes"].append(
+        {
+            "node_key": source["node_key"],
+            "ref": "TARGET/T1.S1.N9",
+            "kind": source["kind"],
+            "order": 50,
+            "status": "ACTIVE",
+            "name": source["name"],
+        }
+    )
+    source.update(status="retired", retired_reason="moved to TARGET", moved_to="TARGET/T1.S1.N9")
+    assert validate_structure(value) == []
+
+
+def test_cross_workflow_move_must_keep_the_node_key():
+    value = sample()
+    source = delivery_step(value)["nodes"][1]
+    target = value["process"]["workflows"][0]["phases"][0]["steps"][0]["nodes"][0]
+    source.update(status="retired", retired_reason="moved", moved_to=target["ref"])
+    assert target["node_key"] != source["node_key"]
+    assert "INVALID_MOVE" in codes(value)

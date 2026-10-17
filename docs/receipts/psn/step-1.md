@@ -58,3 +58,18 @@ engine / Viewer 各自原样计数：
 独立草稿 PR 在提交后创建并核实；最终提交 SHA、PR URL 和该 SHA 的 CI 结果在交接消息给出，避免回执自引用提交哈希。本地未跑 Chromium，浏览器验收以既有 sandbox-enabled macOS CI 为准。
 
 无必须裁定的新增语义；宿主行为、历史 R2、图解析/stamp 和运行时 PSN 回显均非本项验收。完成草稿 PR / CI 后停止，等待用户后续复核，不自动开始第 2 项，不联系 Claude。
+
+## 补 W1、W9（Claude，2026-10-17）
+
+复核结论 FAIL：结构装不下不编号的节点。本次补上，在 dot 的提交 3c9c8c2 之后、本地 main 上追加；dot 不再继续本单。
+
+- **W1。**
+  - schema：`ref` 允许 `null`，`kind` 加 `GATE`、`EVENT`。
+  - 校验器：GATE / EVENT 带号报 `UNNUMBERED_NODE_HAS_REF`；其余 kind 没号报 `NUMBERED_NODE_MISSING_REF`；不编号节点带 `moved_to` 报 `INVALID_MOVE`；同一 workflow 内不编号节点的 node_key 不得重复。
+  - 合成样例补一个开始、一个分支闸、一个结束。
+- **W9。** 跨 workflow 迁移：`moved_to` 写目标的完整实例 ref，原校验器已允许。补两个测试：同 node_key 跨 workflow 迁移通过，换了 node_key 报 `INVALID_MOVE`。
+- **结果。**
+  - `tests/test_psn_structure.py`：124 passed（原 108 + 新 16）。
+  - 插件全量：747 passed，72 skipped（Node 引擎测试，按约定不设 `DMN_ENGINE_DIR` 时跳过）。
+  - `ruff check`、`ruff format --check` 通过。
+  - schema 两份镜像逐字节相同。

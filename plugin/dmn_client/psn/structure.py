@@ -31,6 +31,8 @@ FORBIDDEN_KEYS = {
     "definition_sha256",
     "plugin_unique_identifier",
 }
+# Dify start/end/if-else/iteration-start/loop-start nodes: placed in a Step, never numbered.
+UNNUMBERED_KINDS = {"GATE", "EVENT"}
 MAX_BYTES = 1_048_576
 MAX_DEPTH = 64
 _SCHEMA = json.loads(Path(__file__).with_name("psn-structure.v1.schema.json").read_text())
@@ -154,15 +156,37 @@ def validate_structure(value: object) -> list[StructureIssue]:
                         fail(
                             "UNSTABLE_NODE_KEY", np + "/node_key", "Use a stable semantic node key."
                         )
+                    if node["status"] == "retired" and not node["retired_reason"].strip():
+                        fail("INVALID_STRUCTURE", np + "/retired_reason", "A reason is required.")
+                    by_key[(key, node["node_key"])].append((node, np))
+                    if node["kind"] in UNNUMBERED_KINDS:
+                        # Gates and events are placed in a Step but never numbered (W1).
+                        if node["ref"] is not None:
+                            fail(
+                                "UNNUMBERED_NODE_HAS_REF",
+                                np + "/ref",
+                                "GATE and EVENT nodes are placed without a number; ref must be null.",
+                            )
+                        if "moved_to" in node:
+                            fail(
+                                "INVALID_MOVE",
+                                np + "/moved_to",
+                                "Only numbered nodes leave a tombstone that can move.",
+                            )
+                        continue
+                    if node["ref"] is None:
+                        fail(
+                            "NUMBERED_NODE_MISSING_REF",
+                            np + "/ref",
+                            "Every node other than GATE and EVENT carries a registered number.",
+                        )
+                        continue
                     prefix = f"{key}/{step['id']}"
                     if not re.fullmatch(re.escape(prefix) + r"\.N[1-9][0-9]*", node["ref"]):
                         fail(
                             "REF_MISMATCH", np + "/ref", "Ref must use its enclosing instance/step."
                         )
-                    if node["status"] == "retired" and not node["retired_reason"].strip():
-                        fail("INVALID_STRUCTURE", np + "/retired_reason", "A reason is required.")
                     by_ref[node["ref"]].append((node, np))
-                    by_key[(key, node["node_key"])].append((node, np))
 
     for records in by_ref.values():
         if len(records) > 1:
@@ -224,7 +248,12 @@ def validate_structure(value: object) -> list[StructureIssue]:
         else:
             return issues
     for records in by_key.values():
-        if len(records) > 1 and len({roots[node["ref"]] for node, _ in records}) > 1:
+        if len(records) < 2:
+            continue
+        # An unnumbered node has no move history, so its key may not repeat at all; numbered
+        # nodes may repeat only along one recorded move chain.
+        unnumbered = any(node["ref"] is None for node, _ in records)
+        if unnumbered or len({roots[node["ref"]] for node, _ in records}) > 1:
             fail(
                 "DUPLICATE_NODE_KEY",
                 records[1][1] + "/node_key",
