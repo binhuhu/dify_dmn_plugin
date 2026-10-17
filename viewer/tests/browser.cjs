@@ -216,6 +216,38 @@ const assert = require("node:assert/strict");
     }, b);
     for (const [name, passed] of Object.entries(regression))
       assert.equal(passed, true, name);
+    // psn-structure/v1: synthetic structure, read only.
+    await page.locator("#file").setInputFiles({
+      name: "structure.synthetic.json",
+      mimeType: "application/json",
+      buffer: fs.readFileSync("examples/psn/structure.synthetic.json"),
+    });
+    await page.waitForFunction(() =>
+      document
+        .getElementById("source")
+        .textContent.includes("structure.synthetic.json"),
+    );
+    await page.locator("#workflow").selectOption("SOLUTION.coupon-use");
+    assert.ok(await page.locator(".node.retired").count());
+    assert.equal(
+      await page
+        .locator(".node.retired")
+        .first()
+        .evaluate((n) => getComputedStyle(n).opacity),
+      "0.5",
+    );
+    await page.locator("#search").fill("SOLUTION.coupon-use/P3.S1.N1");
+    await page.locator("#tree button").first().click();
+    await page.locator("#drawer").waitFor({ state: "visible" });
+    await page.screenshot({
+      path: "/tmp/structure-viewer-psn.png",
+      fullPage: true,
+    });
+    await page.keyboard.press("Escape");
+    await page.locator("#search").fill("");
+    await page.locator("#workflow").selectOption("HANDLE");
+    assert.match(await page.locator("#scope").textContent(), /已暂停/);
+    assert.ok(await page.locator("#canvas .paused").isVisible());
     console.log(
       JSON.stringify({
         browser: browser.version(),
@@ -226,7 +258,7 @@ const assert = require("node:assert/strict");
     assert.deepEqual(errors, []);
     assert.deepEqual(unexpected, []);
     console.log(
-      "Browser PASS: desktop/mobile, imports, rules, focus, wheel, no remote requests",
+      "Browser PASS: desktop/mobile, imports, rules, focus, wheel, psn structure, no remote requests",
     );
   } finally {
     await browser.close();

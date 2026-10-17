@@ -141,6 +141,32 @@ footer,
 .node.GATEWAY {
   border-color: #6bd6e8;
 }
+.node.retired {
+  opacity: 0.5;
+  border-style: dashed;
+}
+.node.retired span {
+  text-decoration: line-through;
+}
+.paused {
+  flex: none;
+  align-self: flex-start;
+  width: 200px;
+  color: #ffd078;
+  border: 1px solid #806a3a;
+  border-radius: 7px;
+  padding: 8px 12px;
+  margin: 0;
+}
+.empty-phase {
+  width: 140px;
+  color: #8baba8;
+  margin: 0;
+}
+.psn-fact {
+  color: #b7cdca;
+  margin: 4px 0;
+}
 .node small {
   display: block;
   font-size: 11px;

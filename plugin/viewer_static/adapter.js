@@ -2,6 +2,24 @@
 (function (root) {
   "use strict";
   const MAX_BYTES = 2097152;
+  function array(v, path) {
+    if (!Array.isArray(v)) throw Error(path + " 必须为数组");
+    return v;
+  }
+  function strings(object, keys, path) {
+    keys.forEach((key) => {
+      if (Object.hasOwn(object, key) && typeof object[key] !== "string")
+        throw Error(`${path}.${key} 必须为字符串`);
+    });
+  }
+  function unique(items, key, path) {
+    const seen = new Set();
+    items.forEach((x) => {
+      if (!x || typeof x[key] !== "string" || !x[key] || seen.has(x[key]))
+        throw Error(path + " 缺失或重复 " + key);
+      seen.add(x[key]);
+    });
+  }
   function adapt(text) {
     if (new TextEncoder().encode(text).length > MAX_BYTES)
       throw Error("文件超过 2 MiB");
@@ -15,12 +33,15 @@
         Object.values(v).forEach((x) => bound(x, depth + 1));
     }
     bound(data, 0);
+    if (data && data.format === PSN_FORMAT) return adaptPsn(data);
     const versions = [
       "service-decision-dsl.node-architecture.v2",
       "structure-view.v1",
     ];
     if (!data || !versions.includes(data.schema_version))
-      throw Error("不支持的格式；需要 v2 bundle 或 structure-view.v1");
+      throw Error(
+        "不支持的格式；需要 v2 bundle、structure-view.v1 或 psn-structure/v1",
+      );
     const diagnostics = [];
     const models = data.models || {};
     if (!models || Array.isArray(models) || typeof models !== "object")
@@ -56,24 +77,6 @@
             : undefined
           : rule.output,
       };
-    }
-    function array(v, path) {
-      if (!Array.isArray(v)) throw Error(path + " 必须为数组");
-      return v;
-    }
-    function strings(object, keys, path) {
-      keys.forEach((key) => {
-        if (Object.hasOwn(object, key) && typeof object[key] !== "string")
-          throw Error(`${path}.${key} 必须为字符串`);
-      });
-    }
-    function unique(items, key, path) {
-      const seen = new Set();
-      items.forEach((x) => {
-        if (!x || typeof x[key] !== "string" || !x[key] || seen.has(x[key]))
-          throw Error(path + " 缺失或重复 " + key);
-        seen.add(x[key]);
-      });
     }
     Object.entries(models).forEach(([ref, model]) => {
       if (!model || typeof model !== "object" || Array.isArray(model))
@@ -177,7 +180,144 @@
       output,
     };
   }
-  const api = { adapt, MAX_BYTES };
+  // psn-structure/v1: stable numbering only. Same forbidden keys as
+  // dmn_client/psn/structure.py FORBIDDEN_KEYS (R3); keys ending in _digest too.
+  const PSN_FORMAT = "psn-structure/v1";
+  const PSN_FORBIDDEN = [
+    "workflow_id",
+    "app_id",
+    "version",
+    "published_at",
+    "graph_sha256",
+    "definition_sha256",
+    "plugin_unique_identifier",
+  ];
+  function versionField(v, path) {
+    if (Array.isArray(v)) {
+      for (let i = 0; i < v.length; i++) {
+        const found = versionField(v[i], `${path}/${i}`);
+        if (found) return found;
+      }
+    } else if (v && typeof v === "object") {
+      for (const [key, child] of Object.entries(v)) {
+        if (PSN_FORBIDDEN.includes(key) || key.endsWith("_digest"))
+          return `${path}/${key}`;
+        const found = versionField(child, `${path}/${key}`);
+        if (found) return found;
+      }
+    }
+    return undefined;
+  }
+  function object(v, path) {
+    if (!v || typeof v !== "object" || Array.isArray(v))
+      throw Error(path + " 必须为对象");
+    return v;
+  }
+  function text(v, path) {
+    if (typeof v !== "string" || !v) throw Error(path + " 必须为非空字符串");
+    return v;
+  }
+  function psnNode(n, stepId) {
+    object(n, `${stepId}.nodes[]`);
+    const key = text(n.node_key, `${stepId}.nodes[].node_key`);
+    strings(n, ["kind", "status", "name", "retired_reason", "moved_to"], key);
+    if (n.ref !== null && typeof n.ref !== "string")
+      throw Error(`${key}.ref 必须为字符串或 null`);
+    if (n.order !== undefined && !Number.isFinite(n.order))
+      throw Error(`${key}.order 必须为数字`);
+    // ref is unique per workflow; unnumbered node keys are too. node_id is
+    // not enumerable, so the raw node shown in details stays as in the file.
+    const node = { ...n };
+    Object.defineProperty(node, "node_id", { value: n.ref ?? key });
+    return node;
+  }
+  function psnEntry(e, where, parent) {
+    object(e, where);
+    const key = text(e.key, `${where}.key`);
+    strings(e, ["family", "level", "status", "name"], key);
+    const phases = array(e.phases, `${key}.phases`).map((p) => {
+      object(p, `${key}.phases[]`);
+      const phaseId = text(p.id, `${key}.phases[].id`);
+      strings(p, ["name"], phaseId);
+      const steps = array(p.steps, `${phaseId}.steps`).map((s) => {
+        object(s, `${phaseId}.steps[]`);
+        const stepId = text(s.id, `${phaseId}.steps[].id`);
+        strings(s, ["name"], stepId);
+        const nodes = array(s.nodes, `${stepId}.nodes`).map((n) =>
+          psnNode(n, stepId),
+        );
+        // Display order is the explicit order value; file order breaks ties.
+        nodes.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+        unique(nodes, "node_id", stepId);
+        return {
+          step_id: stepId,
+          name: s.name,
+          graph: { nodes, edges: [] },
+          exits: {},
+        };
+      });
+      return { phase_id: phaseId, name: p.name, steps };
+    });
+    unique(phases, "phase_id", key);
+    unique(
+      phases.flatMap((p) => p.steps),
+      "step_id",
+      key,
+    );
+    return {
+      workflow_id: key,
+      flow_type: "PSN",
+      name: e.name,
+      family: e.family,
+      level: e.level,
+      status: e.status,
+      parent,
+      scope: `${e.level || "未提供层级"} · ${e.status || "未提供状态"}`,
+      phases,
+    };
+  }
+  // Display check only; dmn_client.psn.validate_structure stays the authority.
+  function adaptPsn(data) {
+    const field = versionField(data, "");
+    if (field)
+      throw Error(
+        `结构里不能有版本或部署标识字段：${field}。结构只认稳定编号，版本只写在证据里`,
+      );
+    const proc = object(data.process, "process");
+    const workflows = [
+      psnEntry(proc, "process"),
+      ...array(proc.workflows ?? [], "process.workflows").map((w, i) =>
+        psnEntry(w, `process.workflows[${i}]`, proc.key),
+      ),
+    ];
+    unique(workflows, "workflow_id", "process");
+    if (workflows.length > 30) throw Error("最多 30 个流程");
+    const all = workflows.flatMap((w) =>
+      w.phases.flatMap((p) => p.steps.flatMap((s) => s.graph.nodes)),
+    );
+    if (all.length > 600) throw Error("展示上限为 600 节点 / 1800 控制边");
+    return {
+      data,
+      psn: true,
+      workflows,
+      models: {},
+      diagnostics: [],
+      counts: {
+        workflows: workflows.length,
+        phases: workflows.reduce((n, w) => n + w.phases.length, 0),
+        steps: workflows.reduce(
+          (n, w) => n + w.phases.reduce((n, p) => n + p.steps.length, 0),
+          0,
+        ),
+        nodes: all.length,
+        numbered: all.filter((n) => n.ref !== null).length,
+        retired: all.filter((n) => n.status === "retired").length,
+        edges: 0,
+      },
+      output: () => ({ referenced: false, missing: false, value: undefined }),
+    };
+  }
+  const api = { adapt, MAX_BYTES, PSN_FORBIDDEN };
   if (typeof module !== "undefined") module.exports = api;
   else root.StructureAdapter = api;
 })(globalThis);

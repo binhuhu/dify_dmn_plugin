@@ -31,6 +31,11 @@ Two accepted root schema versions:
 }
 ```
 
+A third accepted format is recognised by its root `format` field:
+
+- `psn-structure/v1`: the stable PSN structure (see [psn-structure.md](psn-structure.md)). It is shown under **交付结构 PSN**. The workflow selector lists the Process first, then its Workflows. A PAUSED workflow is marked in the selector, next to the selector and on the canvas. Each Phase shows its Steps, and each Step shows its nodes sorted by `order`, with file order breaking ties. A node shows its kind, its `ref` (or 不编号 for GATE/EVENT nodes) and its `node_key`. Retired nodes are greyed and struck through; their details show the retire reason and `moved_to`. Search matches names, refs, node keys and kinds across the whole structure: matches in other workflows are listed under 其他流程中的匹配 and open in their own workflow. The details show the node exactly as in the file. The structure carries no decision tables and no edges.
+- An R3 version or deployment field anywhere in the file (`workflow_id`, `app_id`, `version`, `published_at`, `graph_sha256`, `definition_sha256`, `plugin_unique_identifier`, or any key ending in `_digest`) stops the import. The error names the field's JSON path, and the previous view is kept. The viewer only checks what it needs for display. `python -m dmn_client.psn` (`validate_structure`, `check`) remains the authority on whether a structure is valid.
+
 No Phase/Step is synthesized from DAG depth. Inputs lacking explicit membership, legacy XML and json-plan-v1 are not silently converted. The filename and actual workflow/phase/step/node/edge counts remain visible. Invalid imports preserve the previous view and name both the failed file and retained source. Maximum UTF-8 input is 2 MiB, depth 40, 60,000 JSON values, 30 workflows, 600 nodes and 1,800 edges. Duplicate workflow/phase/step/node/edge IDs in their respective scopes and dangling intra-Step control edges are rejected. Projection validation is not execution-contract validation. JSON object keys follow browser JSON.parse semantics; use unique keys. Large definitions beyond these limits require an explicit smaller display envelope, not automatic omission.
 
 ## Plugin entry and verification

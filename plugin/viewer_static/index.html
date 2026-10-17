@@ -26,6 +26,7 @@
     <nav aria-label="流程选择">
       <button data-flow="LOCATE" aria-pressed="true">定位问题</button
       ><button data-flow="SOLVE" aria-pressed="false">解决方案</button
+      ><button data-flow="PSN" aria-pressed="false">交付结构 PSN</button
       ><select id="workflow" aria-label="当前流程"></select
       ><span id="scope"></span>
     </nav>
@@ -67,8 +68,10 @@
       <div id="detail"></div>
     </aside>
     <footer>
-      支持 node-architecture.v2 bundle / structure-view.v1。按 phases[].steps[]
-      原始归属排列；跨步骤出口在详情中列出。
+      支持 node-architecture.v2 bundle / structure-view.v1 /
+      psn-structure/v1。按 phases[].steps[]
+      原始归属排列；跨步骤出口在详情中列出。psn-structure/v1 按 Process →
+      Workflow → Phase → Step → Node 只读展示编号，含版本字段的文件拒绝导入。
     </footer>
     <script src="adapter.js"></script>
     <script src="demo.js"></script>

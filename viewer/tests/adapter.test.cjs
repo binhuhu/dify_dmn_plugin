@@ -156,3 +156,91 @@ test("display fields reject coercion objects at the boundary", () => {
     assert.throws(() => adapt(JSON.stringify(b)), /字符串/);
   }
 });
+
+const psn = () =>
+  JSON.parse(fs.readFileSync("examples/psn/structure.synthetic.json", "utf8"));
+const psnNodes = (p) =>
+  p.workflows.flatMap((w) =>
+    w.phases.flatMap((ph) => ph.steps.flatMap((s) => s.graph.nodes)),
+  );
+test("psn-structure/v1 imports as Process then Workflows, read only", () => {
+  const text = JSON.stringify(psn());
+  const p = adapt(text);
+  assert.equal(JSON.stringify(p.data), text);
+  assert.deepEqual(
+    p.workflows.map((w) => [w.workflow_id, w.parent, w.status]),
+    [
+      ["DELIVERY", undefined, "ACTIVE"],
+      ["TARGET", "DELIVERY", "ACTIVE"],
+      ["DISPATCH", "DELIVERY", "ACTIVE"],
+      ["SOLUTION.coupon-use", "DELIVERY", "ACTIVE"],
+      ["HANDLE", "DELIVERY", "PAUSED"],
+    ],
+  );
+  assert.ok(p.workflows.every((w) => w.flow_type === "PSN"));
+  const nodes = psnNodes(p);
+  assert.equal(p.counts.nodes, nodes.length);
+  assert.equal(p.counts.retired, 2);
+  assert.equal(
+    p.counts.numbered,
+    nodes.filter((n) => typeof n.ref === "string").length,
+  );
+  // node_id is display-only: the raw node stays exactly as in the file.
+  const gate = nodes.find((n) => n.node_key === "delivery_mode_gate");
+  assert.equal(gate.node_id, "delivery_mode_gate");
+  assert.equal(gate.ref, null);
+  assert.equal("node_id" in JSON.parse(JSON.stringify(gate)), false);
+});
+test("psn nodes show in order, file order breaking ties", () => {
+  const b = psn();
+  const step = b.process.phases[0].steps[0];
+  step.nodes[0].order = 99;
+  const p = adapt(JSON.stringify(b));
+  assert.deepEqual(
+    p.workflows[0].phases[0].steps[0].graph.nodes.map((n) => n.node_key),
+    ["delivery_node_1", "delivery_mode_gate", "delivery_start"],
+  );
+});
+for (const [where, key] of [
+  ["process", "version"],
+  ["workflow", "app_id"],
+  ["node", "definition_sha256"],
+  ["node", "graph_sha256"],
+  ["step", "release_digest"],
+]) {
+  test(`psn import refuses ${key} on a ${where} and names it`, () => {
+    const b = psn();
+    const target = {
+      process: b.process,
+      workflow: b.process.workflows[1],
+      step: b.process.phases[0].steps[0],
+      node: b.process.phases[0].steps[0].nodes[1],
+    }[where];
+    target[key] = "x";
+    assert.throws(
+      () => adapt(JSON.stringify(b)),
+      (e) =>
+        e.message.includes("版本或部署标识字段") &&
+        e.message.includes(`/${key}`),
+    );
+  });
+}
+test("psn forbidden keys match the Python structure check", () => {
+  const { PSN_FORBIDDEN } = require("../../plugin/viewer_static/adapter.js");
+  const py = fs.readFileSync("plugin/dmn_client/psn/structure.py", "utf8");
+  const block = py.match(/FORBIDDEN_KEYS = \{([^}]*)\}/)[1];
+  const keys = [...block.matchAll(/"([^"]+)"/g)].map((m) => m[1]);
+  assert.deepEqual([...PSN_FORBIDDEN].sort(), keys.sort());
+  assert.match(py, /key\.endswith\("_digest"\)/);
+});
+test("psn shape errors are named, not guessed", () => {
+  const b = psn();
+  delete b.process.phases[0].steps[0].nodes[1].node_key;
+  assert.throws(() => adapt(JSON.stringify(b)), /node_key/);
+  const c = psn();
+  c.process.phases[0].steps[0].nodes[1].ref = 3;
+  assert.throws(() => adapt(JSON.stringify(c)), /ref 必须为字符串或 null/);
+  const d = psn();
+  d.process.workflows.push(d.process.workflows[0]);
+  assert.throws(() => adapt(JSON.stringify(d)), /workflow_id/);
+});

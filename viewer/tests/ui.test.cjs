@@ -283,3 +283,97 @@ test("stale finally cannot clear a newer pending input", async (t) => {
   assert.equal(value, "");
   assert.match($("source").textContent, /B.json/);
 });
+
+const psnText = () =>
+  fs.readFileSync(
+    path.resolve("examples/psn/structure.synthetic.json"),
+    "utf8",
+  );
+const psnRefs = () => {
+  const s = JSON.parse(psnText());
+  return [s.process, ...s.process.workflows].flatMap((w) =>
+    w.phases.flatMap((p) =>
+      p.steps.flatMap((st) => st.nodes.map((n) => n.ref).filter(Boolean)),
+    ),
+  );
+};
+test("psn structure: Process → Workflow select, retired greyed, PAUSED marked", async (t) => {
+  const { w, $, importFile } = await setup(t);
+  await importFile(psnText(), "structure.synthetic.json");
+  assert.equal(
+    w.document.querySelector('[data-flow="PSN"]').getAttribute("aria-pressed"),
+    "true",
+  );
+  const options = [...$("workflow").options].map((o) => o.textContent);
+  assert.match(options[0], /^Process · DELIVERY/);
+  assert.equal(options.length, 5);
+  assert.match(options[4], /^└ Workflow · HANDLE.*已暂停/);
+  assert.match($("source").textContent, /numbered: \d+ · retired: 2/);
+  $("workflow").value = "SOLUTION.coupon-use";
+  $("workflow").onchange();
+  const retired = [...$("canvas").querySelectorAll(".node.retired")];
+  assert.ok(retired.length >= 1);
+  assert.ok(retired.every((b) => /已退役/.test(b.textContent)));
+  assert.equal($("canvas").querySelectorAll("path[data-source]").length, 0);
+  assert.equal($("canvas").querySelector(".paused"), null);
+  $("workflow").value = "HANDLE";
+  $("workflow").onchange();
+  assert.match($("scope").textContent, /PAUSED（已暂停）/);
+  assert.ok($("canvas").querySelector(".paused"));
+});
+test("psn structure: every ref is searchable and opens its node", async (t) => {
+  const { $, importFile } = await setup(t);
+  await importFile(psnText(), "structure.synthetic.json");
+  for (const ref of psnRefs()) {
+    $("workflow").value = "DELIVERY";
+    $("workflow").onchange();
+    $("search").value = ref;
+    $("search").oninput();
+    const hit = [...$("tree").querySelectorAll("button")].find((b) =>
+      b.textContent.includes(ref),
+    );
+    assert.ok(hit, ref);
+    hit.click();
+    assert.equal($("drawer").hidden, false);
+    assert.match(
+      $("detail").textContent,
+      new RegExp(`编号：${ref.replace(/[.]/g, "\\.")}`),
+    );
+    assert.equal($("workflow").value, ref.split("/")[0]);
+    $("close").click();
+  }
+  $("search").value = "delivery_mode_gate";
+  $("search").oninput();
+  $("tree").querySelector("button").click();
+  assert.match($("detail").textContent, /不编号（GATE/);
+  assert.match(
+    $("detail").textContent,
+    /DELIVERY > O1 > O1\.S1 > delivery_mode_gate/,
+  );
+  assert.doesNotMatch($("detail").textContent, /"node_id"/);
+});
+test("psn structure with a version field is refused and the view kept", async (t) => {
+  const { $, importFile } = await setup(t);
+  const before = $("canvas").innerHTML;
+  const bad = JSON.parse(psnText());
+  bad.process.workflows[2].version = "2026-10-15";
+  await importFile(JSON.stringify(bad), "versioned.json");
+  assert.equal($("canvas").innerHTML, before);
+  assert.match(
+    $("status").textContent,
+    /versioned\.json.*synthetic\.json.*\/process\/workflows\/2\/version/,
+  );
+});
+test("importing an older format after psn goes back to the locate view", async (t) => {
+  const { w, $, importFile } = await setup(t);
+  await importFile(psnText(), "structure.synthetic.json");
+  await importFile(JSON.stringify(fixture()), "again.json");
+  assert.equal(
+    w.document
+      .querySelector('[data-flow="LOCATE"]')
+      .getAttribute("aria-pressed"),
+    "true",
+  );
+  assert.match($("source").textContent, /again.json.*nodes: 2.*edges: 1/);
+  assert.equal($("canvas").querySelectorAll("path[data-source]").length, 1);
+});

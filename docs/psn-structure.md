@@ -186,4 +186,12 @@ python -m dmn_client.psn diff --old S --new S2 [--json]
 
 **与工单第 5 项原文不同的一处：** 原文要求对不合语法的 node_ref 返回新码 `NODE_REF_INVALID`。这样会让仓库自带示例和任何不用编号形式的使用方一律失败，与同一项的验收「仓内所有 examples 新旧版本重放，除新增 psn_ref 外逐字节一致」矛盾。所以只回显、不拒绝。编号形式是否正确，由离线的 `psn check`（`NODE_REF_MISMATCH` / `NODE_REF_UNRESOLVABLE`）把关。
 
-查看器在后面一项。
+## 查看器（第 6 项）
+
+插件自带的只读结构查看器（`plugin/viewer_static`）可以直接导入 `psn-structure/v1`。导入后在「交付结构 PSN」下浏览，层级是 Process → Workflow → Phase → Step → Node：
+- 每个节点显示 kind、编号和 node_key；
+- 退役节点置灰；
+- 暂停的 workflow 有标记；
+- 全结构可以按编号搜索。
+
+文件里出现 R3 版本类字段时拒绝导入，并给出字段路径。详见 [structure-viewer.md](structure-viewer.md)。

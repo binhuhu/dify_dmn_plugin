@@ -102,6 +102,7 @@ function directory() {
             n.name,
             n.node_id,
             ...rules,
+            ...(projection.psn ? psnLabels(n) : []),
           ];
           if (
             query &&
@@ -112,7 +113,12 @@ function directory() {
             )
           )
             return;
-          const button = el("button", `${n.name || n.node_id} · ${n.node_id}`);
+          const button = el(
+            "button",
+            projection.psn
+              ? psnText(n)
+              : `${n.name || n.node_id} · ${n.node_id}`,
+          );
           button.onclick = () =>
             activate(
               entry,
@@ -127,8 +133,47 @@ function directory() {
     });
     if (phase.childElementCount > 1) tree.append(phase);
   });
+  if (projection.psn && query) otherMatches(tree, w, query);
   if (!tree.childElementCount)
     tree.append(el("p", "没有匹配的名称、ID 或 ruleID"));
+}
+const psnLabels = (n) => [n.ref, n.node_key, n.kind];
+const psnText = (n) =>
+  `${n.ref ?? "不编号"} · ${n.name || n.node_key}${n.status === "retired" ? " · 已退役" : ""}`;
+// PSN search covers the whole structure: matches in other workflows are listed
+// below the current one and open there.
+function otherMatches(tree, current, query) {
+  const found = el("details");
+  found.open = true;
+  found.append(el("summary", "其他流程中的匹配"));
+  projection.workflows
+    .filter((w) => w !== current && w.flow_type === flow)
+    .forEach((w) =>
+      w.phases.forEach((p) =>
+        p.steps.forEach((s) =>
+          s.graph.nodes.forEach((n) => {
+            const labels = [n.name, ...psnLabels(n)];
+            if (
+              !labels.some((x) =>
+                String(x ?? "")
+                  .toLowerCase()
+                  .includes(query),
+              )
+            )
+              return;
+            const button = el("button", `${w.workflow_id} · ${psnText(n)}`);
+            button.onclick = () => {
+              $("workflow").value = w.workflow_id;
+              render();
+              const entry = entries.find((e) => e.n === n);
+              if (entry) activate(entry, undefined, entry.button);
+            };
+            found.append(button);
+          }),
+        ),
+      ),
+    );
+  if (found.childElementCount > 1) tree.append(found);
 }
 function section(parent, title, value) {
   const d = el("details");
@@ -142,13 +187,27 @@ function detail(w, p, s, n, origin, ruleId) {
   d.append(
     el(
       "p",
-      `${w.workflow_id} > ${p.phase_id} > ${s.step_id} > ${n.node_id}`,
+      `${w.parent ? w.parent + " > " : ""}${w.workflow_id} > ${p.phase_id} > ${s.step_id} > ${n.ref ? n.ref.split("/")[1] : n.node_id}`,
       "breadcrumb",
     ),
     el("h2", n.name || n.node_id),
   );
-  section(d, "节点原始定义（含绑定与来源）", n);
-  section(d, "步骤出口（跨步骤归属以定义为准）", s.exits);
+  if (projection.psn) {
+    [
+      `编号：${n.ref ?? "不编号（" + n.kind + " 节点只归属 Step）"}`,
+      `node_key：${n.node_key}`,
+      `kind：${n.kind ?? "未提供"}`,
+      `状态：${n.status === "retired" ? "已退役" : (n.status ?? "未提供")}`,
+      n.retired_reason === undefined ? "" : `退役原因：${n.retired_reason}`,
+      n.moved_to === undefined ? "" : `迁到：${n.moved_to}`,
+    ]
+      .filter(Boolean)
+      .forEach((line) => d.append(el("p", line, "psn-fact")));
+    section(d, "结构文件中的原始节点", n);
+  } else {
+    section(d, "节点原始定义（含绑定与来源）", n);
+    section(d, "步骤出口（跨步骤归属以定义为准）", s.exits);
+  }
   section(d, "Phase / Step 元数据", {
     phase: { ...p, steps: undefined },
     step: { ...s, graph: undefined },
@@ -156,7 +215,14 @@ function detail(w, p, s, n, origin, ruleId) {
   const m = Object.hasOwn(projection.models, n.model_ref)
     ? projection.models[n.model_ref]
     : undefined;
-  if (n.kind === "DECISION") {
+  if (n.kind === "DECISION" && projection.psn)
+    d.append(
+      el(
+        "p",
+        "结构文件不带决策表；规则在这个节点自己的 definition bundle 里。",
+      ),
+    );
+  else if (n.kind === "DECISION") {
     d.append(
       el("h3", "决策表"),
       el(
@@ -251,12 +317,15 @@ function detail(w, p, s, n, origin, ruleId) {
       section(d, "完整模型（含所有规则、策略、来源与摘要）", m);
     } else d.append(el("p", "未提供关联模型；不推断规则或 Hit Policy。"));
   }
-  section(d, "定义来源、声明摘要与资产锁（未验证）", {
-    schema_version: projection.data.schema_version,
-    source_refs: projection.data.source_refs,
-    definition_sha256: projection.data.definition_sha256,
-    asset_locks: projection.data.asset_locks,
-  });
+  if (projection.psn)
+    section(d, "结构格式", { format: projection.data.format });
+  else
+    section(d, "定义来源、声明摘要与资产锁（未验证）", {
+      schema_version: projection.data.schema_version,
+      source_refs: projection.data.source_refs,
+      definition_sha256: projection.data.definition_sha256,
+      asset_locks: projection.data.asset_locks,
+    });
   $("drawer").hidden = false;
   $("close").focus();
   d.querySelector(".rule-match")?.scrollIntoView({ block: "nearest" });
@@ -279,12 +348,17 @@ function render() {
     directory();
     return;
   }
-  $("scope").textContent = w.scope || "未提供 scope";
+  $("scope").textContent =
+    (w.scope || "未提供 scope") + (w.status === "PAUSED" ? "（已暂停）" : "");
+  if (projection.psn && w.status === "PAUSED")
+    c.append(el("p", "这个流程已暂停（PAUSED）：只保留结构和编号。", "paused"));
   w.phases.forEach((p) => {
     const group = el("section", undefined, "phase");
     group.append(el("h2", `${p.phase_id} · ${p.name || ""}`));
     const columns = el("div", undefined, "steps");
     group.append(columns);
+    if (projection.psn && !p.steps.length)
+      columns.append(el("p", "这个 Phase 还没有 Step", "empty-phase"));
     p.steps.forEach((s) => {
       const col = el("section", undefined, "step");
       selectedStep ||= col;
@@ -292,16 +366,19 @@ function render() {
       const graph = el("div", undefined, "graph");
       const buttons = new Map();
       s.graph.nodes.forEach((n) => {
-        const b = el(
-          "button",
-          undefined,
-          `node ${n.kind === "DECISION" ? "DECISION" : n.category === "GATEWAY" ? "GATEWAY" : ""}`,
-        );
-        b.append(
-          el("small", `${n.category || ""} / ${n.kind || "未提供"}`),
-          el("span", n.name || n.node_id),
-          el("small", n.node_id),
-        );
+        const b = projection.psn
+          ? psnButton(n)
+          : el(
+              "button",
+              undefined,
+              `node ${n.kind === "DECISION" ? "DECISION" : n.category === "GATEWAY" ? "GATEWAY" : ""}`,
+            );
+        if (!projection.psn)
+          b.append(
+            el("small", `${n.category || ""} / ${n.kind || "未提供"}`),
+            el("span", n.name || n.node_id),
+            el("small", n.node_id),
+          );
         const entry = { w, p, s, n, col, graph, button: b };
         entries.push(entry);
         b.onclick = () => activate(entry);
@@ -330,6 +407,8 @@ function render() {
       svg.append(defs);
       graph.prepend(svg);
       col.append(graph);
+      columns.append(col);
+      if (projection.psn) return;
       const list = el("details");
       list.append(el("summary", `控制边 / 条件 (${s.graph.edges.length})`));
       const ul = el("ul", undefined, "edge-list");
@@ -343,7 +422,6 @@ function render() {
       );
       list.append(ul);
       col.append(list);
-      columns.append(col);
       requestAnimationFrame(() => {
         if (revision !== renderRevision) return;
         s.graph.edges.forEach((e, i) => {
@@ -370,13 +448,30 @@ function render() {
     if (revision === renderRevision) fit(selectedStep || c);
   });
 }
+function psnButton(n) {
+  const cls = { DECISION: " DECISION", GATE: " GATEWAY" }[n.kind] ?? "";
+  const retired = n.status === "retired";
+  const b = el("button", undefined, `node${cls}${retired ? " retired" : ""}`);
+  b.append(
+    el("small", `${n.kind || "未提供"}${retired ? " · 已退役" : ""}`),
+    el("span", n.name || n.node_key),
+    el("small", n.ref ?? "不编号"),
+    el("small", n.node_key),
+  );
+  return b;
+}
 function selectFlow() {
   const s = $("workflow");
   s.replaceChildren();
   projection.workflows
     .filter((w) => w.flow_type === flow)
     .forEach((w) => {
-      const o = el("option", w.name || w.workflow_id);
+      const o = el(
+        "option",
+        flow === "PSN"
+          ? `${w.parent ? "└ Workflow" : "Process"} · ${w.workflow_id}${w.name ? "（" + w.name + "）" : ""}${w.status === "PAUSED" ? " · 已暂停" : ""}`
+          : w.name || w.workflow_id,
+      );
       o.value = w.workflow_id;
       s.append(o);
     });
@@ -451,6 +546,8 @@ function load(text, name) {
 }
 function commitImport(next, name) {
   projection = next;
+  if (next.psn) flow = "PSN";
+  else if (flow === "PSN") flow = "LOCATE";
   sourceName = name;
   $("source").textContent = `当前来源：${name} · ${Object.entries(next.counts)
     .map(([k, v]) => `${k}: ${v}`)
