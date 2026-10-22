@@ -1,0 +1,29 @@
+settings:
+  - name: edit_key
+    type: secret-input
+    required: true
+    label:
+      en_US: Edit key
+      zh_Hans: 编辑口令
+    placeholder:
+      en_US: At least 24 random characters
+      zh_Hans: 至少 24 个随机字符
+    help:
+      en_US: Anyone with this key can change the route tables that live workflows of this workspace read. Give it only to route maintainers.
+      zh_Hans: 拿到这个口令就能改本工作空间现网流程读的路由表，只给维护路由的人。
+endpoints:
+  - path: /
+    method: GET
+    extra:
+      python:
+        source: endpoints/route_editor.py
+  - path: /<path:route>
+    method: GET
+    extra:
+      python:
+        source: endpoints/route_editor.py
+  - path: /<path:route>
+    method: POST
+    extra:
+      python:
+        source: endpoints/route_editor.py

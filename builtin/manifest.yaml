@@ -16,11 +16,15 @@ resource:
   permission:
     endpoint:
       enabled: true
+    storage:
+      enabled: true
+      size: 16777216
 plugins:
   tools:
   - provider/dmn.yaml
   endpoints:
   - endpoints/structure_viewer.yaml
+  - endpoints/route_editor.yaml
 meta:
   version: 0.0.1
   arch:

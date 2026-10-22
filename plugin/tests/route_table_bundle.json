@@ -1,0 +1,222 @@
+{
+ "schema_version": "service-decision-dsl.node-architecture.v2",
+ "example_only": false,
+ "deployment": {
+  "action_backend": "HOST",
+  "business_enabled": false,
+  "enabled_node_kinds": [
+   "DECISION",
+   "EXCLUSIVE",
+   "START",
+   "END"
+  ],
+  "runtime_owner": "HOST"
+ },
+ "workflows": [
+  {
+   "workflow_id": "DISPATCH",
+   "version": "4.0.0",
+   "flow_type": "LOCATE",
+   "scope": "EXAMPLE_FRAGMENT",
+   "entry_phase": "D1",
+   "domain_id": "passenger",
+   "scene_ref": null,
+   "phases": [
+    {
+     "phase_id": "D1",
+     "entry_step": "D1.S2",
+     "steps": [
+      {
+       "step_id": "D1.S2",
+       "name": "受理路由表",
+       "purpose": "场景 id × 问题类型 × 处理阶段 → 路由目标（解决方案 app / 知识库）",
+       "version": "4.0.0",
+       "profile": "decision-step-v2",
+       "entry_node": "S",
+       "main_decision_node": "N1",
+       "max_attempts": 1,
+       "reentry_exhausted_exit": "error",
+       "exits": {
+        "routed": {
+         "class": "RETURN",
+         "destination": {
+          "kind": "RETURN",
+          "outcome": "routed"
+         }
+        },
+        "unregistered": {
+         "class": "RETURN",
+         "destination": {
+          "kind": "RETURN",
+          "outcome": "unregistered"
+         }
+        },
+        "error": {
+         "class": "TECHNICAL",
+         "destination": {
+          "kind": "RETURN",
+          "outcome": "error"
+         }
+        }
+       },
+       "graph": {
+        "nodes": [
+         {
+          "category": "EVENT",
+          "kind": "START",
+          "name": "开始路由",
+          "node_id": "S",
+          "ports": [
+           "ok"
+          ]
+         },
+         {
+          "category": "EXECUTION",
+          "kind": "DECISION",
+          "model_ref": "dispatch.route@4.0.0",
+          "name": "场景 × 类型 × 处理阶段 → 路由目标",
+          "node_id": "N1",
+          "ports": [
+           "ok",
+           "blocked",
+           "error"
+          ],
+          "input_bindings": {
+           "scene_id": {
+            "from": {
+             "path": [
+              "parameters",
+              "scene_id"
+             ],
+             "source": "context"
+            },
+            "source_format": "PARAMETER"
+           },
+           "issue_type": {
+            "from": {
+             "path": [
+              "parameters",
+              "issue_type"
+             ],
+             "source": "context"
+            },
+            "source_format": "PARAMETER"
+           },
+           "phase": {
+            "from": {
+             "path": [
+              "parameters",
+              "phase"
+             ],
+             "source": "context"
+            },
+            "source_format": "PARAMETER"
+           }
+          }
+         },
+         {
+          "category": "GATEWAY",
+          "kind": "EXCLUSIVE",
+          "mode": "SPLIT",
+          "name": "消费路由结果",
+          "node_id": "G",
+          "ports": [
+           "routed",
+           "unregistered",
+           "error"
+          ],
+          "selector": {
+           "node_id": "N1",
+           "source": "DECISION_CONTROL"
+          }
+         },
+         {
+          "category": "EVENT",
+          "exit_ref": "routed",
+          "kind": "END",
+          "name": "routed",
+          "node_id": "E_routed",
+          "ports": []
+         },
+         {
+          "category": "EVENT",
+          "exit_ref": "unregistered",
+          "kind": "END",
+          "name": "unregistered",
+          "node_id": "E_unregistered",
+          "ports": []
+         },
+         {
+          "category": "EVENT",
+          "exit_ref": "error",
+          "kind": "END",
+          "name": "error",
+          "node_id": "E_error",
+          "ports": []
+         }
+        ],
+        "edges": [
+         {
+          "edge_id": "start",
+          "source": "S",
+          "source_port": "ok",
+          "target": "N1"
+         },
+         {
+          "edge_id": "decision",
+          "source": "N1",
+          "source_port": "ok",
+          "target": "G"
+         },
+         {
+          "edge_id": "exit-routed",
+          "source": "G",
+          "source_port": "routed",
+          "target": "E_routed"
+         },
+         {
+          "edge_id": "exit-unregistered",
+          "source": "G",
+          "source_port": "unregistered",
+          "target": "E_unregistered"
+         },
+         {
+          "edge_id": "exit-error",
+          "source": "G",
+          "source_port": "error",
+          "target": "E_error"
+         },
+         {
+          "edge_id": "failure-blocked",
+          "source": "N1",
+          "source_port": "blocked",
+          "target": "E_error"
+         },
+         {
+          "edge_id": "failure-error",
+          "source": "N1",
+          "source_port": "error",
+          "target": "E_error"
+         }
+        ]
+       }
+      }
+     ]
+    }
+   ]
+  }
+ ],
+ "models": {
+  "dispatch.route@4.0.0": {
+   "profile": "service-decision-table-v1",
+   "version": "4.0.0",
+   "source": {
+    "kind": "PLUGIN_STORAGE",
+    "table": "dispatch.route",
+    "format": "admission-routing-table/v1"
+   }
+  }
+ },
+ "capabilities": {},
+ "asset_locks": {}
+}

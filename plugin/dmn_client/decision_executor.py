@@ -15,7 +15,8 @@ import rfc8785
 
 from dmn_client.bindings import bind_inputs
 from dmn_client.json_table import condition, equal
-from dmn_client.node_contract import ContractError, make_result, prepare_invocation
+from dmn_client.node_contract import ContractError, decode_object, make_result, prepare_invocation
+from dmn_client.route_table import RouteTableError, materialize
 
 PROFILE = "service-decision-table-v1"
 BLOCKING = {
@@ -325,6 +326,24 @@ def _render(prepared, templates, params):
     return decision
 
 
+def _materialize(bundle_json, loader):
+    """Compile PLUGIN_STORAGE route-table stubs; storage or table errors become contract errors with the node envelope."""
+    bundle = decode_object(bundle_json, "definition_bundle_json")
+
+    def load(table):
+        try:
+            return loader(table)
+        except RouteTableError:
+            raise
+        except Exception as exc:  # storage backend failure; the message never echoes stored content
+            raise RouteTableError("ROUTE_TABLE_UNAVAILABLE", "Plugin storage could not be read.", table) from exc
+
+    try:
+        return materialize(bundle, load)
+    except RouteTableError as exc:
+        raise ContractError(exc.code, exc.message, exc.path, "definition") from exc
+
+
 def evaluate_decision(
     definition_bundle_json,
     node_ref,
@@ -332,6 +351,7 @@ def evaluate_decision(
     execution_context_json,
     *,
     trusted_policy=None,
+    model_loader=None,
 ):
     """Evaluate only the fixed DECISION node. trusted_policy is a Python adapter,
     never a user JSON flag; absence confers no source or execution authority.
@@ -342,6 +362,8 @@ def evaluate_decision(
     subject, definition/model versions, quality and age before returning sources;
     absent source verification blocks reuse. Ordinary fixed-input pure replay does
     not set reused_from and remains credential-free.
+    model_loader(table) -> stored route table or None: only bundles whose model is a PLUGIN_STORAGE stub use it
+    (route tables edited in the plugin, see dmn_client.route_table); every other bundle is evaluated unchanged.
     """
     ref = node_ref if isinstance(node_ref, dict) else {}
     context = execution_context_json if isinstance(execution_context_json, dict) else {}
@@ -355,6 +377,9 @@ def evaluate_decision(
     if echo is not None:
         trace["psn_ref"] = echo
     try:
+        stored = []
+        if model_loader is not None:
+            definition_bundle_json, stored = _materialize(definition_bundle_json, model_loader)
         prepared = prepare_invocation(
             definition_bundle_json,
             node_ref,
@@ -398,6 +423,9 @@ def evaluate_decision(
             definition_digest=prepared["digest"],
             engine_called=True,
         )
+        source = next((s for s in stored if s["model_ref"] == prepared["node"]["model_ref"]), None)
+        if source is not None:
+            trace["model_source"] = source
         templates = _select(model, params, trace)
         decision = _render(prepared, templates, params)
         return make_result(ref, context, "SUCCEEDED", outputs={"decision": decision}, trace=trace)
