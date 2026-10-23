@@ -34,6 +34,8 @@ FORBIDDEN_KEYS = {
 }
 # Dify start/end/if-else/iteration-start/loop-start nodes: placed in a Step, never numbered.
 UNNUMBERED_KINDS = {"GATE", "EVENT"}
+# Phase io declarations (solution-app/v1 C10; ESE F11), optional per workflow.
+IO_FIELDS = {"io", "fail_exits", "raw_fetch_steps"}
 MAX_BYTES = 1_048_576
 MAX_DEPTH = 64
 _SCHEMA = json.loads(Path(__file__).with_name("psn-structure.v1.schema.json").read_text())
@@ -100,7 +102,72 @@ def _shape_issue(error) -> StructureIssue:
     }.get(field, "INVALID_STRUCTURE")
     if field == "id":
         code = "INVALID_STEP_ID" if "steps" in parts else "INVALID_PHASE_ID"
+    if IO_FIELDS & set(parts):
+        code = "INVALID_PHASE_IO"
     return StructureIssue(code, _pointer(parts), "Value does not match psn-structure/v1 schema.")
+
+
+def _check_io(workflow, wp, fail) -> None:
+    """Phase io (solution-app/v1 C10): the declarations agree with each other and the structure.
+
+    Optional per workflow; once a workflow declares any of it, it declares all of it. Whether the
+    graph keeps to the declarations is psn check's part (phase_io.py).
+    """
+    phases = workflow["phases"]
+    if not (IO_FIELDS & set(workflow)) and not any("io" in phase for phase in phases):
+        return
+    if not all("io" in phase for phase in phases):
+        fail("IO_INCOMPLETE", wp + "/phases", "Once a workflow declares io, every phase does.")
+    for field in ("fail_exits", "raw_fetch_steps"):
+        if field not in workflow:
+            fail("IO_INCOMPLETE", f"{wp}/{field}", "A workflow that declares io lists this too.")
+    steps = {step["id"] for phase in phases for step in phase["steps"]}
+    for field in ("fail_exits", "raw_fetch_steps"):
+        for i, step in enumerate(workflow.get(field, [])):
+            if step not in steps:
+                fail("IO_UNKNOWN_STEP", f"{wp}/{field}/{i}", "Name a step of this workflow.")
+    phase_of = {
+        node["node_key"]: phase["id"]
+        for phase in phases
+        for step in phase["steps"]
+        for node in step["nodes"]
+        if node["status"] == "ACTIVE"
+    }
+    outputs = {
+        phase["id"]: [o["var"] for o in phase.get("io", {}).get("outputs", [])] for phase in phases
+    }
+    for pi, phase in enumerate(phases):
+        io = phase.get("io")
+        if io is None:
+            continue
+        pp = f"{wp}/phases/{pi}/io"
+        for i, output in enumerate(io["outputs"]):
+            if phase_of.get(output["var"].split(".", 1)[0]) != phase["id"]:
+                fail(
+                    "IO_OUTPUT_NOT_IN_PHASE",
+                    f"{pp}/outputs/{i}/var",
+                    "An output names a variable of an active node in this phase.",
+                )
+            if outputs[phase["id"]].index(output["var"]) != i:
+                fail("IO_DUPLICATE", f"{pp}/outputs/{i}/var", "Declare each output once.")
+        seen = set()
+        for i, item in enumerate(io["inputs"]):
+            source = item["from"]
+            if source == phase["id"] or source not in outputs:
+                fail(
+                    "IO_INPUT_SOURCE",
+                    f"{pp}/inputs/{i}/from",
+                    "Name another phase of this workflow.",
+                )
+            elif item["var"] not in outputs[source]:
+                fail(
+                    "IO_INPUT_SOURCE",
+                    f"{pp}/inputs/{i}/var",
+                    "An input names an output its source phase declares.",
+                )
+            if (item["var"], source) in seen:
+                fail("IO_DUPLICATE", f"{pp}/inputs/{i}/var", "Declare each input once.")
+            seen.add((item["var"], source))
 
 
 def validate_structure(value: object) -> list[StructureIssue]:
@@ -188,6 +255,7 @@ def validate_structure(value: object) -> list[StructureIssue]:
                             "REF_MISMATCH", np + "/ref", "Ref must use its enclosing instance/step."
                         )
                     by_ref[node["ref"]].append((node, np))
+        _check_io(workflow, wp, fail)
 
     for records in by_ref.values():
         if len(records) > 1:

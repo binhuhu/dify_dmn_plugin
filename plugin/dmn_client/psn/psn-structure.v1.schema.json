@@ -71,6 +71,12 @@
             "$ref": "#/$defs/workflow"
           },
           "minItems": 1
+        },
+        "fail_exits": {
+          "$ref": "#/$defs/step_list"
+        },
+        "raw_fetch_steps": {
+          "$ref": "#/$defs/step_list"
         }
       },
       "required": [
@@ -133,6 +139,12 @@
           "items": {
             "$ref": "#/$defs/phase"
           }
+        },
+        "fail_exits": {
+          "$ref": "#/$defs/step_list"
+        },
+        "raw_fetch_steps": {
+          "$ref": "#/$defs/step_list"
         }
       },
       "required": [
@@ -399,6 +411,9 @@
           "items": {
             "$ref": "#/$defs/step"
           }
+        },
+        "io": {
+          "$ref": "#/$defs/phase_io"
         }
       },
       "required": [
@@ -525,6 +540,79 @@
           }
         }
       ]
+    },
+    "step_list": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[A-Z][1-9][0-9]*\\.S[1-9][0-9]*$"
+      },
+      "uniqueItems": true
+    },
+    "phase_io": {
+      "type": "object",
+      "properties": {
+        "inputs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/io_input"
+          }
+        },
+        "outputs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/io_output"
+          }
+        }
+      },
+      "required": [
+        "inputs",
+        "outputs"
+      ],
+      "additionalProperties": false
+    },
+    "io_var": {
+      "type": "string",
+      "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,63}\\.[A-Za-z_][A-Za-z0-9_]{0,63}$"
+    },
+    "io_input": {
+      "type": "object",
+      "properties": {
+        "var": {
+          "$ref": "#/$defs/io_var"
+        },
+        "from": {
+          "type": "string",
+          "pattern": "^[A-Z][1-9][0-9]*$"
+        }
+      },
+      "required": [
+        "var",
+        "from"
+      ],
+      "additionalProperties": false
+    },
+    "io_output": {
+      "type": "object",
+      "properties": {
+        "var": {
+          "$ref": "#/$defs/io_var"
+        },
+        "shape": {
+          "type": "string",
+          "pattern": "^[a-z]+(\\[[a-z]+\\])? · \\S"
+        },
+        "max_length": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "required": [
+        "var",
+        "shape",
+        "max_length"
+      ],
+      "additionalProperties": false
     }
   }
 }

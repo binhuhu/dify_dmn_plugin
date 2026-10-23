@@ -38,7 +38,13 @@
               "DISPATCH_DECISION_COUNT",
               "NO_FAILURE_HANDLING",
               "SCENE_DEFINITION_IN_CODE",
-              "SILENT_FETCH_DEFAULT"
+              "SILENT_FETCH_DEFAULT",
+              "PHASE_IO_UNDECLARED_OUTPUT",
+              "PHASE_IO_UNDECLARED_INPUT",
+              "PHASE_IO_UNUSED",
+              "PHASE_IO_SHAPE",
+              "FAILURE_SIGNAL_LEAK",
+              "RAW_FETCH_LEAK"
             ]
           },
           "severity": {"enum": ["FAIL", "WARN"]},

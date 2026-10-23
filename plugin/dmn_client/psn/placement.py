@@ -207,7 +207,7 @@ def _where(family, cat, places, step) -> str:
     )
 
 
-def _parent(node: dict, nodes: dict):
+def parent_node(node: dict, nodes: dict):
     data = node["data"]
     parent_id = node.get("parentId") or data.get("iteration_id") or data.get("loop_id")
     return nodes.get(parent_id) if isinstance(parent_id, str) else None
@@ -219,7 +219,7 @@ def _reading_cell(node: dict, nodes: dict) -> bool:
     The ESE checker also wants the cell to be an http-request. The rule text and solution-app/v1
     N6 name no node type, and the ESE line's own published coupon app reads with an llm node.
     """
-    parent = _parent(node, nodes)
+    parent = parent_node(node, nodes)
     in_loop = parent is not None and parent["data"].get("type") in LOOP_TYPES
     return in_loop and _model_marked(node["data"])
 
@@ -236,7 +236,7 @@ def _handles_failure(node_id: str, node: dict, nodes: dict, out_edges) -> bool:
         return True
     if node["data"].get("error_strategy") == "default-value":
         return True
-    parent = _parent(node, nodes)
+    parent = parent_node(node, nodes)
     return (
         parent is not None
         and parent["data"].get("type") in LOOP_TYPES

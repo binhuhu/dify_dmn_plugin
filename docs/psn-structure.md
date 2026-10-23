@@ -34,7 +34,8 @@ W1–W9 是 10-16 的合并修订，散在各节里：
 
 2026-10-23 起照 AgentHub 方案构建标准 solution-app/v1 改了两处：
 - 方案应用（SOLUTION）的标题带编号族、全长不超过 60 字，即 N2，见 stamp 一节；其余编号族保留旧写法（Brian 2026-10-23：「标题族前缀只改 SOLUTION；其余族保留旧写法，check 对它们照旧认旧写法。」）；
-- `psn check` 带上 ESE 五级结构检查的放错层规则 F06–F09 与失败处理 L5（标准第 3 节：两条线都跑 psn check），再加标准 N4（取数失败不给默认值），见 check 一节「放错层与失败处理」。
+- `psn check` 带上 ESE 五级结构检查的放错层规则 F06–F09 与失败处理 L5（标准第 3 节：两条线都跑 psn check），再加标准 N4（取数失败不给默认值），见 check 一节「放错层与失败处理」；
+- 结构可以按 Phase 声明输入输出，`psn check` 照 ESE F11 核对（标准 C10），见「Phase 输入输出声明」和 check 一节「Phase 输入输出」。
 
 ## 结构与实例身份（R1、R4、R6）
 
@@ -53,7 +54,7 @@ W1–W9 是 10-16 的合并修订，散在各节里：
 
 workflow `status` 为 ACTIVE 或 PAUSED；HANDLE 合成样例为 PAUSED。结构不嵌入 graph，因此 PAUSED 不要求提供图；ACTIVE 对应图的完整性属于第 2 项。P6/P7 仅能出现在 HANDLE。样例五个条目各有两个 Step，名称、节点和迁移全部为合成数据。
 
-phase 字段：`id`、`name`、`steps`。step 字段：`id`、`name`、`nodes`；`id` 为所属 `{Phase}.S{n}`，n 是从 1 起的十进制整数，不带前导零。节点字段：
+phase 字段：`id`、`name`、`steps`，可选 `io`（见下文「Phase 输入输出声明」）。step 字段：`id`、`name`、`nodes`；`id` 为所属 `{Phase}.S{n}`，n 是从 1 起的十进制整数，不带前导零。节点字段：
 
 | 字段 | 含义 |
 | --- | --- |
@@ -67,6 +68,34 @@ phase 字段：`id`、`name`、`steps`。step 字段：`id`、`name`、`nodes`�
 | `name` | 非空显示名 |
 
 开始、结束、if-else、iteration-start、loop-start 不分配 PSN 编号。Dify 节点类型与 kind 的对应，以及图有没有覆盖结构，见下文 `psn check` 一节。
+
+### Phase 输入输出声明（标准 C10，2026-10-23 加）
+
+每个 Phase 可以声明自己的输入和输出：
+- **输出**：本 Phase 给别的 Phase 用的变量，写 `节点.变量`、形状（`Dify 类型 · 内容`）和上限（字符数，数组按每项算）；
+- **输入**：本 Phase 读的别的 Phase 的变量，写 `节点.变量` 和来源 Phase。形状和上限以来源 Phase 的输出声明为准，不再抄一份。
+
+workflow 同时写两个 Step 列表：
+- `fail_exits`：失败信号 `error`、`error_message` 只许跨进这些 Step；
+- `raw_fetch_steps`：原始取数明细不得跨出这些 Step 所在的 Phase。
+
+字段都是可选的。一个 workflow 只要声明了其中任何一项，所有 Phase 都要有 `io`（可以是空列表），两个 Step 列表也都要写。Brian 2026-10-23 定：新方案应用必须声明，96e837d4 不补；P5 的输入逐条写，没有通配写法；start 变量算 P1 的输出。
+
+```json
+{"id": "P2", "name": "受理策略", "steps": [...],
+ "io": {"inputs":  [{"var": "fact_build.f_0", "from": "P1"}],
+        "outputs": [{"var": "p2_table.state", "shape": "string · 受理结果", "max_length": 100}]}}
+```
+
+workflow 上写：`"fail_exits": ["P5.S2"]`、`"raw_fetch_steps": ["P1.S1"]`。
+
+`validate_structure` 只核声明自身：
+- 输出的变量属于本 Phase 的 ACTIVE 节点；
+- 输入的来源是另一个 Phase，且那个 Phase 声明了这个输出；
+- 两个 Step 列表里的 Step 都存在；
+- 不重复。
+
+错误码见上文。图有没有照声明走，由 `psn check` 查，见「Phase 输入输出」一节。查看器导入结构时不读这些字段。
 
 ## 不重号与墓碑（R2）
 
@@ -132,6 +161,12 @@ PY
 | INVALID_MOVE | 迁移目标不存在、同 Step、不同身份、合流或环；不编号节点带 `moved_to` |
 | VERSION_FIELD_IN_STRUCTURE | 结构任何深度含版本/部署身份字段 |
 | INVALID_LEVEL / INVALID_STRUCTURE | 层级错误或其余类型、字段、输入边界错误 |
+| INVALID_PHASE_IO | `io`、`fail_exits`、`raw_fetch_steps` 的格式不对 |
+| IO_INCOMPLETE | 声明了 io 的 workflow 有 Phase 没声明，或缺 `fail_exits` / `raw_fetch_steps` |
+| IO_UNKNOWN_STEP | `fail_exits` / `raw_fetch_steps` 里的 Step 不在本 workflow |
+| IO_OUTPUT_NOT_IN_PHASE | 输出的变量不属于本 Phase 里的 ACTIVE 节点 |
+| IO_INPUT_SOURCE | 输入的来源不是本 workflow 的另一个 Phase，或来源 Phase 没声明这个输出 |
+| IO_DUPLICATE | 同一 Phase 里输出或输入（连同来源）重复 |
 
 ## 图对结构：`psn check`（第 2 项）
 
@@ -166,6 +201,12 @@ python -m dmn_client.psn check --structure ../examples/psn/structure.synthetic.j
 | NO_FAILURE_HANDLING | WARN | 工作流工具、取数、模型或决策节点没有失败处理：没有 fail-branch 出边，不是 `default-value`，也不在 continue-on-error 的循环里（ESE L5） |
 | SCENE_DEFINITION_IN_CODE | WARN | DELIVERY、DISPATCH 的代码节点里带了场景定义（ESE F06、F08） |
 | SILENT_FETCH_DEFAULT | WARN | SOLUTION 的取数节点用 `default-value`：http-request，以及 P1.S1 的工作流调用（取数应用）。取数失败被默认值替代，「没取到」会被当成「没有」（标准 N4） |
+| PHASE_IO_UNDECLARED_OUTPUT | WARN | 跨 Phase 读了对方没声明为输出的变量（标准 C10、ESE F11，只查声明了 io 的 workflow，下同） |
+| PHASE_IO_UNDECLARED_INPUT | WARN | 跨 Phase 读变量，本 Phase 却没声明这条输入 |
+| PHASE_IO_UNUSED | WARN | 声明了的输出没有别的 Phase 读，或声明了的输入本 Phase 没读 |
+| PHASE_IO_SHAPE | WARN | 输出的形状、上限与节点不符 |
+| FAILURE_SIGNAL_LEAK | WARN | `error`、`error_message` 跨进了不在 `fail_exits` 里的 Step |
+| RAW_FETCH_LEAK | WARN | 原始取数明细被别的 Phase 读，或被声明成输出 |
 
 **`DMN_STATUS_UNCHECKED` 是启发式检查。** 插件判不出来时不让节点报错，而是正常返回 `execution_status`（BLOCKED / FAILED）和空结果，所以要看下游有没有核对。这条只看下游代码节点的变量选择和代码文本：通过不等于状态一定被正确处理；不通过也不等于静默，更远处的消费者可能读的是转手后的结果。
 
@@ -223,10 +264,39 @@ Dify 节点类型与 kind 的对应：
 - HANDLE、KNOWLEDGE：ESE 没有对应规则；
 - 骨架里逐 Step 列出的代码、汇合类别：那是 ESE 自己的 Step 排法；
 - F01–F05：一一对应、编号、归属、类别、不编号，psn check 已有各自的码；
-- F11（Phase 输入输出）：要先给结构加 Phase 级声明；
 - F13（代码节点输出深度）。
 
 只认 hu8627/dmn_json 为决策插件，与上面的 kind 一致。别的决策插件的节点按取数算。
+
+### Phase 输入输出（标准 C10，ESE F11）
+
+声明写在结构里，见上文「Phase 输入输出声明」。`psn check` 只查声明了 io 的 workflow：没有声明的不报，既有应用的读回也就不报。这几个码默认都是 WARN，实现在 `plugin/dmn_client/psn/phase_io.py`。
+
+**引用怎么找**：照 ESE 检查器的认法（`五级结构检查.js` 的「引用们」），在节点的 data 里找，代码正文 `code` 不算：
+- 任何第一项是节点 id 的字符串数组，如变量选择器 `["fact_build", "f_0"]`；
+- 任何 `{{#节点.变量#}}` 模板。
+
+三段以上的选择器和模板，只按前两段算。读的节点和被读的节点分属两个 Phase（按结构里的归位），就是跨 Phase 引用。每条跨 Phase 引用按下面的顺序判，命中一条就不再往下判：
+1. 被读的是原始取数明细，报 `RAW_FETCH_LEAK`。原始取数明细是指 `raw_fetch_steps` 里的取数、工作流调用、模型、循环，以及这种循环里的节点。要先在本 Phase 构建成事实，才能给别的 Phase 用。
+2. 读的是失败信号 `error`、`error_message`：只许读的节点在 `fail_exits` 里，否则报 `FAILURE_SIGNAL_LEAK`。失败信号不用声明。
+3. 被读的变量不在对方 Phase 的输出里，报 `PHASE_IO_UNDECLARED_OUTPUT`；本 Phase 没声明这条输入（含来源 Phase），报 `PHASE_IO_UNDECLARED_INPUT`。这两条各判各的，可能一起报。
+
+**再查声明本身：**
+- 声明了却没人用，报 `PHASE_IO_UNUSED`：输出没有别的 Phase 读，或输入本 Phase 没读。用来防止声明漂移。
+- 原始取数明细被声明成输出，报 `RAW_FETCH_LEAK`。
+- 形状与上限不对，报 `PHASE_IO_SHAPE`：
+  - 形状里的 Dify 类型和节点实际的输出类型不同；
+  - 节点根本没有这个输出；
+  - 代码节点的上限超过平台输出上限 100,000；
+  - start 变量的上限超过它自己的 `max_length`。
+- 实际输出类型能认出来的节点：代码节点、start、变量汇合、迭代，以及本插件的 `evaluate_decision`（按它的 output_schema）。其余节点不比类型。
+
+**Brian 2026-10-23 的定法**：「F11 按默认做：新方案应用必须声明 io，96e837d4 不补；P5 输入逐条写，不许通配；start 变量算 P1 的输出；不加 PREDICT、EVIDENCE 族。」所以：
+- 输入没有通配写法；
+- start 节点归在 P1，它的变量就是 P1 的输出；
+- 「必须声明」由方案构建标准管，检查不查，所以 96e837d4 不会因为没有声明而被报。
+
+ESE 那边还有输出体积实测（`输出上界检查.js`）和 F13（代码节点输出深度），这两项没有搬过来。
 
 ## 把编号写进图：`psn stamp` / `psn from-graph`（第 3 项）
 

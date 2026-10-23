@@ -1,7 +1,7 @@
 """psn check: compare one Dify workflow graph with its psn-structure/v1 entry, offline.
 
 Besides placement, numbering and decision nodes, it carries the ESE line's misplacement and
-failure-handling rules (placement.py). The report names nodes by their stable node_key and PSN
+failure-handling rules (placement.py) and checks declared phase io (phase_io.py). The report names nodes by their stable node_key and PSN
 ref only. It never echoes a Dify app id, a published workflow id or any hash, so it can be kept
 next to the structure.
 """
@@ -23,6 +23,7 @@ from .graph import (
     ref_parts,
     title_problem,
 )
+from .phase_io import io_issues
 from .placement import placement_issues
 from .structure import validate_structure
 
@@ -50,6 +51,13 @@ SEVERITY = {
     "SCENE_DEFINITION_IN_CODE": "WARN",
     # solution-app/v1 N4, see placement.py.
     "SILENT_FETCH_DEFAULT": "WARN",
+    # Phase io, solution-app/v1 C10 and ESE F11, see phase_io.py.
+    "PHASE_IO_UNDECLARED_OUTPUT": "WARN",
+    "PHASE_IO_UNDECLARED_INPUT": "WARN",
+    "PHASE_IO_UNUSED": "WARN",
+    "PHASE_IO_SHAPE": "WARN",
+    "FAILURE_SIGNAL_LEAK": "WARN",
+    "RAW_FETCH_LEAK": "WARN",
 }
 
 
@@ -212,6 +220,8 @@ def check_graph(structure, graph, key, *, strict=False) -> dict:
                 )
 
     for code, node_key, message, ref in placement_issues(family, nodes, placed, out_edges):
+        report(code, node_key, message, ref)
+    for code, node_key, message, ref in io_issues(entry, nodes, placed):
         report(code, node_key, message, ref)
 
     found.sort(key=lambda i: (i["code"], i.get("node_key", "")))
