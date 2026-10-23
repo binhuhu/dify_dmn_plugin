@@ -129,7 +129,10 @@ class RouteEditorEndpoint(Endpoint):
             return _error(405, "METHOD_NOT_ALLOWED", "只允许 GET / POST /api/table")
         except RouteTableError as exc:
             return _error(
-                409 if exc.code == "ROUTE_TABLE_STALE" else 400, exc.code, exc.message, exc.path
+                409 if exc.code in ("ROUTE_TABLE_STALE", "ROUTE_TABLE_RACE") else 400,
+                exc.code,
+                exc.message,
+                exc.path,
             )
         except Exception:  # storage backend failure: no detail, never echo content
             return _error(503, "ROUTE_TABLE_UNAVAILABLE", "插件存储读写失败，稍后再试")

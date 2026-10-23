@@ -18,7 +18,8 @@ scene at another one is a save in the editor, never a DISPATCH or DELIVERY publi
 
     scenes     scene_id -> {name, domain}            the live locate catalog, imported in the editor
     solutions  app_id   -> {name, inputs}            registered solution apps and the start variables they take
-    routes     scene × issue_type × phase -> SOLUTION_APP {app_id} | TRANSFER {to} | KNOWLEDGE {kb_refs, topics}
+    routes     scene × issue_type × phase -> SOLUTION_APP {app_id} | TRANSFER {to}
+               (Brian 10-23 D8: knowledge routes stay in the side-panel config, not in this table)
 
 A v2 stub uses format "routing-table/v2". Its compiled model groups scenes that share a target into one rule
 (scene_id in [...], at most 128 scenes per rule), so the 128-rule limit bounds distinct targets, not scenes.
@@ -32,6 +33,7 @@ Storage keys (per workspace and plugin):
 import hashlib
 import json
 import re
+import uuid
 from datetime import datetime, timezone
 
 SCHEMA = "dmn-json.route-table/v1"
@@ -347,11 +349,15 @@ def _target_v2(t, solutions, path):
             path,
         )
         return {"kind": "TRANSFER", "to": t["to"]}
-    if kind == "KNOWLEDGE":
-        return _knowledge(t, path)
+    _need(
+        kind != "KNOWLEDGE",
+        "ROUTE_TABLE_TARGET",
+        "知识库路由不进这张表，留在侧栏配置（Brian 10-23 D8：DMN 路由表只放方案和转安全）",
+        path + ".kind",
+    )
     raise RouteTableError(
         "ROUTE_TABLE_TARGET",
-        "去向只能是方案应用（SOLUTION_APP）、转接（TRANSFER）或知识库（KNOWLEDGE）",
+        "去向只能是方案应用（SOLUTION_APP）或转接（TRANSFER）",
         path + ".kind",
     )
 
@@ -608,18 +614,13 @@ DATA_V2 = (
     "solution_name",
     "solution_inputs_json",
     "transfer_to",
-    "kb_refs_json",
-    "topics_json",
-    "intents_json",
 )
 
 
 def _ref_v2(target):
     if target["kind"] == "SOLUTION_APP":
         return "solution-app:" + target["app_id"]
-    if target["kind"] == "TRANSFER":
-        return "transfer:" + target["to"]
-    return "knowledge:" + digest(target)[:16]
+    return "transfer:" + target["to"]
 
 
 def _data_v2(target, solutions):
@@ -632,14 +633,8 @@ def _data_v2(target, solutions):
             solution_name={"literal": s["name"]},
             solution_inputs_json={"literal": canon(s["inputs"])},
         )
-    elif target["kind"] == "TRANSFER":
-        data.update(transfer_to={"literal": target["to"]})
     else:
-        data.update(
-            kb_refs_json={"literal": canon(target["kb_refs"])},
-            topics_json={"literal": canon(target["topics"])},
-            intents_json={"literal": canon(target["intents"])} if "intents" in target else NULL,
-        )
+        data.update(transfer_to={"literal": target["to"]})
     return data
 
 
@@ -828,27 +823,57 @@ class StorageTables:
                 )
         return out
 
-    def save(self, doc, expected_version):
-        """Optimistic save: expected_version is the version the editor read (0 = table not created yet)."""
+    @staticmethod
+    def save_key(table, save_id):
+        return "route-table:" + table + ":s:" + save_id
+
+    def save(self, doc, expected_version, new_id=lambda: uuid.uuid4().hex):
+        """Optimistic save: expected_version is the version the editor read (0 = table not created yet).
+
+        Plugin storage has no compare-and-swap, so two editors can race (review T2-12). Each save gets a save_id and is
+        first written under its own key, which nothing ever overwrites; version n is only taken while :v<n> is still
+        free; afterwards :v<n> and the head are read back and must carry this save_id, otherwise ROUTE_TABLE_RACE (409).
+        The editor keeps its draft on 409, so the user reloads, re-applies and saves again; nothing is lost silently.
+        """
         clean = validate_doc(doc)
-        cur = self.load(clean["table"])
+        table = clean["table"]
+        cur = self.load(table)
         have = cur["version"] if cur else 0
         _need(
             type(expected_version) is int and expected_version == have,
             "ROUTE_TABLE_STALE",
-            "路由表刚被改过（插件里是第 %d 版，页面是第 %s 版），刷新后再改"
+            "路由表刚被改过（插件里是第 %d 版，页面是第 %s 版）：载入最新版、保留你的改动后再存"
             % (have, expected_version),
             "expected_version",
         )
         _need(clean["note"].strip() != "", "ROUTE_TABLE_NOTE_REQUIRED", "写一句改动说明", "note")
+        n = have + 1
+        _need(
+            not self.storage.exist(self.key(table, n)),
+            "ROUTE_TABLE_STALE",
+            "第 %d 版刚被别人存了：载入最新版、保留你的改动后再存" % n,
+            "expected_version",
+        )
         clean.update(
-            version=have + 1,
+            version=n,
             saved_at=self.now().strftime("%Y-%m-%dT%H:%M:%SZ"),
             content_sha256=content_sha256(clean),
+            save_id=new_id(),
+            parent_save_id=(cur or {}).get("save_id"),
         )
         raw = canon(clean).encode("utf-8")
+        self.storage.set(self.save_key(table, clean["save_id"]), raw)  # never overwritten
         self.storage.set(
-            self.key(clean["table"], clean["version"]), raw
-        )  # history first: a crash never leaves a head without its version
-        self.storage.set(self.key(clean["table"]), raw)
+            self.key(table, n), raw
+        )  # history before head: no head without its version
+        self.storage.set(self.key(table), raw)
+        for key in (self.key(table, n), self.key(table)):
+            back = self._read(key)
+            _need(
+                back is not None and back.get("save_id") == clean["save_id"],
+                "ROUTE_TABLE_RACE",
+                "同一时刻有人也存了第 %d 版，你这次没有生效（另存为 %s）：载入最新版、保留你的改动后再存"
+                % (n, clean["save_id"][:12]),
+                "expected_version",
+            )
         return clean
