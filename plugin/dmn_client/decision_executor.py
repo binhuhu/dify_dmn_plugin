@@ -336,7 +336,9 @@ def _materialize(bundle_json, loader):
         except RouteTableError:
             raise
         except Exception as exc:  # storage backend failure; the message never echoes stored content
-            raise RouteTableError("ROUTE_TABLE_UNAVAILABLE", "Plugin storage could not be read.", table) from exc
+            raise RouteTableError(
+                "ROUTE_TABLE_UNAVAILABLE", "Plugin storage could not be read.", table
+            ) from exc
 
     try:
         return materialize(bundle, load)
