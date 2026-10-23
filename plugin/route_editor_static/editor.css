@@ -35,6 +35,10 @@ details{margin:8px 0}summary{cursor:pointer;color:var(--blue)}
 .re-chips button[aria-pressed=true]{background:var(--blue);border-color:var(--blue);color:#fff}
 .re-tall{max-height:62vh;overflow:auto}.re-tall th{position:sticky;top:0;background:var(--surface)}
 tr.re-changed td{background:var(--warn-bg)}
+tr.re-error td{background:var(--bad-bg)}
+.re-confirm{border-color:var(--blue);box-shadow:0 0 0 2px var(--blue) inset}
+.re-warn{color:var(--warn-fg);font-size:13px;margin:6px 0}
+.re-status{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center}
 .re-num{font-variant-numeric:tabular-nums;text-align:right}
 td input[data-app]{width:100%;min-width:180px}
 button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,a:focus-visible{outline:2px solid var(--blue);outline-offset:1px}

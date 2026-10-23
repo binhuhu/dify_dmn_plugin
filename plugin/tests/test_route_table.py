@@ -26,11 +26,9 @@ APP_B = "bbbbbbbb-0000-4000-8000-000000000002"
 SPACE = "cccccccc-0000-4000-8000-000000000003"
 NODE_REF = {"workflow_id": "DISPATCH", "phase_id": "D1", "step_id": "D1.S2", "node_id": "N1"}
 KEY = "k" * 32
-# The live 52df5f0d DISPATCH model, kept here only when the local 81 readback exists (parity check below).
-LIVE_READBACK = Path(__file__).resolve().parents[4] / (
-    "81_服务运营系统/deployment/backups/现网链路基线_20261011/并行会话发布读回/release-20261018/"
-    "admission-52df5f0d-9bb4-4854-aea8-ac40345aa7c7-published.json"
-)
+# The live 52df5f0d DISPATCH readback (route model + REGISTRY line), committed so the parity checks below run in CI
+# (review T2-06: they used to skip outside the maintainer's machine).
+LIVE_READBACK = HERE / "dispatch_52df5f0d_readback.json"
 
 
 def doc(**over):
@@ -234,9 +232,6 @@ def test_compile_matches_builder_shape_and_template_refs():
     ] and json.loads(know["intents_json"]["literal"]) == ["CONSULT_RULE"]
 
 
-@pytest.mark.skipif(
-    not LIVE_READBACK.exists(), reason="local 81 readback of the live DISPATCH not present"
-)
 def test_compile_reproduces_live_dispatch_model_byte_for_byte():
     published = json.loads(LIVE_READBACK.read_text())["published"]
     node = next(n for n in published["graph"]["nodes"] if n["id"] == "admission-dmn")
@@ -265,9 +260,6 @@ def test_compile_reproduces_live_dispatch_model_byte_for_byte():
     )
 
 
-@pytest.mark.skipif(
-    not LIVE_READBACK.exists(), reason="local 81 readback of the live DISPATCH not present"
-)
 def test_seed_from_live_readback_routes_like_the_live_workflow():
     import importlib.util
 
@@ -408,7 +400,9 @@ def test_storage_versions_history_and_stale_saves():
     assert one["version"] == 1 and set(fs.data) == {
         "route-table:dispatch.route",
         "route-table:dispatch.route:v1",
+        "route-table:dispatch.route:s:" + one["save_id"],
     }
+    assert one["parent_save_id"] is None
     with pytest.raises(RouteTableError) as exc:
         st.save(doc(note="again"), 0)
     assert exc.value.code == "ROUTE_TABLE_STALE"

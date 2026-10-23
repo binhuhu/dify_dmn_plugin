@@ -5,7 +5,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
-from test_route_table import KEY, FakeStorage, call, endpoint, hit, stub_bundle
+from test_route_table import KEY, NODE_REF, FakeStorage, call, endpoint, hit, stub_bundle
 from test_route_table import doc as doc_v1
 
 from dmn_client.route_table import (
@@ -525,3 +525,125 @@ def test_builtin_manifest_asks_for_app_invocation():
         "invoke_solution calls workspace apps through the plugin app permission"
     )
     assert permission["storage"]["enabled"] is True and permission["endpoint"]["enabled"] is True
+
+
+# ── 并发保存（评审 T2-12）、知识库不进表（D8）、现网存储接线（T2-15）────────────────
+
+
+class RacingStorage(FakeStorage):
+    """After our head write, another editor's save for the same version lands (no CAS in plugin storage)."""
+
+    def __init__(self, other):
+        super().__init__()
+        self.other, self.fired = other, False
+
+    def set(self, key, val):
+        super().set(key, val)
+        if key == "route-table:dispatch.route" and not self.fired:
+            self.fired = True
+            mine = json.loads(val)
+            theirs = dict(mine, save_id=self.other, note="别人同时存的")
+            raw = json.dumps(theirs, ensure_ascii=False).encode()
+            super().set("route-table:dispatch.route:v%d" % mine["version"], raw)
+            super().set("route-table:dispatch.route", raw)
+
+
+def test_concurrent_save_is_reported_not_lost():
+    st = StorageTables(RacingStorage("f" * 32))
+    with pytest.raises(RouteTableError) as exc:
+        st.save(doc(), 0, new_id=lambda: "a" * 32)
+    assert exc.value.code == "ROUTE_TABLE_RACE" and "a" * 12 in exc.value.message
+    assert ("route-table:dispatch.route:s:" + "a" * 32) in st.storage.data, (
+        "the losing save is kept under its own key"
+    )
+
+
+def test_taken_version_slot_is_stale_and_lineage_is_recorded():
+    st = saved()
+    first = st.load("dispatch.route")
+    st.storage.data["route-table:dispatch.route:v2"] = (
+        b"{}"  # another editor took v2 but its head write has not landed
+    )
+    with pytest.raises(RouteTableError) as exc:
+        st.save(doc(note="改一下"), 1)
+    assert exc.value.code == "ROUTE_TABLE_STALE"
+    del st.storage.data["route-table:dispatch.route:v2"]
+    second = st.save(doc(note="改一下"), 1)
+    assert second["parent_save_id"] == first["save_id"] and second["version"] == 2
+
+
+def test_editor_answers_409_on_a_race():
+    ep = endpoint(RacingStorage("f" * 32))
+    status, body = hit(ep, "api/table", method="POST", body={**doc(), "expected_version": 0})
+    assert status == 409 and body["error"]["code"] == "ROUTE_TABLE_RACE"
+
+
+def test_knowledge_routes_stay_out_of_the_v2_table():
+    route = {
+        "scene_id": "P_02_04_01",
+        "issue_type": "CONSULT",
+        "phase": "STAGE_1",
+        "target": {
+            "kind": "KNOWLEDGE",
+            "kb_refs": [{"space_id": "s", "article_id": "1"}],
+            "topics": ["coupon_use"],
+        },
+    }
+    with pytest.raises(RouteTableError) as exc:
+        validate_doc(doc(routes=[route]))
+    assert exc.value.code == "ROUTE_TABLE_TARGET" and "D8" in exc.value.message
+
+
+def test_evaluate_decision_tool_reads_plugin_storage():
+    from tools.evaluate_decision import EvaluateDecisionTool
+
+    st = saved()
+    tool = EvaluateDecisionTool.from_credentials({})
+    tool.session = SimpleNamespace(storage=st.storage)
+    bundle = v2_stub()
+    probe = call(bundle, "P_02_04_01", "COMPLAINT", "STAGE_1", st.load)
+    assert probe["execution_status"] == "SUCCEEDED"
+    context = {
+        "workflow_run_id": "run-1",
+        "step_run_id": "run-1:admission",
+        "attempt_id": "req-1",
+        "node_run_id": "run-1:decision",
+        "activation_ref": "passenger-admission:issue-1",
+        "subject_scope_ref": "{}",
+        "authorization_context_ref": "parent-1",
+        "as_of": "2026-10-22T00:00:00+00:00",
+    }
+    params = {
+        k: {"quality": "KNOWN", "value": v, "source_refs": ["parent-1:issue-1"]}
+        for k, v in [("scene_id", "P_02_04_01"), ("issue_type", "COMPLAINT"), ("phase", "STAGE_1")]
+    }
+    snapshot = {
+        "parameter_snapshot": {
+            "schema_version": "service-decision-dsl.parameter-snapshot.v2",
+            "prepared_for": NODE_REF,
+            "subject_scope_ref": "{}",
+            "as_of": context["as_of"],
+            "parameters": params,
+            "provenance": {"issue_key": "issue-1"},
+        },
+        "runtime_snapshot": {},
+    }
+    msgs = list(
+        tool.invoke(
+            {
+                "definition_bundle_json": json.dumps(bundle),
+                "node_ref": NODE_REF,
+                "inputs_json": snapshot,
+                "execution_context_json": context,
+            }
+        )
+    )
+    variables = {
+        m.message.variable_name: m.message.variable_value
+        for m in msgs
+        if m.type.value == "variable"
+    }
+    assert variables["execution_status"] == "SUCCEEDED", variables.get("diagnostics")
+    assert (
+        variables["data"]["app_id"] == COUPON and variables["trace"]["model_source"]["version"] == 1
+    )
