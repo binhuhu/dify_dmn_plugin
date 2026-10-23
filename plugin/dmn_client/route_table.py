@@ -833,7 +833,9 @@ class StorageTables:
         Plugin storage has no compare-and-swap, so two editors can race (review T2-12). Each save gets a save_id and is
         first written under its own key, which nothing ever overwrites; version n is only taken while :v<n> is still
         free; afterwards :v<n> and the head are read back and must carry this save_id, otherwise ROUTE_TABLE_RACE (409).
-        The editor keeps its draft on 409, so the user reloads, re-applies and saves again; nothing is lost silently.
+        The editor keeps its draft on 409, so the user reloads, re-applies and saves again. This does NOT make saves
+        concurrency-safe: if one writer finishes its write and read-back before the other writes, both report success
+        and the earlier save survives only under its :s:<save_id> key (reproduced before the 0.5.1 release).
         """
         clean = validate_doc(doc)
         table = clean["table"]
