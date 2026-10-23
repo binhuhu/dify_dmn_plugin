@@ -20,6 +20,7 @@ PLACEMENT_CODES = {
     "DISPATCH_DECISION_COUNT",
     "NO_FAILURE_HANDLING",
     "SCENE_DEFINITION_IN_CODE",
+    "SILENT_FETCH_DEFAULT",
 }
 KEYS = {
     "DELIVERY": "DELIVERY",
@@ -181,7 +182,8 @@ def test_solution_layout_of_the_standard_passes():
         (("judge", "P4.S1", llm("模型识读")), True, "MISPLACED_NODE"),
         (("loose_reading", "P1.S1", llm("模型识读")), True, "MISPLACED_NODE"),
         (("unmarked", "P1.S1", llm("read"), "fetch_loop"), True, "MISPLACED_NODE"),
-        (("fetch_app", "P1.S1", workflow_tool()), True, "WORKFLOW_CALL_FORBIDDEN"),
+        # A fetch app may be called from P1.S1 only (solution-app/v1 D table, C6).
+        (("late_fetch_app", "P2.S1", workflow_tool()), True, "MISPLACED_NODE"),
     ],
 )
 def test_solution_misplacements(row, fail_edge, code):
@@ -228,11 +230,79 @@ def test_failure_handling_l5(rows, edges, flagged):
     assert placement(run("SOLUTION", rows, edges)) == flagged
 
 
-def test_a_workflow_call_without_fail_branch_reports_both_rules():
-    report = run("SOLUTION", [("fetch_app", "P1.S1", workflow_tool())])
+def test_solution_may_call_a_fetch_app_in_p1s1():
+    # solution-app/v1 (D table, C6) over ESE F09, which forbids workflow calls in SOLUTION.
+    rows = [*solution_layout(), ("fetch_app", "P1.S1", workflow_tool())]
+    assert placement(run("SOLUTION", rows, (*TABLES, "fetch_app"))) == set()
+    # Without a fail-branch it still lacks failure handling (L5), like the live coupon app.
+    report = run("SOLUTION", [*solution_layout(), ("fetch_app", "P1.S1", workflow_tool())], TABLES)
+    assert placement(report) == {("NO_FAILURE_HANDLING", "fetch_app")}
+
+
+def test_a_forbidden_workflow_call_without_fail_branch_reports_both_rules():
+    report = run("TARGET", [("context", "T1.S2", workflow_tool())])
     assert placement(report) == {
-        ("WORKFLOW_CALL_FORBIDDEN", "fetch_app"),
-        ("NO_FAILURE_HANDLING", "fetch_app"),
+        ("WORKFLOW_CALL_FORBIDDEN", "context"),
+        ("NO_FAILURE_HANDLING", "context"),
+    }
+
+
+# solution-app/v1 N4
+
+
+def default_value(data):
+    return dict(data, error_strategy="default-value")
+
+
+@pytest.mark.parametrize(
+    ("rows", "edges", "flagged"),
+    [
+        (
+            [("fetch_app", "P1.S1", default_value(workflow_tool()))],
+            (),
+            {("SILENT_FETCH_DEFAULT", "fetch_app")},
+        ),
+        ([("h", "P1.S1", default_value(http()))], (), {("SILENT_FETCH_DEFAULT", "h")}),
+        # Inside a continue-on-error loop the default still hides the failed item.
+        (
+            [("loop", "P1.S1", iteration()), ("h", "P1.S1", default_value(http()), "loop")],
+            (),
+            {("SILENT_FETCH_DEFAULT", "h")},
+        ),
+        # The model-reading cell is a fetch too (N6).
+        (
+            [
+                ("loop", "P1.S1", iteration()),
+                ("r", "P1.S1", default_value(http(title="模型识读")), "loop"),
+            ],
+            (),
+            {("SILENT_FETCH_DEFAULT", "r")},
+        ),
+        # fail-branch is what N4 asks for.
+        (
+            [("fetch_app", "P1.S1", dict(workflow_tool(), error_strategy="fail-branch"))],
+            ("fetch_app",),
+            set(),
+        ),
+        # A decision table on default-value is SILENT_DMN_DEFAULT's business, not this code's.
+        ([("t", "P2.S1", dmn(error_strategy="default-value"))], (), set()),
+    ],
+)
+def test_silent_fetch_default_n4(rows, edges, flagged):
+    assert placement(run("SOLUTION", rows, edges)) == flagged
+
+
+def test_silent_fetch_default_is_a_solution_rule_and_warns():
+    target = run("TARGET", [("observe", "T3.S1", default_value(http()))])
+    assert placement(target) == set()
+    rows = [("h", "P1.S1", default_value(http()))]
+    report = run("SOLUTION", rows)
+    assert {i["severity"] for i in report["issues"] if i["code"] == "SILENT_FETCH_DEFAULT"} == {
+        "WARN"
+    }
+    strict = run("SOLUTION", rows, strict=True)
+    assert {i["severity"] for i in strict["issues"] if i["code"] == "SILENT_FETCH_DEFAULT"} == {
+        "FAIL"
     }
 
 

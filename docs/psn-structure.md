@@ -34,7 +34,7 @@ W1–W9 是 10-16 的合并修订，散在各节里：
 
 2026-10-23 起照 AgentHub 方案构建标准 solution-app/v1 改了两处：
 - 方案应用（SOLUTION）的标题带编号族、全长不超过 60 字，即 N2，见 stamp 一节；其余编号族保留旧写法（Brian 2026-10-23：「标题族前缀只改 SOLUTION；其余族保留旧写法，check 对它们照旧认旧写法。」）；
-- `psn check` 带上 ESE 五级结构检查的放错层规则 F06–F09 与失败处理 L5（标准第 3 节：两条线都跑 psn check），见 check 一节「放错层与失败处理」。
+- `psn check` 带上 ESE 五级结构检查的放错层规则 F06–F09 与失败处理 L5（标准第 3 节：两条线都跑 psn check），再加标准 N4（取数失败不给默认值），见 check 一节「放错层与失败处理」。
 
 ## 结构与实例身份（R1、R4、R6）
 
@@ -161,10 +161,11 @@ python -m dmn_client.psn check --structure ../examples/psn/structure.synthetic.j
 | SILENT_DMN_DEFAULT | WARN | 决策节点用 `default-value`：插件本身崩溃或超时时，错误被默认值替代 |
 | DMN_STATUS_UNCHECKED | WARN | 从决策节点沿连线往下，没有任何代码节点同时引用这个节点的输出和 `execution_status` |
 | MISPLACED_NODE | WARN | 节点的类别不该出现在这个 Step（ESE F06–F09，见下文「放错层与失败处理」） |
-| WORKFLOW_CALL_FORBIDDEN | WARN | DELIVERY 以外的 workflow 里有工作流工具节点：只有 DELIVERY 编排子流程（ESE F07–F09） |
+| WORKFLOW_CALL_FORBIDDEN | WARN | TARGET、DISPATCH 里有工作流工具节点：这两条 workflow 不调子流程（ESE F07、F08）。DELIVERY、SOLUTION 的工作流调用按 Step 放位置，放错报 `MISPLACED_NODE` |
 | DISPATCH_DECISION_COUNT | WARN | DISPATCH 的决策节点不是恰好 1 个（ESE F08）；这一条不指认节点 |
 | NO_FAILURE_HANDLING | WARN | 工作流工具、取数、模型或决策节点没有失败处理：没有 fail-branch 出边，不是 `default-value`，也不在 continue-on-error 的循环里（ESE L5） |
 | SCENE_DEFINITION_IN_CODE | WARN | DELIVERY、DISPATCH 的代码节点里带了场景定义（ESE F06、F08） |
+| SILENT_FETCH_DEFAULT | WARN | SOLUTION 的取数节点用 `default-value`：http-request，以及 P1.S1 的工作流调用（取数应用）。取数失败被默认值替代，「没取到」会被当成「没有」（标准 N4） |
 
 **`DMN_STATUS_UNCHECKED` 是启发式检查。** 插件判不出来时不让节点报错，而是正常返回 `execution_status`（BLOCKED / FAILED）和空结果，所以要看下游有没有核对。这条只看下游代码节点的变量选择和代码文本：通过不等于状态一定被正确处理；不通过也不等于静默，更远处的消费者可能读的是转手后的结果。
 
@@ -187,7 +188,7 @@ Dify 节点类型与 kind 的对应：
 - 同目录 `五级骨架.json` 的 DELIVERY step 表；
 - 检查器 `60_application/gate/五级结构检查.js` 第 121–149 行。
 
-实现在 `plugin/dmn_client/psn/placement.py`。码一律默认 WARN，`--strict` 时算 FAIL。
+实现在 `plugin/dmn_client/psn/placement.py`。码一律默认 WARN，`--strict` 时算 FAIL。标准与 F09 说法不同的一处以标准为准：SOLUTION 可以在 P1.S1 用工作流工具调取数、事实等能力应用（标准 D 节类别表、C6），F09 原文是一律不许（2026-10-23 定）。
 
 **类别**照 ESE `类别表.json`，与上面的 kind 是两套：
 - 决策插件的工具节点是决策；
@@ -204,7 +205,7 @@ Dify 节点类型与 kind 的对应：
 | DELIVERY | F06 | O2.S3 | O1.S1、O1.S3、O2.S1、O3.S2、O4.S1 | 无 | O5.S1 | O6.S1 | 不许 http-request（调模型的也不许）；代码节点不带场景定义 |
 | TARGET | F07 | 不限 | 无 | T3.S1 | T2.S1 | 不限 | — |
 | DISPATCH | F08 | D1.S2，恰好 1 个 | 无 | 无 | 无 | 无 | 不许 http-request；代码节点不带场景定义 |
-| SOLUTION | F09 | P1.S2、P2–P5 | 无 | P1.S1 | P1.S1，且只许模型识读格 | P1.S1 | — |
+| SOLUTION | F09 | P1.S2、P2–P5 | P1.S1（标准，不查调的是哪个应用） | P1.S1 | P1.S1，且只许模型识读格 | P1.S1 | 取数不给默认值（N4） |
 
 - **模型识读格**（F09，标准 N6）：模型节点在 P1.S1、位于取数循环里（有父循环），并且被标成识读格（标题含「模型识读」，或 http 的 url 含登记的模型路径）。ESE 检查器还要求它是 http-request；规则原文和标准 N6 都不限节点类型，ESE B 线已发布的券应用用的是 llm 节点，所以这里不限类型。
 - **失败处理（L5）**：工作流调用、取数、模型、决策节点满足其一即可：
@@ -213,6 +214,7 @@ Dify 节点类型与 kind 的对应：
   - 直接父节点是 `error_handle_mode: continue-on-error` 的循环。
 
   决策节点用 default-value 虽然算有失败处理，`SILENT_DMN_DEFAULT` 仍然提示。
+- **取数不给默认值（标准 N4，只查 SOLUTION）**：http-request（包括模型识读格），以及 P1.S1 的工作流调用（取数应用），用 `error_strategy: default-value` 时报 `SILENT_FETCH_DEFAULT`。在 continue-on-error 循环里的也报：默认值会把失败的那一条变成空，循环后就核不出哪些条目失败。L5 照 ESE 原文仍把 default-value 算作有失败处理，所以这类节点只报这一条，不报 `NO_FAILURE_HANDLING`。
 - **场景定义**：代码里出现 ESE 场景卡编译器写的键（`"场景最小参数集"`、`"必要成立条件"`、`"预判成立条件"`、`"充分成立条件"`、`"条件表"`、`"必要快照表"`）即报。代码里 `gunzipSync(Buffer.from("…",'base64'))` 包着的数据块先解压再查，单块最多读 16 MiB。
 - **DELIVERY 的 workflow 调用 Step** 以 `五级骨架.json` 为准，ESE 检查器也读这份；`核对规则.json` 的 F06 原文还写着 O1.S2。
 

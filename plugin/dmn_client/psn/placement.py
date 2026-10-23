@@ -1,9 +1,14 @@
-"""Misplaced nodes and missing failure handling: the ESE five-level rules F06–F09 and L5.
+"""Misplaced nodes and failure handling: the ESE five-level rules F06–F09 and L5, and N4.
 
 AgentHub solution-app/v1 §3 has both lines run psn check, so the ESE line's misplacement
 rules live here too. Source: ESE_monorepo origin/master f3e20d7c, ``50_ticket/40_五级结构/``
 ``核对规则.json`` (F06–F09), ``五级骨架.json`` (the DELIVERY step table) and the checker
-``60_application/gate/五级结构检查.js`` (lines 121–149). Every code here is WARN by default.
+``60_application/gate/五级结构检查.js`` (lines 121–149). The standard's own N4 (a fetch never
+falls back to a default value) is checked for SOLUTION. Every code here is WARN by default.
+
+Where the standard and F09 differ, the standard wins (it says so of every document it names;
+settled for this rule 2026-10-23): a SOLUTION may call fetch and fact apps as workflow tools
+(D table), in P1.S1 only (C6), while F09 forbids workflow calls in SOLUTION outright.
 
 Categories follow the ESE ``类别表.json``:
 - a workflow tool is a CALL;
@@ -49,12 +54,14 @@ PLACES = {
         "LOOP": set(),
     },
     # F09. A SOLUTION model must also be a registered model-reading cell, see _reading_cell.
+    # Workflow calls: P1.S1 per solution-app/v1 (D table, C6) instead of F09's "none"; which
+    # app is called is not checked against a registry.
     "SOLUTION": {
         "FETCH": {"P1.S1"},
         "LOOP": {"P1.S1"},
         "MODEL": {"P1.S1"},
         "DECISION": {"P1.S2", "P2", "P3", "P4", "P5"},
-        "CALL": set(),
+        "CALL": {"P1.S1"},
     },
 }
 RULE = {"DELIVERY": "F06", "TARGET": "F07", "DISPATCH": "F08", "SOLUTION": "F09"}
@@ -117,8 +124,8 @@ def placement_issues(family, nodes, placed, out_edges) -> list[tuple]:
         cat = category(data)
         if cat == "DECISION":
             decisions += 1
-        if cat == "CALL" and family != "DELIVERY":
-            message = f"Only DELIVERY calls a sub-workflow; this {family} node does (ESE {rule})."
+        if cat == "CALL" and places.get("CALL") == set():
+            message = f"{family} calls no sub-workflow; this node does (ESE {rule})."
             found.append(("WORKFLOW_CALL_FORBIDDEN", node_id, message, ref))
         elif family in NO_HTTP and data.get("type") == "http-request":
             message = f"{family} has no http-request nodes (ESE {rule})."
@@ -137,6 +144,12 @@ def placement_issues(family, nodes, placed, out_edges) -> list[tuple]:
                 " default-value, not inside a continue-on-error loop (ESE L5)."
             )
             found.append(("NO_FAILURE_HANDLING", node_id, message, ref))
+        if family == "SOLUTION" and _silent_fetch(data, cat, step):
+            message = (
+                "A failed fetch becomes a default value, so 'not fetched' reads as 'none'; use"
+                " fail-branch (solution-app/v1 N4)."
+            )
+            found.append(("SILENT_FETCH_DEFAULT", node_id, message, ref))
         if family in SCENE_FREE and data.get("type") == "code":
             marker = scene_marker(data.get("code"))
             if marker is not None:
@@ -209,6 +222,12 @@ def _reading_cell(node: dict, nodes: dict) -> bool:
     parent = _parent(node, nodes)
     in_loop = parent is not None and parent["data"].get("type") in LOOP_TYPES
     return in_loop and _model_marked(node["data"])
+
+
+def _silent_fetch(data: dict, cat, step: str) -> bool:
+    """N4: an http-request, or a workflow call in P1.S1 (a fetch app), set to default-value."""
+    fetch = data.get("type") == "http-request" or (cat == "CALL" and step == "P1.S1")
+    return fetch and data.get("error_strategy") == "default-value"
 
 
 def _handles_failure(node_id: str, node: dict, nodes: dict, out_edges) -> bool:

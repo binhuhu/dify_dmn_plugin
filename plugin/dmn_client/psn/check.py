@@ -48,6 +48,8 @@ SEVERITY = {
     "DISPATCH_DECISION_COUNT": "WARN",
     "NO_FAILURE_HANDLING": "WARN",
     "SCENE_DEFINITION_IN_CODE": "WARN",
+    # solution-app/v1 N4, see placement.py.
+    "SILENT_FETCH_DEFAULT": "WARN",
 }
 
 

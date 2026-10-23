@@ -37,7 +37,8 @@
               "WORKFLOW_CALL_FORBIDDEN",
               "DISPATCH_DECISION_COUNT",
               "NO_FAILURE_HANDLING",
-              "SCENE_DEFINITION_IN_CODE"
+              "SCENE_DEFINITION_IN_CODE",
+              "SILENT_FETCH_DEFAULT"
             ]
           },
           "severity": {"enum": ["FAIL", "WARN"]},
