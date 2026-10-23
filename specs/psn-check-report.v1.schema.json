@@ -32,7 +32,12 @@
               "FAIL_BRANCH_DANGLING",
               "NOT_STAMPED",
               "SILENT_DMN_DEFAULT",
-              "DMN_STATUS_UNCHECKED"
+              "DMN_STATUS_UNCHECKED",
+              "MISPLACED_NODE",
+              "WORKFLOW_CALL_FORBIDDEN",
+              "DISPATCH_DECISION_COUNT",
+              "NO_FAILURE_HANDLING",
+              "SCENE_DEFINITION_IN_CODE"
             ]
           },
           "severity": {"enum": ["FAIL", "WARN"]},

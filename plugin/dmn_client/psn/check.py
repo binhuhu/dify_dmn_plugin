@@ -1,7 +1,9 @@
 """psn check: compare one Dify workflow graph with its psn-structure/v1 entry, offline.
 
-The report names nodes by their stable node_key and PSN ref only. It never echoes a Dify
-app id, a published workflow id or any hash, so it can be kept next to the structure.
+Besides placement, numbering and decision nodes, it carries the ESE line's misplacement and
+failure-handling rules (placement.py). The report names nodes by their stable node_key and PSN
+ref only. It never echoes a Dify app id, a published workflow id or any hash, so it can be kept
+next to the structure.
 """
 
 from __future__ import annotations
@@ -20,6 +22,7 @@ from .graph import (
     ref_parts,
     title_is_stamped,
 )
+from .placement import placement_issues
 from .structure import validate_structure
 
 REPORT_FORMAT = "psn-check-report/v1"
@@ -38,6 +41,12 @@ SEVERITY = {
     "NOT_STAMPED": "WARN",
     "SILENT_DMN_DEFAULT": "WARN",
     "DMN_STATUS_UNCHECKED": "WARN",
+    # ESE five-level rules F06–F09 and L5, see placement.py (solution-app/v1 §3).
+    "MISPLACED_NODE": "WARN",
+    "WORKFLOW_CALL_FORBIDDEN": "WARN",
+    "DISPATCH_DECISION_COUNT": "WARN",
+    "NO_FAILURE_HANDLING": "WARN",
+    "SCENE_DEFINITION_IN_CODE": "WARN",
 }
 
 
@@ -197,6 +206,9 @@ def check_graph(structure, graph, key, *, strict=False) -> dict:
                 report(
                     "MISSING_NODE", node_key, "Structure node is not in the graph.", snode["ref"]
                 )
+
+    for code, node_key, message, ref in placement_issues(family, nodes, placed, out_edges):
+        report(code, node_key, message, ref)
 
     found.sort(key=lambda i: (i["code"], i.get("node_key", "")))
     counts = defaultdict(int)
