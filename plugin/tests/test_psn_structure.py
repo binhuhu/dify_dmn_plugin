@@ -463,7 +463,14 @@ def test_cross_workflow_move_must_keep_the_node_key():
 
 def knowledge(key="KNOWLEDGE.consult"):
     def node(step, key_, n):
-        return {"node_key": key_, "ref": f"{key}/{step}.N{n}", "kind": "TRANSFORM", "order": n, "status": "ACTIVE", "name": key_}
+        return {
+            "node_key": key_,
+            "ref": f"{key}/{step}.N{n}",
+            "kind": "TRANSFORM",
+            "order": n,
+            "status": "ACTIVE",
+            "name": key_,
+        }
 
     return {
         "key": key,
@@ -472,7 +479,13 @@ def knowledge(key="KNOWLEDGE.consult"):
         "status": "ACTIVE",
         "name": "consult answer",
         "phases": [
-            {"id": f"Q{i}", "name": f"q{i}", "steps": [{"id": f"Q{i}.S1", "name": "s", "nodes": [node(f"Q{i}.S1", f"q{i}_node", 1)]}]}
+            {
+                "id": f"Q{i}",
+                "name": f"q{i}",
+                "steps": [
+                    {"id": f"Q{i}.S1", "name": "s", "nodes": [node(f"Q{i}.S1", f"q{i}_node", 1)]}
+                ],
+            }
             for i in range(1, 5)
         ],
     }
