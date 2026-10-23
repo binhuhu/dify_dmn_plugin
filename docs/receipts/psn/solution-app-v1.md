@@ -1,8 +1,8 @@
 # solution-app/v1 两处插件改动回执（Claude，2026-10-23）
 
-依据：AgentHub 方案构建标准 solution-app/v1 1.0.1，见 80 `00_governance/contracts/solution-app/solution-app.v1.md` 的 N2、C10 和第 3 节；Brian 2026-10-23 D5 ②。
+依据：AgentHub 方案构建标准 solution-app/v1 1.0.1，见 80 `00_governance/contracts/solution-app/solution-app.v1.md` 的 N2、N4、C10 和第 3 节；Brian 2026-10-23 D5 ②；第 5 节的定论来自标准会话 2026-10-23。
 
-范围：只改离线工具和文档。没有推送、没有打 tag、没有发版，也没有改版本号和 `docs/releases/v0.5.0.md`。
+范围：只改离线工具和文档。没有推送、没有打 tag、没有发版，也没有改版本号和 `docs/releases/` 下的发布说明。
 
 ## 提交（本地 main）
 
@@ -15,9 +15,12 @@
 | `1dbb318` | 路由会话的 0.5.0 发布提交，不是本回执的改动。v0.5.0 打在这里 |
 | `6d072f9` | 把 F06–F09、L5 放进 psn check |
 | `4e29f20` | N2 标题，只对 SOLUTION。范围依据 Brian：「标题族前缀只改 SOLUTION；其余族保留旧写法，check 对它们照旧认旧写法。」 |
-| 本提交 | 本回执 |
+| `1bc24ee` | 本回执初版 |
+| `1de256b`、`aaa4dda` | 路由会话的 0.5.1 提交，不是本回执的改动 |
+| `c154641` | 第 5 节定论落地：SOLUTION 的工作流调用只许在 P1.S1；新码 `SILENT_FETCH_DEFAULT`（N4） |
+| 本提交 | 回执更新：第 2–5 节按定论改，计数同步 |
 
-`6d072f9` 和 `4e29f20` 先在本会话 scratch 的仓库克隆里提交，跑完整 `scripts/check.sh`，再快进到 main，所以 main 上的就是测过的那两个提交。
+`6d072f9`、`4e29f20`、`c154641` 和本提交，都是先在本会话 scratch 的仓库克隆里提交、跑完整 `scripts/check.sh`，再快进到 main，所以 main 上的就是测过的提交。
 
 ## 1. 标题（N2，只对 SOLUTION）
 
@@ -38,7 +41,7 @@
   - 合成样例 `examples/psn/graph.solution.synthetic.json`：重新生成，只变了 5 个标题；
   - `docs/psn-structure.md`：标题规则与范围、NOT_STAMPED、stamp 前后对照表、Dify 字段对照。
 
-## 2. 放错层与失败处理（ESE F06–F09、L5）
+## 2. 放错层与失败处理（ESE F06–F09、L5；标准 N4）
 
 - **来源**：ESE_monorepo `origin/master` f3e20d7c：
   - `50_ticket/40_五级结构/` 下的 `核对规则.json`、`五级骨架.json`、`类别表.json`；
@@ -50,16 +53,20 @@
   - `DISPATCH_DECISION_COUNT`
   - `NO_FAILURE_HANDLING`
   - `SCENE_DEFINITION_IN_CODE`
+  - `SILENT_FETCH_DEFAULT`（标准 N4，`c154641` 加）
 - **规则**：
   - DELIVERY（F06）、TARGET（F07）、DISPATCH（F08）、SOLUTION（F09）按规则原文放位置；
   - L5：工作流调用、取数、模型、决策节点要有失败处理，满足其一即可：有 fail-branch 出边、用 default-value、父节点是 continue-on-error 循环；
   - DELIVERY、DISPATCH 的代码节点不许带场景定义，压缩块先解压再查。
+  - SOLUTION 的工作流调用只许在 P1.S1，不查调的是哪个应用；放错报 `MISPLACED_NODE`。`WORKFLOW_CALL_FORBIDDEN` 只在 TARGET、DISPATCH 报。
+  - N4（只查 SOLUTION）：http-request 和 P1.S1 的工作流调用用 default-value，报 `SILENT_FETCH_DEFAULT`；在 continue-on-error 循环里的也报。
   - 对照表见 `docs/psn-structure.md` 的「放错层与失败处理」。
 - **与 ESE 检查器的不同**：
   1. SOLUTION 的模型识读格不限节点类型。ESE 检查器要求 http-request，但规则原文和标准 N6 都没限类型；ESE B 券已发布的诉求识读用的是 llm 节点。
   2. DELIVERY 允许 workflow 调用的 Step 按骨架：O1.S1、O1.S3、O2.S1、O3.S2、O4.S1。核对规则.json 的 F06 原文还写 O1.S2；ESE 检查器读的也是骨架。
   3. knowledge-retrieval 一律算取数。
   4. 只认 hu8627/dmn_json 为决策插件，与 psn 的 kind 一致。
+  5. SOLUTION 可以在 P1.S1 调工作流（取数、事实应用）。F09 原文一律不许；标准允许，以标准为准（标准会话 2026-10-23 定）。
 - **没搬的**：
   - F10（PREDICT）、F12（EVIDENCE）：psn-structure/v1 没有这两个族；
   - HANDLE、KNOWLEDGE：ESE 没有对应规则；
@@ -68,7 +75,7 @@
   - F11：方案见第 6 节；
   - F13。
 
-## 3. 读回计数（新 psn check，`4e29f20`）
+## 3. 读回计数（新 psn check，`c154641`）
 
 方案应用没有结构实例，各按自己图上的编号拼了一份临时结构，只用于报告；脚本和产物留在本会话 scratch，不进仓：
 - 我方券：编号取描述 psn 行（from-graph 读出）；
@@ -83,8 +90,9 @@
 | 节点数 | 70 | 207 | 89 | 45 |
 | NOT_STAMPED | 63，都是标题缺 `SOLUTION/` | 169，都是描述缺 psn 行 | 82，都是标题用了实例键前缀 | 0 |
 | MISPLACED_NODE | 0 | 1：P1 校验表 `p1_dmn` 在 P1.S1.N1 | 0 | 0 |
-| WORKFLOW_CALL_FORBIDDEN | 2：`query02`、`query02_case`，调取数应用 | 0 | 1：`p1s1n13`，调 ese_coupon_fetch | 0 |
-| NO_FAILURE_HANDLING | 2：同上两个节点，没接失败分支 | 0 | 0（取数用 default-value，L5 算有处理） | 0 |
+| WORKFLOW_CALL_FORBIDDEN | 0：两个取数应用调用都在 P1.S1 | 0 | 0：`p1s1n13` 在 P1.S1 | 0 |
+| NO_FAILURE_HANDLING | 2：`query02`、`query02_case`，调取数应用，没接失败分支 | 0 | 0 | 0 |
+| SILENT_FETCH_DEFAULT | 0 | 0：http 都没设 default-value，靠 continue-on-error 循环兜失败 | 1：`p1s1n13`，ese_coupon_fetch 用 default-value | 0 |
 | SILENT_DMN_DEFAULT | 0 | 0 | 50 | 0 |
 | 其余码 | 0 | 0 | 0 | 0 |
 | 默认 / `--strict` | 通过 / 不通过 | 通过 / 不通过 | 通过 / 不通过 | 通过 / 通过 |
@@ -110,7 +118,7 @@
   - plugin 852 passed、72 skipped（没带引擎）。
 
   以上全过，ruff check 也过。
-- **PSN 测试**：254 个通过，其中新增 71 个：
+- **PSN 测试（`4e29f20`）**：254 个通过，其中新增 71 个：
   - 标题 25 个；
   - 放错层与失败处理 46 个，含 ESE 检查器自带的几处注错：P5.S1 放 http、决策表不接失败分支、压缩块里藏场景定义。
 - **完整 `scripts/check.sh`**（Python 3.12，固定版本的 plugin 依赖；在仓库克隆里跑，提交 `4e29f20`）：退出码 0。
@@ -119,20 +127,29 @@
   - ruff check、ruff format --check 都过。
   - 跳过的 3 个是路由表测试，要读真实检出旁边的 80、81 文件，scratch 里的克隆没有这个目录布局，与本次改动无关。
 - **`6d072f9` 单独提交时**：plugin 898 passed、72 skipped（没带引擎），ruff 全过。
+- **`c154641`**（在 0.5.1 的 `aaa4dda` 上）：
+  - PSN 测试 262 个通过，放错层与失败处理那份从 46 个增到 54 个；
+  - 完整 `scripts/check.sh` 退出码 0：引擎 99/99，plugin 1007 passed、1 skipped，ruff check、ruff format --check 都过；
+  - 0.5.1 提交了现网 DISPATCH 读回，原先跳过的两个路由表测试现在会跑。剩下跳过的 1 个要读 80 模块草稿，克隆里没有。
 
-## 5. 冲突与待定（请 Brian 或标准会话定）
+## 5. 冲突与定论（定论来自标准会话 2026-10-23）
 
 1. **F09「无 workflow CALL」与标准冲突。** 标准 D 节类别表和 N4 都允许调取数应用。照搬后，我方券 2 个、费用草稿 1 个节点报 `WORKFLOW_CALL_FORBIDDEN`，`--strict` 下不通过。可选：保留、删掉，或改成「只许在 P1.S1 调登记的取数应用」。
+   **定论**：改成 SOLUTION 的工作流调用只许在 P1.S1，不查登记表。已在 `c154641` 落地，我方券和费用草稿不再报。
 2. **F09「DECISION 只在 P1.S2 与 P2–P5」与 ESE 自己的 M7 排法不合。**
    - ab10894f 的 P1 只有一个 Step：P1 校验表 `p1_dmn` 是 P1.S1.N1，和 106 个取数节点同在 P1.S1。
    - ESE 骨架 v4 起，有决策的 Phase 由 DSL 导出 Step，宿主节点并进决策 Step。
    - 标准 C6 把 P1.S1 定为「查询信息」，所以本检查按原文报。
    - 要么 ESE 把校验表挪到 P1.S2，要么改 F09 原文。
+   - **定论**：照原文报，检查不改。标准会写明 P1 校验表放 P1.S2，「`p1_dmn` 挪到 P1.S2」进 ESE 的待改清单。
 3. **我方券两个取数应用节点没有失败处理。** 标准第 5 节 N4 记的是「部分」，本检查报 `NO_FAILURE_HANDLING` 2。
+   **定论**：96e837d4 已定为回退、不再迭代，不修，记为已知。
 4. **N4 还没进 psn check。** N4 要求取数失败接失败分支、不给默认空值。L5 照 ESE 原文把 default-value 算作有处理，所以费用草稿取数用 default-value 不报。要收紧，得另加一个码，比如仿 `SILENT_DMN_DEFAULT` 做 `SILENT_FETCH_DEFAULT`。
+   **定论**：补。`c154641` 加了 `SILENT_FETCH_DEFAULT`（默认 WARN），费用草稿报 1（`p1s1n13`）。
 5. **ESE 自己的文件说法不一。**
    - DELIVERY 允许 workflow 调用的 Step：核对规则.json 写 O1.S2，骨架和规范 §6 写 O1.S1、O1.S3。本检查按骨架。
    - DISPATCH 路由表所在的 Step：规则原文写 D1.S2，检查器的报错文字写 D1.S1。本检查按规则原文。
+   - **定论**：本检查照现在的选法不动，「请统一」进 ESE 的待改清单。
 
 ## 6. F11（Phase 输入输出）方案：待批，未实现
 
@@ -171,4 +188,4 @@
 3. start 变量算 P1 的输出（ESE 这样算），还是单列。
 4. PREDICT、EVIDENCE 要不要加成编号族（F10、F12 要用），做法与 KNOWLEDGE 族相同。
 
-**工作量**：schema、校验、检查、测试，测试照 ESE 的注错（SOLUTION、DELIVERY 各一份）写，约一天。批了再做。
+**工作量**：schema、校验、检查、测试，测试照 ESE 的注错（SOLUTION、DELIVERY 各一份）写，约一天。批了再做；标准会话去问 Brian。
