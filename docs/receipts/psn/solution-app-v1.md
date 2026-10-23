@@ -1,6 +1,6 @@
 # solution-app/v1 两处插件改动回执（Claude，2026-10-23）
 
-依据：AgentHub 方案构建标准 solution-app/v1 1.0.1，见 80 `00_governance/contracts/solution-app/solution-app.v1.md` 的 N2、N4、C10 和第 3 节；Brian 2026-10-23 D5 ②；第 5 节的定论来自标准会话 2026-10-23。
+依据：AgentHub 方案构建标准 solution-app/v1 1.0.1，见 80 `00_governance/contracts/solution-app/solution-app.v1.md` 的 N2、N4、C10 和第 3 节；Brian 2026-10-23 D5 ②、F11 批复；第 5 节的定论来自标准会话 2026-10-23。
 
 范围：只改离线工具和文档。没有推送、没有打 tag、没有发版，也没有改版本号和 `docs/releases/` 下的发布说明。
 
@@ -18,9 +18,12 @@
 | `1bc24ee` | 本回执初版 |
 | `1de256b`、`aaa4dda` | 路由会话的 0.5.1 提交，不是本回执的改动 |
 | `c154641` | 第 5 节定论落地：SOLUTION 的工作流调用只许在 P1.S1；新码 `SILENT_FETCH_DEFAULT`（N4） |
-| 本提交 | 回执更新：第 2–5 节按定论改，计数同步 |
+| `4936c11` | 回执更新：第 2–5 节按定论改，计数同步 |
+| `911c338` | 路由会话的 v0.5.1 发布说明，v0.5.1 打在这里，不是本回执的改动 |
+| `ce7aaf1` | F11 Phase 输入输出（标准 C10），不在 0.5.1 里 |
+| 本提交 | 回执更新：F11 已实现 |
 
-`6d072f9`、`4e29f20`、`c154641` 和本提交，都是先在本会话 scratch 的仓库克隆里提交、跑完整 `scripts/check.sh`，再快进到 main，所以 main 上的就是测过的提交。
+`6d072f9`、`4e29f20`、`c154641`、`4936c11`、`ce7aaf1` 和本提交，都是先在本会话 scratch 的仓库克隆里提交、跑完整 `scripts/check.sh`，再快进到 main，所以 main 上的就是测过的提交。
 
 ## 1. 标题（N2，只对 SOLUTION）
 
@@ -75,7 +78,7 @@
   - F11：方案见第 6 节；
   - F13。
 
-## 3. 读回计数（新 psn check，`c154641`）
+## 3. 读回计数（新 psn check，`c154641`；`ce7aaf1` 复跑结果相同）
 
 方案应用没有结构实例，各按自己图上的编号拼了一份临时结构，只用于报告；脚本和产物留在本会话 scratch，不进仓：
 - 我方券：编号取描述 psn 行（from-graph 读出）；
@@ -109,6 +112,7 @@
 - 前三份只动了标题和描述，其余字段和连线都不变；stamp 两次结果相同。
 - 咨询影子不变，所以咨询线用 `build_psn.py` 重出图，图哈希不会因为这次改动变化。
 - 费用草稿里 `p1s1n13` 的描述 psn 行后面还跟着说明文字，不算合格的 psn 行。
+- 用 `ce7aaf1` 复跑，计数与上表相同。四份都没有声明 io，所以 F11 的码一条都不报。咨询线的结构实例在新 schema 下仍然有效。
 
 ## 4. 测试
 
@@ -131,6 +135,9 @@
   - PSN 测试 262 个通过，放错层与失败处理那份从 46 个增到 54 个；
   - 完整 `scripts/check.sh` 退出码 0：引擎 99/99，plugin 1007 passed、1 skipped，ruff check、ruff format --check 都过；
   - 0.5.1 提交了现网 DISPATCH 读回，原先跳过的两个路由表测试现在会跑。剩下跳过的 1 个要读 80 模块草稿，克隆里没有。
+- **`ce7aaf1`**（在 v0.5.1 的 `911c338` 上）：
+  - PSN 测试 298 个通过，新增 F11 的 36 个；
+  - 完整 `scripts/check.sh` 退出码 0：引擎 99/99，plugin 1043 passed、1 skipped，ruff check、ruff format --check 都过。
 
 ## 5. 冲突与定论（定论来自标准会话 2026-10-23）
 
@@ -151,41 +158,41 @@
    - DISPATCH 路由表所在的 Step：规则原文写 D1.S2，检查器的报错文字写 D1.S1。本检查按规则原文。
    - **定论**：本检查照现在的选法不动，「请统一」进 ESE 的待改清单。
 
-## 6. F11（Phase 输入输出）方案：待批，未实现
+## 6. F11（Phase 输入输出）：已实现，`ce7aaf1`
 
-标准 C10：每个 Phase 声明输出（节点.变量、形状、体积上限）和输入（来源 Phase），跨 Phase 只能引用声明过的输出。ESE 的实现见 `五级结构检查.js` 的「核输入输出」。
+Brian 2026-10-23 批了，原话：「F11 按默认做：新方案应用必须声明 io，96e837d4 不补；P5 输入逐条写，不许通配；start 变量算 P1 的输出；不加 PREDICT、EVIDENCE 族。」照第 6 节原方案做；方案原文见 `1bc24ee` 版本的本回执。
 
-**结构（psn-structure/v1 加可选字段，两份 schema 同改）**
+**结构**（psn-structure/v1，两份 schema 同改，逐字节相同）
 - phase 加可选 `io`：
-  - `inputs: [{ref: "<node_key>.<变量>", from: "<Phase>"}]`
-  - `outputs: [{ref: "<node_key>.<变量>", shape: "<Dify 类型> · <内容>", max_length: <正整数>}]`
-- workflow 加可选 `fail_exits: [<Step>]`、`raw_fetch_steps: [<Step>]`。
-- 不加任何版本字段，R3 不受影响。
-- `validate_structure` 补跨字段校验：
-  - 输出的节点要在本 Phase；
-  - `from` 必须是同一 workflow 的另一个 Phase；
-  - `fail_exits`、`raw_fetch_steps` 指向存在的 Step。
+  - `inputs: [{var: "<node_key>.<变量>", from: "<Phase>"}]`；
+  - `outputs: [{var, shape: "<Dify 类型> · <内容>", max_length}]`。
+  - 方案里写的是 `ref`，实现时改叫 `var`，以免和节点编号 `ref` 混淆。
+- workflow（含 DELIVERY 根）加可选 `fail_exits`、`raw_fetch_steps`，都是 Step 列表。
+- 没有通配写法。
 
-**检查（psn check 新码，默认 WARN）**
-- 只查声明了 io 的 workflow；一个 workflow 只要声明了，所有 Phase 都要声明。
-- 跨 Phase 引用必须同时满足：引用的是对方声明过的输出，否则报 `PHASE_IO_UNDECLARED_OUTPUT`；本 Phase 声明了这条输入，否则报 `PHASE_IO_UNDECLARED_INPUT`。引用从这几处找：
-  - 变量选择器；
-  - 代码节点的 variables；
-  - 迭代的 iterator 和 output selector；
-  - 汇合节点的 variables；
-  - 工具参数；
-  - `{{#节点.变量#}}` 模板。
-- 声明了却没用到，报 `PHASE_IO_UNUSED`，防止声明漂移。
-- 形状与上限不对，报 `PHASE_IO_SHAPE`：
-  - 形状里的 Dify 类型要等于节点实际的输出类型；
-  - 上限是正整数，代码节点不超过 100,000，start 变量不超过它的 max_length。
-- `error`、`error_message` 只许跨进 `fail_exits`，否则报 `FAILURE_SIGNAL_LEAK`。
-- 原始取数步里的 CALL、MODEL、LOOP 和循环内的节点，不得被别的 Phase 引用，也不得声明成输出，否则报 `RAW_FETCH_LEAK`。
+**`validate_structure` 新码**，只在 workflow 声明了 io 时查：
+- `IO_INCOMPLETE`：声明了就每个 Phase 都要有，两个列表也都要写；
+- `IO_UNKNOWN_STEP`：列表里的 Step 不存在；
+- `IO_OUTPUT_NOT_IN_PHASE`：输出不属于本 Phase 的 ACTIVE 节点；
+- `IO_INPUT_SOURCE`：来源不是另一个 Phase，或来源 Phase 没声明这个输出；
+- `IO_DUPLICATE`：声明重复；
+- `INVALID_PHASE_IO`：io 相关字段不合 schema。
 
-**要先定的**
-1. 新方案应用是否必须声明 io。我方券 96e837d4 已定为回退、不再迭代，建议不补。
-2. ESE 骨架 P5 的输入有 29 条：照这样逐条写，还是允许写成「来源 Phase 的全部声明输出」。
-3. start 变量算 P1 的输出（ESE 这样算），还是单列。
-4. PREDICT、EVIDENCE 要不要加成编号族（F10、F12 要用），做法与 KNOWLEDGE 族相同。
+**psn check 新码**，默认 WARN，只查声明了 io 的 workflow，实现在 `phase_io.py`：
+- `PHASE_IO_UNDECLARED_OUTPUT`
+- `PHASE_IO_UNDECLARED_INPUT`
+- `PHASE_IO_UNUSED`
+- `PHASE_IO_SHAPE`：类型、没有这个输出、代码节点上限 100,000、start 的 max_length；
+- `FAILURE_SIGNAL_LEAK`
+- `RAW_FETCH_LEAK`
 
-**工作量**：schema、校验、检查、测试，测试照 ESE 的注错（SOLUTION、DELIVERY 各一份）写，约一天。批了再做；标准会话去问 Brian。
+引用的认法、判定顺序都照 ESE 检查器的「引用们」「核输入输出」，见 `docs/psn-structure.md`「Phase 输入输出」。
+
+**「必须声明」不由检查报**，由方案构建标准管：检查只查声明了的 workflow，所以 96e837d4 和三份读回都不报。
+
+**没搬的**：ESE 的输出体积实测（`输出上界检查.js`）、F13。没加 PREDICT、EVIDENCE 族。
+
+**真实数据验证**（只用于报告，产物在本会话 scratch）：
+- 把 ESE 骨架（`五级骨架.json` SOLUTION）的输入输出声明套到 ESE 券 ab10894f 的临时结构上：`fail_exits` 取 P5 的末 Step P5.S2，`raw_fetch_steps` 取 P1.S1。
+- `validate_structure` 无问题，`psn check` 的 F11 码为 0。共 724 条引用，其中 145 条跨 Phase，对上 30 个输出、58 个输入。
+- 删掉一条 P4 输入，就报 1 个 `PHASE_IO_UNDECLARED_INPUT`。
