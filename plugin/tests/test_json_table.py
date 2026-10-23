@@ -186,11 +186,11 @@ def test_staged_sdk_registration_no_authorization_schema(tmp_path):
 from dify_plugin.core.plugin_registration import PluginRegistration
 from provider.dmn import JsonTableProvider
 r=PluginRegistration(DifyPluginEnv())
-assert r.configuration.version == "0.5.1"
+assert r.configuration.version == "0.5.2"
 c=r.tools_configuration[0]
 assert c.identity.name == "dmn_json"
 assert not c.credentials_schema
-assert [t.identity.name for t in c.tools]==["evaluate_json_table", "query_local", "execute_json_plan", "execute_query", "evaluate_decision", "invoke_solution"]
+assert [t.identity.name for t in c.tools]==["evaluate_json_table", "query_local", "execute_json_plan", "execute_query", "evaluate_decision", "invoke_solution", "route_table_store"]
 JsonTableProvider().validate_credentials({})
 """
     subprocess.run([sys.executable, "-c", code], cwd=dest, check=True, capture_output=True)

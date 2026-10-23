@@ -10,7 +10,9 @@ All paths sit under /routes/ (the structure viewer owns "/" and "/<path:route>";
                                         scenes, solutions, routes} -> saved document
 
 Every /api call needs header X-Route-Edit-Key equal to this endpoint's edit_key setting (constant-time compare); an
-unset or short key disables the API. The page never executes rules: workflow runs read the saved table through
+unset or short key disables the API. With the store_app_id setting, reads and saves go through that maintenance app
+(route_table_store tool, tool storage); without it the endpoint uses its own storage, which on AgentHub workflows
+cannot see (dmn_client.route_store). The page never executes rules: workflow runs read the saved table through
 evaluate_decision (dmn_client.route_table). Errors never echo stored content.
 """
 
@@ -21,8 +23,7 @@ from pathlib import Path
 from dify_plugin import Endpoint
 from werkzeug import Response
 
-from dmn_client.client import EngineError, json_object
-from dmn_client.route_table import SCHEMA_V2, RouteTableError, StorageTables
+from dmn_client.route_store import DEFAULT_TABLE, MAX_BODY, run_op, via_app
 
 STATIC = Path(__file__).resolve().parents[1] / "route_editor_static"
 ASSETS = {
@@ -30,11 +31,7 @@ ASSETS = {
     "editor.js": "text/javascript; charset=utf-8",
     "editor.css": "text/css; charset=utf-8",
 }
-MAX_BODY = 512 * 1024
 MIN_KEY = 24
-DEFAULT_TABLE = "dispatch.route"
-V1_KEYS = ("table", "issue_types", "phases", "registry", "routes", "note")
-V2_KEYS = ("schema", "table", "issue_types", "phases", "scenes", "solutions", "routes", "note")
 CSP = (
     "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'none'; "
     "base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
@@ -92,51 +89,36 @@ class RouteEditorEndpoint(Endpoint):
         given = r.headers.get("X-Route-Edit-Key", "")
         if not hmac.compare_digest(given.encode("utf-8"), key.encode("utf-8")):
             return _error(401, "EDIT_KEY_REJECTED", "编辑口令不对")
-        tables = StorageTables(self.session.storage)
-        try:
-            if r.method == "GET":
-                table = r.args.get("table", DEFAULT_TABLE)
-                if name == "table":
-                    doc = tables.load(table)
-                    return _json(
-                        200, {"table": table, "version": doc["version"] if doc else 0, "doc": doc}
-                    )
-                if name == "history":
-                    return _json(200, {"table": table, "versions": tables.history(table)})
-                if name == "version":
-                    raw = r.args.get("v", "")
-                    if not raw.isdigit():
-                        return _error(400, "ROUTE_TABLE_INVALID", "版本号必须是正整数", "v")
-                    doc = tables.version(table, int(raw))
-                    return (
-                        _json(200, {"table": table, "doc": doc})
-                        if doc
-                        else _error(404, "ROUTE_TABLE_VERSION_MISSING", "没有这一版")
-                    )
-                return _error(404, "NOT_FOUND", "接口不存在")
-            if r.method == "POST" and name == "table":
-                raw = r.get_data(cache=False)
-                if len(raw) > MAX_BODY:
-                    return _error(413, "BODY_TOO_LARGE", "路由表太大（最多 512 KiB）")
-                try:
-                    body = json_object(raw.decode("utf-8"), "body", MAX_BODY)
-                except (EngineError, UnicodeDecodeError):
-                    return _error(400, "INVALID_JSON", "请求不是合法的 JSON 对象")
-                doc = {
-                    k: body.get(k)
-                    for k in (V2_KEYS if body.get("schema") == SCHEMA_V2 else V1_KEYS)
-                }
-                saved = tables.save(doc, body.get("expected_version"))
-                return _json(
-                    200, {"table": saved["table"], "version": saved["version"], "doc": saved}
-                )
+        table = r.args.get("table", DEFAULT_TABLE)
+        if r.method == "GET" and name in ("table", "history", "version"):
+            op, version, body = name, (r.args.get("v", "") if name == "version" else None), None
+        elif r.method == "POST" and name == "table":
+            raw = r.get_data(cache=False)
+            if len(raw) > MAX_BODY:
+                return _error(413, "BODY_TOO_LARGE", "路由表太大（最多 512 KiB）")
+            try:
+                body = raw.decode("utf-8")
+            except UnicodeDecodeError:
+                return _error(400, "INVALID_JSON", "请求不是合法的 JSON 对象")
+            op, version = "save", None
+        elif r.method == "GET":
+            return _error(404, "NOT_FOUND", "接口不存在")
+        else:
             return _error(405, "METHOD_NOT_ALLOWED", "只允许 GET / POST /api/table")
-        except RouteTableError as exc:
-            return _error(
-                409 if exc.code in ("ROUTE_TABLE_STALE", "ROUTE_TABLE_RACE") else 400,
-                exc.code,
-                exc.message,
-                exc.path,
+        # On AgentHub an endpoint's plugin storage is not the tools' storage (0.5.1 probe): with store_app_id set,
+        # every read and save goes through the maintenance app, whose route_table_store tool uses tool storage.
+        app_id = ((settings or {}).get("store_app_id") or "").strip()
+        if app_id:
+            status, out = via_app(
+                lambda a, inputs: self.session.app.workflow.invoke(
+                    app_id=a, inputs=inputs, response_mode="streaming"
+                ),
+                app_id,
+                op,
+                table,
+                version,
+                body,
             )
-        except Exception:  # storage backend failure: no detail, never echo content
-            return _error(503, "ROUTE_TABLE_UNAVAILABLE", "插件存储读写失败，稍后再试")
+        else:
+            status, out = run_op(self.session.storage, op, table, version, body)
+        return _json(status, out)

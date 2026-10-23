@@ -1,0 +1,73 @@
+identity:
+  name: route_table_store
+  author: hu8627
+  label:
+    en_US: route_table_store
+    zh_Hans: 路由表存取
+description:
+  human:
+    en_US: Read or save a route table in this plugin's tool storage, where evaluate_decision reads it. Put it alone in a
+      maintenance app; the route editor endpoint forwards to that app (on AgentHub endpoint storage is not tool storage).
+    zh_Hans: 在插件的工具存储里读或存路由表（evaluate_decision 读的就是这里）。单独放进一个「路由表维护」应用；路由表编辑端点经这个应用读写（AgentHub 上端点的存储和工具的存储不互通）。
+  llm: Read or save a route table in plugin tool storage. Used only by the route-table maintenance app.
+parameters:
+- name: op
+  type: string
+  required: true
+  form: llm
+  label:
+    en_US: op
+    zh_Hans: 操作
+  human_description:
+    en_US: table | history | version | save
+    zh_Hans: table（当前版）/ history（历史）/ version（某一版）/ save（保存）
+  llm_description: table, history, version or save.
+- name: table
+  type: string
+  required: false
+  form: llm
+  label:
+    en_US: table
+    zh_Hans: 路由表
+  human_description:
+    en_US: Route table name, default dispatch.route.
+    zh_Hans: 路由表名，默认 dispatch.route。
+  llm_description: Route table name.
+- name: version
+  type: string
+  required: false
+  form: llm
+  label:
+    en_US: version
+    zh_Hans: 版本号
+  human_description:
+    en_US: For op=version, the version number.
+    zh_Hans: op=version 时要读的版本号。
+  llm_description: Version number for op=version.
+- name: body_json
+  type: string
+  required: false
+  form: llm
+  label:
+    en_US: body_json
+    zh_Hans: 保存内容
+  human_description:
+    en_US: For op=save, the same JSON body the editor posts (table document plus expected_version).
+    zh_Hans: op=save 时的保存内容，和编辑页提交的一样（路由表文档 + expected_version）。
+  llm_description: For op=save, the editor's JSON body.
+output_schema:
+  type: object
+  properties:
+    status_code:
+      type: number
+    result_json:
+      type: string
+    result:
+      type: object
+  required:
+  - status_code
+  - result_json
+  - result
+extra:
+  python:
+    source: tools/route_table_store.py

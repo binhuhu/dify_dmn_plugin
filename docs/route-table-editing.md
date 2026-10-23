@@ -66,6 +66,18 @@ Brian 2026-10-23 又定了三条，v2 按这三条做：
 - 场景目录：粘贴现网定位的目录（`{场景编号: {name, domain}}` 或 CATALOG 的行）替换；有路由指向被去掉的场景时提示，保存前就挡住。
 - 历史版本、载入旧版再存回去（回滚）、导入整张 v2 表；导出可以导编辑区（含未保存改动）或已保存版本。
 
+## AgentHub 上：端点的存储 ≠ 工具的存储（0.5.2）
+
+0.5.1 在 ESE_sd 实测（2026-10-23）：编辑端点存了 `probe.route`（端点里写完读回是第 1 版），草稿流程里的 `evaluate_decision` 连跑 7 次都报 `ROUTE_TABLE_MISSING`；同一个插件，端点和流程里的工具看到的不是同一份插件存储。现网流程读路由靠的是工具，所以表必须存在**工具那一侧**。
+
+0.5.2 的做法：
+
+- 新工具 `route_table_store`（路由表存取）：`op` = `table` / `history` / `version` / `save`，参数 `table`、`version`、`body_json`（和编辑页提交的一样），输出 `status_code`、`result_json`、`result`。它在工具存储里读写，就是 `evaluate_decision` 读的那份。
+- 「路由表维护」应用：一个只有 `route_table_store` 节点的 workflow，开始变量 `op`、`table`、`version`、`body_json`（都是字符串），结束输出 `status_code` ← 工具的 `status_code`、`result_json` ← 工具的 `result_json`。发布后拿到它的 app_id。
+- 编辑端点新设置「维护应用 ID」（`store_app_id`）：填了以后，编辑页的读、存都经插件「调用应用」去跑维护应用，结果原样回给页面；口令照旧先在端点校验。没填就用端点自己的存储（只适合本地调试）。
+- 边界：能在本工作空间搭流程或运行维护应用的人，都能经 `route_table_store` 改路由表，口令只管编辑页。路由以前写在受理图里时，边界也是工作空间成员。
+- 如果 AgentHub 不让端点调应用（「调用应用」权限没生效），编辑页会报 `ROUTE_STORE_APP_FAILED`；这时退路是在 AgentHub 里直接运行维护应用：`op=save`，`body_json` 粘贴编辑页「导出编辑区」的 JSON（加上 `expected_version`）。
+
 ## 存储与并发（0.5.1，评审 T2-12）
 
 插件存储没有比较并交换。每次保存：
@@ -79,7 +91,7 @@ Brian 2026-10-23 又定了三条，v2 按这三条做：
 ## 上线顺序（发布归单写者，Brian 发插件 Release）
 
 1. 发插件新版（版本号由发布者定），在 AgentHub 安装升级。安装时会多问一项「调用应用」权限。
-2. 在 AgentHub 插件页给 `dmn_json` 新建「路由表编辑」端点，填编辑口令。
+2. 在 AgentHub 插件页给 `dmn_json` 新建「路由表编辑」端点，填编辑口令；建好「路由表维护」应用并发布，把它的 app_id 填进端点的「维护应用 ID」（0.5.2 起）。
 3. **实测（都在草稿流程里做，不碰现网）**：
    1. 存储：在编辑页存一张试验表 `probe.route`，再用一个只读这张表的草稿流程（`evaluate_decision` + v2 存储引用）跑一次，看 `trace.model_source.version` 对不对，确认端点和工具读写同一份存储；端点 URL 是否带 `/e/<hook>/` 前缀。
    2. 调应用：试验表里登记一个只回显入参的小应用（开始变量 `call_id`、`request_json`），草稿流程里 `invoke_solution` 调它，看 `status`、`outputs`、`child_workflow_run_id`；再故意传一个没登记的 app_id，应得 REJECTED。
