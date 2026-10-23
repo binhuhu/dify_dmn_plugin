@@ -19,7 +19,7 @@
         "type": "custom",
         "data": {
           "type": "code",
-          "title": "SOLUTION/P1.S1.N1 · Synthetic solution_node_1",
+          "title": "P1.S1.N1 · Synthetic solution_node_1",
           "desc": "psn:SOLUTION.coupon-use/P1.S1.N1",
           "code_language": "python3",
           "code": "def main(r):\n    return {'ok': True}\n",
@@ -44,7 +44,7 @@
           "provider_name": "dmn_json",
           "provider_type": "builtin",
           "tool_name": "evaluate_decision",
-          "title": "SOLUTION/P1.S2.N2 · Synthetic moved node",
+          "title": "P1.S2.N2 · Synthetic moved node",
           "desc": "psn:SOLUTION.coupon-use/P1.S2.N2",
           "error_strategy": "fail-branch",
           "tool_configurations": {
@@ -84,7 +84,7 @@
         "type": "custom",
         "data": {
           "type": "code",
-          "title": "SOLUTION/P1.S2.N1 · Synthetic solution_node_2",
+          "title": "P1.S2.N1 · Synthetic solution_node_2",
           "desc": "psn:SOLUTION.coupon-use/P1.S2.N1",
           "code_language": "python3",
           "code": "def main(r):\n    if r.get('execution_status') != 'SUCCEEDED':\n        return {'gap': 'GAP_DMN_FAILED'}\n    return {'ok': True}\n",
@@ -117,7 +117,7 @@
           "provider_name": "dmn_json",
           "provider_type": "builtin",
           "tool_name": "evaluate_decision",
-          "title": "SOLUTION/P3.S1.N1 · Synthetic decision",
+          "title": "P3.S1.N1 · Synthetic decision",
           "desc": "psn:SOLUTION.coupon-use/P3.S1.N1",
           "error_strategy": "fail-branch",
           "tool_configurations": {
@@ -157,7 +157,7 @@
         "type": "custom",
         "data": {
           "type": "code",
-          "title": "SOLUTION/P3.S1.N2 · Synthetic status check",
+          "title": "P3.S1.N2 · Synthetic status check",
           "desc": "psn:SOLUTION.coupon-use/P3.S1.N2",
           "code_language": "python3",
           "code": "def main(r):\n    if r.get('execution_status') != 'SUCCEEDED':\n        return {'gap': 'GAP_DMN_FAILED'}\n    return {'ok': True}\n",

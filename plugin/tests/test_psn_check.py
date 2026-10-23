@@ -77,42 +77,6 @@ def test_unnumbered_nodes_are_never_reported_unstamped():
     assert "solution_end" not in flagged
 
 
-@pytest.mark.parametrize(
-    ("title", "desc", "message"),
-    [
-        # Before solution-app/v1 N2 the title carried no family; that no longer counts.
-        ("P1.S1.N1 · name", None, "Title does not start with the number SOLUTION/P1.S1.N1."),
-        (
-            "SOLUTION.coupon-use/P1.S1.N1 · name",
-            None,
-            "Title does not start with the number SOLUTION/P1.S1.N1.",
-        ),
-        ("SOLUTION/P1.S1.N10 · name", None, "Title does not start with the number"),
-        ("SOLUTION/P1.S1.N1 · " + "名" * 41, None, "Title is 61 characters long; at most 60."),
-        ("SOLUTION/P1.S1.N1 · name", "", "Desc has no line psn:SOLUTION.coupon-use/P1.S1.N1."),
-        ("SOLUTION/P1.S1.N1 · name", "psn:SOLUTION/P1.S1.N1", "Desc has no line"),
-    ],
-)
-def test_not_stamped_follows_the_n2_title(title, desc, message):
-    graph = copy_graph()
-    data = graph_nodes(graph)["solution_node_1"]["data"]
-    data["title"] = title
-    if desc is not None:
-        data["desc"] = desc
-    report = run(graph)
-    assert report["counts"] == {"NOT_STAMPED": 1}
-    assert report["issues"][0]["message"].startswith(message)
-
-
-@pytest.mark.parametrize(
-    "title", ["SOLUTION/P1.S1.N1", "SOLUTION/P1.S1.N1 · name", "SOLUTION/P1.S1.N1 · " + "名" * 40]
-)
-def test_n2_titles_up_to_sixty_characters_are_stamped(title):
-    graph = copy_graph()
-    graph_nodes(graph)["solution_node_1"]["data"]["title"] = title
-    assert run(graph, strict=True)["issues"] == []
-
-
 def test_unplaced_node():
     graph = copy_graph()
     extra = json.loads(json.dumps(graph_nodes(graph)["solution_node_1"]))

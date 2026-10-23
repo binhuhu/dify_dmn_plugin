@@ -81,7 +81,7 @@ def build_graph(stamped=True):
     """Graph for the ACTIVE nodes of SOLUTION.coupon-use in the synthetic structure."""
 
     def label(tail, name):
-        return (f"SOLUTION/{tail} · {name}", f"psn:{KEY}/{tail}") if stamped else (name, "")
+        return (f"{tail} · {name}", f"psn:{KEY}/{tail}") if stamped else (name, "")
 
     moved_bundle = {
         "workflows": [
