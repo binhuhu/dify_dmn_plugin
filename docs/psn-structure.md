@@ -43,8 +43,9 @@ W1–W9 是 10-16 的合并修订，散在各节里：
 | DISPATCH | DISPATCH | D1 |
 | SOLUTION.coupon-use（合成示例） | SOLUTION | P1, P2, P3, P4, P5 |
 | HANDLE | HANDLE | P6, P7 |
+| KNOWLEDGE.consult（咨询问答，2026-10-22 加） | KNOWLEDGE | Q1, Q2, Q3, Q4 |
 
-`key` 满足 `^[A-Z]+(\.[a-z0-9-]+)?$`；当前声明的家族如上，SOLUTION 使用 `SOLUTION.<方案键>`，不把裸家族名当实例键。可有多个不同的 SOLUTION 实例，其编号和 node_key 独立。`family` 必须等于 `key` 点号前部分。每个条目显式声明固定 phase 集合且不重复；phase 数组顺序可调整，身份不变。phase 内可暂时没有 steps，step 内可没有 nodes；step 保留其 `id`，不能按数组位置重编。
+`key` 满足 `^[A-Z]+(\.[a-z0-9-]+)?$`；当前声明的家族如上，SOLUTION 使用 `SOLUTION.<方案键>`、KNOWLEDGE 使用 `KNOWLEDGE.<应用键>`，不把裸家族名当实例键。可有多个不同的 SOLUTION（或 KNOWLEDGE）实例，其编号和 node_key 独立。KNOWLEDGE 的四段：Q1 定问题（解析入参、标准化与分域、定检索范围）、Q2 取知识（检索）、Q3 作答（候选与分路、快路选句、慢路综合）、Q4 出口；阶段码用 Q 而不用 K，是为了不和咨询评测的「K3 线」、追问决策「K2」撞名。`family` 必须等于 `key` 点号前部分。每个条目显式声明固定 phase 集合且不重复；phase 数组顺序可调整，身份不变。phase 内可暂时没有 steps，step 内可没有 nodes；step 保留其 `id`，不能按数组位置重编。
 
 workflow `status` 为 ACTIVE 或 PAUSED；HANDLE 合成样例为 PAUSED。结构不嵌入 graph，因此 PAUSED 不要求提供图；ACTIVE 对应图的完整性属于第 2 项。P6/P7 仅能出现在 HANDLE。样例五个条目各有两个 Step，名称、节点和迁移全部为合成数据。
 

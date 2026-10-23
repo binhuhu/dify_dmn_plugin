@@ -100,6 +100,9 @@
             },
             {
               "pattern": "^SOLUTION\\.[a-z0-9-]+$"
+            },
+            {
+              "pattern": "^KNOWLEDGE\\.[a-z0-9-]+$"
             }
           ]
         },
@@ -108,7 +111,8 @@
             "TARGET",
             "DISPATCH",
             "SOLUTION",
-            "HANDLE"
+            "HANDLE",
+            "KNOWLEDGE"
           ]
         },
         "level": {
@@ -256,6 +260,35 @@
         {
           "if": {
             "properties": {
+              "family": {
+                "const": "KNOWLEDGE"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "phases": {
+                "minItems": 4,
+                "maxItems": 4,
+                "items": {
+                  "properties": {
+                    "id": {
+                      "enum": [
+                        "Q1",
+                        "Q2",
+                        "Q3",
+                        "Q4"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
               "key": {
                 "const": "TARGET"
               }
@@ -306,6 +339,25 @@
             "properties": {
               "family": {
                 "const": "SOLUTION"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "key": {
+                "pattern": "^KNOWLEDGE\\."
+              }
+            },
+            "required": [
+              "key"
+            ]
+          },
+          "then": {
+            "properties": {
+              "family": {
+                "const": "KNOWLEDGE"
               }
             }
           }

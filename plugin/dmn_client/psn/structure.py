@@ -21,6 +21,7 @@ PHASES = {
     "DISPATCH": ("D1",),
     "SOLUTION": ("P1", "P2", "P3", "P4", "P5"),
     "HANDLE": ("P6", "P7"),
+    "KNOWLEDGE": ("Q1", "Q2", "Q3", "Q4"),
 }
 FORBIDDEN_KEYS = {
     "workflow_id",
@@ -131,7 +132,7 @@ def validate_structure(value: object) -> list[StructureIssue]:
             fail("DUPLICATE_WORKFLOW_KEY", wp + "/key", "Workflow instance keys must be unique.")
         workflows.add(key)
         valid_key = key in {"DELIVERY", "TARGET", "DISPATCH", "HANDLE"} or re.fullmatch(
-            r"SOLUTION\.[a-z0-9-]+", key
+            r"(SOLUTION|KNOWLEDGE)\.[a-z0-9-]+", key
         )
         if not valid_key:
             fail("INVALID_WORKFLOW_KEY", wp + "/key", "Use a declared workflow instance key.")

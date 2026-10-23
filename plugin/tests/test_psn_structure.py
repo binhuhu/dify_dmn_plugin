@@ -459,3 +459,44 @@ def test_cross_workflow_move_must_keep_the_node_key():
     source.update(status="retired", retired_reason="moved", moved_to=target["ref"])
     assert target["node_key"] != source["node_key"]
     assert "INVALID_MOVE" in codes(value)
+
+
+def knowledge(key="KNOWLEDGE.consult"):
+    def node(step, key_, n):
+        return {"node_key": key_, "ref": f"{key}/{step}.N{n}", "kind": "TRANSFORM", "order": n, "status": "ACTIVE", "name": key_}
+
+    return {
+        "key": key,
+        "family": "KNOWLEDGE",
+        "level": "WORKFLOW",
+        "status": "ACTIVE",
+        "name": "consult answer",
+        "phases": [
+            {"id": f"Q{i}", "name": f"q{i}", "steps": [{"id": f"Q{i}.S1", "name": "s", "nodes": [node(f"Q{i}.S1", f"q{i}_node", 1)]}]}
+            for i in range(1, 5)
+        ],
+    }
+
+
+def test_knowledge_instance_validates_with_fixed_q_phases():
+    value = sample()
+    value["process"]["workflows"].append(knowledge())
+    assert validate_structure(value) == []
+    Draft202012Validator(json.loads(SCHEMA.read_text())).validate(value)
+
+
+@pytest.mark.parametrize(
+    "change,code",
+    [
+        (lambda w: w.update(key="KNOWLEDGE"), "INVALID_WORKFLOW_KEY"),
+        (lambda w: w.update(family="SOLUTION"), "WORKFLOW_FAMILY_MISMATCH"),
+        (lambda w: w["phases"][0].update(id="P1"), "INVALID_PHASE_ID"),
+        (lambda w: w["phases"].pop(), "PHASE_SET_MISMATCH"),
+    ],
+)
+def test_knowledge_instance_rules(change, code):
+    value = sample()
+    entry = knowledge()
+    change(entry)
+    value["process"]["workflows"].append(entry)
+    assert code in codes(value)
