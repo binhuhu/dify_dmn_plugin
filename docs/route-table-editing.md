@@ -57,7 +57,7 @@ Brian 2026-10-23 又定了三条，v2 按这三条做：
 
 ## 编辑页
 
-端点组 `route_editor`（同 v1，口令请求头 `X-Route-Edit-Key`）。页面只编辑 v2：
+端点组 `route_editor`（同 v1，口令请求头 `X-Route-Edit-Key`）。**编辑页地址是「端点地址 + `/routes/`」**，例如 `https://agenthub.intra.xiaojukeji.com/e/<hook>/routes/`，接口在 `…/routes/api/…`（0.5.2 起；0.5.1 时编辑器和结构视图都声明了 `/` 和 `/<path:route>`，在 AgentHub 上所有 GET 都落到结构视图，编辑页打不开）。工作台读插件表的配置 `~/.config/omni-platform/dmn-route-editor.json` 里的 `url` 也写到 `/routes/`。页面只编辑 v2：
 
 - 场景路由：选问题类型、处理阶段，按域、去向筛选、搜索；每个场景一行，下拉选 无方案 / 转安全 / 已登记的方案应用。改过的行标黄，出错的行标红。
 - 方案登记：登记应用 id、名称、开始变量；在用的应用不能删登记。

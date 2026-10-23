@@ -1,10 +1,11 @@
 """Route table editor over this plugin's storage (Brian 2026-10-22: routes are edited in the Dify plugin).
 
-    GET  /                          editor page (static, allowlisted)
-    GET  /api/table?table=…         current table (null before the first save) and its version
-    GET  /api/history?table=…       saved versions, newest first
-    GET  /api/version?table=…&v=n   one saved version (load it, then save it as a new version to roll back)
-    POST /api/table                 v1 {table, expected_version, note, issue_types, phases, registry, routes}
+All paths sit under /routes/ (the structure viewer owns "/" and "/<path:route>"; see route_editor.yaml):
+    GET  /routes/                          editor page (static, allowlisted); /routes redirects here
+    GET  /routes/api/table?table=…         current table (null before the first save) and its version
+    GET  /routes/api/history?table=…       saved versions, newest first
+    GET  /routes/api/version?table=…&v=n   one saved version (load it, then save it as a new version to roll back)
+    POST /routes/api/table                 v1 {table, expected_version, note, issue_types, phases, registry, routes}
                                     v2 {schema: dmn-json.route-table/v2, table, expected_version, note, issue_types, phases,
                                         scenes, solutions, routes} -> saved document
 
@@ -68,6 +69,9 @@ def _error(status, code, message, path=""):
 
 class RouteEditorEndpoint(Endpoint):
     def _invoke(self, r, values, settings):
+        if not values.get("route") and not r.path.endswith("/"):
+            # /routes without the slash: the page's relative asset and API paths need the trailing slash
+            return _secure(Response("", status=302, headers={"Location": "routes/"}))
         route = values.get("route") or "index.html"
         if route.startswith("api/"):
             return self._api(r, route[4:], settings)

@@ -11,18 +11,27 @@ settings:
     help:
       en_US: Anyone with this key can change the route tables that live workflows of this workspace read. Give it only to route maintainers.
       zh_Hans: 拿到这个口令就能改本工作空间现网流程读的路由表，只给维护路由的人。
+# The editor lives under /routes/ (open <endpoint url>/routes/). The structure viewer group, declared first in the
+# manifest, owns "/" and "/<path:route>" for GET; the SDK routes both groups through one werkzeug Map, so identical
+# patterns went to the viewer on AgentHub (0.5.1 probe, 2026-10-23). A static prefix is matched before the viewer's
+# catch-all whatever the declaration order.
 endpoints:
-  - path: /
+  - path: /routes
     method: GET
     extra:
       python:
         source: endpoints/route_editor.py
-  - path: /<path:route>
+  - path: /routes/
     method: GET
     extra:
       python:
         source: endpoints/route_editor.py
-  - path: /<path:route>
+  - path: /routes/<path:route>
+    method: GET
+    extra:
+      python:
+        source: endpoints/route_editor.py
+  - path: /routes/<path:route>
     method: POST
     extra:
       python:
