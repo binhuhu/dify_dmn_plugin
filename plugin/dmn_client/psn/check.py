@@ -12,6 +12,7 @@ from collections import defaultdict, deque
 
 from ..node_contract import ContractError, resolve_node
 from .graph import (
+    DESC_PREFIX,
     UNNUMBERED_KINDS,
     bundle_of,
     desc_is_stamped,
@@ -20,7 +21,7 @@ from .graph import (
     is_dmn,
     node_ref_of,
     ref_parts,
-    title_is_stamped,
+    title_problem,
 )
 from .placement import placement_issues
 from .structure import validate_structure
@@ -154,10 +155,11 @@ def check_graph(structure, graph, key, *, strict=False) -> dict:
             )
         if snode["kind"] in UNNUMBERED_KINDS:
             continue
-        if not (
-            title_is_stamped(data.get("title"), ref) and desc_is_stamped(data.get("desc"), ref)
-        ):
-            report("NOT_STAMPED", node_id, "Title or desc does not carry the PSN number.", ref)
+        problem = title_problem(data.get("title"), ref)
+        if problem is None and not desc_is_stamped(data.get("desc"), ref):
+            problem = f"Desc has no line {DESC_PREFIX}{ref}."
+        if problem is not None:
+            report("NOT_STAMPED", node_id, problem, ref)
         if not is_dmn(data):
             continue
         if data.get("error_strategy") == "default-value":

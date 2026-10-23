@@ -32,7 +32,8 @@ W1–W9 是 10-16 的合并修订，散在各节里：
 - W8：只增不改的分配；
 - W9：迁移可以跨 workflow。
 
-2026-10-23 起照 AgentHub 方案构建标准 solution-app/v1 改了：
+2026-10-23 起照 AgentHub 方案构建标准 solution-app/v1 改了两处：
+- 方案应用（SOLUTION）的标题带编号族、全长不超过 60 字，即 N2，见 stamp 一节；其余编号族保留旧写法（Brian 2026-10-23：「标题族前缀只改 SOLUTION；其余族保留旧写法，check 对它们照旧认旧写法。」）；
 - `psn check` 带上 ESE 五级结构检查的放错层规则 F06–F09 与失败处理 L5（标准第 3 节：两条线都跑 psn check），见 check 一节「放错层与失败处理」。
 
 ## 结构与实例身份（R1、R4、R6）
@@ -156,7 +157,7 @@ python -m dmn_client.psn check --structure ../examples/psn/structure.synthetic.j
 | NODE_REF_MISMATCH | FAIL | `node_ref` 的「编号族 + phase + step + node」与结构编号不同（R5、R6） |
 | NODE_REF_UNRESOLVABLE | FAIL | 用插件自己的 `resolve_node`，在节点自带的 `definition_bundle_json` 里解析不到 |
 | FAIL_BRANCH_DANGLING | FAIL | `error_strategy: fail-branch`，但没有 `sourceHandle: fail-branch` 的出边 |
-| NOT_STAMPED | WARN | 编号节点的标题没有 `<Phase>.S<n>.N<m> · ` 前缀，或描述里没有 `psn:<实例 ref>` 一行（GATE / EVENT 不查） |
+| NOT_STAMPED | WARN | 编号节点的标题不以编号开头（后接 ` · 名称` 或什么都不接），或描述里没有 `psn:<实例 ref>` 一行（GATE / EVENT 不查）。SOLUTION 按 N2：编号写编号族形式 `SOLUTION/P4.S2.N3`，不带族的 `P4.S2.N3 · `、实例键 `SOLUTION.coupon-use/P4.S2.N3 · ` 都算没写，全长超过 60 字也算没写。其余编号族照旧：裸编号，如 `Q1.S1.N2`，不限长度 |
 | SILENT_DMN_DEFAULT | WARN | 决策节点用 `default-value`：插件本身崩溃或超时时，错误被默认值替代 |
 | DMN_STATUS_UNCHECKED | WARN | 从决策节点沿连线往下，没有任何代码节点同时引用这个节点的输出和 `execution_status` |
 | MISPLACED_NODE | WARN | 节点的类别不该出现在这个 Step（ESE F06–F09，见下文「放错层与失败处理」） |
@@ -236,8 +237,13 @@ python -m dmn_client.psn from-graph --graph STAMPED --workflow KEY [--structure 
 
 - **只改编号节点的 `data.title` 和 `data.desc`。** 其余字节都不变，包括连线、位置、代码和工具参数。
 - **标题。**
-  - 先去掉已有前缀：自己的 `P4.S2.N3 · `，以及旧式的 `P4.S1：`、`P1：`、`P1–P5 `（W7）。再写成 `<Phase>.S<n>.N<m> · <名称>`。
-  - 只有阶段码的标题（如 `P1`）没有名称，写成编号本身 `P1.S2.N2`。
+  - 方案应用（SOLUTION）的格式是 `SOLUTION/<Phase>.S<n>.N<m> · <名称>`，如 `SOLUTION/P4.S2.N3 · 名称`（solution-app/v1 N2，Brian 2026-10-23 D5 ②）。实例键只写在描述的 psn 行里。
+  - 其余编号族不在标准范围内，保留旧写法：裸编号 `<Phase>.S<n>.N<m> · <名称>`，如 `Q1.S1.N2 · 名称`，不限长度，check 也照旧认这种写法（Brian 2026-10-23）。标题里带了族前缀的，stamp 会换回裸编号，不会叠成两个编号。
+  - 先去掉已有前缀（W7）：
+    - 任何形式的编号：编号族形式 `SOLUTION/P4.S2.N3 · `、N2 之前不带族的 `P4.S2.N3 · `、带实例键的 `SOLUTION.fee-standard/P4.S2.N3 · `；
+    - 旧式的 `P4.S1：`、`P1：`、`P1–P5 `。
+  - SOLUTION 的标题全长不超过 60 字，超了截名称，不截编号；截断处末尾的空格一并去掉。字数按 UTF-16 码元算，与 JavaScript 的 `length` 和 ESE 五级结构检查（F02）一致：一般汉字、字母、标点各算 1，BMP 以外的字符（如表情）算 2，且不会被截成半个。
+  - 名称为空时只写编号，如 `SOLUTION/P1.S2.N2`、`Q1.S1.N2`。只有阶段码的标题（如 `P1`）、只有编号的标题都算没有名称。
 - **描述。** 已有文字原样保留，末尾放一行 `psn:<实例 ref>`。旧的 psn 行先删掉，所以不会叠加。
 - **不编号的 GATE / EVENT 节点一个字节都不动。** 与发布时写编号的规则相同。
 - **决策节点的 `node_ref` 一律不写（W6）。** 它和节点自带定义包里的编号是同一个号，只改一处会解析不到；缺失或不一致都由生成节点的构建脚本连同定义包一起改。
@@ -246,15 +252,21 @@ python -m dmn_client.psn from-graph --graph STAMPED --workflow KEY [--structure 
 
 `from-graph` 从已写编号的图里，按描述中的 psn 行读回编号节点的骨架（step、node_key、ref、kind），可以和结构的骨架比对。不编号节点不带 psn 行，读回时跳过。
 
-**stamp 前后对照**（实例键为 `SOLUTION.coupon-use`；以下取自 `plugin/tests/test_psn_stamp.py` 的合成用例）：
+**stamp 前后对照**（除注明外，实例键为 `SOLUTION.coupon-use`；以下取自 `plugin/tests/test_psn_stamp.py` 的合成用例）：
 
 | 节点 | stamp 前 `title` | stamp 后 `title` | stamp 后 `desc` 最后一行 |
 | --- | --- | --- | --- |
-| 编号节点，旧式 Step 前缀 | `P1.S1：old step name` | `P1.S1.N1 · old step name` | `psn:SOLUTION.coupon-use/P1.S1.N1` |
-| 编号节点，旧式阶段前缀 | `P1：old phase name` | `P1.S2.N1 · old phase name` | `psn:SOLUTION.coupon-use/P1.S2.N1` |
-| 编号节点，只有阶段码 | `P1` | `P3.S1.N1` | `psn:SOLUTION.coupon-use/P3.S1.N1` |
-| 编号节点，区间前缀 | `P1–P5 whole chain` | `P3.S1.N2 · whole chain` | `psn:SOLUTION.coupon-use/P3.S1.N2` |
-| 编号节点，旧编号写错了 | `P9.S9.N9 · already stamped wrong` | `P1.S2.N2 · already stamped wrong` | `psn:SOLUTION.coupon-use/P1.S2.N2` |
+| 编号节点，旧式 Step 前缀 | `P1.S1：old step name` | `SOLUTION/P1.S1.N1 · old step name` | `psn:SOLUTION.coupon-use/P1.S1.N1` |
+| 编号节点，旧式阶段前缀 | `P1：old phase name` | `SOLUTION/P1.S2.N1 · old phase name` | `psn:SOLUTION.coupon-use/P1.S2.N1` |
+| 编号节点，只有阶段码 | `P1` | `SOLUTION/P3.S1.N1` | `psn:SOLUTION.coupon-use/P3.S1.N1` |
+| 编号节点，区间前缀 | `P1–P5 whole chain` | `SOLUTION/P3.S1.N2 · whole chain` | `psn:SOLUTION.coupon-use/P3.S1.N2` |
+| 编号节点，旧编号写错了 | `P9.S9.N9 · already stamped wrong` | `SOLUTION/P1.S2.N2 · already stamped wrong` | `psn:SOLUTION.coupon-use/P1.S2.N2` |
+| 编号节点，N2 之前不带族 | `P1.S1.N1 · bare number` | `SOLUTION/P1.S1.N1 · bare number` | `psn:SOLUTION.coupon-use/P1.S1.N1` |
+| 编号节点，标题里写实例键 | `SOLUTION.fee-standard/P2.S1.N2 · another instance` | `SOLUTION/P3.S1.N1 · another instance` | `psn:SOLUTION.coupon-use/P3.S1.N1` |
+| 编号节点，族写错了 | `TARGET/T1.S1.N1 · wrong family` | `SOLUTION/P3.S1.N2 · wrong family` | `psn:SOLUTION.coupon-use/P3.S1.N2` |
+| 编号节点，编号后名称为空 | `SOLUTION/P1.S1.N1 · ` | `SOLUTION/P1.S1.N1` | `psn:SOLUTION.coupon-use/P1.S1.N1` |
+| 编号节点，名称 80 个汉字 | `名名…名`（80 个） | `SOLUTION/P1.S1.N1 · ` 加 40 个「名」，共 60 字 | `psn:SOLUTION.coupon-use/P1.S1.N1` |
+| KNOWLEDGE 的编号节点，标题带了族前缀（实例键 `KNOWLEDGE.consult`） | `KNOWLEDGE/Q1.S1.N1 · parse` | `Q1.S1.N1 · parse` | `psn:KNOWLEDGE.consult/Q1.S1.N1` |
 | GATE / EVENT 节点 | 任意 | 不动 | 不动 |
 
 stamp 前描述里的其他文字原样保留，只把旧的 psn 行换掉。比如 `keeps this` / `psn:…/P9.S9.N9` / `and this` 三行，stamp 后变成 `keeps this` / `and this` / `psn:SOLUTION.coupon-use/P1.S1.N1`。决策节点的 `tool_configurations.node_ref` 和定义包一个字节都不变。
@@ -305,7 +317,7 @@ python -m dmn_client.psn diff --old S --new S2 [--json]
 | --- | --- | --- |
 | `node_key` | `graph.nodes[].id` | 身份键，不随发布变化；纯数字 id 报 `UNSTABLE_NODE_KEY` |
 | `kind` | `data.type`；工具节点再看 `provider_name` / `provider_id`（决策插件 → DECISION）和 `provider_type`（workflow → CALL） | 对应表见 `psn check` 一节 |
-| `ref`（实例键形式） | `data.title` 前缀 `<Phase>.S<n>.N<m> · `，以及 `data.desc` 最后一行 `psn:<实例 ref>` | 由 `psn stamp` 写，`NOT_STAMPED` 检查 |
+| `ref`（实例键形式） | `data.title` 前缀：SOLUTION 是 `SOLUTION/<Phase>.S<n>.N<m> · `，全长 ≤ 60 字；其余族是 `<Phase>.S<n>.N<m> · `，不限长度。`data.desc` 最后一行 `psn:<实例 ref>`（实例键形式） | 由 `psn stamp` 写，`NOT_STAMPED` 检查 |
 | R6 编号族形式 | 决策节点 `data.tool_configurations.node_ref`（或 `tool_parameters` 里的常量），`{"workflow_id":"SOLUTION","phase_id":"P4","step_id":"P4.S2","node_id":"N3"}` | 与节点自带的 `definition_bundle_json` 同号；由生成节点的构建脚本连同定义包一起写，stamp 不写 |
 | — | `data.error_strategy`、`edges[].sourceHandle == "fail-branch"` | `SILENT_DMN_DEFAULT`、`FAIL_BRANCH_DANGLING` 检查，见下一节 |
 | workflow `key` / `status` | 不在图里 | 键与 Dify app 的绑定、发布版本和哈希都放在证据或台账里（R3） |
