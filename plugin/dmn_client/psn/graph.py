@@ -41,6 +41,8 @@ _KIND_BY_TYPE = {
 
 STAMP_SEPARATOR = " · "
 DESC_PREFIX = "psn:"
+# solution-app/v1 N2: the whole title is at most 60 characters; a long name is cut, the number never.
+TITLE_MAX = 60
 _TAIL = re.compile(r"^[A-Z][1-9][0-9]*\.S[1-9][0-9]*\.N[1-9][0-9]*$")
 
 
@@ -176,15 +178,46 @@ def ref_parts(instance_ref: str) -> dict:
     return {"phase_id": step.split(".", 1)[0], "step_id": step, "node_id": node}
 
 
-def stamp_title(tail: str, name: str) -> str:
-    return f"{tail}{STAMP_SEPARATOR}{name}"
+def title_number(instance_ref: str) -> str:
+    """The number a title starts with (N2): SOLUTION.coupon-use/P4.S2.N3 -> SOLUTION/P4.S2.N3."""
+    return family_ref(instance_ref, instance_ref.split("/", 1)[0].split(".", 1)[0])
 
 
-def title_is_stamped(title: str, instance_ref: str) -> bool:
-    tail = instance_ref.split("/", 1)[1]
-    if not isinstance(title, str):
-        return False
-    return title == tail or title.startswith(f"{tail}{STAMP_SEPARATOR}")
+def title_length(title: str) -> int:
+    """Length in UTF-16 units, as JavaScript counts it; the ESE checker measures titles that way."""
+    return len(title.encode("utf-16-le")) // 2
+
+
+def stamp_title(instance_ref: str, name: str) -> str:
+    """Number, separator and name, with the name cut so the title fits TITLE_MAX."""
+    number = title_number(instance_ref)
+    head = f"{number}{STAMP_SEPARATOR}"
+    room = TITLE_MAX - title_length(head)
+    kept = []
+    for char in name:
+        room -= title_length(char)
+        if room < 0:
+            break
+        kept.append(char)
+    # Trailing spaces would be stripped on the next stamp; drop them now so stamping stays idempotent.
+    cut = "".join(kept).rstrip()
+    return f"{head}{cut}" if cut else number
+
+
+def title_problem(title, instance_ref: str):
+    """Why a numbered node's title is not what stamp writes, or None when it is (N2)."""
+    number = title_number(instance_ref)
+    if not isinstance(title, str) or not (
+        title == number or title.startswith(f"{number}{STAMP_SEPARATOR}")
+    ):
+        return f"Title does not start with the number {number}."
+    if title_length(title) > TITLE_MAX:
+        return f"Title is {title_length(title)} characters long; at most {TITLE_MAX}."
+    return None
+
+
+def title_is_stamped(title, instance_ref: str) -> bool:
+    return title_problem(title, instance_ref) is None
 
 
 def desc_is_stamped(desc, instance_ref: str) -> bool:

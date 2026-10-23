@@ -2,7 +2,8 @@
 
 stamp only ever rewrites ``data.title`` and ``data.desc``. A decision node's ``node_ref`` is never
 written: it must stay in lockstep with the node's own definition bundle, so a missing or
-different node_ref stops the stamp (W6). Old-style title prefixes are replaced, not doubled, and
+different node_ref stops the stamp (W6). Titles become ``SOLUTION/P4.S2.N3 · name`` within 60
+characters (solution-app/v1 N2). Old-style title prefixes are replaced, not doubled, and
 existing desc text is kept (W7). Stamping a stamped graph changes nothing.
 """
 
@@ -12,18 +13,19 @@ import re
 from copy import deepcopy
 
 from .check import check_graph, structure_nodes
-from .graph import DESC_PREFIX, STAMP_SEPARATOR, UNNUMBERED_KINDS, dify_kind
+from .graph import DESC_PREFIX, STAMP_SEPARATOR, UNNUMBERED_KINDS, dify_kind, stamp_title
 
+# A number in each form a title has carried (W7): family form SOLUTION/P4.S2.N3 (N2), the bare
+# P4.S2.N3 written before N2, and the instance key SOLUTION.fee-standard/P4.S2.N3.
+_NUMBER = r"(?:[A-Z]+(?:\.[a-z0-9-]+)?/)?[A-Z][1-9][0-9]*\.S[1-9][0-9]*\.N[1-9][0-9]*"
 # Our own prefix, then the hand-written ones found on live graphs (W7).
-_OWN_PREFIX = re.compile(
-    r"^[A-Z][1-9][0-9]*\.S[1-9][0-9]*\.N[1-9][0-9]*" + re.escape(STAMP_SEPARATOR)
-)
+_OWN_PREFIX = re.compile("^" + _NUMBER + re.escape(STAMP_SEPARATOR))
 _OLD_PREFIXES = (
     re.compile(r"^[OTDP][0-9](\.S[0-9]+)?[：:·]\s*"),
     re.compile(r"^[OTDP][0-9][–-][OTDP][0-9]\s*"),
 )
 _BARE_PHASE = re.compile(r"^[OTDP][0-9]$")
-_OWN_TAIL = re.compile(r"^[A-Z][1-9][0-9]*\.S[1-9][0-9]*\.N[1-9][0-9]*$")
+_OWN_TAIL = re.compile("^" + _NUMBER + "$")
 
 # Check codes that mean the graph and the structure disagree; stamping would hide that.
 BLOCKING = {
@@ -79,9 +81,7 @@ def stamp_graph(structure, graph, key) -> tuple[dict, dict]:
         before = (data.get("title"), data.get("desc"))
         if snode["kind"] not in UNNUMBERED_KINDS:
             # Unnumbered nodes stay byte-for-byte as they are (same rule as the release stamp).
-            tail = snode["ref"].split("/", 1)[1]
-            name = bare_title(data.get("title"))
-            data["title"] = f"{tail}{STAMP_SEPARATOR}{name}" if name else tail
+            data["title"] = stamp_title(snode["ref"], bare_title(data.get("title")))
             data["desc"] = stamped_desc(data.get("desc"), f"{DESC_PREFIX}{snode['ref']}")
         if (data.get("title"), data.get("desc")) == before:
             unchanged += 1

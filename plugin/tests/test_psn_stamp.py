@@ -54,11 +54,30 @@ def test_from_graph_round_trip():
 @pytest.mark.parametrize(
     ("node", "old", "new"),
     [
-        ("solution_node_1", "P1.S1：old step name", "P1.S1.N1 · old step name"),
-        ("solution_node_2", "P1：old phase name", "P1.S2.N1 · old phase name"),
-        ("solution_decision", "P1", "P3.S1.N1"),
-        ("solution_project", "P1–P5 whole chain", "P3.S1.N2 · whole chain"),
-        ("synthetic_moved", "P9.S9.N9 · already stamped wrong", "P1.S2.N2 · already stamped wrong"),
+        ("solution_node_1", "P1.S1：old step name", "SOLUTION/P1.S1.N1 · old step name"),
+        ("solution_node_2", "P1：old phase name", "SOLUTION/P1.S2.N1 · old phase name"),
+        ("solution_decision", "P1", "SOLUTION/P3.S1.N1"),
+        ("solution_project", "P1–P5 whole chain", "SOLUTION/P3.S1.N2 · whole chain"),
+        (
+            "synthetic_moved",
+            "P9.S9.N9 · already stamped wrong",
+            "SOLUTION/P1.S2.N2 · already stamped wrong",
+        ),
+        # N2: the number before N2 had no family; some drafts used the instance key.
+        ("solution_node_1", "P1.S1.N1 · bare number", "SOLUTION/P1.S1.N1 · bare number"),
+        (
+            "solution_node_2",
+            "SOLUTION.coupon-use/P1.S2.N1 · instance key",
+            "SOLUTION/P1.S2.N1 · instance key",
+        ),
+        (
+            "solution_decision",
+            "SOLUTION.fee-standard/P2.S1.N2 · another instance",
+            "SOLUTION/P3.S1.N1 · another instance",
+        ),
+        ("solution_project", "TARGET/T1.S1.N1 · wrong family", "SOLUTION/P3.S1.N2 · wrong family"),
+        ("synthetic_moved", "SOLUTION/P1.S2.N2", "SOLUTION/P1.S2.N2"),
+        ("solution_node_1", "SOLUTION/P1.S1.N1 · ", "SOLUTION/P1.S1.N1"),
     ],
 )
 def test_old_style_title_prefixes_are_replaced_not_doubled(node, old, new):
@@ -69,6 +88,29 @@ def test_old_style_title_prefixes_are_replaced_not_doubled(node, old, new):
     assert titles[node] == new
     again, _ = stamp_graph(structure(), deepcopy(after), KEY)
     assert again == after
+
+
+@pytest.mark.parametrize(
+    ("name", "kept"),
+    [
+        ("名" * 80, "名" * 40),
+        ("a" * 40, "a" * 40),
+        # A character outside the BMP counts twice and is never split.
+        ("a" * 39 + "\U0001f600b", "a" * 39),
+        ("x" * 39 + " yyy", "x" * 39),
+    ],
+)
+def test_long_name_is_cut_to_sixty_characters_and_the_number_is_kept(name, kept):
+    graph = build_graph(stamped=False)
+    graph_nodes(graph)["solution_node_1"]["data"]["title"] = name
+    after, _ = stamp(graph)
+    title = {n["id"]: n["data"]["title"] for n in after["nodes"]}["solution_node_1"]
+    # "SOLUTION/P1.S1.N1 · " is 20 characters, which leaves 40 for the name.
+    assert title == "SOLUTION/P1.S1.N1 · " + kept
+    assert len(title.encode("utf-16-le")) // 2 <= 60
+    again, _ = stamp_graph(structure(), deepcopy(after), KEY)
+    assert again == after
+    assert "NOT_STAMPED" not in {i["code"] for i in check_graph(structure(), after, KEY)["issues"]}
 
 
 def test_existing_desc_text_is_kept_and_only_the_psn_line_is_managed():
