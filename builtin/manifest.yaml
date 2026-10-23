@@ -16,6 +16,8 @@ resource:
   permission:
     endpoint:
       enabled: true
+    app:
+      enabled: true
     storage:
       enabled: true
       size: 16777216

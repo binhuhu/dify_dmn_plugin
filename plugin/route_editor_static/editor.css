@@ -21,11 +21,21 @@ table{border-collapse:collapse;width:100%;min-width:860px;font-size:13px}
 th,td{border-bottom:1px solid var(--line);padding:6px 6px;text-align:left;vertical-align:top}
 th{color:var(--muted);font-weight:600;white-space:nowrap}
 td input[data-f=scene_id]{width:110px}td select{max-width:220px}
-.re-target{display:flex;flex-direction:column;gap:4px;min-width:260px}
+.re-target{display:flex;flex-direction:column;gap:4px;min-width:260px}.re-target select{width:100%;max-width:440px}
 .re-target textarea{min-height:2.4em;font-family:ui-monospace,Menlo,monospace;font-size:12px}
 .re-bad{color:var(--bad-fg);font-size:12px}
 .re-app{font-size:12px;color:var(--muted);overflow-wrap:anywhere}.re-app a{color:var(--blue)}
 code{font-family:ui-monospace,Menlo,monospace;font-size:12px}
 details{margin:8px 0}summary{cursor:pointer;color:var(--blue)}
 .re-list{margin:0;padding-left:18px;font-size:13px}.re-list li{margin:3px 0;overflow-wrap:anywhere}
+.re-card>h2{margin:2px 0 6px}
+.re-grow{flex:1 1 220px}.re-grow input{width:100%}
+.re-chips{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0}
+.re-chips button{border-radius:999px;padding:2px 12px;font-size:13px}
+.re-chips button[aria-pressed=true]{background:var(--blue);border-color:var(--blue);color:#fff}
+.re-tall{max-height:62vh;overflow:auto}.re-tall th{position:sticky;top:0;background:var(--surface)}
+tr.re-changed td{background:var(--warn-bg)}
+.re-num{font-variant-numeric:tabular-nums;text-align:right}
+td input[data-app]{width:100%;min-width:180px}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,a:focus-visible{outline:2px solid var(--blue);outline-offset:1px}
 @media (max-width:640px){.re{padding:16px}}

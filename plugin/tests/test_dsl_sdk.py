@@ -116,10 +116,12 @@ assert r.configuration.name == "dmn_json"
 assert r.configuration.version == "0.4.2"
 c=r.tools_configuration[0]
 assert not c.credentials_schema
-assert [t.identity.name for t in c.tools] == ["evaluate_json_table", "query_local", "execute_json_plan", "execute_query", "evaluate_decision"]
-for t in c.tools[-2:]:
+assert [t.identity.name for t in c.tools] == ["evaluate_json_table", "query_local", "execute_json_plan", "execute_query", "evaluate_decision", "invoke_solution"]
+for t in c.tools[3:5]:
     assert len(t.parameters)==4
     assert [(p.name,p.form.value) for p in t.parameters] == [("definition_bundle_json","form"),("node_ref","form"),("inputs_json","llm"),("execution_context_json","llm")]
+inv=c.tools[5]
+assert [(p.name,p.form.value,p.required) for p in inv.parameters] == [("app_id","llm",True),("inputs_json","llm",True),("table","form",False)]
 JsonTableProvider().validate_credentials({})
 """
     subprocess.run([sys.executable, "-c", code], cwd=dest, check=True, capture_output=True)

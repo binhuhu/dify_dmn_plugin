@@ -17,6 +17,7 @@ tools:
 - tools/execute_json_plan.yaml
 - tools/execute_query.yaml
 - tools/evaluate_decision.yaml
+- tools/invoke_solution.yaml
 extra:
   python:
     source: provider/dmn.py

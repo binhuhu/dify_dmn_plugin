@@ -1,0 +1,82 @@
+identity:
+  name: invoke_solution
+  author: hu8627
+  label:
+    en_US: invoke_solution
+    zh_Hans: 调用方案
+description:
+  human:
+    en_US: Call one solution app of this workspace by app_id. Only apps registered in the plugin route table (v2 solutions)
+      can be called, and only with exactly their registered start variables. Returns the app's outputs and run identity.
+    zh_Hans: 按 app_id 调本工作空间的一个解决方案应用。只能调插件路由表（v2）方案登记里的应用，开始变量必须和登记的完全一致；返回该应用的输出和运行身份。
+  llm: Call one registered solution app by app_id with its registered start variables; returns outputs and run identity.
+parameters:
+- name: app_id
+  type: string
+  required: true
+  form: llm
+  label:
+    en_US: app_id
+    zh_Hans: 方案应用编号
+  human_description:
+    en_US: AgentHub app id from the DISPATCH route result. Must be registered in the route table.
+    zh_Hans: 受理路由结果里的 AgentHub 应用编号，必须在路由表的方案登记里。
+  llm_description: AgentHub app id from the DISPATCH route result.
+- name: inputs_json
+  type: any
+  required: true
+  form: llm
+  label:
+    en_US: inputs_json
+    zh_Hans: 开始变量
+  human_description:
+    en_US: Start variables for the solution app (object or one JSON object string); keys must equal the registered inputs, values are strings.
+    zh_Hans: 方案应用的开始变量（对象或一个 JSON 对象字符串）；键必须和登记的 inputs 完全一致，值是字符串。
+  llm_description: Start variables for the solution app; keys must equal the registered inputs, values are strings.
+- name: table
+  type: string
+  required: false
+  default: dispatch.route
+  form: form
+  label:
+    en_US: table
+    zh_Hans: 路由表
+  human_description:
+    en_US: Plugin route table whose solution registry allows the call. Default dispatch.route.
+    zh_Hans: 用哪张插件路由表的方案登记放行，默认 dispatch.route。
+  llm_description: Plugin route table name; keep the default.
+output_schema:
+  type: object
+  properties:
+    status:
+      type: string
+      enum:
+      - SUCCEEDED
+      - FAILED
+      - REJECTED
+    error_code:
+      type: string
+    error_message:
+      type: string
+    outputs:
+      type: object
+    child_app_id:
+      type: string
+    child_workflow_id:
+      type: string
+    child_workflow_run_id:
+      type: string
+    receipt:
+      type: object
+  required:
+  - status
+  - error_code
+  - error_message
+  - outputs
+  - child_app_id
+  - child_workflow_id
+  - child_workflow_run_id
+  - receipt
+extra:
+  python:
+    source: tools/invoke_solution.py

@@ -190,7 +190,7 @@ assert r.configuration.version == "0.4.2"
 c=r.tools_configuration[0]
 assert c.identity.name == "dmn_json"
 assert not c.credentials_schema
-assert [t.identity.name for t in c.tools]==["evaluate_json_table", "query_local", "execute_json_plan", "execute_query", "evaluate_decision"]
+assert [t.identity.name for t in c.tools]==["evaluate_json_table", "query_local", "execute_json_plan", "execute_query", "evaluate_decision", "invoke_solution"]
 JsonTableProvider().validate_credentials({})
 """
     subprocess.run([sys.executable, "-c", code], cwd=dest, check=True, capture_output=True)

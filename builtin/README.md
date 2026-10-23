@@ -40,9 +40,11 @@ AND 中 FALSE 优先于 UNKNOWN。FIRST 的已选规则之前存在 UNKNOWN 或 
 
 依赖沿用仓库固定 requirements.txt；首次安装仍需要平台正常解析 Python 依赖。免 Key/无外部决策服务指工具调用路径，不是离线安装保证。目标 UI 安装与真实调用仍需验收。
 
-## 路由表编辑（候选，未发布）
+## 场景、方案和路由配置（候选，未发布）
 
-Brian 2026-10-22：受理路由表在插件里改，存插件存储（打开 `storage` 权限），改了不用重发受理路由流程。evaluate_decision 遇到 `PLUGIN_STORAGE` 存储引用时，运行时取表编译，回执外形不变；新增端点组「路由表编辑」，要配编辑口令。合同、约束和上线顺序见 [route-table-editing.md](https://github.com/binhuhu/dify_dmn_plugin/blob/main/docs/route-table-editing.md)。还没在目标宿主上安装验收。
+Brian 2026-10-22：受理路由表在插件里改，存插件存储（打开 `storage` 权限），改了不用重发受理路由流程。evaluate_decision 遇到 `PLUGIN_STORAGE` 存储引用时，运行时取表编译，回执外形不变；端点组「路由表编辑」要配编辑口令。
+
+Brian 2026-10-23：v2 表（`dmn-json.route-table/v2`）自带场景目录和方案登记，编辑页按场景列出全部场景，每行选方案应用 / 转安全 / 知识库 / 无方案；加方案、换方案只在编辑页保存，不发受理路由或交付流程。新工具 `invoke_solution`（调用方案）按 app_id 调本工作空间里已登记的方案应用，需要「调用应用」权限（`app`）。合同、约束、实测步骤和上线顺序见 [route-table-editing.md](https://github.com/binhuhu/dify_dmn_plugin/blob/main/docs/route-table-editing.md)。还没在目标宿主上安装验收。
 
 ## 只读结构展示（RC2）
 
