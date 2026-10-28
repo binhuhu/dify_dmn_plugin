@@ -1016,10 +1016,20 @@ class StorageTables:
                 "resource_table",
             )
         if clean["schema"] == stored_tables.SCHEMA_RESOURCE:
-            for name in clean["route_tables"]:
+            # 0.5.4: the route tables the stored version lists count too, and one that still names this resource table may not
+            # leave the list (dropping it first let a target it uses be deleted; the v3 route then failed at run time).
+            old = self.load(clean["table"]) or {}
+            listed = old.get("route_tables", []) if old.get("schema") == stored_tables.SCHEMA_RESOURCE else []
+            for name in dict.fromkeys([*clean["route_tables"], *listed]):
                 route = self.load(name)
                 if not route or route.get("resource_table") != clean["table"]:
                     continue
+                _need(
+                    name in clean["route_tables"],
+                    "RESOURCE_TABLE_ROUTE_DROPPED",
+                    "路由表 %s 还引用本资源表，不能从 route_tables 去掉（先改路由表）" % name,
+                    "route_tables",
+                )
                 used = sorted(
                     {
                         r["target"]["resource_id"]
