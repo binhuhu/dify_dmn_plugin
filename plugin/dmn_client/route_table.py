@@ -1016,10 +1016,15 @@ class StorageTables:
                 "resource_table",
             )
         if clean["schema"] == stored_tables.SCHEMA_RESOURCE:
-            # 0.5.4: the route tables the stored version lists count too, and one that still names this resource table may not
-            # leave the list (dropping it first let a target it uses be deleted; the v3 route then failed at run time).
+            # 0.5.4: the route tables the stored version lists count too, and one that still
+            # names this resource table may not leave the list (dropping it first let a target
+            # it uses be deleted; the v3 route then failed at run time).
             old = self.load(clean["table"]) or {}
-            listed = old.get("route_tables", []) if old.get("schema") == stored_tables.SCHEMA_RESOURCE else []
+            listed = (
+                old.get("route_tables", [])
+                if old.get("schema") == stored_tables.SCHEMA_RESOURCE
+                else []
+            )
             for name in dict.fromkeys([*clean["route_tables"], *listed]):
                 route = self.load(name)
                 if not route or route.get("resource_table") != clean["table"]:
