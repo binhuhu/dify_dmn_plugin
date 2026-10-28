@@ -118,11 +118,27 @@ def load_document(path) -> tuple:
     return value, graph
 
 
-def is_dmn(data: dict) -> bool:
+# dmn_json tools that call another app instead of deciding: invoke_solution runs a solution app (交付编排 solve_call, O4.S1).
+# WO-38 (10-28): taken for a DECISION it drew KIND_MISMATCH, NODE_REF_MISSING and MISPLACED_NODE on 交付编排.
+DMN_CALL_TOOLS = frozenset({"invoke_solution"})
+
+
+def is_dmn_tool(data: dict) -> bool:
+    """Any tool of the dmn_json plugin."""
     if data.get("type") != "tool":
         return False
     markers = (data.get("provider_id") or "", data.get("plugin_unique_identifier") or "")
     return data.get("provider_name") == "dmn_json" or any("dmn_json" in m for m in markers)
+
+
+def is_dmn_call(data: dict) -> bool:
+    """A dmn_json tool that calls an app (a CALL, with no node_ref or definition bundle)."""
+    return is_dmn_tool(data) and data.get("tool_name") in DMN_CALL_TOOLS
+
+
+def is_dmn(data: dict) -> bool:
+    """A decision node of the dmn_json plugin (every dmn_json tool but the app-calling ones)."""
+    return is_dmn_tool(data) and not is_dmn_call(data)
 
 
 def dify_kind(data: dict):
@@ -131,7 +147,9 @@ def dify_kind(data: dict):
     if node_type == "tool":
         if is_dmn(data):
             return "DECISION"
-        return "CALL" if data.get("provider_type") == "workflow" else "TOOL"
+        if is_dmn_call(data) or data.get("provider_type") == "workflow":
+            return "CALL"
+        return "TOOL"
     return _KIND_BY_TYPE.get(node_type)
 
 

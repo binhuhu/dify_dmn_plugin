@@ -200,6 +200,75 @@ def test_model_reading_http_by_url_or_title_is_a_model():
     assert placement(run("SOLUTION", rows, TABLES)) == set()
 
 
+# 2026-10-28 (方案从 P4 起, solution-app/v1 1.0.9 C12): a solution fetches its own P4 facts in P4.S1.
+
+
+@pytest.mark.parametrize(
+    "row",
+    [
+        ("p4_query", "P4.S1", workflow_tool()),  # ESE ee1aebd3 p4_query (WO-42)
+        ("p4_http", "P4.S1", http()),
+    ],
+)
+def test_solution_may_fetch_its_p4_facts_in_p4s1(row):
+    rows = [*solution_layout(), row]
+    assert placement(run("SOLUTION", rows, (*TABLES, row[0]))) == set()
+
+
+@pytest.mark.parametrize(
+    "row",
+    [
+        ("p4s2_query", "P4.S2", workflow_tool()),
+        ("p4s2_http", "P4.S2", http()),
+        ("p5_query", "P5.S1", workflow_tool()),
+        ("p4_tool", "P4.S1", other_tool()),
+        ("p4_reading_http", "P4.S1", http(title="模型识读")),
+        ("p4_loop", "P4.S1", iteration()),
+    ],
+)
+def test_the_p4s1_fetch_allowance_is_that_narrow(row):
+    rows = [*solution_layout(), row]
+    edges = (*TABLES, row[0]) if row[2]["type"] != "iteration" else TABLES
+    assert placement(run("SOLUTION", rows, edges)) == {("MISPLACED_NODE", row[0])}
+
+
+def test_a_p4s1_fetch_on_default_value_is_a_silent_fetch():
+    rows = [*solution_layout(), ("p4_query", "P4.S1", default_value(workflow_tool()))]
+    assert placement(run("SOLUTION", rows, TABLES)) == {("SILENT_FETCH_DEFAULT", "p4_query")}
+    rows = [*solution_layout(), ("p4_http", "P4.S1", default_value(http()))]
+    assert placement(run("SOLUTION", rows, TABLES)) == {("SILENT_FETCH_DEFAULT", "p4_http")}
+
+
+# invoke_solution runs a solution app: a CALL, not a DECISION (WO-38, 交付编排 solve_call).
+
+
+def invoke_solution():
+    return dict(DMN, tool_name="invoke_solution", title="solve")
+
+
+def test_invoke_solution_is_a_call():
+    assert dify_kind(invoke_solution()) == "CALL" and category(invoke_solution()) == "CALL"
+    assert dify_kind(dmn()) == "DECISION" and category(dmn()) == "DECISION"
+    rows = [
+        r if r[0] != "solution_call" else ("solution_call", "O4.S1", invoke_solution())
+        for r in delivery_layout()
+    ]
+    report = run("DELIVERY", rows, DELIVERY_FAILABLE)
+    assert placement(report) == set()
+    on_call = {i["code"] for i in report["issues"] if i.get("node_key") == "solution_call"}
+    assert not on_call & {
+        "KIND_MISMATCH",
+        "NODE_REF_MISSING",
+        "NODE_REF_MISMATCH",
+        "MISPLACED_NODE",
+        "SILENT_DMN_DEFAULT",
+    }
+    stray = [*rows, ("stray_solve", "O2.S2", invoke_solution())]
+    assert placement(run("DELIVERY", stray, (*DELIVERY_FAILABLE, "stray_solve"))) == {
+        ("MISPLACED_NODE", "stray_solve")
+    }
+
+
 # L5
 
 

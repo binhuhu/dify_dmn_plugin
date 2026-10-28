@@ -9,9 +9,14 @@ falls back to a default value) is checked for SOLUTION. Every code here is WARN 
 Where the standard and F09 differ, the standard wins (it says so of every document it names;
 settled for this rule 2026-10-23): a SOLUTION may call fetch and fact apps as workflow tools
 (D table), in P1.S1 only (C6), while F09 forbids workflow calls in SOLUTION outright.
+Since 2026-10-28 a solution starts its own work at P4 and fetches the facts P4 reads itself, at
+the start of P4 (decision 00_governance/contracts/decisions/2026-10-28_方案从P4起_P1至P3只核回执.md;
+solution-app/v1 1.0.9 C12): a SOLUTION may also call a fetch app (workflow tool) or fetch over
+http-request in P4.S1. Nothing else moves: no model, loop, knowledge or other tool in P4.S1, no
+fetch in any other P4 step, and N4 holds for these fetches too.
 
 Categories follow the ESE ``类别表.json``:
-- a workflow tool is a CALL;
+- a workflow tool is a CALL, and so is the dmn_json tool invoke_solution (it runs a solution app);
 - any other tool that is not the decision plugin, an http-request and knowledge-retrieval are
   fetches (ESE: 取数类 CALL);
 - an http-request whose url holds the registered model path, or whose title says 模型识读, is a
@@ -29,7 +34,7 @@ import base64
 import re
 import zlib
 
-from .graph import dify_kind, is_dmn
+from .graph import dify_kind, is_dmn, is_dmn_call
 
 # Where each placed category may sit, by family: a step id, or a phase id meaning any of its
 # steps. An empty set means nowhere; a category left out may sit anywhere.
@@ -54,16 +59,21 @@ PLACES = {
         "LOOP": set(),
     },
     # F09. A SOLUTION model must also be a registered model-reading cell, see _reading_cell.
-    # Workflow calls: P1.S1 per solution-app/v1 (D table, C6) instead of F09's "none"; which
-    # app is called is not checked against a registry.
+    # Workflow calls: P1.S1 per solution-app/v1 (D table, C6) instead of F09's "none", and P4.S1
+    # since 2026-10-28 (the solution fetches its P4 facts itself; see the module note and
+    # P4_FETCH); which app is called is not checked against a registry.
     "SOLUTION": {
         "FETCH": {"P1.S1"},
         "LOOP": {"P1.S1"},
         "MODEL": {"P1.S1"},
         "DECISION": {"P1.S2", "P2", "P3", "P4", "P5"},
-        "CALL": {"P1.S1"},
+        "CALL": {"P1.S1", "P4.S1"},
     },
 }
+# 2026-10-28 (方案从 P4 起, solution-app/v1 1.0.9 C12): the P4 fact fetch of a SOLUTION, in P4.S1 only:
+# a workflow tool (CALL, placed above) or an http-request fetch (not a model-reading one, not
+# knowledge retrieval, not another plugin tool).
+P4_FETCH = {"SOLUTION": "P4.S1"}
 RULE = {"DELIVERY": "F06", "TARGET": "F07", "DISPATCH": "F08", "SOLUTION": "F09"}
 # F06 and F08: no http-request at all, even one that calls a model.
 NO_HTTP = {"DELIVERY", "DISPATCH"}
@@ -97,7 +107,9 @@ def category(data: dict):
     if node_type == "tool":
         if is_dmn(data):
             return "DECISION"
-        return "CALL" if data.get("provider_type") == "workflow" else "FETCH"
+        if is_dmn_call(data) or data.get("provider_type") == "workflow":
+            return "CALL"
+        return "FETCH"
     if node_type == "http-request":
         return "MODEL" if _model_marked(data) else "FETCH"
     if node_type == "knowledge-retrieval":
@@ -130,7 +142,11 @@ def placement_issues(family, nodes, placed, out_edges) -> list[tuple]:
         elif family in NO_HTTP and data.get("type") == "http-request":
             message = f"{family} has no http-request nodes (ESE {rule})."
             found.append(("MISPLACED_NODE", node_id, message, ref))
-        elif cat in places and not _allowed(places[cat], step):
+        elif (
+            cat in places
+            and not _allowed(places[cat], step)
+            and not _p4_fetch(family, data, cat, step)
+        ):
             found.append(("MISPLACED_NODE", node_id, _where(family, cat, places[cat], step), ref))
         elif cat == "MODEL" and family == "SOLUTION" and not _reading_cell(node, nodes):
             message = (
@@ -197,11 +213,18 @@ def _allowed(places: set, step: str) -> bool:
     return step in places or step.split(".", 1)[0] in places
 
 
+def _p4_fetch(family, data: dict, cat, step: str) -> bool:
+    """An http-request fetch in a SOLUTION's P4.S1 (2026-10-28; workflow calls are placed in PLACES)."""
+    return P4_FETCH.get(family) == step and cat == "FETCH" and data.get("type") == "http-request"
+
+
 def _where(family, cat, places, step) -> str:
     rule = RULE[family]
     if not places:
         return f"{family} has no {LABEL[cat]} nodes (ESE {rule})."
     where = ", ".join(sorted(places))
+    if cat == "FETCH" and family in P4_FETCH:
+        where += f" (an http-request fetch also in {P4_FETCH[family]})"
     return (
         f"A {family} {LABEL[cat]} node may only sit in {where}; this one is in {step} (ESE {rule})."
     )
@@ -225,8 +248,8 @@ def _reading_cell(node: dict, nodes: dict) -> bool:
 
 
 def _silent_fetch(data: dict, cat, step: str) -> bool:
-    """N4: an http-request, or a workflow call in P1.S1 (a fetch app), set to default-value."""
-    fetch = data.get("type") == "http-request" or (cat == "CALL" and step == "P1.S1")
+    """N4: an http-request, or a workflow call in P1.S1 or P4.S1 (a fetch app), set to default-value."""
+    fetch = data.get("type") == "http-request" or (cat == "CALL" and step in ("P1.S1", "P4.S1"))
     return fetch and data.get("error_strategy") == "default-value"
 
 
