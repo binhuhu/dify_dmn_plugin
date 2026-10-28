@@ -515,6 +515,26 @@ def test_a_resource_table_keeps_targets_a_route_table_names():
     assert st.save(bigger, 1)["version"] == 2
 
 
+def test_a_resource_table_cannot_drop_a_route_table_that_still_names_it():
+    # 10-29 v0.5.3 release check: taking the route table out of route_tables first and then deleting a target it still names
+    # used to save, and the v3 route then failed at run time with ROUTE_TABLE_UNKNOWN_RESOURCE. Both saves are refused now.
+    st = store(resource_doc(), with_resources())
+    dropped = resource_doc(route_tables=["other.route"])
+    with pytest.raises(RouteTableError) as e:
+        st.save(dropped, 1)
+    assert e.value.code == "RESOURCE_TABLE_ROUTE_DROPPED"
+    dropped_and_smaller = resource_doc(route_tables=["other.route"])
+    del dropped_and_smaller["targets"]["self_service.knowledge"]
+    with pytest.raises(RouteTableError) as e:
+        st.save(dropped_and_smaller, 1)
+    assert e.value.code == "RESOURCE_TABLE_ROUTE_DROPPED"
+    assert st.load("dispatch.resource")["version"] == 1
+    # once the route table no longer names this resource table, it may leave the list
+    plain = route_doc()
+    st.save(plain, st.load(plain["table"])["version"])
+    assert st.save(dropped_and_smaller, 1)["version"] == 2
+
+
 def test_route_and_stored_names_do_not_mix():
     with pytest.raises(RouteTableError) as e:
         validate_doc(route_doc(table="p2.dispatch"))
