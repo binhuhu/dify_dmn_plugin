@@ -19,6 +19,7 @@ tools:
 - tools/evaluate_decision.yaml
 - tools/invoke_solution.yaml
 - tools/route_table_store.yaml
+- tools/evaluate_stored_table.yaml
 extra:
   python:
     source: provider/dmn.py

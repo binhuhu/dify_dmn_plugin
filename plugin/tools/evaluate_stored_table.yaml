@@ -1,0 +1,70 @@
+identity:
+  name: evaluate_stored_table
+  author: hu8627
+  label:
+    en_US: evaluate_stored_table
+    zh_Hans: 读存储表
+description:
+  human:
+    en_US: Read one table kept in this plugin's tool storage (saved like a route table, with versions and CAS) - a solution's
+      P2 acceptance table (decision-table/v1, evaluated), the per-scene supplement requirements (supplement-requirements/v1)
+      or the resource-routing targets (resource-targets/v1).
+    zh_Hans: 读插件工具存储里的一张表（与路由表同样存、带版本与 CAS）：方案的 P2 受理表（decision-table/v1，求值）、按场景的补充要求（supplement-requirements/v1）或资源路由目标（resource-targets/v1）。
+  llm: Read or evaluate one stored table of this plugin (P2 acceptance table, supplement requirements, resource targets).
+parameters:
+- name: table
+  type: string
+  required: false
+  form: llm
+  label:
+    en_US: table
+    zh_Hans: 表名
+  human_description:
+    en_US: Stored table name (p2.<app_id>, supplement.requirements, dispatch.resource). Empty = not requested.
+    zh_Hans: 存储表名（p2.<方案应用编号>、supplement.requirements、dispatch.resource）；空 = 本次不读。
+  llm_description: Stored table name; empty means not requested.
+- name: format
+  type: string
+  required: true
+  form: form
+  label:
+    en_US: format
+    zh_Hans: 表格式
+  human_description:
+    en_US: decision-table/v1 | supplement-requirements/v1 | resource-targets/v1 (fixed in the workflow).
+    zh_Hans: decision-table/v1 / supplement-requirements/v1 / resource-targets/v1（在流程里固定）。
+  llm_description: The table format, fixed by the workflow.
+- name: inputs_json
+  type: any
+  required: false
+  form: llm
+  label:
+    en_US: inputs_json
+    zh_Hans: inputs_json
+  human_description:
+    en_US: 'decision-table/v1: {"parameters": {name: {quality, value, source_refs}}, "missing": "BLOCK"|"UNKNOWN", "undeclared": "REFUSE"|"IGNORE"};
+      supplement-requirements/v1: {"scene_id"}; resource-targets/v1: {"resource_id"}. Object or JSON string.'
+    zh_Hans: 'decision-table/v1：{"parameters": {参数: {quality, value, source_refs}}, "missing": "BLOCK"|"UNKNOWN", "undeclared": "REFUSE"|"IGNORE"}；supplement-requirements/v1：{"scene_id"}；resource-targets/v1：{"resource_id"}。对象或 JSON 字符串。'
+  llm_description: Inputs for the table, object or JSON string.
+output_schema:
+  type: object
+  properties:
+    results:
+      type: object
+    status:
+      type: string
+      enum:
+      - SUCCEEDED
+      - NOT_REQUESTED
+      - NOT_FOUND
+      - BLOCKED
+      - FAILED
+    result_json:
+      type: string
+  required:
+  - results
+  - status
+  - result_json
+extra:
+  python:
+    source: tools/evaluate_stored_table.py

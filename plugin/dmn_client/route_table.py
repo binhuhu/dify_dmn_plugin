@@ -25,8 +25,19 @@ A v2 stub uses format "routing-table/v2". Its compiled model groups scenes that 
 (scene_id in [...], at most 128 scenes per rule), so the 128-rule limit bounds distinct targets, not scenes.
 The Dify configuration is the single source; database copies only back it up (Brian 2026-10-23).
 
+Resource routes (0.5.3, WO-29; Brian 10-28「资源路由可以自助吧」): a v2 row may also send a key to a resource target,
+{"kind": "RESOURCE", "resource_id"}, a target of the resource-targets table the document names in resource_table (自助 /
+人工 / 专组 / 安全, dmn_client.stored_tables). The two stub formats read the same stored document:
+    routing-table/v2  (the live DISPATCH's stub)   RESOURCE rows are left out of the compiled model, so a reader built
+                      before resource routes sees exactly the rows it knew (their keys stay unregistered);
+    routing-table/v3  (分诊 TRIAGE, release D)      every row; RESOURCE templates and the legacy TRANSFER rows carry the
+                      resource target's fields (resource_id / resource_kind / resource_name / resource_entry_json /
+                      resource_status), resolved from the resource table at compile time; the model source names both
+                      tables' versions.
+
 Storage keys (per workspace and plugin):
-    route-table:<table>       current document, dmn-json.route-table/v1 or /v2
+    route-table:<table>       current document, dmn-json.route-table/v1 or /v2 (or a stored table of
+                              dmn_client.stored_tables: decision-table/v1, supplement-requirements/v1, resource-targets/v1)
     route-table:<table>:v<n>  every saved version, never rewritten (history and rollback)
 """
 
@@ -40,6 +51,7 @@ SCHEMA = "dmn-json.route-table/v1"
 FORMAT = "admission-routing-table/v1"
 SCHEMA_V2 = "dmn-json.route-table/v2"
 FORMAT_V2 = "routing-table/v2"
+FORMAT_V3 = "routing-table/v3"  # 0.5.3: the same v2 document, RESOURCE rows compiled in
 PROFILE = "service-decision-table-v1"
 # the decision engine's rule limit; v1 has one rule per route, v2 one per target group
 MAX_ROUTES = 128
@@ -57,6 +69,7 @@ UUID_RE = re.compile(r"^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$")
 STABLE_RE = re.compile(r"^[A-Za-z0-9_.:-]{1,128}$")
 TOPIC_RE = re.compile(r"^[a-z0-9][a-z0-9_]{0,63}$")
 VAR_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]{0,63}$")
+RESOURCE_ID_RE = re.compile(r"^[a-z][a-z0-9_.-]{0,63}$")
 PARAMETER = {
     "allowed_quality": ["KNOWN"],
     "nullable": False,
@@ -195,11 +208,16 @@ def _text(value, limit, label, path):
     return value.strip()
 
 
-def validate_doc(doc):
-    """Normalize and check a route table document (v1 or v2 by its schema); returns the stored form."""
+def validate_doc(doc, resources=None):
+    """Normalize and check a stored document (route table v1 / v2, or a stored table of dmn_client.stored_tables, by its
+    schema); returns the stored form. resources: the targets of the resource table a v2 document names (checked when given)."""
+    from dmn_client import stored_tables  # noqa: PLC0415  (stored_tables imports this module)
+
     _need(type(doc) is dict, "ROUTE_TABLE_INVALID", "路由表必须是对象")
+    if doc.get("schema") in stored_tables.SCHEMAS:
+        return stored_tables.validate(doc)
     if doc.get("schema") == SCHEMA_V2:
-        return _validate_v2(doc)
+        return _validate_v2(doc, resources)
     _need(
         doc.get("schema") in (None, SCHEMA),
         "ROUTE_TABLE_INVALID",
@@ -209,7 +227,9 @@ def validate_doc(doc):
     return _validate_v1(doc)
 
 
-def _validate_v1(doc):
+def _route_table_name(doc):
+    from dmn_client.stored_tables import reserved_name  # noqa: PLC0415
+
     table = doc.get("table")
     _need(
         type(table) is str and TABLE_RE.match(table),
@@ -217,6 +237,17 @@ def _validate_v1(doc):
         "路由表名格式不对",
         "table",
     )
+    _need(
+        not reserved_name(table),
+        "STORED_TABLE_NAME",
+        "p2.* / supplement.* / *.resource 是受理表、补充要求表、资源目标表的名字，路由表不能用",
+        "table",
+    )
+    return table
+
+
+def _validate_v1(doc):
+    table = _route_table_name(doc)
     issue_types = _codes(doc.get("issue_types"), CODE_RE, "问题类型", "issue_types")
     phases = _codes(doc.get("phases"), PHASE_RE, "处理阶段", "phases")
     raw_registry = doc.get("registry")
@@ -318,9 +349,25 @@ def _validate_v1(doc):
     }
 
 
-def _target_v2(t, solutions, path):
+def _target_v2(t, solutions, path, resources=None):
     _need(type(t) is dict, "ROUTE_TABLE_TARGET", "去向必须是对象", path)
     kind = t.get("kind")
+    if kind == "RESOURCE":
+        _need(
+            set(t) == {"kind", "resource_id"}
+            and type(t["resource_id"]) is str
+            and RESOURCE_ID_RE.match(t["resource_id"]),
+            "ROUTE_TABLE_TARGET",
+            "资源去向只写 kind / resource_id",
+            path,
+        )
+        _need(
+            resources is None or t["resource_id"] in resources,
+            "ROUTE_TABLE_UNKNOWN_RESOURCE",
+            "资源目标 " + t["resource_id"] + " 不在资源目标表里",
+            path + ".resource_id",
+        )
+        return {"kind": "RESOURCE", "resource_id": t["resource_id"]}
     if kind == "SOLUTION_APP":
         _need(
             set(t) == {"kind", "app_id"},
@@ -357,21 +404,25 @@ def _target_v2(t, solutions, path):
     )
     raise RouteTableError(
         "ROUTE_TABLE_TARGET",
-        "去向只能是方案应用（SOLUTION_APP）或转接（TRANSFER）",
+        "去向只能是方案应用（SOLUTION_APP）、转接（TRANSFER）或资源（RESOURCE）",
         path + ".kind",
     )
 
 
-def _validate_v2(doc):
-    table = doc.get("table")
-    _need(
-        type(table) is str and TABLE_RE.match(table),
-        "ROUTE_TABLE_INVALID",
-        "路由表名格式不对",
-        "table",
-    )
+def _validate_v2(doc, resources=None):
+    table = _route_table_name(doc)
     issue_types = _codes(doc.get("issue_types"), CODE_RE, "问题类型", "issue_types")
     phases = _codes(doc.get("phases"), PHASE_RE, "处理阶段", "phases")
+    resource_table = doc.get("resource_table")
+    _need(
+        resource_table is None
+        or type(resource_table) is str
+        and TABLE_RE.match(resource_table)
+        and resource_table.endswith(".resource"),
+        "ROUTE_TABLE_INVALID",
+        "resource_table = 资源目标表名（以 .resource 结尾）",
+        "resource_table",
+    )
     raw_scenes = doc.get("scenes")
     _need(
         type(raw_scenes) is dict and 0 < len(raw_scenes) <= MAX_SCENES,
@@ -477,8 +528,14 @@ def _validate_v2(doc):
                 "scene_id": scene,
                 "issue_type": issue_type,
                 "phase": phase,
-                "target": _target_v2(row["target"], solutions, p + ".target"),
+                "target": _target_v2(row["target"], solutions, p + ".target", resources),
             }
+        )
+        _need(
+            out[-1]["target"]["kind"] != "RESOURCE" or resource_table is not None,
+            "ROUTE_TABLE_RESOURCE_TABLE",
+            "有资源去向的路由表要写 resource_table",
+            p + ".target",
         )
     out.sort(
         key=lambda r: (r["scene_id"], issue_types.index(r["issue_type"]), phases.index(r["phase"]))
@@ -492,7 +549,7 @@ def _validate_v2(doc):
     )
     note = doc.get("note", "")
     _need(type(note) is str and len(note) <= 500, "ROUTE_TABLE_INVALID", "说明最多 500 字", "note")
-    return {
+    clean = {
         "schema": SCHEMA_V2,
         "table": table,
         "issue_types": issue_types,
@@ -502,19 +559,30 @@ def _validate_v2(doc):
         "routes": out,
         "note": note,
     }
+    if (
+        resource_table is not None
+    ):  # absent stays absent: a document without resource routes is stored as before
+        clean["resource_table"] = resource_table
+    return clean
 
 
 def content_sha256(doc):
-    """What decides a run: routes plus what they were checked against (v1 registry, v2 solution registry)."""
+    """What decides a run: routes plus what they were checked against (v1 registry, v2 solution registry, the resource
+    table's name when the document has one: a document without it keeps its 0.5.2 digest)."""
+    from dmn_client import stored_tables  # noqa: PLC0415
+
+    if doc.get("schema") in stored_tables.SCHEMAS:
+        return stored_tables.content_sha256(doc)
     if doc.get("schema") == SCHEMA_V2:
-        return digest(
-            {
-                "routes": doc["routes"],
-                "solutions": doc["solutions"],
-                "issue_types": doc["issue_types"],
-                "phases": doc["phases"],
-            }
-        )
+        decided = {
+            "routes": doc["routes"],
+            "solutions": doc["solutions"],
+            "issue_types": doc["issue_types"],
+            "phases": doc["phases"],
+        }
+        if doc.get("resource_table") is not None:
+            decided["resource_table"] = doc["resource_table"]
+        return digest(decided)
     return digest(
         {
             "routes": doc["routes"],
@@ -620,6 +688,8 @@ DATA_V2 = (
 def _ref_v2(target):
     if target["kind"] == "SOLUTION_APP":
         return "solution-app:" + target["app_id"]
+    if target["kind"] == "RESOURCE":
+        return "resource:" + target["resource_id"]
     return "transfer:" + target["to"]
 
 
@@ -633,9 +703,43 @@ def _data_v2(target, solutions):
             solution_name={"literal": s["name"]},
             solution_inputs_json={"literal": canon(s["inputs"])},
         )
-    else:
+    elif target["kind"] == "TRANSFER":
         data.update(transfer_to={"literal": target["to"]})
     return data
+
+
+# v3 (routing-table/v3, 分诊 TRIAGE): the v2 fields plus the resource target a RESOURCE row (or a legacy TRANSFER row) names.
+DATA_V3 = DATA_V2 + (
+    "resource_id",
+    "resource_kind",
+    "resource_name",
+    "resource_entry_json",
+    "resource_status",
+)
+
+
+def _data_v3(target, data, resources):
+    """resources: {"targets": {id: target}, "transfers": {to: id}} (None fields for a SOLUTION_APP row, or a TRANSFER row
+    whose destination no resource target takes)."""
+    out = dict(data)
+    out.update({k: NULL for k in DATA_V3[len(DATA_V2) :]})
+    rid = (
+        target["resource_id"]
+        if target["kind"] == "RESOURCE"
+        else resources["transfers"].get(target["to"])
+        if target["kind"] == "TRANSFER"
+        else None
+    )
+    if rid is not None:
+        t = resources["targets"][rid]
+        out.update(
+            resource_id={"literal": rid},
+            resource_kind={"literal": t["kind"]},
+            resource_name={"literal": t["name"]},
+            resource_entry_json={"literal": canon(t["entry"])},
+            resource_status={"literal": t["status"]},
+        )
+    return out
 
 
 def _groups(routes):
@@ -648,9 +752,16 @@ def _groups(routes):
     return {k: sorted(v) for k, v in sorted(out.items())}
 
 
-def compile_model_v2(version, doc):
-    """Compile a v2 table: FIRST, scene_id in [...] × issue_type × phase per target group; keys are unique, so order never decides."""
-    unregistered = {k: NULL for k in DATA_V2}
+def compile_model_v2(version, doc, resources=None):
+    """Compile a v2 table: FIRST, scene_id in [...] × issue_type × phase per target group; keys are unique, so order never decides.
+
+    resources None (format routing-table/v2): RESOURCE rows are left out, the model is the 0.5.2 one for the rows it knew.
+    resources = the resource table's stored form (format routing-table/v3): every row; each template carries DATA_V3."""
+    fields = DATA_V2 if resources is None else DATA_V3
+    routes = [
+        r for r in doc["routes"] if resources is not None or r["target"]["kind"] != "RESOURCE"
+    ]
+    unregistered = {k: NULL for k in fields}
     unregistered["route_state"] = {"literal": "unregistered"}
     templates = {
         "unregistered": {
@@ -659,14 +770,17 @@ def compile_model_v2(version, doc):
             "state": "UNREGISTERED",
         }
     }
-    targets = {_ref_v2(r["target"]): r["target"] for r in doc["routes"]}
+    targets = {_ref_v2(r["target"]): r["target"] for r in routes}
     rules = []
-    for (ref, issue_type, phase), scenes in _groups(doc["routes"]).items():
+    for (ref, issue_type, phase), scenes in _groups(routes).items():
+        data = _data_v2(targets[ref], doc["solutions"])
+        if resources is not None:
+            data = _data_v3(targets[ref], data, resources)
         templates.setdefault(
             ref,
             {
                 "actions": [{"intent_id": "control", "kind": "CONTROL", "route_ref": "routed"}],
-                "data": _data_v2(targets[ref], doc["solutions"]),
+                "data": data,
                 "state": "ROUTED",
             },
         )
@@ -712,7 +826,7 @@ def _stub_source(model):
         and type(src) is dict
         and set(src) == {"kind", "table", "format"}
         and src["kind"] == "PLUGIN_STORAGE"
-        and src["format"] in (FORMAT, FORMAT_V2)
+        and src["format"] in (FORMAT, FORMAT_V2, FORMAT_V3)
         and type(src["table"]) is str
         and TABLE_RE.match(src["table"])
     )
@@ -747,7 +861,7 @@ def materialize(bundle, load):
             "models." + ref,
         )
         clean = validate_doc(doc)
-        v2 = src["format"] == FORMAT_V2
+        v2 = src["format"] in (FORMAT_V2, FORMAT_V3)
         _need(
             v2 == (clean["schema"] == SCHEMA_V2),
             "ROUTE_TABLE_FORMAT_MISMATCH",
@@ -759,18 +873,69 @@ def materialize(bundle, load):
             + clean["schema"],
             "models." + ref,
         )
-        out["models"][ref] = (compile_model_v2 if v2 else compile_model)(model["version"], clean)
-        sources.append(
-            {
-                "model_ref": ref,
-                "kind": "PLUGIN_STORAGE",
-                "table": src["table"],
-                "version": doc.get("version"),
-                "saved_at": doc.get("saved_at"),
-                "content_sha256": content_sha256(clean),
-            }
-        )
+        source = {
+            "model_ref": ref,
+            "kind": "PLUGIN_STORAGE",
+            "table": src["table"],
+            "version": doc.get("version"),
+            "saved_at": doc.get("saved_at"),
+            "content_sha256": content_sha256(clean),
+        }
+        if src["format"] == FORMAT_V3:
+            resources, source["resources"] = _resources(clean, load, "models." + ref)
+            out["models"][ref] = compile_model_v2(model["version"], clean, resources)
+        else:
+            out["models"][ref] = (compile_model_v2 if v2 else compile_model)(
+                model["version"], clean
+            )
+        sources.append(source)
     return out, sources
+
+
+def _resources(clean, load, path):
+    """(resources for compile_model_v2, the resource table's source entry or None) of a route table read as v3."""
+    from dmn_client import stored_tables  # noqa: PLC0415
+
+    empty = {"targets": {}, "transfers": {}}
+    name = clean.get("resource_table")
+    if name is None:
+        return empty, None
+    raw = load(name)
+    _need(
+        raw is not None,
+        "ROUTE_TABLE_RESOURCE_TABLE_MISSING",
+        "路由表 " + clean["table"] + " 引用的资源目标表 " + name + " 还没存",
+        path,
+    )
+    _need(
+        raw.get("schema") == stored_tables.SCHEMA_RESOURCE,
+        "ROUTE_TABLE_FORMAT_MISMATCH",
+        name + " 不是资源目标表",
+        path,
+    )
+    rdoc = validate_doc(raw)
+    for row in clean["routes"]:
+        if row["target"]["kind"] == "RESOURCE":
+            _need(
+                row["target"]["resource_id"] in rdoc["targets"],
+                "ROUTE_TABLE_UNKNOWN_RESOURCE",
+                "资源目标 " + row["target"]["resource_id"] + " 不在 " + name + " 里",
+                path,
+            )
+    return (
+        {"targets": rdoc["targets"], "transfers": stored_tables.transfer_targets(rdoc)},
+        {
+            "table": name,
+            "version": raw.get("version"),
+            "saved_at": raw.get("saved_at"),
+            "content_sha256": stored_tables.content_sha256(rdoc),
+        },
+    )
+
+
+def _family(schema):
+    """Route tables v1 and v2 are one family (a v1 table may be saved as v2); every stored-table schema is its own."""
+    return "route-table" if schema in (SCHEMA, SCHEMA_V2) else schema
 
 
 class StorageTables:
@@ -812,6 +977,8 @@ class StorageTables:
         for n in range(cur["version"], max(0, cur["version"] - MAX_HISTORY), -1):
             doc = self.version(table, n)
             if doc is not None:
+                from dmn_client.stored_tables import rows  # noqa: PLC0415
+
                 out.append(
                     {
                         "version": n,
@@ -819,9 +986,54 @@ class StorageTables:
                         "note": doc.get("note", ""),
                         "content_sha256": doc.get("content_sha256"),
                         "routes": len(doc.get("routes", [])),
+                        "rows": rows(doc),
+                        "schema": doc.get("schema", SCHEMA),
                     }
                 )
         return out
+
+    def _cross_check(self, clean):
+        """0.5.3: a route table's RESOURCE rows name targets of its stored resource table; a resource table keeps every target
+        a route table it lists still names."""
+        from dmn_client import stored_tables  # noqa: PLC0415
+
+        if clean["schema"] == SCHEMA_V2 and clean.get("resource_table"):
+            raw = self.load(clean["resource_table"])
+            _need(
+                raw is not None and raw.get("schema") == stored_tables.SCHEMA_RESOURCE,
+                "ROUTE_TABLE_RESOURCE_TABLE_MISSING",
+                "先存资源目标表 " + clean["resource_table"] + "，再存引用它的路由表",
+                "resource_table",
+            )
+            validate_doc(dict(clean), resources=validate_doc(raw)["targets"])
+            _need(
+                clean["table"] in raw.get("route_tables", []),
+                "ROUTE_TABLE_RESOURCE_TABLE",
+                "资源目标表 "
+                + clean["resource_table"]
+                + " 的 route_tables 里没有 "
+                + clean["table"],
+                "resource_table",
+            )
+        if clean["schema"] == stored_tables.SCHEMA_RESOURCE:
+            for name in clean["route_tables"]:
+                route = self.load(name)
+                if not route or route.get("resource_table") != clean["table"]:
+                    continue
+                used = sorted(
+                    {
+                        r["target"]["resource_id"]
+                        for r in route.get("routes", [])
+                        if r["target"].get("kind") == "RESOURCE"
+                    }
+                    - set(clean["targets"])
+                )
+                _need(
+                    not used,
+                    "RESOURCE_TABLE_IN_USE",
+                    "路由表 %s 还在用这些目标：%s" % (name, ", ".join(used)[:200]),
+                    "targets",
+                )
 
     @staticmethod
     def save_key(table, save_id):
@@ -839,8 +1051,16 @@ class StorageTables:
         """
         clean = validate_doc(doc)
         table = clean["table"]
+        self._cross_check(clean)
         cur = self.load(table)
         have = cur["version"] if cur else 0
+        _need(
+            cur is None or _family(cur.get("schema", SCHEMA)) == _family(clean["schema"]),
+            "STORED_TABLE_SCHEMA_CHANGED",
+            "表 %s 存的是 %s，不能存成 %s"
+            % (table, cur.get("schema", SCHEMA) if cur else "", clean["schema"]),
+            "schema",
+        )
         _need(
             type(expected_version) is int and expected_version == have,
             "ROUTE_TABLE_STALE",

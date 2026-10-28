@@ -1,0 +1,339 @@
+{
+ "source": "ee1aebd3 workflow 150a6613 (20261026修复B) node p2_dmn, definition_bundle_json models[\"P2.D1@1.0.0\"], read back 2026-10-27 (六方案评审-20261027/ee1aebd3.publish.json)",
+ "model_ref": "P2.D1@1.0.0",
+ "model": {
+  "profile": "service-decision-table-v1",
+  "version": "1.0.0",
+  "hit_policy": "FIRST",
+  "parameters": {
+   "facts.COMPENSATION__aftersale__PRIOR_EXECUTED.结论": {
+    "type": "string",
+    "record_required": true,
+    "nullable": false,
+    "allowed_quality": [
+     "KNOWN",
+     "UNKNOWN"
+    ]
+   },
+   "facts.WORKSHEET__aftersale__IS_CHEATING.结论": {
+    "type": "string",
+    "record_required": true,
+    "nullable": false,
+    "allowed_quality": [
+     "KNOWN",
+     "UNKNOWN"
+    ]
+   },
+   "facts.WORKSHEET__aftersale__IS_DUPLICATE.结论": {
+    "type": "string",
+    "record_required": true,
+    "nullable": false,
+    "allowed_quality": [
+     "KNOWN",
+     "UNKNOWN"
+    ]
+   },
+   "facts.COUPON__payment__END_TO_COMPLAINT_DAYS.天数": {
+    "type": "number",
+    "record_required": true,
+    "nullable": false,
+    "allowed_quality": [
+     "KNOWN",
+     "UNKNOWN"
+    ]
+   },
+   "facts.COUPON__payment__END_TO_COMPLAINT_DAYS.可作超期依据": {
+    "type": "boolean",
+    "record_required": true,
+    "nullable": false,
+    "allowed_quality": [
+     "KNOWN",
+     "UNKNOWN"
+    ]
+   },
+   "facts.COUPON__coupon__RECORD_FOUND.目标未确认": {
+    "type": "boolean",
+    "record_required": true,
+    "nullable": false,
+    "allowed_quality": [
+     "KNOWN",
+     "UNKNOWN"
+    ]
+   }
+  },
+  "rules": [
+   {
+    "rule_id": "P2-EXPIRED",
+    "when": [
+     {
+      "path": [
+       "parameters",
+       "facts.COUPON__payment__END_TO_COMPLAINT_DAYS.天数",
+       "quality"
+      ],
+      "op": "eq",
+      "value": "KNOWN"
+     },
+     {
+      "path": [
+       "parameters",
+       "facts.COUPON__payment__END_TO_COMPLAINT_DAYS.天数",
+       "value"
+      ],
+      "op": "gt",
+      "value": 365
+     },
+     {
+      "path": [
+       "parameters",
+       "facts.COUPON__coupon__RECORD_FOUND.目标未确认",
+       "quality"
+      ],
+      "op": "eq",
+      "value": "KNOWN"
+     },
+     {
+      "path": [
+       "parameters",
+       "facts.COUPON__coupon__RECORD_FOUND.目标未确认",
+       "value"
+      ],
+      "op": "eq",
+      "value": false
+     },
+     {
+      "path": [
+       "parameters",
+       "facts.COUPON__payment__END_TO_COMPLAINT_DAYS.可作超期依据",
+       "quality"
+      ],
+      "op": "eq",
+      "value": "KNOWN"
+     },
+     {
+      "path": [
+       "parameters",
+       "facts.COUPON__payment__END_TO_COMPLAINT_DAYS.可作超期依据",
+       "value"
+      ],
+      "op": "eq",
+      "value": true
+     }
+    ],
+    "output_template_ref": "P2-EXPIRED"
+   },
+   {
+    "rule_id": "P2-DUPLICATE",
+    "when": [
+     {
+      "path": [
+       "parameters",
+       "facts.WORKSHEET__aftersale__IS_DUPLICATE.结论",
+       "quality"
+      ],
+      "op": "eq",
+      "value": "KNOWN"
+     },
+     {
+      "path": [
+       "parameters",
+       "facts.WORKSHEET__aftersale__IS_DUPLICATE.结论",
+       "value"
+      ],
+      "op": "eq",
+      "value": "是"
+     }
+    ],
+    "output_template_ref": "P2-DUPLICATE"
+   },
+   {
+    "rule_id": "P2-CHEATING",
+    "when": [
+     {
+      "path": [
+       "parameters",
+       "facts.WORKSHEET__aftersale__IS_CHEATING.结论",
+       "quality"
+      ],
+      "op": "eq",
+      "value": "KNOWN"
+     },
+     {
+      "path": [
+       "parameters",
+       "facts.WORKSHEET__aftersale__IS_CHEATING.结论",
+       "value"
+      ],
+      "op": "eq",
+      "value": "是"
+     }
+    ],
+    "output_template_ref": "P2-CHEATING"
+   },
+   {
+    "rule_id": "P2-ACCEPT",
+    "when": [
+     {
+      "path": [
+       "parameters",
+       "facts.WORKSHEET__aftersale__IS_CHEATING.结论",
+       "quality"
+      ],
+      "op": "eq",
+      "value": "KNOWN"
+     },
+     {
+      "path": [
+       "parameters",
+       "facts.WORKSHEET__aftersale__IS_CHEATING.结论",
+       "value"
+      ],
+      "op": "eq",
+      "value": "否"
+     },
+     {
+      "path": [
+       "parameters",
+       "facts.COUPON__payment__END_TO_COMPLAINT_DAYS.天数",
+       "quality"
+      ],
+      "op": "eq",
+      "value": "KNOWN"
+     },
+     {
+      "path": [
+       "parameters",
+       "facts.COUPON__payment__END_TO_COMPLAINT_DAYS.天数",
+       "value"
+      ],
+      "op": "lte",
+      "value": 365
+     },
+     {
+      "path": [
+       "parameters",
+       "facts.WORKSHEET__aftersale__IS_DUPLICATE.结论",
+       "quality"
+      ],
+      "op": "eq",
+      "value": "KNOWN"
+     },
+     {
+      "path": [
+       "parameters",
+       "facts.WORKSHEET__aftersale__IS_DUPLICATE.结论",
+       "value"
+      ],
+      "op": "eq",
+      "value": "否"
+     }
+    ],
+    "output_template_ref": "P2-ACCEPT"
+   },
+   {
+    "rule_id": "P2-ACCEPT-UNKNOWN",
+    "when": [],
+    "output_template_ref": "P2-ACCEPT-UNKNOWN"
+   }
+  ],
+  "result_templates": {
+   "P2-EXPIRED": {
+    "state": "不成立",
+    "data": {
+     "result": {
+      "literal": [
+       "受理",
+       "不适用"
+      ]
+     },
+     "state": {
+      "literal": "不成立"
+     },
+     "rule_id": {
+      "literal": "P2-EXPIRED"
+     }
+    },
+    "actions": []
+   },
+   "P2-DUPLICATE": {
+    "state": "不成立",
+    "data": {
+     "result": {
+      "literal": [
+       "受理",
+       "不适用"
+      ]
+     },
+     "state": {
+      "literal": "不成立"
+     },
+     "rule_id": {
+      "literal": "P2-DUPLICATE"
+     }
+    },
+    "actions": []
+   },
+   "P2-CHEATING": {
+    "state": "不成立",
+    "data": {
+     "result": {
+      "literal": [
+       "受理",
+       "不适用"
+      ]
+     },
+     "state": {
+      "literal": "不成立"
+     },
+     "rule_id": {
+      "literal": "P2-CHEATING"
+     }
+    },
+    "actions": []
+   },
+   "P2-ACCEPT": {
+    "state": "成立",
+    "data": {
+     "result": {
+      "literal": [
+       "受理",
+       "按常规判定"
+      ]
+     },
+     "state": {
+      "literal": "成立"
+     },
+     "rule_id": {
+      "literal": "P2-ACCEPT"
+     }
+    },
+    "actions": []
+   },
+   "P2-ACCEPT-UNKNOWN": {
+    "state": "成立",
+    "data": {
+     "result": {
+      "literal": [
+       "受理",
+       "按常规判定"
+      ]
+     },
+     "state": {
+      "literal": "成立"
+     },
+     "rule_id": {
+      "literal": "P2-ACCEPT-UNKNOWN"
+     }
+    },
+    "actions": []
+   },
+   "__未命中": {
+    "state": "NO_MATCH",
+    "data": {},
+    "actions": []
+   }
+  },
+  "on_no_match": "RESULT_TEMPLATE",
+  "empty_template_ref": "__未命中"
+ }
+}

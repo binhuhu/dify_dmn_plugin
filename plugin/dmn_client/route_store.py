@@ -8,18 +8,31 @@ a workflow ("路由表维护" app), and the editor endpoint, when its store_app_
 API calls to it instead of using its own storage.
 
 run_op returns (http_status, body) with the editor API's body shapes, so the endpoint can pass results through.
+0.5.3 (WO-29): the same operations save and read the stored tables of dmn_client.stored_tables (decision-table/v1 under
+p2.<app_id>, supplement-requirements/v1 under supplement.*, resource-targets/v1 under *.resource), with the same CAS.
 """
 
 import json
 
 from dmn_client.client import EngineError, json_object
 from dmn_client.route_table import SCHEMA_V2, UUID_RE, RouteTableError, StorageTables
+from dmn_client.stored_tables import KEYS
 
 OPS = ("table", "history", "version", "save")
 MAX_BODY = 512 * 1024
 DEFAULT_TABLE = "dispatch.route"
 V1_KEYS = ("table", "issue_types", "phases", "registry", "routes", "note")
-V2_KEYS = ("schema", "table", "issue_types", "phases", "scenes", "solutions", "routes", "note")
+V2_KEYS = (
+    "schema",
+    "table",
+    "issue_types",
+    "phases",
+    "scenes",
+    "solutions",
+    "routes",
+    "note",
+    "resource_table",
+)
 CONFLICT = ("ROUTE_TABLE_STALE", "ROUTE_TABLE_RACE")
 
 
@@ -52,9 +65,12 @@ def run_op(storage, op, table=DEFAULT_TABLE, version=None, body=None):
                 body = json_object(body, "body", MAX_BODY)
             except EngineError:
                 return error(400, "INVALID_JSON", "请求不是合法的 JSON 对象")
-            doc = {
-                k: body.get(k) for k in (V2_KEYS if body.get("schema") == SCHEMA_V2 else V1_KEYS)
-            }
+            keys = KEYS.get(body.get("schema")) or (
+                V2_KEYS if body.get("schema") == SCHEMA_V2 else V1_KEYS
+            )
+            doc = {k: body.get(k) for k in keys}
+            if doc.get("resource_table") is None:
+                doc.pop("resource_table", None)
             saved = tables.save(doc, body.get("expected_version"))
             return 200, {"table": saved["table"], "version": saved["version"], "doc": saved}
         return error(404, "NOT_FOUND", "接口不存在")
