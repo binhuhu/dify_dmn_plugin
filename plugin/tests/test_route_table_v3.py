@@ -147,6 +147,27 @@ def test_v3_status_set_includes_the_release_line_states():
         assert validate_doc(d)["solutions"][LOST]["status"] == status
 
 
+def test_a_shadow_app_may_keep_the_gate_holding_it():
+    # the release line: SUPPLEMENT_DEFAULT_HOLD holds 910769f0 (registered SHADOW); a held CANDIDATE is written GATED
+    d = v3()
+    d["solutions"][LOST].update(status="SHADOW", gate_code="SUPPLEMENT_DEFAULT_HOLD")
+    clean = validate_doc(d)
+    assert (clean["solutions"][LOST]["status"], clean["solutions"][LOST]["gate_code"]) == (
+        "SHADOW",
+        "SUPPLEMENT_DEFAULT_HOLD",
+    )
+    del d["solutions"][LOST]["gate_code"]
+    assert validate_doc(d)["solutions"][LOST]["gate_code"] is None, "optional on SHADOW"
+    for status in ("CURRENT", "CANDIDATE", "RETIRED"):
+        bad = v3()
+        bad["solutions"][LOST].update(
+            status=status, gate_code=GATE, request_contract="场景方案调用/v4"
+        )
+        with pytest.raises(RouteTableError) as exc:
+            validate_doc(bad)
+        assert exc.value.path == "solutions.%s.gate_code" % LOST, status
+
+
 def test_v3_routes_may_name_a_retired_app():
     d = v3()
     d["solutions"][LOST]["status"] = "RETIRED"
@@ -361,6 +382,18 @@ def test_invoke_refuses_shadow_and_retired(status):
     assert (receipt["error_code"], receipt["solution_status"], seen) == (
         "SOLUTION_NOT_CURRENT",
         status,
+        [],
+    )
+
+
+def test_invoke_reports_the_gate_holding_a_shadow_app():
+    d = v3()
+    d["solutions"][LOST].update(status="SHADOW", gate_code="SUPPLEMENT_DEFAULT_HOLD")
+    receipt, seen = invoke(saved(d), LOST)
+    assert (receipt["error_code"], receipt["gate_code"], receipt["solution_status"], seen) == (
+        "SOLUTION_GATED",
+        "SUPPLEMENT_DEFAULT_HOLD",
+        "SHADOW",
         [],
     )
 

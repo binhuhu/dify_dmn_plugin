@@ -8,6 +8,9 @@ All paths sit under /routes/ (the structure viewer owns "/" and "/<path:route>";
     POST /routes/api/table                 v1 {table, expected_version, note, issue_types, phases, registry, routes}
                                     v2 {schema: dmn-json.route-table/v2, table, expected_version, note, issue_types, phases,
                                         scenes, solutions, routes} -> saved document
+                                    v3 (0.5.6) the same keys with schema dmn-json.route-table/v3 (solutions carry status /
+                                        gate_code / request_contract / topics / intents / …); any save may also carry
+                                        gate_report (WO-78's pre-save gate report, optional; dmn_client.route_store)
 
 Every /api call needs header X-Route-Edit-Key equal to this endpoint's edit_key setting (constant-time compare); an
 unset or short key disables the API. With the store_app_id setting, reads and saves go through that maintenance app

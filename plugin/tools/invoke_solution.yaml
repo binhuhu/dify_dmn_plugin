@@ -6,9 +6,10 @@ identity:
     zh_Hans: 调用方案
 description:
   human:
-    en_US: Call one solution app of this workspace by app_id. Only apps registered in the plugin route table (v2 solutions)
-      can be called, and only with exactly their registered start variables. Returns the app's outputs and run identity.
-    zh_Hans: 按 app_id 调本工作空间的一个解决方案应用。只能调插件路由表（v2）方案登记里的应用，开始变量必须和登记的完全一致；返回该应用的输出和运行身份。
+    en_US: Call one solution app of this workspace by app_id. Only apps registered in the plugin route table (v2 / v3
+      solutions) with status CURRENT can be called (a v2 table reads every app as CURRENT), and only with exactly their
+      registered start variables. Returns the app's outputs and run identity.
+    zh_Hans: 按 app_id 调本工作空间的一个解决方案应用。只调插件路由表（v2 / v3）方案登记里状态为 CURRENT 的应用（v2 表的方案都当 CURRENT；GATED 拒绝并给出闸编码），开始变量必须和登记的完全一致；返回该应用的输出和运行身份。
   llm: Call one registered solution app by app_id with its registered start variables; returns outputs and run identity.
 parameters:
 - name: app_id
@@ -60,6 +61,10 @@ output_schema:
       type: string
     outputs:
       type: object
+    solution_status:
+      type: string
+    gate_code:
+      type: string
     child_app_id:
       type: string
     child_workflow_id:

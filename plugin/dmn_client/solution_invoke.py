@@ -6,12 +6,25 @@ registered in the route table's `solutions` (dmn-json.route-table/v2), and only 
 registered for that app, so the table is both the routing source and the allowlist. Nothing here interprets the
 solution's outputs: they come back as the app returned them, with the run identity next to them.
 
+0.5.6 (WO-79): the table is also the registry. Only a CURRENT app is called: on a dmn-json.route-table/v3 table an app a
+gate holds (GATED, or SHADOW with a gate_code) is REJECTED with SOLUTION_GATED and the gate code (receipt gate_code), any
+other CANDIDATE / SHADOW / RETIRED one with SOLUTION_NOT_CURRENT; a v2 table reads every app as CURRENT, so it calls what it called before. The receipt gains
+solution_status and gate_code (additive; every other key and code unchanged).
+
 Streaming mode is used on purpose: the SDK abandons a backwards invocation after MAX_INVOCATION_TIMEOUT seconds without
 any chunk, and a blocking call sends nothing until the whole solution has finished (ESE solutions take 98–316 s).
 """
 
 from dmn_client.client import EngineError, json_object
-from dmn_client.route_table import SCHEMA_V2, UUID_RE, RouteTableError, content_sha256, validate_doc
+from dmn_client.route_table import (
+    CALLABLE,
+    ROUTE_SCHEMAS,
+    UUID_RE,
+    RouteTableError,
+    content_sha256,
+    solution_entry,
+    validate_doc,
+)
 
 MAX_INPUTS_BYTES = 1024 * 1024
 MAX_MESSAGE = 300
@@ -32,6 +45,8 @@ def _receipt(status, code="", message="", **extra):
         "table": "",
         "table_version": None,
         "table_content_sha256": "",
+        "solution_status": "",
+        "gate_code": "",
         "child_workflow_id": "",
         "child_workflow_run_id": "",
         "run_status": "",
@@ -90,11 +105,14 @@ def invoke_solution(app_id, inputs_json, table, load, invoke):
         "table_version": doc.get("version"),
         "table_content_sha256": content_sha256(clean),
     }
-    if clean["schema"] != SCHEMA_V2:
+    if clean["schema"] not in ROUTE_SCHEMAS:
         return _receipt(
-            "REJECTED", "ROUTE_TABLE_NOT_V2", "路由表 " + table + " 不是 v2，没有方案登记", **ident
+            "REJECTED",
+            "ROUTE_TABLE_NOT_V2",
+            "路由表 " + table + " 不是 v2 / v3，没有方案登记",
+            **ident,
         )
-    solution = clean["solutions"].get(app_id)
+    solution = solution_entry(clean, app_id)
     if solution is None:
         return _receipt(
             "REJECTED",
@@ -102,7 +120,31 @@ def invoke_solution(app_id, inputs_json, table, load, invoke):
             "应用 " + app_id + " 没在路由表的方案登记里",
             **ident,
         )
-    ident["solution_name"] = solution["name"]
+    ident.update(
+        solution_name=solution["name"],
+        solution_status=solution["status"],
+        gate_code=solution["gate_code"] or "",
+    )
+    if solution["status"] != CALLABLE and solution["gate_code"]:
+        return _receipt(
+            "REJECTED",
+            "SOLUTION_GATED",
+            "应用 "
+            + app_id
+            + " 被闸 "
+            + solution["gate_code"]
+            + " 挡着（登记状态 "
+            + solution["status"]
+            + "），不调；闸解除后在路由表里改成 CURRENT",
+            **ident,
+        )
+    if solution["status"] != CALLABLE:
+        return _receipt(
+            "REJECTED",
+            "SOLUTION_NOT_CURRENT",
+            "应用 " + app_id + " 的登记状态是 " + solution["status"] + "，只调 CURRENT 的方案",
+            **ident,
+        )
     try:
         inputs = json_object(inputs_json, "inputs_json", MAX_INPUTS_BYTES)
     except EngineError as exc:

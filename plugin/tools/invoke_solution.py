@@ -23,6 +23,9 @@ class InvokeSolutionTool(Tool):
         yield self.create_json_message(receipt)
         for key in ("status", "error_code", "error_message", "outputs"):
             yield self.create_variable_message(key, receipt[key])
+        # 0.5.6 (WO-79): the app's registry state and, when GATED, the gate holding it
+        yield self.create_variable_message("solution_status", receipt["solution_status"])
+        yield self.create_variable_message("gate_code", receipt["gate_code"])
         yield self.create_variable_message("child_app_id", receipt["app_id"])
         yield self.create_variable_message("child_workflow_id", receipt["child_workflow_id"])
         yield self.create_variable_message(

@@ -12,12 +12,15 @@ run_op returns (http_status, body) with the editor API's body shapes, so the end
 p2.<app_id>, supplement-requirements/v1 under supplement.*, resource-targets/v1 under *.resource), with the same CAS.
 0.5.5 (WO-72): decision-table/v1 also under the policy names target.<name> (owner 定位 TARGET) and triage.<name> (owner
 分诊 TRIAGE); operations, body limit and responses unchanged.
+0.5.6 (WO-79): route tables also as dmn-json.route-table/v3 (the v2 keys; solutions carry the registry). A save body may carry
+gate_report (WO-78's pre-save gate report, optional): it is not part of the table; StorageTables.save binds it to the content
+and records it. Operations, body limit and responses otherwise unchanged.
 """
 
 import json
 
 from dmn_client.client import EngineError, json_object
-from dmn_client.route_table import SCHEMA_V2, UUID_RE, RouteTableError, StorageTables
+from dmn_client.route_table import ROUTE_SCHEMAS, UUID_RE, RouteTableError, StorageTables
 from dmn_client.stored_tables import KEYS
 
 OPS = ("table", "history", "version", "save")
@@ -68,12 +71,14 @@ def run_op(storage, op, table=DEFAULT_TABLE, version=None, body=None):
             except EngineError:
                 return error(400, "INVALID_JSON", "请求不是合法的 JSON 对象")
             keys = KEYS.get(body.get("schema")) or (
-                V2_KEYS if body.get("schema") == SCHEMA_V2 else V1_KEYS
+                V2_KEYS if body.get("schema") in ROUTE_SCHEMAS else V1_KEYS
             )
             doc = {k: body.get(k) for k in keys}
             if doc.get("resource_table") is None:
                 doc.pop("resource_table", None)
-            saved = tables.save(doc, body.get("expected_version"))
+            saved = tables.save(
+                doc, body.get("expected_version"), gate_report=body.get("gate_report")
+            )
             return 200, {"table": saved["table"], "version": saved["version"], "doc": saved}
         return error(404, "NOT_FOUND", "接口不存在")
     except RouteTableError as exc:

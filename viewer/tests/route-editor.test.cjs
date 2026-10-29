@@ -56,7 +56,7 @@ function fakeApi() {
     s.posts.push(body);
     if (s.failNext) { const f = s.failNext; s.failNext = null; return json(f.status, { error: f.error }); }
     if (body.expected_version !== (head()?.version || 0)) return json(409, { error: { code: "ROUTE_TABLE_STALE", message: "路由表刚被改过", path: "expected_version" } });
-    const { expected_version, ...doc } = body;
+    const { expected_version, gate_report, ...doc } = body; // the plugin keeps the gate report out of the table (0.5.6)
     const v = s.saveAs(doc);
     return json(200, { table: v.table, version: v.version, doc: v });
   };
@@ -282,7 +282,9 @@ const field = (w, app, f) => $(w, `[data-app="${app}"][data-f="${f}"]`);
 const type = async (w, app, f, value) => {
   const n = field(w, app, f);
   n.value = value;
-  n.dispatchEvent(new w.Event(n.tagName === "SELECT" ? "change" : "input", { bubbles: true }));
+  // a select fires change; a text field fires input while typing and change when the edit is committed (blur / Enter)
+  if (n.tagName !== "SELECT") n.dispatchEvent(new w.Event("input", { bubbles: true }));
+  n.dispatchEvent(new w.Event("change", { bubbles: true }));
   await settle();
 };
 
@@ -295,6 +297,9 @@ test("a v3 table shows each solution's registry state; lifting a gate changes on
   assert.equal(field(w, COUPON, "gate_code").disabled, true, "only a GATED app takes a gate code");
   assert.equal(field(w, COUPON, "topics").value, "coupon_use coupon_not_deducted");
   assert.match($(w, `[data-app-info="${COUPON}"]`).textContent, /ISSUE_TARGET.*coupon-use.*SUPPORTED/);
+  await type(w, LOST, "status", "SHADOW");
+  assert.equal(field(w, LOST, "gate_code").disabled, false, "a SHADOW app may keep its gate");
+  assert.equal(field(w, LOST, "gate_code").value, GATE);
   await type(w, LOST, "status", "CURRENT");
   assert.equal(field(w, LOST, "gate_code").disabled, true);
   await note(w, "F-01 修好：遗失翻闸");
