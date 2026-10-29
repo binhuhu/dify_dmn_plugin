@@ -77,6 +77,8 @@ v2 表照旧可读：每个方案按 `CURRENT`、无闸读（`dmn_client.route_t
 
 0.5.6：只调登记状态 `CURRENT` 的应用。v3 表上被闸挡着的应用（`GATED`，或带 `gate_code` 的 `SHADOW`）REJECTED `SOLUTION_GATED`（`gate_code` 与说明里带闸编码），其余 `CANDIDATE` / `SHADOW` / `RETIRED` REJECTED `SOLUTION_NOT_CURRENT`；状态先于开始变量核。v2 表上每个登记的应用都算 CURRENT，照旧调。
 
+0.5.8：失败回执的 `error_message` 是固定说明，不转发原文——方案运行没有成功结束是「方案运行没有成功结束（`<run_status>`）」（`SOLUTION_RUN_FAILED`），平台调用抛异常是「调方案没有成功（`<异常类名>`）」（`SOLUTION_INVOKE_FAILED`）；查原因按 `child_workflow_run_id` 去看那次方案运行。
+
 时限：SDK 反向调用连续 `MAX_INVOCATION_TIMEOUT` 秒没收到数据就放弃（默认 250 秒），ESE 方案一次 98–316 秒。所以 `invoke_solution` 用流式调用（每个节点都有事件回来），`plugin/main.py` 把 `MAX_INVOCATION_TIMEOUT` 设成 600。宿主（AgentHub 插件 daemon）自己的工具执行时限还要实测。
 
 ## 编辑页
