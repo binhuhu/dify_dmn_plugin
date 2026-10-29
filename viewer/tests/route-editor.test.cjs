@@ -258,3 +258,169 @@ test("replaying on the newest version keeps that version's keys", async () => {
   assert.ok(saved.routes.some((r) => r.target.kind === "RESOURCE"), "their RESOURCE row survived");
   assert.ok(saved.routes.some((r) => r.scene_id === "P_04_04_01" && r.target.app_id === LOST), "my change survived");
 });
+
+// 0.5.6 (WO-79): route-table/v3 - the solution registry lives in solutions{} (status / gate_code / request_contract / topics /
+// intents, plus invocation_scope / priority / package_id / target_handoff shown read-only). The page edits those five, keeps
+// every other key as loaded, upgrades a v2 table on request, and stops what the plugin would refuse before confirm.
+const V3 = "dmn-json.route-table/v3";
+const GATE = "ESE_F01_ORDER_BINDING";
+const entry = (over) => ({
+  inputs: ["call_id", "request_json"], status: "CURRENT", gate_code: null, request_contract: "场景方案调用/v4",
+  topics: [], intents: ["REPORT_PROBLEM"], invocation_scope: "ISSUE_TARGET", priority: 1, package_id: null, target_handoff: "SUPPORTED", ...over,
+});
+const v3doc = () => {
+  const d = first();
+  d.schema = V3;
+  d.solutions = {
+    [COUPON]: entry({ name: "券 B", topics: ["coupon_use", "coupon_not_deducted"], package_id: "coupon-use" }),
+    [LOST]: entry({ name: "遗失 B", status: "GATED", gate_code: GATE, topics: ["property_left_in_vehicle"], package_id: "lost-property" }),
+  };
+  d.generated_from = { path: "orchestration/service-agents/solution-registry.release-d.json", sha256: "b".repeat(64) };
+  return d;
+};
+const field = (w, app, f) => $(w, `[data-app="${app}"][data-f="${f}"]`);
+const type = async (w, app, f, value) => {
+  const n = field(w, app, f);
+  n.value = value;
+  n.dispatchEvent(new w.Event(n.tagName === "SELECT" ? "change" : "input", { bubbles: true }));
+  await settle();
+};
+
+test("a v3 table shows each solution's registry state; lifting a gate changes only that entry", async () => {
+  const api = fakeApi();
+  const loaded = structuredClone(api.saveAs(v3doc()));
+  const w = await page(api);
+  assert.equal(field(w, LOST, "status").value, "GATED");
+  assert.equal(field(w, LOST, "gate_code").value, GATE);
+  assert.equal(field(w, COUPON, "gate_code").disabled, true, "only a GATED app takes a gate code");
+  assert.equal(field(w, COUPON, "topics").value, "coupon_use coupon_not_deducted");
+  assert.match($(w, `[data-app-info="${COUPON}"]`).textContent, /ISSUE_TARGET.*coupon-use.*SUPPORTED/);
+  await type(w, LOST, "status", "CURRENT");
+  assert.equal(field(w, LOST, "gate_code").disabled, true);
+  await note(w, "F-01 修好：遗失翻闸");
+  await click(w, '[data-act="save"]');
+  assert.match($(w, ".re-confirm").textContent, /状态 GATED → CURRENT/);
+  await click(w, '[data-act="confirm"]');
+  assert.equal(api.posts.length, 1);
+  const { expected_version, ...sent } = api.posts[0];
+  const want = structuredClone(loaded);
+  want.solutions[LOST].status = "CURRENT";
+  want.solutions[LOST].gate_code = null;
+  want.note = "F-01 修好：遗失翻闸";
+  assert.deepEqual(sent, want, "every other key, entry and field as loaded");
+});
+
+test("contract, topics and intents are edited in place; empty text is null / []", async () => {
+  const api = fakeApi();
+  const loaded = structuredClone(api.saveAs(v3doc()));
+  const w = await page(api);
+  await type(w, COUPON, "request_contract", "场景方案调用/v4.1");
+  await type(w, COUPON, "topics", "coupon_use，coupon_submit_failed");
+  await type(w, COUPON, "intents", "REPORT_PROBLEM APPEAL");
+  await type(w, LOST, "status", "CANDIDATE");
+  await type(w, LOST, "request_contract", "");
+  await note(w, "改登记");
+  await click(w, '[data-act="save"]');
+  await click(w, '[data-act="confirm"]');
+  const { expected_version, ...sent } = api.posts[0];
+  const want = structuredClone(loaded);
+  Object.assign(want.solutions[COUPON], { request_contract: "场景方案调用/v4.1", topics: ["coupon_use", "coupon_submit_failed"], intents: ["REPORT_PROBLEM", "APPEAL"] });
+  Object.assign(want.solutions[LOST], { status: "CANDIDATE", gate_code: null, request_contract: null });
+  want.note = "改登记";
+  assert.deepEqual(sent, want);
+});
+
+test("what the plugin would refuse is stopped before confirm (GATED without a gate, CURRENT without contract / topics / intents)", async () => {
+  const api = fakeApi();
+  api.saveAs(v3doc());
+  const w = await page(api);
+  await type(w, COUPON, "status", "GATED");
+  assert.equal(field(w, COUPON, "gate_code").disabled, false);
+  await note(w, "x");
+  await click(w, '[data-act="save"]');
+  assert.ok(!$(w, ".re-confirm"));
+  assert.match($(w, ".re-status").textContent, /GATED 要写闸编码/);
+  assert.ok($(w, "tr.re-error"), "the entry is marked");
+  await type(w, COUPON, "gate_code", "ESE_OTHER");
+  await type(w, LOST, "status", "CURRENT");
+  await type(w, LOST, "topics", "");
+  await click(w, '[data-act="save"]');
+  assert.ok(!$(w, ".re-confirm"));
+  assert.match($(w, ".re-status").textContent, /CURRENT 要写请求合同、话题、诉求/);
+  assert.equal(api.posts.length, 0);
+});
+
+test("a v2 table is upgraded to v3 on request: every app CURRENT, then filled before it can be saved", async () => {
+  const api = fakeApi();
+  const loaded = structuredClone(api.saveAs(first()));
+  const w = await page(api);
+  assert.equal(field(w, COUPON, "status"), null, "a v2 table has no registry columns");
+  assert.match($(w, '[data-act="upgrade"]').closest("section").textContent, /v2.*CURRENT/);
+  await click(w, '[data-act="upgrade"]');
+  assert.equal(field(w, COUPON, "status").value, "CURRENT");
+  await note(w, "升 v3");
+  await click(w, '[data-act="save"]');
+  assert.ok(!$(w, ".re-confirm"), "CURRENT apps need contract / topics / intents first");
+  for (const app of [COUPON, LOST]) {
+    await type(w, app, "request_contract", "场景方案调用/v4");
+    await type(w, app, "topics", app === COUPON ? "coupon_use" : "property_left_in_vehicle");
+    await type(w, app, "intents", "REPORT_PROBLEM");
+  }
+  await type(w, LOST, "status", "GATED");
+  await type(w, LOST, "gate_code", GATE);
+  await click(w, '[data-act="save"]');
+  assert.match($(w, ".re-confirm").textContent, /升为 v3/);
+  await click(w, '[data-act="confirm"]');
+  const { expected_version, ...sent } = api.posts[0];
+  assert.equal(sent.schema, V3);
+  assert.deepEqual(sent.routes, loaded.routes);
+  assert.deepEqual(sent.scenes, loaded.scenes);
+  assert.deepEqual(sent.solutions[LOST], { name: "遗失 B", inputs: ["call_id", "request_json"], status: "GATED", gate_code: GATE,
+    request_contract: "场景方案调用/v4", topics: ["property_left_in_vehicle"], intents: ["REPORT_PROBLEM"],
+    invocation_scope: null, priority: null, package_id: null, target_handoff: null });
+});
+
+test("a new registration on a v3 table starts as CANDIDATE", async () => {
+  const api = fakeApi();
+  api.saveAs(v3doc());
+  const w = await page(api);
+  const id = "0e3512a7-562c-47b6-8bec-63b3a57a3ec8";
+  for (const [sel, v] of [["#re-new-id", id], ["#re-new-name", "司机接驾迟到 · ESE B"]]) {
+    const n = $(w, sel);
+    n.value = v;
+    n.dispatchEvent(new w.Event("input", { bubbles: true }));
+  }
+  await click(w, '[data-act="reg"]');
+  assert.equal(field(w, id, "status").value, "CANDIDATE", "not callable until someone sets it CURRENT");
+});
+
+test("a v2 version is not loaded over a v3 head (v2 reads every app CURRENT)", async () => {
+  const api = fakeApi();
+  api.saveAs(first());
+  api.saveAs(v3doc());
+  const w = await page(api);
+  await click(w, '[data-act="version"][data-v="1"]');
+  assert.match($(w, ".re-status").textContent, /第 1 版是 v2/);
+  assert.equal(field(w, LOST, "status").value, "GATED", "the draft is unchanged");
+});
+
+test("WO-78 hook: a pasted gate report goes out with the save, once", async () => {
+  const api = fakeApi();
+  api.saveAs(v3doc());
+  const w = await page(api);
+  const report = { schema: "policy-gate-report/v1", status: "PASS", content_sha256: "a".repeat(64) };
+  const box = $(w, "#re-gate");
+  box.value = JSON.stringify(report);
+  box.dispatchEvent(new w.Event("input", { bubbles: true }));
+  await type(w, LOST, "status", "CANDIDATE");
+  await note(w, "带闸报告");
+  await click(w, '[data-act="save"]');
+  await click(w, '[data-act="confirm"]');
+  assert.deepEqual(api.posts[0].gate_report, report);
+  await type(w, COUPON, "request_contract", "场景方案调用/v4.1");
+  await note(w, "第二次");
+  await click(w, '[data-act="save"]');
+  await click(w, '[data-act="confirm"]');
+  assert.equal(api.posts.length, 2);
+  assert.ok(!("gate_report" in api.posts[1]), "a report belongs to one save");
+});
