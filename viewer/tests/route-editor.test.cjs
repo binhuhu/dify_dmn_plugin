@@ -429,3 +429,75 @@ test("WO-78 hook: a pasted gate report goes out with the save, once", async () =
   assert.equal(api.posts.length, 2);
   assert.ok(!("gate_report" in api.posts[1]), "a report belongs to one save");
 });
+
+// WO-96 A (canon KG-C-route, config/route_table/probe/route_editor_drops_resource_table): a v2 or a v3 document that names a
+// resource table, loaded as the endpoint returns it (stored metadata included), edited in one cell and saved. The body that
+// goes out is the loaded document byte for byte (same keys, same key order, resource_table identical) except the edited cell
+// and the note every save needs; no key is added.
+const stored = (doc) => Object.assign(doc, { save_id: "s".repeat(32), parent_save_id: "p".repeat(32) }); // what StorageTables.save adds besides version / saved_at / content_sha256
+const withResourceTable = (d) => {
+  d.resource_table = "dispatch.resource";
+  d.routes.push({ scene_id: "P_02_04_01", issue_type: "CONSULT", phase: "STAGE_1", target: { kind: "RESOURCE", resource_id: "self_service.knowledge" } });
+  return stored(d);
+};
+async function saveOneEdit(doc, edit, text) {
+  const api = fakeApi();
+  const loaded = structuredClone(api.saveAs(doc));
+  const w = await page(api);
+  await edit(w);
+  await note(w, text);
+  await click(w, '[data-act="save"]');
+  await click(w, '[data-act="confirm"]');
+  assert.equal(api.posts.length, 1, "saved once");
+  const { expected_version, ...sent } = api.posts[0];
+  assert.equal(expected_version, loaded.version);
+  return { api, loaded, sent };
+}
+function assertOnlyEdited(loaded, sent, want) {
+  assert.equal(JSON.stringify(sent.resource_table), JSON.stringify(loaded.resource_table), "resource_table byte-identical");
+  assert.deepEqual(Object.keys(sent), Object.keys(loaded), "same top-level keys in the same order: none dropped, none added");
+  sent.routes.forEach((r, i) => assert.deepEqual(Object.keys(r), Object.keys(loaded.routes[i]), "route row " + i + " keys"));
+  assert.equal(JSON.stringify(sent), JSON.stringify(want), "byte-identical to the loaded document except the edited cell and the note");
+}
+
+for (const [name, make] of [["v2", () => withResourceTable(first())], ["v3", () => withResourceTable(v3doc())]]) {
+  test(`WO-96: a ${name} table with resource_table - one route cell edited, everything else saved byte for byte`, async () => {
+    const { api, loaded, sent } = await saveOneEdit(make(), (w) => pick(w, "P_02_04_01", "APP:" + LOST), "券场景改挂遗失 B");
+    assert.equal(loaded.schema, name === "v2" ? "dmn-json.route-table/v2" : V3);
+    const want = structuredClone(loaded);
+    want.routes[0].target = { kind: "SOLUTION_APP", app_id: LOST };
+    want.note = "券场景改挂遗失 B";
+    assertOnlyEdited(loaded, sent, want);
+    assert.equal(api.versions[1].resource_table, "dispatch.resource");
+    assert.ok(api.versions[1].routes.some((r) => r.target.kind === "RESOURCE"), "the RESOURCE row is still there");
+  });
+}
+
+test("WO-96: a v3 table with resource_table - one registry cell edited, everything else saved byte for byte", async () => {
+  const { loaded, sent } = await saveOneEdit(withResourceTable(v3doc()), (w) => type(w, LOST, "status", "CANDIDATE"), "遗失改候选");
+  const want = structuredClone(loaded);
+  want.solutions[LOST].status = "CANDIDATE";
+  want.solutions[LOST].gate_code = null; // a non-gate status carries no gate (plugin rule; the page clears it with the status)
+  want.note = "遗失改候选";
+  assertOnlyEdited(loaded, sent, want);
+});
+
+test("WO-96: a v2 table with resource_table upgraded to v3 keeps resource_table and the RESOURCE row", async () => {
+  const api = fakeApi();
+  const loaded = structuredClone(api.saveAs(withResourceTable(first())));
+  const w = await page(api);
+  await click(w, '[data-act="upgrade"]');
+  for (const app of [COUPON, LOST]) {
+    await type(w, app, "request_contract", "场景方案调用/v4");
+    await type(w, app, "topics", "t_" + app.slice(0, 4));
+    await type(w, app, "intents", "REPORT_PROBLEM");
+  }
+  await note(w, "升 v3");
+  await click(w, '[data-act="save"]');
+  await click(w, '[data-act="confirm"]');
+  const { expected_version, ...sent } = api.posts[0];
+  assert.equal(sent.schema, V3);
+  assert.equal(JSON.stringify(sent.resource_table), JSON.stringify(loaded.resource_table));
+  assert.deepEqual(Object.keys(sent), Object.keys(loaded));
+  assert.equal(JSON.stringify(sent.routes), JSON.stringify(loaded.routes), "routes untouched by the upgrade");
+});
