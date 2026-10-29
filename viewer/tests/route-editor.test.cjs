@@ -179,3 +179,82 @@ test("export can take the unsaved draft", async () => {
   const out = JSON.parse($(w, 'textarea[readonly]').value);
   assert.ok(out.routes.some((r) => r.scene_id === "P_04_04_01" && r.target.kind === "TRANSFER"));
 });
+
+// 0.5.5 (WO-72, 清晰度评审 §4): a save writes the loaded document with only the edited fields changed; keys the page does
+// not manage (resource_table, RESOURCE rows, anything newer) come back exactly as loaded. 0.5.4 wrote seven keys only.
+const withResources = () => {
+  const d = first();
+  d.resource_table = "dispatch.resource";
+  d.routes.push({ scene_id: "P_02_04_01", issue_type: "CONSULT", phase: "STAGE_1", target: { kind: "RESOURCE", resource_id: "self_service.knowledge" } });
+  d.generated_from = { path: "orchestration/dispatch-routes/x.json", sha256: "a".repeat(64) };
+  return d;
+};
+
+test("a save changes only the edited cell and keeps every key it did not edit", async () => {
+  const api = fakeApi();
+  const loaded = structuredClone(api.saveAs(withResources()));
+  const w = await page(api);
+  await pick(w, "P_02_04_01", "APP:" + LOST); // one cell: 券 B -> 遗失 B
+  await note(w, "券场景改挂遗失 B");
+  await click(w, '[data-act="save"]');
+  await click(w, '[data-act="confirm"]');
+  assert.equal(api.posts.length, 1);
+  const { expected_version, ...sent } = api.posts[0];
+  assert.equal(expected_version, 1);
+  const want = structuredClone(loaded);
+  want.routes[0].target = { kind: "SOLUTION_APP", app_id: LOST };
+  want.note = "券场景改挂遗失 B"; // every save needs its own note (ROUTE_TABLE_NOTE_REQUIRED)
+  assert.deepEqual(sent, want, "deep-equal to the loaded document except the edited cell");
+  assert.equal(api.versions[1].resource_table, "dispatch.resource");
+});
+
+test("an added and a removed route touch only their own rows", async () => {
+  const api = fakeApi();
+  const loaded = structuredClone(api.saveAs(withResources()));
+  const w = await page(api);
+  await pick(w, "P_07_02_01", "NONE");
+  await pick(w, "P_04_04_01", "TRANSFER");
+  await note(w, "删一条加一条");
+  await click(w, '[data-act="save"]');
+  await click(w, '[data-act="confirm"]');
+  const { expected_version, ...sent } = api.posts[0];
+  const want = structuredClone(loaded);
+  want.routes = [loaded.routes[0], loaded.routes[2], { scene_id: "P_04_04_01", issue_type: "COMPLAINT", phase: "STAGE_1", target: { kind: "TRANSFER", to: "SAFETY" } }];
+  want.note = "删一条加一条";
+  assert.deepEqual(sent, want);
+});
+
+test("a resource route shows as its target and survives a search", async () => {
+  const api = fakeApi();
+  api.saveAs(withResources());
+  const w = await page(api);
+  const type = $(w, "#re-type");
+  type.value = "CONSULT";
+  type.dispatchEvent(new w.Event("change", { bubbles: true }));
+  await settle();
+  assert.equal($(w, 'select[data-k="P_02_04_01|CONSULT|STAGE_1"]').value, "RESOURCE:self_service.knowledge", "not shown as 无方案");
+  const box = $(w, "#re-q");
+  box.value = "资源目标";
+  box.dispatchEvent(new w.Event("input", { bubbles: true }));
+  await settle();
+  assert.equal(w.document.querySelectorAll(".re-tall tbody tr").length, 1);
+});
+
+test("replaying on the newest version keeps that version's keys", async () => {
+  const api = fakeApi();
+  api.saveAs(first());
+  const w = await page(api);
+  await pick(w, "P_04_04_01", "APP:" + LOST);
+  await note(w, "我的改动");
+  api.saveAs(withResources()); // meanwhile version 2 adds a resource table and a RESOURCE row
+  await click(w, '[data-act="save"]');
+  await click(w, '[data-act="confirm"]');
+  await click(w, '[data-act="rebase"]');
+  await click(w, '[data-act="save"]');
+  await click(w, '[data-act="confirm"]');
+  const saved = api.versions[2];
+  assert.equal(saved.version, 3);
+  assert.equal(saved.resource_table, "dispatch.resource");
+  assert.ok(saved.routes.some((r) => r.target.kind === "RESOURCE"), "their RESOURCE row survived");
+  assert.ok(saved.routes.some((r) => r.scene_id === "P_04_04_01" && r.target.app_id === LOST), "my change survived");
+});

@@ -1,0 +1,173 @@
+{
+ "schema": "dmn-json.decision-table/v1",
+ "table": "triage.acceptance",
+ "owner": {
+  "app_id": "0f34962a-e380-45e1-8b35-fc64b5651776",
+  "team": "分诊 TRIAGE",
+  "name": "受理策略"
+ },
+ "model_ref": "triage.acceptance@0.1.0",
+ "model": {
+  "profile": "service-decision-table-v1",
+  "version": "0.1.0",
+  "hit_policy": "UNIQUE",
+  "parameters": {
+   "scene_id": {
+    "type": "string",
+    "record_required": true,
+    "nullable": false,
+    "allowed_quality": [
+     "KNOWN"
+    ]
+   },
+   "facts.ORDER__trip__END_TO_COMPLAINT_DAYS.天数": {
+    "type": "integer",
+    "record_required": false,
+    "nullable": false,
+    "allowed_quality": [
+     "KNOWN",
+     "UNKNOWN"
+    ]
+   }
+  },
+  "rules": [
+   {
+    "rule_id": "P_02_04_01-IN",
+    "when": [
+     {
+      "path": [
+       "parameters",
+       "scene_id",
+       "value"
+      ],
+      "op": "eq",
+      "value": "P_02_04_01"
+     },
+     {
+      "path": [
+       "parameters",
+       "facts.ORDER__trip__END_TO_COMPLAINT_DAYS.天数",
+       "value"
+      ],
+      "op": "lte",
+      "value": 30
+     }
+    ],
+    "output_template_ref": "ACCEPT"
+   },
+   {
+    "rule_id": "P_02_04_01-LATE",
+    "when": [
+     {
+      "path": [
+       "parameters",
+       "scene_id",
+       "value"
+      ],
+      "op": "eq",
+      "value": "P_02_04_01"
+     },
+     {
+      "path": [
+       "parameters",
+       "facts.ORDER__trip__END_TO_COMPLAINT_DAYS.天数",
+       "value"
+      ],
+      "op": "gt",
+      "value": 30
+     }
+    ],
+    "output_template_ref": "REJECT"
+   },
+   {
+    "rule_id": "P_04_04_01-IN",
+    "when": [
+     {
+      "path": [
+       "parameters",
+       "scene_id",
+       "value"
+      ],
+      "op": "eq",
+      "value": "P_04_04_01"
+     },
+     {
+      "path": [
+       "parameters",
+       "facts.ORDER__trip__END_TO_COMPLAINT_DAYS.天数",
+       "value"
+      ],
+      "op": "lte",
+      "value": 7
+     }
+    ],
+    "output_template_ref": "ACCEPT"
+   },
+   {
+    "rule_id": "P_04_04_01-LATE",
+    "when": [
+     {
+      "path": [
+       "parameters",
+       "scene_id",
+       "value"
+      ],
+      "op": "eq",
+      "value": "P_04_04_01"
+     },
+     {
+      "path": [
+       "parameters",
+       "facts.ORDER__trip__END_TO_COMPLAINT_DAYS.天数",
+       "value"
+      ],
+      "op": "gt",
+      "value": 7
+     }
+    ],
+    "output_template_ref": "REJECT"
+   }
+  ],
+  "result_templates": {
+   "ACCEPT": {
+    "state": "ACCEPTED",
+    "data": {
+     "acceptance": {
+      "literal": "ACCEPTED"
+     },
+     "basis": {
+      "literal": "IN_WINDOW"
+     }
+    },
+    "actions": []
+   },
+   "REJECT": {
+    "state": "NOT_ACCEPTED",
+    "data": {
+     "acceptance": {
+      "literal": "NOT_ACCEPTED"
+     },
+     "basis": {
+      "literal": "OUT_OF_WINDOW"
+     }
+    },
+    "actions": []
+   },
+   "NO_ROW": {
+    "state": "ACCEPTED",
+    "data": {
+     "acceptance": {
+      "literal": "ACCEPTED"
+     },
+     "basis": {
+      "literal": "DEFAULT_NO_ROW"
+     }
+    },
+    "actions": []
+   }
+  },
+  "on_no_match": "RESULT_TEMPLATE",
+  "empty_template_ref": "NO_ROW"
+ },
+ "note": "合成样例（WO-72）"
+}
