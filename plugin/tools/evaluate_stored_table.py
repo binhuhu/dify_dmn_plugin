@@ -1,6 +1,7 @@
 """Node tool boundary: read one stored table of this plugin's tool storage (see dmn_client.stored_tables).
 
-table names it at run time (分诊 TRIAGE passes p2.<app_id> of the routed solution); format pins what it must be. A decision
+table names it at run time (分诊 TRIAGE passes p2.<app_id> of the routed solution, or a policy table such as
+target.scene_entity / triage.acceptance); format pins what it must be. A decision
 table is evaluated over the given parameter records; a supplement table answers one scene; a resource table one target.
 The envelope always comes back (status SUCCEEDED | NOT_REQUESTED | NOT_FOUND | BLOCKED | FAILED); the caller decides.
 """

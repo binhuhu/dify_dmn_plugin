@@ -7,10 +7,10 @@ identity:
 description:
   human:
     en_US: Read one table kept in this plugin's tool storage (saved like a route table, with versions and CAS) - a solution's
-      P2 acceptance table (decision-table/v1, evaluated), the per-scene supplement requirements (supplement-requirements/v1)
-      or the resource-routing targets (resource-targets/v1).
-    zh_Hans: 读插件工具存储里的一张表（与路由表同样存、带版本与 CAS）：方案的 P2 受理表（decision-table/v1，求值）、按场景的补充要求（supplement-requirements/v1）或资源路由目标（resource-targets/v1）。
-  llm: Read or evaluate one stored table of this plugin (P2 acceptance table, supplement requirements, resource targets).
+      P2 acceptance table or a TARGET / TRIAGE policy table (decision-table/v1, evaluated), the per-scene supplement requirements
+      (supplement-requirements/v1) or the resource-routing targets (resource-targets/v1).
+    zh_Hans: 读插件工具存储里的一张表（与路由表同样存、带版本与 CAS）：方案的 P2 受理表或定位 / 分诊的策略表（decision-table/v1，求值）、按场景的补充要求（supplement-requirements/v1）或资源路由目标（resource-targets/v1）。
+  llm: Read or evaluate one stored table of this plugin (P2 acceptance or policy table, supplement requirements, resource targets).
 parameters:
 - name: table
   type: string
@@ -20,8 +20,8 @@ parameters:
     en_US: table
     zh_Hans: 表名
   human_description:
-    en_US: Stored table name (p2.<app_id>, supplement.requirements, dispatch.resource). Empty = not requested.
-    zh_Hans: 存储表名（p2.<方案应用编号>、supplement.requirements、dispatch.resource）；空 = 本次不读。
+    en_US: Stored table name (p2.<app_id>, target.<name>, triage.<name>, supplement.requirements, dispatch.resource). Empty = not requested.
+    zh_Hans: 存储表名（p2.<方案应用编号>、target.<名称>、triage.<名称>、supplement.requirements、dispatch.resource）；空 = 本次不读。
   llm_description: Stored table name; empty means not requested.
 - name: format
   type: string

@@ -37,7 +37,8 @@ Resource routes (0.5.3, WO-29; Brian 10-28「资源路由可以自助吧」): a 
 
 Storage keys (per workspace and plugin):
     route-table:<table>       current document, dmn-json.route-table/v1 or /v2 (or a stored table of
-                              dmn_client.stored_tables: decision-table/v1, supplement-requirements/v1, resource-targets/v1)
+                              dmn_client.stored_tables: decision-table/v1 under p2.* / target.* / triage.*,
+                              supplement-requirements/v1, resource-targets/v1)
     route-table:<table>:v<n>  every saved version, never rewritten (history and rollback)
 """
 
@@ -240,7 +241,8 @@ def _route_table_name(doc):
     _need(
         not reserved_name(table),
         "STORED_TABLE_NAME",
-        "p2.* / supplement.* / *.resource 是受理表、补充要求表、资源目标表的名字，路由表不能用",
+        "p2.* / supplement.* / *.resource / target.* / triage.* 是受理表、补充要求表、资源目标表、策略表的名字，"
+        "路由表不能用",
         "table",
     )
     return table

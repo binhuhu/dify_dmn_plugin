@@ -45,21 +45,37 @@
   }
   const q = name => name + '?table=' + encodeURIComponent(state.table);
 
-  // 存的文档 ↔ 页面草稿：路由按「场景|类型|阶段」放进 Map。
+  // 存的文档 ↔ 页面草稿：路由按「场景|类型|阶段」放进 Map。草稿记着载入的整份文档（base）。
   const v2 = doc => doc && doc.schema === SCHEMA ? doc : null;
   function toDraft(doc) {
     const routes = new Map();
     for (const r of doc?.routes || []) routes.set(key3(r.scene_id, r.issue_type, r.phase), structuredClone(r.target));
     return { issue_types: doc?.issue_types || ['COMPLAINT', 'CONSULT', 'FEEDBACK'], phases: doc?.phases || ['STAGE_1', 'STAGE_2', 'STAGE_3'],
-      scenes: structuredClone(doc?.scenes || {}), solutions: structuredClone(doc?.solutions || {}), routes, note: '' };
+      scenes: structuredClone(doc?.scenes || {}), solutions: structuredClone(doc?.solutions || {}), routes, note: '', base: structuredClone(doc || null) };
   }
+  // 0.5.5（WO-72，清晰度评审 §4）：在载入的整份文档上只改动过的字段。本页不管的键（resource_table 等）和没改的路由行原样带回；
+  // 以前只写七个键，存表会丢掉 resource_table。
   function toDoc(d) {
-    const routes = [];
-    for (const [k, target] of d.routes) { const [scene_id, issue_type, phase] = k.split('|'); routes.push({ scene_id, issue_type, phase, target }); }
-    return { schema: SCHEMA, table: state.table, issue_types: d.issue_types, phases: d.phases, scenes: d.scenes, solutions: d.solutions, routes, note: d.note.trim() };
+    const base = structuredClone(d.base || {}), routes = [], kept = new Set();
+    for (const r of base.routes || []) {
+      const k = r && key3(r.scene_id, r.issue_type, r.phase);
+      if (!r || kept.has(k) || !d.routes.has(k)) continue; // 删掉的去向（选「无方案」）不再写
+      kept.add(k);
+      const t = d.routes.get(k);
+      routes.push(canon(t) === canon(r.target) ? r : { ...r, target: structuredClone(t) });
+    }
+    for (const [k, target] of d.routes) {
+      if (kept.has(k)) continue;
+      const [scene_id, issue_type, phase] = k.split('|');
+      routes.push({ scene_id, issue_type, phase, target: structuredClone(target) });
+    }
+    const doc = Object.assign(base, { schema: SCHEMA, table: state.table, routes, note: d.note.trim() });
+    for (const f of ['issue_types', 'phases', 'scenes', 'solutions']) if (canon(base[f]) !== canon(d[f])) doc[f] = structuredClone(d[f]);
+    return doc;
   }
   const kindOf = t => t ? t.kind : 'NONE';
-  const label = (t, d) => !t ? '无方案' : t.kind === 'TRANSFER' ? '转安全' : (d.solutions[t.app_id]?.name || '未登记的应用') + ' · ' + t.app_id.slice(0, 8);
+  const label = (t, d) => !t ? '无方案' : t.kind === 'TRANSFER' ? '转安全' : t.kind === 'RESOURCE' ? '资源目标 · ' + t.resource_id
+    : (d.solutions[t.app_id]?.name || '未登记的应用') + ' · ' + String(t.app_id || '').slice(0, 8);
 
   // 草稿和某一版比：去向、方案登记、场景目录各变了什么。
   function changesAgainst(doc, d) {
@@ -206,6 +222,8 @@
     const opts = [opt('NONE', '无方案', value === 'NONE'), opt('TRANSFER', '转安全', value === 'TRANSFER'),
       ...Object.entries(d.solutions).map(([id, s]) => opt('APP:' + id, s.name + ' · ' + id.slice(0, 8), value === 'APP:' + id))];
     if (t?.kind === 'SOLUTION_APP' && !d.solutions[t.app_id]) opts.push(opt(value, '未登记的应用 · ' + t.app_id.slice(0, 8), true));
+    // 资源去向（0.5.3 起表里可以有）本页不新建，只如实显示、原样保留；以前显示成「无方案」
+    if (t?.kind === 'RESOURCE') opts.push(opt('RESOURCE:' + t.resource_id, label(t, d), true));
     const box = [el('select', { 'data-k': k, 'data-f': 'target', 'aria-label': sid + ' 的去向' }, opts)];
     if (t?.kind === 'SOLUTION_APP') box.push(el('span', { cls: 're-app' }, el('code', { text: t.app_id }), ' ', appLink(t.app_id)));
     return el('div', { cls: 're-target' }, box);
@@ -231,13 +249,13 @@
       + (state.basedOn !== state.version ? ' · 编辑区是第 ' + state.basedOn + ' 版' : '') : state.table + ' · 还没有 v2 版本' }));
 
     // 场景路由
-    const counts = { SOLUTION_APP: 0, TRANSFER: 0, NONE: 0 };
+    const counts = { SOLUTION_APP: 0, TRANSFER: 0, RESOURCE: 0, NONE: 0 };
     for (const sid of Object.keys(d.scenes)) counts[kindOf(d.routes.get(key3(sid, v.issue_type, v.phase)))]++;
     const domains = [...new Set(Object.values(d.scenes).map(s => s.domain))].sort();
     const rows = sceneRows(d), changedKeys = new Set(diff.routes.map(c => c[0]));
     out.push(el('section', { cls: 're-card' },
       el('h2', { text: '场景路由 · ' + (TYPE_LABEL[v.issue_type] || v.issue_type) + ' · ' + v.phase }),
-      el('p', { cls: 're-muted', text: Object.keys(d.scenes).length + ' 个场景：方案应用 ' + counts.SOLUTION_APP + ' · 转安全 ' + counts.TRANSFER + ' · 无方案 ' + counts.NONE }),
+      el('p', { cls: 're-muted', text: Object.keys(d.scenes).length + ' 个场景：方案应用 ' + counts.SOLUTION_APP + ' · 转安全 ' + counts.TRANSFER + (counts.RESOURCE ? ' · 资源目标 ' + counts.RESOURCE : '') + ' · 无方案 ' + counts.NONE }),
       el('div', { cls: 're-row' },
         el('label', { cls: 're-field' }, el('span', { text: '问题类型' }), el('select', { id: 're-type' }, d.issue_types.map(t => opt(t, (TYPE_LABEL[t] || t) + ' ' + t, t === v.issue_type)))),
         el('label', { cls: 're-field' }, el('span', { text: '处理阶段' }), el('select', { id: 're-phase' }, d.phases.map(p => opt(p, p, p === v.phase)))),
@@ -340,6 +358,7 @@
     if (val === 'NONE') d.routes.delete(k);
     else if (val === 'TRANSFER') d.routes.set(k, { kind: 'TRANSFER', to: 'SAFETY' });
     else if (val.startsWith('APP:')) d.routes.set(k, { kind: 'SOLUTION_APP', app_id: val.slice(4) });
+    else if (val.startsWith('RESOURCE:')) d.routes.set(k, { kind: 'RESOURCE', resource_id: val.slice('RESOURCE:'.length) });
     if (state.errKey === k) state.errKey = null;
     state.confirming = false;
     paint();

@@ -4,11 +4,14 @@ The 分诊 TRIAGE workflow (app 0f34962a; DISPATCH is its legacy key) runs 受�
 「这个应该triage吧，子流程是受理-补充，方案路由/资源路由」). Three of its tables live in this plugin's tool storage next to
 the route table, each saved, versioned and read back exactly like it (StorageTables in route_table.py):
 
-    dmn-json.decision-table/v1          format decision-table/v1           table p2.<app_id>
-        A solution's P2 acceptance table. The definition stays with the solution team (decision 2026-10-28
+    dmn-json.decision-table/v1          format decision-table/v1           table p2.<app_id> | target.<name> | triage.<name>
+        p2.<app_id>: a solution's P2 acceptance table. The definition stays with the solution team (decision 2026-10-28
         「方案从 P4 起，P1 至 P3 只核回执」 §5: P2 表的定义仍归方案维护，但在 DISPATCH 受理步求值); TRIAGE evaluates it here.
+        target.<name> / triage.<name> (0.5.5, WO-72; Brian 10-29「场景关联实体要策略配置化 同样受理  路由也是」): a policy
+        table of the 定位 TARGET or 分诊 TRIAGE workflow (target.scene_entity, triage.acceptance), owner.app_id = that
+        workflow's app. The names are a closed set (POLICY_OWNERS); any other name is STORED_TABLE_NAME.
         owner {app_id, team, name}, model_ref "<id>@<version>", model = one service-decision-table-v1 model with literal
-        result data and no actions.
+        result data and no actions, at most MAX_RULES (512) rules.
     dmn-json.supplement-requirements/v1 format supplement-requirements/v1  table supplement.<name>
         Per scene: NONE (nothing to collect), REQUIRED (items to collect, each with a prompt key) or UNDECLARED (with the gap
         code). A scene the table does not list reads UNDECLARED / SUPPLEMENT_UNDECLARED, never NONE.
@@ -73,7 +76,7 @@ TYPES = {
 QUALITIES = ("KNOWN", "UNKNOWN", "NOT_APPLICABLE", "CONFLICT")
 HIT_POLICIES = ("UNIQUE", "FIRST", "COLLECT")
 MAX_PARAMETERS = 32
-MAX_RULES = 128
+MAX_RULES = 512  # 0.5.5: one rule per scene (target.scene_entity has 182, every scene 224); was 128
 MAX_CONDITIONS = 32
 MAX_TEMPLATES = 128
 MAX_SUPPLEMENT_SCENES = 1024
@@ -87,6 +90,19 @@ RESOURCE_STATUS = ("CONFIRMED", "TO_CONFIRM")
 TABLE_P2_PREFIX = "p2."
 TABLE_SUPPLEMENT_PREFIX = "supplement."
 TABLE_RESOURCE_SUFFIX = ".resource"
+TABLE_TARGET_PREFIX = "target."
+TABLE_TRIAGE_PREFIX = "triage."
+APP_TARGET = "56d3c0c5-4d41-4454-99ab-e3a6db6aa66c"  # 定位 TARGET
+APP_TRIAGE = "0f34962a-e380-45e1-8b35-fc64b5651776"  # 分诊 TRIAGE (DISPATCH is its legacy key)
+# 0.5.5: a policy table's name prefix -> the one workflow app that may own it
+POLICY_OWNERS = {TABLE_TARGET_PREFIX: APP_TARGET, TABLE_TRIAGE_PREFIX: APP_TRIAGE}
+POLICY_NAME_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{0,47}$")
+DECISION_NAME_RULE = (
+    "决策表的表名只能是三种之一：p2.<方案应用编号>（owner.app_id = 该方案应用）、"
+    "target.<名称>（owner.app_id = 定位 TARGET " + APP_TARGET + "）、"
+    "triage.<名称>（owner.app_id = 分诊 TRIAGE " + APP_TRIAGE + "）；"
+    "<名称> 小写字母或数字开头，只含小写字母、数字、_、-，最多 48 个字符"
+)
 ITEM_RE = re.compile(r"^[a-z][a-z0-9_]{0,63}$")
 PROMPT_RE = re.compile(r"^[a-z][a-z0-9_.]{0,95}$")
 RESOURCE_RE = re.compile(r"^[a-z][a-z0-9_.-]{0,63}$")
@@ -100,7 +116,19 @@ def reserved_name(table):
         table.startswith(TABLE_P2_PREFIX)
         or table.startswith(TABLE_SUPPLEMENT_PREFIX)
         or table.endswith(TABLE_RESOURCE_SUFFIX)
+        or table.startswith(tuple(POLICY_OWNERS))
     )
+
+
+def decision_table_name(table, app_id):
+    """0.5.5: the closed set of decision-table names, each bound to its owner: p2.<owner.app_id> (a solution's P2
+    acceptance table), target.<name> owned by 定位 TARGET, triage.<name> owned by 分诊 TRIAGE."""
+    if table == TABLE_P2_PREFIX + app_id:
+        return True
+    for prefix, owner in POLICY_OWNERS.items():
+        if table.startswith(prefix):
+            return bool(POLICY_NAME_RE.match(table[len(prefix) :])) and app_id == owner
+    return False
 
 
 def _table(doc, ok, message):
@@ -283,7 +311,7 @@ def _validate_decision(doc):
         and type(owner["app_id"]) is str
         and UUID_RE.match(owner["app_id"]),
         "DECISION_TABLE_INVALID",
-        "owner = app_id（方案应用编号）+ team + name",
+        "owner = app_id（方案或策略所属 workflow 的应用编号）+ team + name",
         "owner",
     )
     clean_owner = {
@@ -291,11 +319,7 @@ def _validate_decision(doc):
         "team": _text(owner["team"], 40, "维护方", "owner.team"),
         "name": _text(owner["name"], 120, "方案名称", "owner.name"),
     }
-    table = _table(
-        doc,
-        lambda t: t == TABLE_P2_PREFIX + owner["app_id"],
-        "受理表的表名必须是 p2.<方案应用编号>（与 owner.app_id 一致）",
-    )
+    table = _table(doc, lambda t: decision_table_name(t, owner["app_id"]), DECISION_NAME_RULE)
     model = _model(doc.get("model"), "model")
     ref = doc.get("model_ref")
     _need(

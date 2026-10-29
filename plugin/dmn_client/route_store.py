@@ -10,6 +10,8 @@ API calls to it instead of using its own storage.
 run_op returns (http_status, body) with the editor API's body shapes, so the endpoint can pass results through.
 0.5.3 (WO-29): the same operations save and read the stored tables of dmn_client.stored_tables (decision-table/v1 under
 p2.<app_id>, supplement-requirements/v1 under supplement.*, resource-targets/v1 under *.resource), with the same CAS.
+0.5.5 (WO-72): decision-table/v1 also under the policy names target.<name> (owner 定位 TARGET) and triage.<name> (owner
+分诊 TRIAGE); operations, body limit and responses unchanged.
 """
 
 import json
