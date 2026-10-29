@@ -11,6 +11,11 @@ gate holds (GATED, or SHADOW with a gate_code) is REJECTED with SOLUTION_GATED a
 other CANDIDATE / SHADOW / RETIRED one with SOLUTION_NOT_CURRENT; a v2 table reads every app as CURRENT, so it calls what it called before. The receipt gains
 solution_status and gate_code (additive; every other key and code unchanged).
 
+0.5.8 (WO-115): a child run that did not succeed (SOLUTION_RUN_FAILED) and a platform call that raised
+(SOLUTION_INVOKE_FAILED) get a fixed error_message naming only the run status / the exception class. The child's error
+text and the exception text (sandbox errors, stack traces, values from the run) never reach the receipt; the child run id
+is there to look the run up.
+
 Streaming mode is used on purpose: the SDK abandons a backwards invocation after MAX_INVOCATION_TIMEOUT seconds without
 any chunk, and a blocking call sends nothing until the whole solution has finished (ESE solutions take 98–316 s).
 """
@@ -174,7 +179,12 @@ def invoke_solution(app_id, inputs_json, table, load, invoke):
     except (
         Exception
     ) as exc:  # the platform refused or the call broke off (permission, timeout, app missing)
-        return _receipt("FAILED", "SOLUTION_INVOKE_FAILED", str(exc), **ident)
+        return _receipt(
+            "FAILED",
+            "SOLUTION_INVOKE_FAILED",
+            "调方案没有成功（" + type(exc).__name__ + "）",
+            **ident,
+        )
     if final is None:
         return _receipt("FAILED", "SOLUTION_RESPONSE_INVALID", "方案运行没有返回结束事件", **ident)
     run = {
@@ -185,7 +195,11 @@ def invoke_solution(app_id, inputs_json, table, load, invoke):
     }
     if run["run_status"] != "succeeded":
         return _receipt(
-            "FAILED", "SOLUTION_RUN_FAILED", final.get("error") or run["run_status"], **ident, **run
+            "FAILED",
+            "SOLUTION_RUN_FAILED",
+            "方案运行没有成功结束（" + run["run_status"] + "）",
+            **ident,
+            **run,
         )
     outputs = final.get("outputs")
     return _receipt("SUCCEEDED", **ident, **run, outputs=outputs if type(outputs) is dict else {})
