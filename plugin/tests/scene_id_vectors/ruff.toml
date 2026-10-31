@@ -1,0 +1,3 @@
+# Keep the standalone vector runner formatting independent of package formatting.
+extend = "../../pyproject.toml"
+exclude = ["run_vectors.py"]

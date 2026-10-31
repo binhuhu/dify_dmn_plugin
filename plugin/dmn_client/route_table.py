@@ -1,71 +1,4 @@
-"""Route tables edited in the plugin and kept in the plugin's own storage.
-
-Brian 2026-10-22: the admission route table (scene x issue type x phase -> solution app / knowledge) is edited in the
-Dify plugin, not by republishing the DISPATCH workflow. A DECISION model in a definition bundle may therefore be a
-storage stub instead of inline rules:
-
-    {"profile": "service-decision-table-v1", "version": "4.0.0",
-     "source": {"kind": "PLUGIN_STORAGE", "table": "dispatch.route", "format": "admission-routing-table/v1"}}
-
-At run time evaluate_decision loads the table saved by the route editor Endpoint and compiles it into exactly the
-model the admission builder emits (parameters scene_id / issue_type / phase, FIRST, one rule per route, string/null
-literal data), so the workflow's downstream nodes see the same decision shape. Only the rules and result templates
-come from storage; profile, version, parameters and hit policy stay fixed in the published bundle.
-
-Version 2 (Brian 2026-10-23: 「agenthub的插件应该要有对于场景和方案的配置能力」「理论上把投诉类的都要有场景名称 id 和方案id的
-映射全局」): the table itself holds the scene catalog and the solution registry, so adding a solution app or pointing a
-scene at another one is a save in the editor, never a DISPATCH or DELIVERY publish. dmn-json.route-table/v2 =
-
-    scenes     scene_id -> {name, domain}            the live locate catalog, imported in the editor
-    solutions  app_id   -> {name, inputs}            registered solution apps and the start variables they take
-    routes     scene × issue_type × phase -> SOLUTION_APP {app_id} | TRANSFER {to}
-               (Brian 10-23 D8: knowledge routes stay in the side-panel config, not in this table)
-
-A v2 stub uses format "routing-table/v2". Its compiled model groups scenes that share a target into one rule
-(scene_id in [...], at most 128 scenes per rule), so the 128-rule limit bounds distinct targets, not scenes.
-The Dify configuration is the single source; database copies only back it up (Brian 2026-10-23).
-
-Resource routes (0.5.3, WO-29; Brian 10-28「资源路由可以自助吧」): a v2 row may also send a key to a resource target,
-{"kind": "RESOURCE", "resource_id"}, a target of the resource-targets table the document names in resource_table (自助 /
-人工 / 专组 / 安全, dmn_client.stored_tables). The two stub formats read the same stored document:
-    routing-table/v2  (the live DISPATCH's stub)   RESOURCE rows are left out of the compiled model, so a reader built
-                      before resource routes sees exactly the rows it knew (their keys stay unregistered);
-    routing-table/v3  (分诊 TRIAGE, release D)      every row; RESOURCE templates and the legacy TRANSFER rows carry the
-                      resource target's fields (resource_id / resource_kind / resource_name / resource_entry_json /
-                      resource_status), resolved from the resource table at compile time; the model source names both
-                      tables' versions.
-
-Version 3 (0.5.6, WO-79; Brian「dify上的配置是唯一来源」「场景方案路由策略一定是可以显性查看和编辑的」): the solution
-registry lives in the table, not in embedded copies inside the 分诊 / 交付编排 graphs. dmn-json.route-table/v3 is the v2
-document whose solutions entries carry the registry state:
-
-    solutions  app_id -> {name, inputs,                       start variables invoke_solution checks verbatim (as v2)
-                          status,                             CURRENT | CANDIDATE | GATED | SHADOW | RETIRED
-                          gate_code,                          the closed gate holding the app (GATED: required; SHADOW:
-                                                              optional; never on CURRENT / CANDIDATE / RETIRED)
-                          request_contract,                   e.g. 场景方案调用/v4 (CURRENT: required)
-                          topics, intents,                    where the solution applies (CURRENT: non-empty)
-                          invocation_scope, priority, package_id, target_handoff}
-               never input_bindings: how 交付编排 builds a request is its own business (it adapts by request_contract).
-
-A v2 table still reads: every app CURRENT, no gate (solution_entry). invoke_solution calls CURRENT apps only. Stub formats:
-    routing-table/v2, /v3  compile exactly as in 0.5.5 from a v2 or a v3 document (the registry fields never reach them);
-    routing-table/v4       (0.5.6) the v3 model plus one decision field, solution: {app_id, status, gate_code,
-                           request_contract, topics, intents, table_content_sha256} on a SOLUTION_APP row, null otherwise.
-                           The route evaluation receipt contract goes routing-table/v3 -> routing-table/v4 (contract §5.2 ③;
-                           declared to 分诊 TRIAGE D and 交付编排 D in docs/releases/v0.5.6.md).
-Saves: one app has one state (status, gate_code) across the route tables (route-table-index lists them, dispatch.route is
-always looked at; a v2 table reads as all CURRENT); a v3 table is never saved back as v1 / v2 (every GATED app would read
-CURRENT); an optional gate_report (WO-78's pre-save gate) is bound to the content and recorded, not judged.
-
-Storage keys (per workspace and plugin):
-    route-table:<table>       current document, dmn-json.route-table/v1, /v2 or /v3 (or a stored table of
-                              dmn_client.stored_tables: decision-table/v1 under p2.* / target.* / triage.*,
-                              supplement-requirements/v1, resource-targets/v1)
-    route-table:<table>:v<n>  every saved version, never rewritten (history and rollback)
-    route-table:<table>:g:<save_id>   the gate report a save carried (0.5.6; only when one was given)
-    route-table-index         the names of the route tables (v2 / v3) saved since 0.5.6, for the one-state rule
-"""
+"""Validate, compile, version, and store routing tables with explicit solution registration."""
 
 import copy
 import hashlib
@@ -74,12 +7,18 @@ import re
 import uuid
 from datetime import datetime, timezone
 
+from dmn_client.scene_id import (  # noqa: F401  (SCENE_RE: re-exported, 0.5.8 name)
+    SCENE_RE,
+    by_scene,
+    is_scene,
+)
+
 SCHEMA = "dmn-json.route-table/v1"
 FORMAT = "admission-routing-table/v1"
 SCHEMA_V2 = "dmn-json.route-table/v2"
 FORMAT_V2 = "routing-table/v2"
 FORMAT_V3 = "routing-table/v3"  # 0.5.3: the same v2 document, RESOURCE rows compiled in
-SCHEMA_V3 = "dmn-json.route-table/v3"  # 0.5.6 (WO-79): solutions carry the registry
+SCHEMA_V3 = "dmn-json.route-table/v3"
 FORMAT_V4 = "routing-table/v4"  # 0.5.6: the v3 model plus the solution block
 ROUTE_SCHEMAS = (SCHEMA_V2, SCHEMA_V3)
 SOLUTION_STATUS = ("CURRENT", "CANDIDATE", "GATED", "SHADOW", "RETIRED")
@@ -123,10 +62,11 @@ MAX_ROUTES_V2 = 4096
 MAX_SCENES = 1024
 MAX_SOLUTIONS = 256
 IN_CHUNK = 128  # values per "in" condition (json-table bound)
-TRANSFER_TO = ("SAFETY",)  # Brian 10-13: 安全直接转接，不受理
+TRANSFER_TO = ("SAFETY",)
 MAX_HISTORY = 50
 TABLE_RE = re.compile(r"^[a-z0-9][a-z0-9._-]{0,63}$")
-SCENE_RE = re.compile(r"^P_\d{2}_\d{2}_\d{2}$")
+# SCENE_RE (0.5.8's ^P_\d{2}_\d{2}_\d{2}$) now lives in dmn_client.scene_id; validators call is_scene(), which also takes
+# the canonical M_ spelling (0.5.9, plan-v2 M-06).
 CODE_RE = re.compile(r"^[A-Z][A-Z_]{0,63}$")
 PHASE_RE = re.compile(r"^STAGE_[1-9]$")
 UUID_RE = re.compile(r"^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$")
@@ -266,6 +206,21 @@ def _knowledge(t, path):
     return out
 
 
+def _scene_keys(keyed, path):
+    """0.5.9: one scene, one key - a stored table never holds both spellings of a scene (scene_id.by_scene refuses)."""
+    from dmn_client.scene_id import SceneIdError  # noqa: PLC0415
+
+    try:
+        by_scene({k: None for k in keyed if is_scene(k)})
+    except SceneIdError as exc:
+        keys = exc.detail.get("keys") or []
+        raise RouteTableError(
+            "SCENE_KEY_DUPLICATE",
+            "%s 和 %s 是同一个场景的两种写法，只能留一个" % tuple(keys[:2]),
+            path,
+        ) from exc
+
+
 def _text(value, limit, label, path):
     _need(
         type(value) is str and value.strip() and len(value.strip()) <= limit,
@@ -322,12 +277,12 @@ def _validate_v1(doc):
     phases = _codes(doc.get("phases"), PHASE_RE, "处理阶段", "phases")
     raw_registry = doc.get("registry")
     _need(
-        type(raw_registry) is dict
-        and all(type(k) is str and SCENE_RE.match(k) for k in raw_registry),
+        type(raw_registry) is dict and all(is_scene(k) for k in raw_registry),
         "ROUTE_TABLE_INVALID",
         "方案登记表必须是 场景编号 → 方案应用列表",
         "registry",
     )
+    _scene_keys(raw_registry, "registry")
     registry = {}
     for scene, entries in sorted(raw_registry.items()):
         _need(
@@ -378,7 +333,7 @@ def _validate_v1(doc):
         )
         scene, issue_type, phase = row["scene_id"], row["issue_type"], row["phase"]
         _need(
-            type(scene) is str and SCENE_RE.match(scene),
+            is_scene(scene),
             "ROUTE_TABLE_KEY",
             "场景编号格式不对（P_xx_xx_xx）",
             p + ".scene_id",
@@ -667,11 +622,12 @@ def _validate_v2(doc, resources=None):
         "场景目录必须是 场景编号 → {name, domain}，1–%d 个；先导入现网定位的场景目录" % MAX_SCENES,
         "scenes",
     )
+    _scene_keys(raw_scenes, "scenes")
     scenes = {}
     for sid in sorted(raw_scenes):
         p, s = "scenes." + str(sid)[:16], raw_scenes[sid]
         _need(
-            type(sid) is str and SCENE_RE.match(sid),
+            is_scene(sid),
             "ROUTE_TABLE_INVALID",
             "场景编号格式不对（P_xx_xx_xx）",
             p,
@@ -1187,9 +1143,7 @@ def _state(entry):
 
 
 def gate_report_of(report, content):
-    """WO-78 hook (0.5.6): the optional pre-save gate report a save may carry. It must be an object of at most 64 KiB that
-    names the content it checked (content_sha256 = this save's content digest). 0.5.6 records it and does not judge its
-    verdict; the gate itself and what a red report blocks are WO-78's."""
+    """Technical contract for gate_report_of."""
     if report is None:
         return None
     _need(
@@ -1287,8 +1241,7 @@ class StorageTables:
         return list(dict.fromkeys([DEFAULT_ROUTE_TABLE, *names]))
 
     def _one_state(self, clean):
-        """0.5.6 (WO-79): an app has one registry state (status, gate_code) across the route tables; a v2 table reads every
-        app as CURRENT. Otherwise which table a caller names would decide whether a gated solution runs."""
+        """Technical contract for _one_state."""
         for name in self.route_tables():
             if name == clean["table"]:
                 continue
@@ -1387,21 +1340,7 @@ class StorageTables:
         gate_report=None,
         gate=None,
     ):
-        """Optimistic save: expected_version is the version the editor read (0 = table not created yet).
-
-        Plugin storage has no compare-and-swap, so two editors can race (review T2-12). Each save gets a save_id and is
-        first written under its own key, which nothing ever overwrites; version n is only taken while :v<n> is still
-        free; afterwards :v<n> and the head are read back and must carry this save_id, otherwise ROUTE_TABLE_RACE (409).
-        The editor keeps its draft on 409, so the user reloads, re-applies and saves again. This does NOT make saves
-        concurrency-safe: if one writer finishes its write and read-back before the other writes, both report success
-        and the earlier save survives only under its :s:<save_id> key (reproduced before the 0.5.1 release).
-
-        0.5.6 (WO-78 hooks, nothing judged here): gate_report, the optional pre-save gate report the request carried,
-        must name this content (gate_report_of); it is kept under :g:<save_id> and its digest goes into the saved
-        document as gate_report_sha256 (a save without one is stored exactly as before). gate(clean, gate_report), when
-        given, runs after every check of this method and before anything is written; raising RouteTableError refuses the
-        save. Nothing passes a gate in 0.5.6.
-        """
+        """Technical contract for save."""
         clean = validate_doc(doc)
         table = clean["table"]
         self._cross_check(clean)

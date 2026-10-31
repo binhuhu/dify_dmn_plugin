@@ -1,14 +1,12 @@
 (() => {
   'use strict';
-  // 路由表编辑页（v2，Brian 10-23「agenthub的插件应该要有对于场景和方案的配置能力」）：
   // 按场景列出现网定位的全部场景，每行选一个去向（方案应用 / 转安全 / 无方案）；方案应用先在「方案登记」里登记。
-  // 知识库路由不进这张表，留在侧栏配置（Brian 10-23 D8）。
   // 保存前先列改动、确认后才写（评审 T2-05）；冲突时保留草稿，可载入最新版并把自己的改动重放上去。
   // 只经本端点的 /api/* 读写插件存储（请求头带编辑口令），不执行规则、不连别的地址。DOM API + textContent 出字，不拼 HTML；
   // 口令只放本标签页的 sessionStorage。
-  // 0.5.6（WO-79）：v3 表的方案登记带登记状态——本页能看能改 status / gate_code / request_contract / topics / intents，
   // invocation_scope / priority / package_id / target_handoff 只显示、原样带回；v2 表可以「升为 v3」。存前先挡住插件一定会拒的
-  // （GATED 没写闸、CURRENT 没写请求合同 / 话题 / 诉求）。存前闸报告（WO-78）可选，粘了就随这一次保存一起发。
+  // 0.5.9（plan-v2 M-06）：场景编号两种写法都认（P_02_04_01 / M_P_02_04_01）。导入的场景目录换成本表现有的写法（插件存表时也这样换），
+  // 同一场景两种写法一起导入就拒；存后插件若换了写法，提示里说换了几处。
   const KEY_STORE = 'route-edit-key';
   const SCHEMA = 'dmn-json.route-table/v2';
   const SCHEMA_V3 = 'dmn-json.route-table/v3';
@@ -19,6 +17,8 @@
   const STATES = [['ALL', '全部'], ['SOLUTION_APP', '方案应用'], ['TRANSFER', '转安全'], ['NONE', '无方案']];
   const TYPE_LABEL = { COMPLAINT: '投诉', CONSULT: '咨询', FEEDBACK: '反馈' };
   const CONFLICT = ['ROUTE_TABLE_STALE', 'ROUTE_TABLE_RACE'];
+  const SCENE_ID = /^(M_)?P_\d{2}_\d{2}_\d{2}$/;
+  const SPELLING_LABEL = { LEGACY: '旧写法 P_', CANONICAL: '新写法 M_P_' };
   const app = document.getElementById('app');
   const base = (() => { const p = location.pathname; return p.endsWith('/') ? p : p.endsWith('/index.html') ? p.slice(0, -'index.html'.length) : p + '/'; })();
   const state = { key: readKey(), table: 'dispatch.route', loaded: false, doc: null, baseDoc: null, version: 0, draft: null, basedOn: 0, history: [],
@@ -68,7 +68,6 @@
     d.schema = SCHEMA_V3;
     for (const [id, s] of Object.entries(d.solutions)) d.solutions[id] = { name: s.name, inputs: s.inputs, ...structuredClone(DEFAULTS), ...s };
   }
-  // 0.5.5（WO-72，清晰度评审 §4）：在载入的整份文档上只改动过的字段。本页不管的键（resource_table 等）和没改的路由行原样带回；
   // 以前只写七个键，存表会丢掉 resource_table。
   function toDoc(d) {
     const base = structuredClone(d.base || {}), routes = [], kept = new Set();
@@ -127,7 +126,6 @@
     return out;
   }
   const problems = d => [...routeProblems(d), ...solutionProblems(d)];
-  // 存前闸报告（WO-78）：粘了就是一个 JSON 对象，随下一次保存发出；保存成功后清空（一份报告只对应一次保存）。
   function gateReport() {
     const text = state.gateText.trim();
     if (!text) return { ok: true, value: null };
@@ -167,7 +165,9 @@
       const r = await api('table', { ...sent, expected_version: state.version, ...(gate ? { gate_report: gate } : {}) });
       state.doc = r.doc; state.baseDoc = r.doc; state.version = r.version; state.draft = toDraft(r.doc); state.basedOn = r.version; state.conflict = false; state.gateText = '';
       state.history = (await api(q('history'))).versions;
-      state.msg = { cls: 'ok', text: '已保存第 ' + r.version + ' 版（改了 ' + n + ' 条去向，共 ' + r.doc.routes.length + ' 条路由）。现网流程下一次运行就读这一版。' };
+      state.msg = { cls: 'ok', text: '已保存第 ' + r.version + ' 版（改了 ' + n + ' 条去向，共 ' + r.doc.routes.length + ' 条路由）。现网流程下一次运行就读这一版。'
+        + (r.respelled_count ? ' 插件按本表写法换了 ' + r.respelled_count + ' 处场景编号。' : '')
+        + (r.scene_spelling_was ? ' 整张表的场景编号从' + SPELLING_LABEL[r.scene_spelling_was] + '换成' + SPELLING_LABEL[r.scene_spelling] + '。' : '') };
     } catch (e) {
       // 草稿原样保留；冲突时给「载入最新版并保留我的改动」，校验错误定位到出错的那一行。
       state.conflict = CONFLICT.includes(e.code);
@@ -230,12 +230,23 @@
     const v = parse(text); if (!v || !state.draft) return;
     const rows = Array.isArray(v) ? v : v.scenes && !Array.isArray(v.scenes) ? Object.entries(v.scenes).map(([scene_id, s]) => ({ scene_id, ...s }))
       : Array.isArray(v.scenes) ? v.scenes : Object.entries(v).map(([scene_id, s]) => ({ scene_id, ...s }));
-    const scenes = {};
-    for (const r of rows) if (r && /^P_\d{2}_\d{2}_\d{2}$/.test(r.scene_id || '') && r.name && r.domain) scenes[r.scene_id] = { name: String(r.name), domain: String(r.domain) };
+    const scenes = {}, seen = {};
+    const ids = [...Object.keys(state.draft.scenes), ...[...state.draft.routes.keys()].map(k => k.split('|')[0])];
+    const canonical = ids.length && ids.every(x => x.startsWith('M_')), legacy = ids.length && ids.every(x => !x.startsWith('M_'));
+    let respelled = 0;
+    for (const r of rows) {
+      if (!(r && SCENE_ID.test(r.scene_id || '') && r.name && r.domain)) continue;
+      const bare = r.scene_id.replace(/^M_/, '');
+      if (seen[bare] !== undefined && seen[bare] !== r.scene_id) { state.msg = { cls: 'bad', text: '目录里 ' + seen[bare] + ' 和 ' + r.scene_id + ' 是同一个场景的两种写法，只能留一个。' }; paint(); return; }
+      seen[bare] = r.scene_id;
+      const sid = canonical ? 'M_' + bare : legacy ? bare : r.scene_id;
+      respelled += sid !== r.scene_id;
+      scenes[sid] = { name: String(r.name), domain: String(r.domain) };
+    }
     if (!Object.keys(scenes).length) { state.msg = { cls: 'bad', text: '没认出场景：每项要有 scene_id、name、domain。' }; paint(); return; }
     state.draft.scenes = scenes; state.confirming = false;
     const orphan = routeProblems(state.draft);
-    state.msg = { cls: orphan.length ? 'bad' : 'warn', text: '场景目录换成 ' + Object.keys(scenes).length + ' 个场景，还没保存。' + (orphan.length ? ' 有 ' + orphan.length + ' 条路由指向目录里没有的场景，保存前先改掉：' + orphan.slice(0, 6).map(x => x[0].split('|')[0]).join('，') : '') };
+    state.msg = { cls: orphan.length ? 'bad' : 'warn', text: '场景目录换成 ' + Object.keys(scenes).length + ' 个场景，还没保存。' + (respelled ? '（按本表写法换了 ' + respelled + ' 个场景编号）' : '') + (orphan.length ? ' 有 ' + orphan.length + ' 条路由指向目录里没有的场景，保存前先改掉：' + orphan.slice(0, 6).map(x => x[0].split('|')[0]).join('，') : '') };
     paint();
   }
   function addSolution() {
@@ -277,7 +288,6 @@
       c.schema ? el('li', { text: '表格式 ' + (c.before.schema === SCHEMA ? 'v2' : c.before.schema) + ' 升为 v3（方案登记带状态、闸、请求合同、话题、诉求）' }) : null];
     return el('ul', { cls: 're-list' }, items.slice(0, 300));
   }
-  // 一项登记改了哪些字段：「状态 GATED → CURRENT；闸 ESE_… → （无）」。
   const shown = v => v == null || (Array.isArray(v) && !v.length) ? '（无）' : Array.isArray(v) ? v.join(' ') : String(v);
   function fieldChanges(a, b) {
     const out = Object.keys(FIELD_LABEL).filter(k => canon(a[k]) !== canon(b[k])).map(k => FIELD_LABEL[k] + ' ' + shown(a[k]) + ' → ' + shown(b[k]));
@@ -356,7 +366,6 @@
       state.confirming ? el('p', { cls: 're-warn', text: '确认后立即生效：读这张表的现网流程，下一次运行就按新表走。' }) : null,
       state.confirming ? null : el('label', { cls: 're-field' }, el('span', { text: '改动说明（必填）' }), el('textarea', { id: 're-note', rows: '2', text: d.note })),
       state.confirming ? el('p', {}, '改动说明：' + d.note) : null,
-      // WO-78 接入点：存前闸报告（可选）。插件只核它写的 content_sha256 是不是这次要存的内容，并记下摘要；闸本身不在本页。
       state.confirming ? (state.gateText.trim() ? el('p', { cls: 're-muted', text: '随这次保存发出存前闸报告（插件核内容摘要并记下）。' }) : null)
         : el('details', { open: !!state.gateText.trim() }, el('summary', { text: '存前闸报告（可选，WO-78）' }),
           el('textarea', { id: 're-gate', rows: '3', 'aria-label': '存前闸报告 JSON', placeholder: '{"status": "PASS", "content_sha256": "…", …}', text: state.gateText })),

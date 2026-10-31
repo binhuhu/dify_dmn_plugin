@@ -1,28 +1,4 @@
-"""Stored tables other than route tables (0.5.3, WO-29): the same storage, CAS and history as dispatch.route.
-
-The 分诊 TRIAGE workflow (app 0f34962a; DISPATCH is its legacy key) runs 受理 -> 补充 -> 方案路由 / 资源路由 (Brian 10-28
-「这个应该triage吧，子流程是受理-补充，方案路由/资源路由」). Three of its tables live in this plugin's tool storage next to
-the route table, each saved, versioned and read back exactly like it (StorageTables in route_table.py):
-
-    dmn-json.decision-table/v1          format decision-table/v1           table p2.<app_id> | target.<name> | triage.<name>
-        p2.<app_id>: a solution's P2 acceptance table. The definition stays with the solution team (decision 2026-10-28
-        「方案从 P4 起，P1 至 P3 只核回执」 §5: P2 表的定义仍归方案维护，但在 DISPATCH 受理步求值); TRIAGE evaluates it here.
-        target.<name> / triage.<name> (0.5.5, WO-72; Brian 10-29「场景关联实体要策略配置化 同样受理  路由也是」): a policy
-        table of the 定位 TARGET or 分诊 TRIAGE workflow (target.scene_entity, triage.acceptance), owner.app_id = that
-        workflow's app. The names are a closed set (POLICY_OWNERS); any other name is STORED_TABLE_NAME.
-        owner {app_id, team, name}, model_ref "<id>@<version>", model = one service-decision-table-v1 model with literal
-        result data and no actions, at most MAX_RULES (512) rules.
-    dmn-json.supplement-requirements/v1 format supplement-requirements/v1  table supplement.<name>
-        Per scene: NONE (nothing to collect), REQUIRED (items to collect, each with a prompt key) or UNDECLARED (with the gap
-        code). A scene the table does not list reads UNDECLARED / SUPPLEMENT_UNDECLARED, never NONE.
-    dmn-json.resource-targets/v1        format resource-targets/v1         table <name>.resource
-        The resource-routing targets (自助 SELF_SERVICE / 人工 HUMAN / 专组 SPECIALIST / 安全 SAFETY), each with its entry
-        (an AgentHub app, a queue, or the SAFETY transfer) or null while TO_CONFIRM. Route rows name them as
-        {"kind": "RESOURCE", "resource_id": ...}; route_tables lists the route tables that may name them.
-
-evaluate_stored(table, format, inputs, load) is the read path of the evaluate_stored_table tool: a decision table is
-evaluated (hit policy, rule trace, literal result data), a supplement table answers one scene, a resource table one target.
-"""
+"""Typed stored policy, supplement, and resource tables using shared versioned storage."""
 
 import hashlib
 import json
@@ -31,20 +7,22 @@ import re
 import rfc8785
 
 from dmn_client.decision_executor import PROFILE
-from dmn_client.json_table import OPS, condition, equal
+from dmn_client.json_table import OPS, equal
 from dmn_client.route_table import (
     CODE_RE,
-    SCENE_RE,
     STABLE_RE,
     TABLE_RE,
     TRANSFER_TO,
     UUID_RE,
     RouteTableError,
     _need,
+    _scene_keys,
     _text,
     canon,
     digest,
 )
+from dmn_client.scene_id import by_scene, identity_key, is_scene
+from dmn_client.scene_spelling import scene_state
 
 SCHEMA_DECISION = "dmn-json.decision-table/v1"
 SCHEMA_SUPPLEMENT = "dmn-json.supplement-requirements/v1"
@@ -352,11 +330,12 @@ def _validate_supplement(doc):
         "scenes = 场景编号 → 补充要求，1–%d 个" % MAX_SUPPLEMENT_SCENES,
         "scenes",
     )
+    _scene_keys(raw, "scenes")
     scenes = {}
     for sid in sorted(raw):
         p, row = "scenes." + str(sid)[:16], raw[sid]
         _need(
-            type(sid) is str and SCENE_RE.match(sid),
+            is_scene(sid),
             "SUPPLEMENT_TABLE_INVALID",
             "场景编号格式不对（P_xx_xx_xx）",
             p,
@@ -425,8 +404,9 @@ def _validate_supplement(doc):
 
 
 def supplement_row(doc, scene_id):
-    """The scene's requirement; a scene the table does not list is UNDECLARED (SUPPLEMENT_UNDECLARED), never NONE."""
-    row = doc["scenes"].get(scene_id)
+    """The scene's requirement; a scene the table does not list is UNDECLARED (SUPPLEMENT_UNDECLARED), never NONE.
+    0.5.9: the key is looked up in either spelling; the answer names the scene as it was asked."""
+    row = by_scene(doc["scenes"]).get(scene_id)
     if row is None:
         return {
             "scene_id": scene_id,
@@ -680,7 +660,7 @@ def _rule_state(rule, params):
         elif record is None:
             states.append("UNKNOWN")
         else:
-            states.append(condition(c, {"parameters": params})["state"])
+            states.append(scene_state(c, params))
     return "FALSE" if "FALSE" in states else "UNKNOWN" if "UNKNOWN" in states else "TRUE"
 
 
@@ -748,8 +728,18 @@ def evaluate_decision_table(doc, inputs):
         "ignored_parameters": sorted(set(given) - set(model["parameters"]))
         if type(given) is dict
         else [],
-        "inputs_digest": digest(params),
+        "inputs_digest": digest(_identity(params)),
     }
+
+
+def _identity(params):
+    """0.5.9 (plan-v2 D1): a digest over a scene id eats its legacy form (identity_key), so one question asked in either
+    spelling has one inputs_digest; legacy parameters are returned as they are (the 0.5.8 digest)."""
+    record = params.get("scene_id")
+    if type(record) is not dict or not is_scene(record.get("value")):
+        return params
+    key = identity_key(record["value"])
+    return params if key == record["value"] else dict(params, scene_id=dict(record, value=key))
 
 
 def evaluate_stored(table, fmt, inputs, load):
@@ -820,7 +810,7 @@ def evaluate_stored(table, fmt, inputs, load):
         elif fmt == FORMAT_SUPPLEMENT:
             sid = inputs.get("scene_id")
             _need(
-                set(inputs) == {"scene_id"} and type(sid) is str and SCENE_RE.match(sid),
+                set(inputs) == {"scene_id"} and is_scene(sid),
                 "INPUT_INVALID",
                 "inputs = scene_id",
                 "scene_id",

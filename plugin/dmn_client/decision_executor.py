@@ -17,6 +17,7 @@ from dmn_client.bindings import bind_inputs
 from dmn_client.json_table import condition, equal
 from dmn_client.node_contract import ContractError, decode_object, make_result, prepare_invocation
 from dmn_client.route_table import RouteTableError, materialize
+from dmn_client.scene_spelling import scene_state
 
 PROFILE = "service-decision-table-v1"
 BLOCKING = {
@@ -126,7 +127,7 @@ def validate_snapshot(prepared):
     return model, params
 
 
-def _rule(rule, params):
+def _rule(rule, params, scene_aware=False):
     states = []
     for predicate in rule["when"]:
         path = predicate["path"]
@@ -142,13 +143,15 @@ def _rule(rule, params):
         record = params.get(path[1])
         if path[2] == "value" and (record is None or record["quality"] != "KNOWN"):
             state = "UNKNOWN"
+        elif scene_aware:  # 0.5.9: a stored route table matches a scene id in either spelling
+            state = scene_state(predicate, params)
         else:
             state = condition(predicate, {"parameters": params})["state"]
         states.append(state)
     return "FALSE" if "FALSE" in states else "UNKNOWN" if "UNKNOWN" in states else "TRUE"
 
 
-def _select(model, params, trace):
+def _select(model, params, trace, scene_aware=False):
     policy = model["hit_policy"]
     if model["profile"] != PROFILE or policy not in ("UNIQUE", "FIRST", "COLLECT"):
         fail("UNSUPPORTED_RULE_SEMANTICS", "Only the declared service profile U/F/C is supported.")
@@ -167,7 +170,7 @@ def _select(model, params, trace):
                 fail("INVALID_MODEL", "exists/is_null operands must be boolean.")
             if predicate["op"] == "in" and type(predicate["value"]) is not list:
                 fail("INVALID_MODEL", "in requires an array operand.")
-        state = _rule(rule, params)
+        state = _rule(rule, params, scene_aware)
         trace["rules"].append({"rule_id": rule["rule_id"], "match": state})
         # Continue collecting a complete diagnostic trace after FIRST selection,
         # without allowing later unknowns to change the already selected result.
@@ -428,7 +431,7 @@ def evaluate_decision(
         source = next((s for s in stored if s["model_ref"] == prepared["node"]["model_ref"]), None)
         if source is not None:
             trace["model_source"] = source
-        templates = _select(model, params, trace)
+        templates = _select(model, params, trace, scene_aware=source is not None)
         decision = _render(prepared, templates, params)
         return make_result(ref, context, "SUCCEEDED", outputs={"decision": decision}, trace=trace)
     except ContractError as exc:

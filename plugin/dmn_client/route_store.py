@@ -1,26 +1,10 @@
-"""Route-table store operations, shared by the editor endpoint and the route_table_store tool.
-
-AgentHub probe of 0.5.1 (ESE_sd, 2026-10-23): a table saved through the editor endpoint (version 1, read back inside
-the endpoint) was never visible to evaluate_decision in a workflow - seven runs, ROUTE_TABLE_MISSING each time. On
-that host an endpoint and a tool of the same plugin do not see the same plugin storage. Workflow tools are what read
-routes at run time, so the table has to live in tool storage: the route_table_store tool runs these operations from
-a workflow ("路由表维护" app), and the editor endpoint, when its store_app_id setting names that app, forwards its
-API calls to it instead of using its own storage.
-
-run_op returns (http_status, body) with the editor API's body shapes, so the endpoint can pass results through.
-0.5.3 (WO-29): the same operations save and read the stored tables of dmn_client.stored_tables (decision-table/v1 under
-p2.<app_id>, supplement-requirements/v1 under supplement.*, resource-targets/v1 under *.resource), with the same CAS.
-0.5.5 (WO-72): decision-table/v1 also under the policy names target.<name> (owner 定位 TARGET) and triage.<name> (owner
-分诊 TRIAGE); operations, body limit and responses unchanged.
-0.5.6 (WO-79): route tables also as dmn-json.route-table/v3 (the v2 keys; solutions carry the registry). A save body may carry
-gate_report (WO-78's pre-save gate report, optional): it is not part of the table; StorageTables.save binds it to the content
-and records it. Operations, body limit and responses otherwise unchanged.
-"""
+"""Shared stored-table operations and maintenance-application forwarding."""
 
 import json
 
 from dmn_client.client import EngineError, json_object
-from dmn_client.route_table import ROUTE_SCHEMAS, UUID_RE, RouteTableError, StorageTables
+from dmn_client.route_table import ROUTE_SCHEMAS, TABLE_RE, UUID_RE, RouteTableError, StorageTables
+from dmn_client.scene_spelling import respell
 from dmn_client.stored_tables import KEYS
 
 OPS = ("table", "history", "version", "save")
@@ -76,10 +60,18 @@ def run_op(storage, op, table=DEFAULT_TABLE, version=None, body=None):
             doc = {k: body.get(k) for k in keys}
             if doc.get("resource_table") is None:
                 doc.pop("resource_table", None)
+            name = doc.get("table")
+            current = tables.load(name) if type(name) is str and TABLE_RE.match(name) else None
+            doc, spelled = respell(doc, current)
             saved = tables.save(
                 doc, body.get("expected_version"), gate_report=body.get("gate_report")
             )
-            return 200, {"table": saved["table"], "version": saved["version"], "doc": saved}
+            return 200, {
+                "table": saved["table"],
+                "version": saved["version"],
+                "doc": saved,
+                **spelled,
+            }
         return error(404, "NOT_FOUND", "接口不存在")
     except RouteTableError as exc:
         return error(409 if exc.code in CONFLICT else 400, exc.code, exc.message, exc.path)

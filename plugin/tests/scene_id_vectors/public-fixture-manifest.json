@@ -1,0 +1,9 @@
+{
+  "schema": "scene-id-public-fixture-manifest/v1",
+  "upstream_grammar": "scene-id-grammar/v1@2a9bd8d0c0f92f0b52549fc591ae0353b3a1b4726cdf8a6ba035f27365c085f1",
+  "PUBLIC_FIXTURE_SHA256": "391870bb501ffa0f4e854f761e1001df7e4cdab40bc5b313abb00a47550c56c1",
+  "cases": 1436,
+  "groups": 22,
+  "deferred_external_cases": 37,
+  "derivation": "Public synthetic derivative, not the upstream contract file. Non-executable metadata removed; labels and date-like suffixes replaced consistently, retaining separators, character classes, operations and expected outcomes."
+}
