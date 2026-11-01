@@ -116,7 +116,7 @@ def _check_json_tree(value: Any) -> None:
 
 
 def strict_json_loads(raw: str | bytes) -> Any:
-    # Explicit UTF-8 prevents Python's JSON reader auto-detecting UTF-16/32.
+
     text = raw.decode("utf-8") if isinstance(raw, bytes) else raw
     value = json.loads(
         text,

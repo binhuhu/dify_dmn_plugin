@@ -1,32 +1,4 @@
-"""Misplaced nodes and failure handling: the ESE five-level rules F06–F09 and L5, and N4.
-
-AgentHub solution-app/v1 §3 has both lines run psn check, so the ESE line's misplacement
-rules live here too. Source: ESE_monorepo origin/master f3e20d7c, ``50_ticket/40_五级结构/``
-``核对规则.json`` (F06–F09), ``五级骨架.json`` (the DELIVERY step table) and the checker
-``60_application/gate/五级结构检查.js`` (lines 121–149). The standard's own N4 (a fetch never
-falls back to a default value) is checked for SOLUTION. Every code here is WARN by default.
-
-Where the standard and F09 differ, the standard wins (it says so of every document it names;
-settled for this rule 2026-10-23): a SOLUTION may call fetch and fact apps as workflow tools
-(D table), in P1.S1 only (C6), while F09 forbids workflow calls in SOLUTION outright.
-Since 2026-10-28 a solution starts its own work at P4 and fetches the facts P4 reads itself, at
-the start of P4 (decision 00_governance/contracts/decisions/2026-10-28_方案从P4起_P1至P3只核回执.md;
-solution-app/v1 1.0.9 C12): a SOLUTION may also call a fetch app (workflow tool) or fetch over
-http-request in P4.S1. Nothing else moves: no model, loop, knowledge or other tool in P4.S1, no
-fetch in any other P4 step, and N4 holds for these fetches too.
-
-Categories follow the ESE ``类别表.json``:
-- a workflow tool is a CALL, and so is the dmn_json tool invoke_solution (it runs a solution app);
-- any other tool that is not the decision plugin, an http-request and knowledge-retrieval are
-  fetches (ESE: 取数类 CALL);
-- an http-request whose url holds the registered model path, or whose title says 模型识读, is a
-  MODEL, like llm / agent nodes.
-
-Only the categories the rule texts name are placed. TRANSFORM, JOIN, GATE and EVENT may sit
-anywhere. The skeleton's own per-step TRANSFORM / JOIN lists describe ESE's step layout and are
-not carried over. F10 (PREDICT) and F12 (EVIDENCE) govern workflows that psn-structure/v1 has no
-family for, and HANDLE and KNOWLEDGE have no ESE rule, so those entries are not checked.
-"""
+"""Placement."""
 
 from __future__ import annotations
 
@@ -39,8 +11,6 @@ from .graph import dify_kind, is_dmn, is_dmn_call
 # Where each placed category may sit, by family: a step id, or a phase id meaning any of its
 # steps. An empty set means nowhere; a category left out may sit anywhere.
 PLACES = {
-    # F06. The CALL steps come from 五级骨架.json, which the ESE checker reads; 核对规则.json
-    # still names O1.S2 instead of O1.S1 and O1.S3.
     "DELIVERY": {
         "DECISION": {"O2.S3"},
         "CALL": {"O1.S1", "O1.S3", "O2.S1", "O3.S2", "O4.S1"},
@@ -48,9 +18,7 @@ PLACES = {
         "MODEL": {"O5.S1"},
         "LOOP": {"O6.S1"},
     },
-    # F07.
     "TARGET": {"MODEL": {"T2.S1"}, "FETCH": {"T3.S1"}, "CALL": set()},
-    # F08.
     "DISPATCH": {
         "DECISION": {"D1.S2"},
         "CALL": set(),
@@ -58,10 +26,6 @@ PLACES = {
         "MODEL": set(),
         "LOOP": set(),
     },
-    # F09. A SOLUTION model must also be a registered model-reading cell, see _reading_cell.
-    # Workflow calls: P1.S1 per solution-app/v1 (D table, C6) instead of F09's "none", and P4.S1
-    # since 2026-10-28 (the solution fetches its P4 facts itself; see the module note and
-    # P4_FETCH); which app is called is not checked against a registry.
     "SOLUTION": {
         "FETCH": {"P1.S1"},
         "LOOP": {"P1.S1"},
@@ -70,16 +34,16 @@ PLACES = {
         "CALL": {"P1.S1", "P4.S1"},
     },
 }
-# 2026-10-28 (方案从 P4 起, solution-app/v1 1.0.9 C12): the P4 fact fetch of a SOLUTION, in P4.S1 only:
+
 # a workflow tool (CALL, placed above) or an http-request fetch (not a model-reading one, not
 # knowledge retrieval, not another plugin tool).
 P4_FETCH = {"SOLUTION": "P4.S1"}
 RULE = {"DELIVERY": "F06", "TARGET": "F07", "DISPATCH": "F08", "SOLUTION": "F09"}
-# F06 and F08: no http-request at all, even one that calls a model.
+
 NO_HTTP = {"DELIVERY", "DISPATCH"}
-# F06 and F08: code nodes do not carry scene definitions.
+
 SCENE_FREE = {"DELIVERY", "DISPATCH"}
-# L5: these categories need failure handling.
+
 FAILABLE = {"CALL", "FETCH", "MODEL", "DECISION"}
 LABEL = {
     "DECISION": "decision",
@@ -92,17 +56,17 @@ LABEL = {
 MODEL_URL_MARKS = ("/chat/completion",)
 MODEL_TITLE_MARK = "模型识读"
 LOOP_TYPES = {"iteration", "loop"}
-# The keys the ESE scene-card compiler writes for conditions and snapshots.
+
 _SCENE_KEYS = re.compile(
     r'"(场景最小参数集|必要成立条件|预判成立条件|充分成立条件|条件表|必要快照表)"'
 )
-# The ESE packer hides data snapshots in gzip + base64 blocks inside code; read those too.
+
 _PACKED = re.compile(r"gunzipSync\(Buffer\.from\(\"([A-Za-z0-9+/=]+)\",'base64'\)\)")
 _UNPACK_LIMIT = 16 * 1024 * 1024
 
 
 def category(data: dict):
-    """ESE category of a Dify node for placement, or None when no rule places it."""
+    """Category."""
     node_type = data.get("type")
     if node_type == "tool":
         if is_dmn(data):
@@ -214,7 +178,7 @@ def _allowed(places: set, step: str) -> bool:
 
 
 def _p4_fetch(family, data: dict, cat, step: str) -> bool:
-    """An http-request fetch in a SOLUTION's P4.S1 (2026-10-28; workflow calls are placed in PLACES)."""
+    """p4 fetch."""
     return P4_FETCH.get(family) == step and cat == "FETCH" and data.get("type") == "http-request"
 
 
@@ -237,24 +201,20 @@ def parent_node(node: dict, nodes: dict):
 
 
 def _reading_cell(node: dict, nodes: dict) -> bool:
-    """A registered model-reading cell: marked as one and inside a fetch loop (ESE F09).
-
-    The ESE checker also wants the cell to be an http-request. The rule text and solution-app/v1
-    N6 name no node type, and the ESE line's own published coupon app reads with an llm node.
-    """
+    """reading cell."""
     parent = parent_node(node, nodes)
     in_loop = parent is not None and parent["data"].get("type") in LOOP_TYPES
     return in_loop and _model_marked(node["data"])
 
 
 def _silent_fetch(data: dict, cat, step: str) -> bool:
-    """N4: an http-request, or a workflow call in P1.S1 or P4.S1 (a fetch app), set to default-value."""
+    """silent fetch."""
     fetch = data.get("type") == "http-request" or (cat == "CALL" and step in ("P1.S1", "P4.S1"))
     return fetch and data.get("error_strategy") == "default-value"
 
 
 def _handles_failure(node_id: str, node: dict, nodes: dict, out_edges) -> bool:
-    """L5: a fail-branch edge, a default-value, or a place inside a continue-on-error loop."""
+    """handles failure."""
     if any(e.get("sourceHandle") == "fail-branch" for e in out_edges.get(node_id, [])):
         return True
     if node["data"].get("error_strategy") == "default-value":

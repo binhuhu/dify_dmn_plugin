@@ -797,12 +797,7 @@ def _activation_payload(digest, node_ref, inputs, context, expires):
 
 
 def sign_activation(digest, node_ref, inputs, context, expires, key):
-    """SYNTHETIC loopback fixture signing helper, never production authorization.
-
-    Tokens bind test inputs but cannot prove live host activation or revocation.
-    The env loader accepts these only with SYNTHETIC and all-loopback endpoints.
-    Real integrations require a trusted Python deployment authorization callback.
-    """
+    """Sign activation."""
     signature = hmac.new(
         key.encode(),
         _activation_payload(digest, node_ref, inputs, context, expires),
@@ -860,8 +855,7 @@ def load_query_deployment():
             try:
                 endpoint = urlsplit(operation["url"])
                 address = ipaddress.ip_address(endpoint.hostname)
-                # Mapped IPv6 addresses are intentionally not treated as loopback:
-                # no DNS aliases, unusual integer forms, zones, or rebinding.
+
                 if (
                     not address.is_loopback
                     or "%" in endpoint.hostname

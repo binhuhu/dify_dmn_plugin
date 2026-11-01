@@ -1,4 +1,4 @@
-"""0.5.11 explicit rollback; real old reader and cross-language boundary checks."""
+"""Test supplement rollback."""
 
 import copy
 import io
@@ -21,6 +21,9 @@ ROOT = Path(__file__).resolve().parents[2]
 RELEASE = ROOT / "plugin/tests/supplement_fixtures"
 
 
+OLD_READER = "df9e6fcc86b200c244f5c66e215a41c291fa6188"
+
+
 def save(storage, raw, version, flag=None):
     b = {**raw, "expected_version": version}
     if flag is not None:
@@ -38,7 +41,7 @@ def v1(raw):
 
 def test_nonempty_head_rejects_downgrade_and_stale_wins():
     s, raw = FakeStorage(), doc()
-    raw["scenes"]["P_99_01_01"] = {"state": "NONE", "basis": "synthetic", "associations": []}
+    raw["scenes"]["P_01_01_01"] = {"state": "NONE", "basis": "synthetic", "associations": []}
     assert save(s, raw, 0)[0] == 200
     before = copy.deepcopy(s.data)
     assert (
@@ -55,11 +58,11 @@ def test_explicit_lossless_downgrade_audit_history_and_real_old_reader(tmp_path)
     assert save(s, raw, 1)[0] == 200
     prior = {k: v for k, v in s.data.items() if ":v" in k}
     empty = copy.deepcopy(raw)
-    empty["scenes"]["P_99_04_01"]["associations"] = []
+    empty["scenes"]["P_02_04_01"]["associations"] = []
     assert save(s, empty, 2)[0] == 200
     assert save(s, v1(empty), 3)[1]["error"]["code"] == "STORED_TABLE_SCHEMA_CHANGED"
     altered = v1(empty)
-    altered["scenes"]["P_99_04_01"]["basis"] = "changed"
+    altered["scenes"]["P_02_04_01"]["basis"] = "changed"
     assert (
         save(s, altered, 3, SUPPLEMENT_DOWNGRADE)[1]["error"]["code"]
         == "SUPPLEMENT_DOWNGRADE_CONTENT_CHANGED"
@@ -79,12 +82,10 @@ def test_explicit_lossless_downgrade_audit_history_and_real_old_reader(tmp_path)
     assert all(s.data[k] == v for k, v in prior.items())
     assert StorageTables(s).history(raw["table"])[0]["schema_transition"] == audit
     assert StorageTables(s).version(raw["table"], 4)["schema_transition"] == audit
-    archive = subprocess.check_output(
-        ["git", "archive", "df9e6fcc86b200c244f5c66e215a41c291fa6188", "plugin"], cwd=ROOT
-    )
+    archive = subprocess.check_output(["git", "archive", OLD_READER, "plugin"], cwd=ROOT)
     with tarfile.open(fileobj=io.BytesIO(archive)) as tar:
         tar.extractall(tmp_path, filter="data")
-    code = "import json,sys;from dmn_client.stored_tables import evaluate_stored;x=json.load(sys.stdin);print(json.dumps(evaluate_stored(x['table'],'supplement-requirements/v1',{'scene_id':'P_99_04_01'},lambda _:x)))"
+    code = "import json,sys;from dmn_client.stored_tables import evaluate_stored;x=json.load(sys.stdin);print(json.dumps(evaluate_stored(x['table'],'supplement-requirements/v1',{'scene_id':'P_02_04_01'},lambda _:x)))"
     out = json.loads(
         subprocess.check_output(
             [sys.executable, "-c", code],
@@ -98,7 +99,7 @@ def test_explicit_lossless_downgrade_audit_history_and_real_old_reader(tmp_path)
         )
     )
     assert out["status"] == "SUCCEEDED" and "associations" not in out["result"]
-    assert out["result"]["state"] == raw["scenes"]["P_99_04_01"]["state"]
+    assert out["result"]["state"] == raw["scenes"]["P_02_04_01"]["state"]
 
 
 def test_flag_on_wrong_transition_and_corrupt_head_fail_without_writes():
@@ -110,7 +111,7 @@ def test_flag_on_wrong_transition_and_corrupt_head_fail_without_writes():
     assert not s.data
     assert save(s, raw, 0)[0] == 200
     corrupt = copy.deepcopy(StorageTables(s).load(raw["table"]))
-    corrupt["scenes"]["P_99_04_01"]["associations"][0]["label"] = "bad\u2028label"
+    corrupt["scenes"]["P_02_04_01"]["associations"][0]["label"] = "bad\u2028label"
     s.data[StorageTables.key(raw["table"])] = json.dumps(corrupt).encode()
     before = copy.deepcopy(s.data)
     assert save(s, v1(raw), 1, SUPPLEMENT_DOWNGRADE)[1]["error"]["code"] == "ASSOCIATION_SHAPE"
@@ -167,9 +168,9 @@ def test_offline_preflight_checks_every_row_and_refuses_summary_or_bad_digest(tm
     report = module.inspect(p)
     assert report["status"] == "PASS" and report["row_count"] == 1
     broken = copy.deepcopy(saved["doc"])
-    row = copy.deepcopy(broken["scenes"]["P_99_04_01"])
+    row = copy.deepcopy(broken["scenes"]["P_02_04_01"])
     row["associations"][0]["label"] = "not visible\u200b"
-    broken["scenes"]["P_99_01_01"] = row
+    broken["scenes"]["P_01_01_01"] = row
     p.write_text(json.dumps(broken))
     assert module.inspect(p)["error_code"] == "ASSOCIATION_SHAPE"
     broken = copy.deepcopy(saved["doc"])

@@ -24,7 +24,7 @@ def results(state, phase=None, kind=None):
 
 
 def test_independent_locate_and_direct_solve(tmp_path):
-    """AC-001: direct entry, no hidden locate, no business action."""
+    """Test independent locate and direct solve."""
     with demo.fixture_server() as (url, calls):
         host, sent = demo.make_runtime(tmp_path / "locate.sqlite", url)
         located = demo.start(host, "demo.locate", {})
@@ -57,7 +57,7 @@ def test_independent_locate_and_direct_solve(tmp_path):
 
 
 def test_fast_event_real_http_decision_branch_and_reentry(tmp_path):
-    """AC-012/013/034/039/043/046: production executors, localhost fixture data."""
+    """Test fast event real http decision branch and reentry."""
     with demo.fixture_server() as (url, calls):
         host, sent = demo.make_runtime(tmp_path / "fast.sqlite", url, fast_answer=False)
         state = demo.start(host)
@@ -101,7 +101,7 @@ def test_fast_event_real_http_decision_branch_and_reentry(tmp_path):
 
 
 def test_wait_checkpoint_new_host_resume_not_completed_on_send(tmp_path):
-    """AC-004/049/051: sent is not answered; SQLite resume uses same Step identity."""
+    """Test wait checkpoint new host resume not completed on send."""
     with demo.fixture_server() as (url, calls):
         path = tmp_path / "resume.sqlite"
         host, sent = demo.make_runtime(path, url)
@@ -130,7 +130,7 @@ def test_wait_checkpoint_new_host_resume_not_completed_on_send(tmp_path):
 
 @pytest.mark.parametrize("operation", ["ticket", "history"])
 def test_query_failure_is_technical_and_join_exits_once(tmp_path, operation):
-    """AC-042/045: failure cannot fabricate business refusal or run the decision."""
+    """Test query failure is technical and join exits once."""
     with demo.fixture_server(failing_operation=operation) as (url, calls):
         host, sent = demo.make_runtime(tmp_path / "failure.sqlite", url)
         state = demo.start(host)
@@ -187,7 +187,7 @@ def test_unknown_required_p2_blocks_without_query(tmp_path):
 
 
 def test_reentry_exhaustion_uses_technical_terminal(tmp_path):
-    """AC-050: one-attempt policy routes the answered retry to exhaustion, not P4."""
+    """Test reentry exhaustion uses technical terminal."""
     bundle = demo.read_json("definition-bundle.json")
     p3 = bundle["workflows"][1]["phases"][2]["steps"][0]
     p3["max_attempts"] = 1
@@ -202,7 +202,7 @@ def test_reentry_exhaustion_uses_technical_terminal(tmp_path):
 
 
 def test_wait_rejects_wrong_subject_before_valid_resume(tmp_path):
-    """AC-048: host auth fixture is out-of-band; altered event cannot advance."""
+    """Test wait rejects wrong subject before valid resume."""
     with demo.fixture_server() as (url, calls):
         host, sent = demo.make_runtime(tmp_path / "subject.sqlite", url)
         state = demo.start(host)

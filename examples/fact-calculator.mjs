@@ -1,4 +1,4 @@
-// L1 ESM calculator runs in the caller's trusted environment, never inside the DMN engine.
+
 // This synthetic calculator is illustrative, not a verified production fact definition.
 export function calculateAvailabilityFact(query) {
   const base = {

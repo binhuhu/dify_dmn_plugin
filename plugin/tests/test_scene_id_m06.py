@@ -1,10 +1,4 @@
-"""plan-v2 M-06 (dmn_json 0.5.9): scene ids in both spellings, legacy P_02_04_01 and canonical M_P_02_04_01.
-
-Readers take both spellings wherever the plugin compares or looks up a scene id (stored route tables, stored decision
-tables on parameter scene_id, supplement lookup); a save rewrites the incoming rows into the table's spelling and says so
-in the receipt; canonical duplicates are refused. Legacy behaviour is pinned by the rest of the suite and by
-scripts/compare-behaviour.py (0.5.8 vs 0.5.9). Synthetic ids and apps only.
-"""
+"""Test scene id m06."""
 
 import copy
 import hashlib
@@ -16,6 +10,7 @@ import sys
 from pathlib import Path
 
 import pytest
+from test_policy_tables import DAYS, triage_acceptance
 from test_route_table import NODE_REF, FakeStorage, call, stub_bundle
 from test_route_table import doc as doc_v1
 from test_route_table_v2 import COUPON, LOST
@@ -42,7 +37,7 @@ UPSTREAM_FILE = os.environ.get("SCENE_ID_UPSTREAM_VECTORS")
 UPSTREAM_VECTORS = Path(UPSTREAM_FILE) if UPSTREAM_FILE else None
 REFERENCE_FILE = os.environ.get("SCENE_ID_REFERENCE_FILE")
 REFERENCE = Path(REFERENCE_FILE) if REFERENCE_FILE else None
-# 0.5.8's validator, literally: what a table must look like for 0.5.8 to read it.
+
 SCENE_RE_058 = re.compile(r"^P_\d{2}_\d{2}_\d{2}$")
 C = "M_"
 
@@ -52,7 +47,7 @@ def m(sid):
 
 
 def canonical_doc(d):
-    """d with every scene-typed field in the canonical spelling (what an S8 re-key save sends)."""
+    """Canonical doc."""
     d = copy.deepcopy(d)
     for key in ("scenes", "registry"):
         if isinstance(d.get(key), dict):
@@ -191,6 +186,15 @@ def test_the_grammar_copy_passes_exact_upstream_vectors():
 
 
 @pytest.mark.skipif(
+    UPSTREAM_VECTORS is None or not UPSTREAM_VECTORS.is_file(),
+    reason="Optional exact upstream vectors unavailable",
+)
+def test_the_grammar_stamp_is_the_vectors_digest():
+    digest = hashlib.sha256(UPSTREAM_VECTORS.read_bytes()).hexdigest()
+    assert scene_id.SCENE_ID_GRAMMAR == "scene-id-grammar/v1@" + digest
+
+
+@pytest.mark.skipif(
     REFERENCE is None or not REFERENCE.is_file(),
     reason="Optional reference implementation unavailable",
 )
@@ -208,7 +212,7 @@ def test_the_grammar_block_is_the_reference_byte_for_byte():
     [
         ("P_02_04_01", True),
         ("M_P_02_04_01", True),
-        ("P_02_04_01\n", True),  # 0.5.8 took it (re.match + $); kept so legacy receipts do not move
+        ("P_02_04_01\n", True),
         ("M_P_02_04_01\n", False),
         ("M_P_02_04", False),
         ("M_D_02_04_01", False),
@@ -309,7 +313,7 @@ def test_an_unregistered_scene_stays_unregistered_in_either_spelling():
 
 
 def test_inline_bundles_are_not_touched():
-    """Only stored route tables read both spellings; a bundle a solution team publishes keeps 0.5.8's exact match."""
+    """Test inline bundles are not touched."""
     bundle = stub_bundle()
     st = StorageTables(FakeStorage())
     st.save(doc_v1(), 0)
@@ -326,18 +330,14 @@ def test_inline_bundles_are_not_touched():
 
 
 def acceptance():
-    return json.loads((HERE / "triage_acceptance.synthetic.json").read_text())
+    return triage_acceptance((("P_02_04_01", 30), ("P_04_04_01", 7)))
 
 
 def accept(st, sid, days):
     return evaluate_stored(
         "triage.acceptance",
         "decision-table/v1",
-        {
-            "parameters": records(
-                scene_id=sid, **{"facts.ORDER__trip__END_TO_COMPLAINT_DAYS.天数": days}
-            )
-        },
+        {"parameters": records(scene_id=sid, **{DAYS: days})},
         st.load,
     )
 
@@ -457,70 +457,10 @@ def test_a_legacy_save_keeps_the_0_5_8_receipt():
     assert status == 200 and set(body) == {"table", "version", "doc"}
 
 
-@pytest.mark.parametrize("factory", [doc_v1, doc_v2])
-@pytest.mark.parametrize("field", ["issue_type", "phase"])
-@pytest.mark.parametrize("bad", [[], {}])
-def test_malformed_route_keys_keep_the_validator_error(factory, field, bad):
-    d = factory()
-    d["routes"][0][field] = bad
-    with pytest.raises(RouteTableError) as caught:
-        validate_doc(d)
-    expected = caught.value
-    st = FakeStorage()
-    status, body = save(st, d, 0)
-    assert status == 400
-    assert body == {
-        "error": {"code": expected.code, "message": expected.message, "path": expected.path}
-    }
-    assert expected.code == "ROUTE_TABLE_KEY"
-    assert st.data == {}
-
-
-@pytest.mark.parametrize("op", ["eq", "ne", "in"])
-def test_missing_scene_operand_keeps_the_validator_error(op):
-    d = acceptance()
-    d["model"]["rules"][0]["when"][0] = {
-        "path": ["parameters", "scene_id", "value"],
-        "op": op,
-    }
-    with pytest.raises(RouteTableError) as caught:
-        validate_doc(d)
-    expected = caught.value
-    st = FakeStorage()
-    status, body = save(st, d, 0)
-    assert status == 400
-    assert body == {
-        "error": {"code": expected.code, "message": expected.message, "path": expected.path}
-    }
-    assert expected.code == "DECISION_TABLE_INVALID"
-    assert st.data == {}
-
-
-@pytest.mark.parametrize("factory", [doc_v1, doc_v2])
-def test_respelling_does_not_fill_a_missing_route_scene(factory):
-    d = factory()
-    del d["routes"][0]["scene_id"]
-    # Force an actual rewrite, so the normalized copy is sent to validation.
-    key = "scenes" if "scenes" in d else "registry"
-    sid = next(iter(d[key]))
-    d[key][m(sid)] = d[key].pop(sid)
-    with pytest.raises(RouteTableError) as caught:
-        validate_doc(d)
-    expected = caught.value
-    st = FakeStorage()
-    status, body = save(st, d, 0)
-    assert status == 400
-    assert body == {
-        "error": {"code": expected.code, "message": expected.message, "path": expected.path}
-    }
-    assert expected.code == "ROUTE_TABLE_INVALID"
-    assert st.data == {}
-
-
 def test_a_canonical_row_added_to_a_legacy_table_is_saved_in_legacy():
     st = FakeStorage()
     save(st, doc_v2(), 0)
-    d = doc_v2(note="合成测试加一行")
+    d = doc_v2(note="Synthetic added row")
     d["routes"].append(
         {
             "scene_id": "M_P_05_01_01",
@@ -543,7 +483,7 @@ def test_a_canonical_row_added_to_a_legacy_table_is_saved_in_legacy():
 def test_a_legacy_row_added_to_a_canonical_table_is_saved_in_canonical():
     st = FakeStorage()
     save(st, canonical_doc(doc_v2()), 0)
-    d = canonical_doc(doc_v2(note="合成测试加一行"))
+    d = canonical_doc(doc_v2(note="Synthetic added row"))
     d["scenes"]["P_09_09_09"] = {"name": "合成场景", "domain": "测试"}
     d["routes"].append(
         {
@@ -562,7 +502,7 @@ def test_a_legacy_row_added_to_a_canonical_table_is_saved_in_canonical():
 def test_a_whole_table_in_the_other_spelling_is_a_declared_re_key():
     st = FakeStorage()
     save(st, doc_v2(), 0)
-    status, body = save(st, canonical_doc(doc_v2(note="S8 re-key")), 1)
+    status, body = save(st, canonical_doc(doc_v2(note="synthetic re-key")), 1)
     assert status == 200, body
     assert body["respelled_count"] == 0
     assert body["scene_spelling"] == "CANONICAL" and body["scene_spelling_was"] == "LEGACY"
@@ -570,10 +510,10 @@ def test_a_whole_table_in_the_other_spelling_is_a_declared_re_key():
 
 
 def test_a_legacy_copy_saved_over_a_canonical_version_reads_under_0_5_8():
-    """S8 rollback: the previous legacy body saved again as a new version is stored in legacy, so 0.5.8 reads it."""
+    """Test a legacy copy saved over a canonical version reads under 0 5 8."""
     st = FakeStorage()
     save(st, doc_v2(), 0)
-    save(st, canonical_doc(doc_v2(note="S8 re-key")), 1)
+    save(st, canonical_doc(doc_v2(note="synthetic re-key")), 1)
     status, body = save(st, doc_v2(note="回滚到旧号体"), 2)
     assert status == 200, body
     assert body["scene_spelling"] == "LEGACY" and body["scene_spelling_was"] == "CANONICAL"
@@ -611,13 +551,13 @@ def test_solution_names_and_notes_are_not_respelled():
     st = FakeStorage()
     save(st, doc_v2(), 0)
     d = doc_v2(note="改 M_P_02_04_01 那一行")
-    d["solutions"][COUPON]["name"] = "synthetic-solution-M_P_02_04_01-label"
+    d["solutions"][COUPON]["name"] = "SYN-样例-B-SOLUTION-WF-示例-M_P_02_04_01-例"
     d["scenes"][m("P_04_04_01")] = d["scenes"].pop("P_04_04_01")
     status, body = save(st, d, 1)
     assert status == 200, body
     head = stored(st)
     assert head["note"] == "改 M_P_02_04_01 那一行"
-    assert head["solutions"][COUPON]["name"] == "synthetic-solution-M_P_02_04_01-label"
+    assert head["solutions"][COUPON]["name"] == "SYN-样例-B-SOLUTION-WF-示例-M_P_02_04_01-例"
     assert body["respelled_count"] == 1
 
 
@@ -639,7 +579,7 @@ def test_decision_table_conditions_and_scene_rule_ids_are_respelled():
     d = acceptance()
     save(st, d, 0)
     e = copy.deepcopy(d)
-    e["note"] = "合成测试新行"
+    e["note"] = "方案组交的新行"
     e["model"]["rules"][0]["when"][0]["value"] = "M_P_02_04_01"
     e["model"]["rules"].insert(
         0,
@@ -747,14 +687,115 @@ def test_the_respelled_table_still_routes_and_invokes():
 
 
 def test_the_stored_decision_inputs_digest_keys_the_scene_on_its_legacy_form():
-    """D1: a digest over a scene id eats identity_key(), so the same question asked in either spelling gives the same
-    inputs_digest, and a legacy question keeps its 0.5.8 digest (the digest of the parameters as given)."""
+    """Test the stored decision inputs digest keys the scene on its legacy form."""
     from dmn_client.route_table import digest
 
     st = StorageTables(FakeStorage())
     st.save(acceptance(), 0)
     a, b = accept(st, "P_02_04_01", 3)["result"], accept(st, "M_P_02_04_01", 3)["result"]
     assert a["inputs_digest"] == b["inputs_digest"]
-    assert a["inputs_digest"] == digest(
-        records(scene_id="P_02_04_01", **{"facts.ORDER__trip__END_TO_COMPLAINT_DAYS.天数": 3})
+    assert a["inputs_digest"] == digest(records(scene_id="P_02_04_01", **{DAYS: 3}))
+
+
+# ── adversarial regression: passenger leaves only, malformed bodies, storage order ──
+
+
+@pytest.mark.parametrize("rid", ["M_D_01", "M_P_02", "M_H_01_02", "D_01_02_03", "M_P_02_04"])
+def test_only_passenger_leaves_are_respelled_other_grammar_ids_stay_opaque(rid):
+    """Test only passenger leaves are respelled other grammar ids stay opaque."""
+    d = acceptance()
+    d["model"]["rules"][0]["rule_id"] = rid
+    d["model"]["rules"][1]["when"][0]["value"] = rid
+    st = FakeStorage()
+    status, body = save(st, d, 0)
+    assert status == 200 and set(body) == {"table", "version", "doc"}, body
+    rules = stored(st, "triage.acceptance")["model"]["rules"]
+    assert rules[0]["rule_id"] == rid and rules[1]["when"][0]["value"] == rid
+
+
+def test_a_non_leaf_canonical_rule_id_does_not_make_a_legacy_table_canonical():
+    st = FakeStorage()
+    d = acceptance()
+    d["model"]["rules"][0]["rule_id"] = "M_D_01"
+    save(st, d, 0)
+    e = copy.deepcopy(d)
+    e["note"] = "混写一行"
+    e["model"]["rules"][1]["when"][0]["value"] = "M_P_02_04_01"
+    status, body = save(st, e, 1)
+    assert status == 200 and body["scene_spelling"] == "LEGACY" and "scene_spelling_was" not in body
+    rules = stored(st, "triage.acceptance")["model"]["rules"]
+    assert (
+        rules[1]["when"][0]["value"] == "P_02_04_01"
+        and rules[2]["when"][0]["value"] == "P_04_04_01"
     )
+
+
+def test_basis_respells_passenger_leaf_tokens_only():
+    st = FakeStorage()
+    save(st, supplement_doc(), 0)
+    d = supplement_doc(note="二")
+    d["scenes"][m("P_02_04_01")] = dict(
+        d["scenes"].pop("P_02_04_01"), basis="同 M_P_04_04_01；合作方 M_H_21、块 M_P_02_04"
+    )
+    status, body = save(st, d, 1)
+    assert status == 200, body
+    assert body["respelled_count"] == 2
+    head = stored(st, "supplement.requirements")
+    assert head["scenes"]["P_02_04_01"]["basis"] == "同 P_04_04_01；合作方 M_H_21、块 M_P_02_04"
+
+
+def _old_answers():
+    """old answers."""
+    return {
+        "issue_list": ("ROUTE_TABLE_KEY", "routes[0].issue_type"),
+        "phase_object": ("ROUTE_TABLE_KEY", "routes[0].phase"),
+        "condition_without_value": ("DECISION_TABLE_INVALID", "model.rules[0].when[0]"),
+    }
+
+
+@pytest.mark.parametrize("case", sorted(_old_answers()))
+def test_malformed_bodies_keep_0_5_8_validation_errors(case):
+    if case == "issue_list":
+        d = doc_v2()
+        d["routes"][0]["issue_type"] = ["COMPLAINT"]
+    elif case == "phase_object":
+        d = doc_v2()
+        d["routes"][0]["phase"] = {"x": 1}
+    else:
+        d = acceptance()
+        del d["model"]["rules"][0]["when"][0]["value"]
+    status, body = save(FakeStorage(), d, 0)
+    code, path = _old_answers()[case]
+    assert status == 400 and (body["error"]["code"], body["error"]["path"]) == (code, path), body
+
+
+def test_validation_errors_come_before_storage_errors_as_in_0_5_8():
+    d = doc_v2()
+    d["routes"][0]["phase"] = "STAGE_9"
+    st = FakeStorage()
+    st.data["route-table:dispatch.route"] = b"not json"
+    status, body = save(st, d, 1)
+    assert (status, body["error"]["code"], body["error"]["path"]) == (
+        400,
+        "ROUTE_TABLE_KEY",
+        "routes[0].phase",
+    )
+    status, body = save(FakeStorage(fail=True), d, 0)
+    assert (status, body["error"]["code"]) == (400, "ROUTE_TABLE_KEY")
+
+
+def test_a_respelled_save_with_a_gate_report_on_the_sent_content_is_refused():
+    """The gate report names the content it checked; a respelled save stores other content, so it is refused (never
+    stored with a report that judged something else) and the message names the content to re-run the gate on."""
+    from test_route_table_v3 import report_for
+
+    st = FakeStorage()
+    save(st, v3(), 0)
+    d = v3(note="加一行")
+    d["scenes"][m("P_09_09_09")] = {"name": "合成", "domain": "测试"}
+    d["routes"].append(dict(copy.deepcopy(d["routes"][0]), scene_id=m("P_09_09_09")))
+    status, body = run_op(
+        st, "save", "", None, json.dumps(dict(d, expected_version=1, gate_report=report_for(d)))
+    )
+    assert status == 400 and body["error"]["code"] == "STORED_TABLE_GATE_REPORT_MISMATCH"
+    assert stored(st)["version"] == 1

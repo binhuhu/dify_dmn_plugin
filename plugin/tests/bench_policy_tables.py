@@ -1,13 +1,4 @@
-"""0.5.5 (WO-72): time and memory of a decision-table/v1 policy table at the new 512-rule limit.
-
-The table has the target.scene_entity shape (WO-68): one parameter scene_id, UNIQUE, one rule per scene
-(when scene_id eq <scene>), literal result data, 32 result templates. Every number goes through the production code
-path: run_op("save") into an in-memory storage (never a plugin table), then evaluate_stored with
-StorageTables.load (JSON parse of the stored bytes, validate, evaluate) - exactly what the evaluate_stored_table tool does.
-The worst case is the last rule matching (every rule is checked anyway: UNIQUE has to look at all of them).
-
-    <plugin venv python> -B tests/bench_policy_tables.py [--repeat 50]      (from plugin/)  -> JSON on stdout
-"""
+"""Bench policy tables."""
 
 import argparse
 import json
@@ -102,7 +93,7 @@ def policy_doc(rules, table="target.bench", app_id=APP_TARGET, team="定位 TARG
             "on_no_match": "RESULT_TEMPLATE",
             "empty_template_ref": "UNDECLARED",
         },
-        "note": "基准（WO-72）",
+        "note": "基准（regression）",
     }
 
 

@@ -1,10 +1,7 @@
-"""0.5.5 (WO-72): decision-table/v1 as policy tables - the closed name set (p2.<owner.app_id> | target.<name> owned by
-定位 TARGET | triage.<name> owned by 分诊 TRIAGE), 512 rules, the same save / CAS / history / read path as 0.5.4, and the
-512-rule benchmark within bounds. Brian 10-29「场景关联实体要策略配置化 同样受理  路由也是」."""
+"""Test policy tables."""
 
 import copy
 import json
-from pathlib import Path
 
 import pytest
 from bench_policy_tables import MemoryStorage, bench, policy_doc, record, scene
@@ -26,8 +23,7 @@ from dmn_client.stored_tables import (
 
 TARGET = "56d3c0c5-4d41-4454-99ab-e3a6db6aa66c"
 TRIAGE = "0f34962a-e380-45e1-8b35-fc64b5651776"
-DAYS = "facts.ORDER__trip__END_TO_COMPLAINT_DAYS.天数"
-HERE = Path(__file__).resolve().parent
+DAYS = "synthetic.demo.elapsed_days"
 
 
 def owned(table, app_id, rules=3):
@@ -40,11 +36,60 @@ def refused(doc):
     return e.value
 
 
-def triage_acceptance():
-    """Synthetic triage.acceptance (WO-65 shape): owner 分诊 TRIAGE, scene_id is one of the inputs, two scenes x two rules
-    (in the complaint window -> ACCEPTED, after it -> NOT_ACCEPTED); a scene without rows -> the empty template, ACCEPTED
-    with basis DEFAULT_NO_ROW (WO-65: no config = accepted)."""
-    return json.loads((HERE / "triage_acceptance.synthetic.json").read_text())
+def triage_acceptance(scene_windows=(("P_90_01_01", 30), ("P_90_01_02", 7))):
+    """Synthetic two-scene integer-boundary policy fixture."""
+    return {
+        "schema": "dmn-json.decision-table/v1",
+        "table": "triage.acceptance",
+        "owner": {"app_id": TRIAGE, "team": "synthetic", "name": "synthetic policy"},
+        "model_ref": "triage.acceptance@0.1.0",
+        "model": {
+            "profile": "service-decision-table-v1",
+            "version": "0.1.0",
+            "hit_policy": "UNIQUE",
+            "parameters": {
+                "scene_id": {
+                    "type": "string",
+                    "record_required": True,
+                    "nullable": False,
+                    "allowed_quality": ["KNOWN"],
+                },
+                DAYS: {
+                    "type": "integer",
+                    "record_required": False,
+                    "nullable": False,
+                    "allowed_quality": ["KNOWN", "UNKNOWN"],
+                },
+            },
+            "rules": [
+                {
+                    "rule_id": sid + suffix,
+                    "when": [
+                        {"path": ["parameters", "scene_id", "value"], "op": "eq", "value": sid},
+                        {"path": ["parameters", DAYS, "value"], "op": op, "value": bound},
+                    ],
+                    "output_template_ref": template,
+                }
+                for sid, bound in scene_windows
+                for suffix, op, template in [("-IN", "lte", "ACCEPT"), ("-LATE", "gt", "REJECT")]
+            ],
+            "result_templates": {
+                key: {
+                    "state": state,
+                    "data": {"acceptance": {"literal": state}, "basis": {"literal": basis}},
+                    "actions": [],
+                }
+                for key, state, basis in [
+                    ("ACCEPT", "ACCEPTED", "IN_WINDOW"),
+                    ("REJECT", "NOT_ACCEPTED", "OUT_OF_WINDOW"),
+                    ("NO_ROW", "ACCEPTED", "DEFAULT_NO_ROW"),
+                ]
+            },
+            "on_no_match": "RESULT_TEMPLATE",
+            "empty_template_ref": "NO_ROW",
+        },
+        "note": "synthetic boundary policy",
+    }
 
 
 # ── the closed name set ───────────────────────────────────────────────────────
@@ -58,7 +103,7 @@ def test_the_two_policy_owners_are_the_workflow_apps():
     "table, app_id",
     [
         ("p2." + COUPON, COUPON),
-        ("p2." + TARGET, TARGET),  # p2.<owner.app_id> as before, whatever the app
+        ("p2." + TARGET, TARGET),
         ("target.scene_entity", TARGET),
         ("triage.acceptance", TRIAGE),
         ("target.a", TARGET),
@@ -172,7 +217,7 @@ def test_a_512_rule_table_saves_within_the_body_limit_and_evaluates_every_rule()
 
 
 def test_other_limits_did_not_move():
-    from dmn_client import route_table, stored_tables  # noqa: PLC0415
+    from dmn_client import route_table, stored_tables  # noqa
 
     assert (route_table.MAX_ROUTES, route_table.MAX_ROUTES_V2, route_table.MAX_SCENES) == (
         128,
@@ -241,9 +286,6 @@ def test_p2_tables_read_exactly_as_in_0_5_4():
     ]
 
 
-# ── triage.acceptance (synthetic, WO-65 shape) ────────────────────────────────
-
-
 def _acceptance(load, sid, days=None, quality="KNOWN", missing="BLOCK"):
     params = {"scene_id": {"quality": "KNOWN", "value": sid, "source_refs": ["test"]}}
     if days is not None or quality != "KNOWN":
@@ -265,20 +307,20 @@ def test_triage_acceptance_saves_and_decides_per_scene():
         assert env["status"] == "SUCCEEDED", env["error"]
         return env["result"]["selected_rule_ids"], env["result"]["decision"]["data"]["basis"]
 
-    assert decided("P_02_04_01", 30) == (["P_02_04_01-IN"], "IN_WINDOW")
-    assert decided("P_02_04_01", 31) == (["P_02_04_01-LATE"], "OUT_OF_WINDOW")
-    assert decided("P_04_04_01", 7) == (["P_04_04_01-IN"], "IN_WINDOW")
-    assert decided("P_04_04_01", 8) == (["P_04_04_01-LATE"], "OUT_OF_WINDOW")
-    assert decided("P_05_01_01", 3) == (
+    assert decided("P_90_01_01", 30) == (["P_90_01_01-IN"], "IN_WINDOW")
+    assert decided("P_90_01_01", 31) == (["P_90_01_01-LATE"], "OUT_OF_WINDOW")
+    assert decided("P_90_01_02", 7) == (["P_90_01_02-IN"], "IN_WINDOW")
+    assert decided("P_90_01_02", 8) == (["P_90_01_02-LATE"], "OUT_OF_WINDOW")
+    assert decided("P_90_01_03", 3) == (
         [],
         "DEFAULT_NO_ROW",
     )  # a scene without rows: no config, accepted
-    blocked = _acceptance(load, "P_02_04_01", None, quality="UNKNOWN")
+    blocked = _acceptance(load, "P_90_01_01", None, quality="UNKNOWN")
     assert (blocked["status"], blocked["error"]["code"]) == ("BLOCKED", "INDETERMINATE_MATCH")
 
 
 def test_the_512_rule_benchmark_stays_within_bounds():
-    """Loose bounds so the suite stays stable on CI; the recorded numbers are in docs/releases/v0.5.5.md."""
+    """Test the 512 rule benchmark stays within bounds."""
     t = bench(sizes=(512,), repeat=3)["tables"][0]
     assert t["save_body_bytes"] < t["save_body_limit_bytes"]
     assert t["evaluate_stored_ms"]["last_rule"]["p50"] < 1000

@@ -1,4 +1,4 @@
-"""SYNTHETIC AC-057 comparison-runner tests, not historical acceptance."""
+"""Test dsl shadow."""
 
 import importlib.util
 import json

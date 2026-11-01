@@ -180,8 +180,8 @@
       output,
     };
   }
-  // psn-structure/v1: stable numbering only. Same forbidden keys as
-  // dmn_client/psn/structure.py FORBIDDEN_KEYS (R3); keys ending in _digest too.
+
+
   const PSN_FORMAT = "psn-structure/v1";
   const PSN_FORBIDDEN = [
     "workflow_id",

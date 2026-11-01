@@ -375,7 +375,7 @@ const solve = {
   },
   include_trace: false,
 };
-// Explicit advisory completion: no P4 lookup or normal output projection on this route.
+
 const terminal = solve.plan.phases[1].steps[1];
 terminal.depends_on.push("p2_accept");
 terminal.terminate_when = {
@@ -408,7 +408,7 @@ await writeFile(
   JSON.stringify(solve, null, 2) + "\n",
 );
 
-// Current solve scope ends with disposition advice at P5. P6/P7 are deferred.
+
 const solveP5 = structuredClone(solve);
 solveP5.plan.plan_id += "-p1-p5";
 solveP5.plan.phases = solveP5.plan.phases.slice(0, 5);

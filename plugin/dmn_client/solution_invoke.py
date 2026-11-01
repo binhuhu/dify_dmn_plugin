@@ -1,24 +1,4 @@
-"""Call a registered solution app by app_id (Brian 2026-10-23: 「插件按 app_id 调方案」).
-
-DELIVERY keeps one "call solution" node. DISPATCH evaluates the plugin route table and returns the app_id; this tool
-then calls that app in the same workspace through Dify's plugin app invocation (permission `app`). It only calls apps
-registered in the route table's `solutions` (dmn-json.route-table/v2), and only with exactly the start variables
-registered for that app, so the table is both the routing source and the allowlist. Nothing here interprets the
-solution's outputs: they come back as the app returned them, with the run identity next to them.
-
-0.5.6 (WO-79): the table is also the registry. Only a CURRENT app is called: on a dmn-json.route-table/v3 table an app a
-gate holds (GATED, or SHADOW with a gate_code) is REJECTED with SOLUTION_GATED and the gate code (receipt gate_code), any
-other CANDIDATE / SHADOW / RETIRED one with SOLUTION_NOT_CURRENT; a v2 table reads every app as CURRENT, so it calls what it called before. The receipt gains
-solution_status and gate_code (additive; every other key and code unchanged).
-
-0.5.8 (WO-115): a child run that did not succeed (SOLUTION_RUN_FAILED) and a platform call that raised
-(SOLUTION_INVOKE_FAILED) get a fixed error_message naming only the run status / the exception class. The child's error
-text and the exception text (sandbox errors, stack traces, values from the run) never reach the receipt; the child run id
-is there to look the run up.
-
-Streaming mode is used on purpose: the SDK abandons a backwards invocation after MAX_INVOCATION_TIMEOUT seconds without
-any chunk, and a blocking call sends nothing until the whole solution has finished (ESE solutions take 98–316 s).
-"""
+"""Solution invoke."""
 
 from dmn_client.client import EngineError, json_object
 from dmn_client.route_table import (

@@ -1,15 +1,4 @@
-"""psn check, phase inputs and outputs: solution-app/v1 C10, the ESE five-level rule F11.
-
-A workflow is checked only when its structure declares io (validate_structure keeps the
-declarations consistent). Brian 2026-10-23: new solution apps must declare io, 96e837d4 is not
-back-filled, P5 lists its inputs one by one, start variables are P1 outputs.
-
-A reference crosses phases when the node that reads a variable is placed in another phase than
-the node that produces it. References are found as the ESE checker finds them (引用们): every
-list of strings whose first item is a node id, and every ``{{#node.var#}}`` template, anywhere
-in a node's data except its code; only the first two segments count. Source: ESE_monorepo
-origin/master f3e20d7c, ``60_application/gate/五级结构检查.js`` (引用们, 输出类型, 核输入输出).
-"""
+"""Phase io."""
 
 from __future__ import annotations
 
@@ -18,10 +7,9 @@ import re
 from .graph import is_dmn
 from .placement import LOOP_TYPES, category, parent_node
 
-# Dify's limit on a code node's output string (ESE 60/D-131).
 CODE_OUTPUT_LIMIT = 100_000
 FAILURE_SIGNALS = {"error", "error_message"}
-# ESE F11: raw fetch detail is what these categories return, in a raw fetch step.
+
 RAW_CATEGORIES = {"CALL", "FETCH", "MODEL", "LOOP"}
 _TEMPLATE = re.compile(r"\{\{#([A-Za-z0-9_-]+)\.([A-Za-z0-9_]+)(?:\.[A-Za-z0-9_]+)*#\}\}")
 # evaluate_decision's output_schema (plugin/tools/evaluate_decision.yaml), plus every tool's own.
@@ -126,8 +114,7 @@ def io_issues(entry: dict, nodes: dict, placed: dict) -> list[tuple]:
         return where[key][0]["ref"] if key in where else None
 
     def raw(key):
-        """Raw fetch detail (ESE F11): a fetch, model, workflow call or loop in a raw fetch step,
-        and every node inside such a loop."""
+        """Raw."""
         if key not in where:
             return False
         if where[key][1] in raw_steps and category(nodes[key]["data"]) in RAW_CATEGORIES:

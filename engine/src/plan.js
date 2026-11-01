@@ -115,7 +115,7 @@ function errorOf(e) {
 }
 
 // Illustrative fixtures only. Registry identity and schemas are fixed; requests cannot supply URLs,
-// headers, modules, functions, or adapters. L0 acquisition and external L1 calculators are extension boundaries.
+
 export const QUERY_REGISTRY = Object.freeze(
   Object.fromEntries(
     ["demo.ticket_lookup", "demo.order_lookup"].map((capability_id) => [
@@ -394,7 +394,7 @@ async function validatePlan(request) {
       bad("ENGINE_PIN_MISMATCH", `Engine ${k} pin mismatch`);
   if (!["locate_problem", "solve_problem"].includes(p.flow))
     bad("INVALID_PLAN", "flow must be locate_problem or solve_problem");
-  // The explicit phase list selects one of these bounded candidate profiles.
+
   // Locate and solve are independent calls; neither requires the other.
   const allowed =
     p.flow === "locate_problem"

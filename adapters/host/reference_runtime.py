@@ -1,9 +1,4 @@
-"""Single-owner, bounded reference host for DSL v2 (not a Dify deployment).
-
-Callers are trusted embedding code, not LLM input. Callbacks are fixed at deployment.
-SQLite is the host's checkpoint and event ledger; plugin tools never own a cursor.
-Execution is serial, including logically parallel branches. No business writes.
-"""
+"""Reference runtime."""
 
 from __future__ import annotations
 
@@ -436,7 +431,7 @@ class ReferenceRuntime:
         s["active"][node["node_id"]] = context
         s["activation_tokens"][node["node_id"]] = copy.deepcopy(token)
         s["in_flight"] = node["node_id"]
-        self._save()  # A crash during IO is UNKNOWN; never automatically resend.
+        self._save()
         try:
             bound = bind_inputs(
                 node,

@@ -1,17 +1,5 @@
 #!/usr/bin/env python3
-"""scene-id-grammar/v1 vector runner (Python, stdlib only).
-
-Runs every case of an explicitly supplied fixture against the implementation given with --impl.
-
-    python3 -I run_vectors.py --impl <file> --vectors <file> [--show <n>]
-
-Exit 0 only when every runnable case passes, the stamp equals sha256(vectors), the pattern constants equal the
-vectors' patterns and every named function exists. Cases that need the generated alias map (scene-id-alias.v1.json,
-provided separately) are DEFERRED while that file does not exist: reported, never counted as passed.
-
-For a public derivative fixture, pass --public-manifest <file>. This explicitly checks the derivative's
-own SHA-256 and case/group counts while preserving the upstream implementation grammar identity.
-"""
+"""Run vectors."""
 import copy
 import datetime
 import hashlib
@@ -93,7 +81,7 @@ def main(argv):
         spec = importlib.util.spec_from_file_location('scene_id_under_test', impl_path)
         impl = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(impl)
-    except Exception as e:  # noqa: BLE001 - report any load failure
+    except Exception as e:  # noqa
         impl, load_error = None, e
 
     map_cache = {}
@@ -194,7 +182,7 @@ def main(argv):
                     got = fn_of(f)(got)
         except Deferred as e:
             return 'deferred', str(e)
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:  # noqa
             code = getattr(e, 'code', None)
             if expect_throw and code == c['throws']:
                 if error_cls is not None and not isinstance(e, error_cls):

@@ -1,24 +1,4 @@
-"""Scene ids in both spellings at the plugin's read and write boundaries (plan-v2 M-06, dmn_json 0.5.9).
-
-Reading: wherever a stored table is matched on a scene id - the scene_id condition of a stored route table (compiled
-routing model) and of a stored decision table - a scene id matches its other spelling (scene_state). The supplement
-lookup goes through scene_id.by_scene (stored_tables.supplement_row). json_table.equal / condition and the compiled
-models are unchanged, and a bundle a solution team publishes inline keeps 0.5.8's exact match.
-
-Saving (plan-v2 §3.3, C2-5): one document, one spelling. respell() rewrites the scene-typed fields of an incoming
-document into one spelling before it is validated and stored, and says what it did for the save receipt:
-
-    route table v1         registry keys, routes[].scene_id
-    route table v2 / v3    scenes{} keys, routes[].scene_id
-    decision-table/v1      conditions on parameters.scene_id.value (eq / ne / in), rule ids that are scene ids
-    supplement-requirements/v1   scenes{} keys, scene tokens inside basis
-    never                  notes, solution names, template data, rule ids that only embed a scene id
-
-The spelling: a document whose scene-typed fields already use one spelling is stored in it (a whole-table re-key, or
-the rollback of one, is a deliberate save); a document that mixes them takes the spelling of the stored version, or
-the legacy spelling when that has none. Two spellings of one key (a catalog key, a route key, a rule id, two entries of
-one in-list) are refused with SCENE_KEY_DUPLICATE: one of the two rows would silently disappear.
-"""
+"""Scene spelling."""
 
 import copy
 import re
@@ -58,6 +38,16 @@ def scene_state(c, params):
 # --- saving -------------------------------------------------------------------------------------------------------------
 
 
+def _form(v):
+    """form."""
+    return scene_id.spelling(v) if scene_id.is_scene(v) else None
+
+
+_LEAF_IN_TEXT = re.compile(
+    r"(?<![A-Za-z0-9])(?<!(?<![A-Za-z0-9])M_)(M_)?P_[0-9]{2}_[0-9]{2}_[0-9]{2}(?![0-9]|_[0-9])"
+)
+
+
 def _duplicate(what, path, a, b):
     raise RouteTableError(
         "SCENE_KEY_DUPLICATE",
@@ -67,8 +57,7 @@ def _duplicate(what, path, a, b):
 
 
 def _unique(values, what, path):
-    """Two different strings for one scene (canonical form) in one collection are refused; exact repeats are left to the
-    validators, as in 0.5.8."""
+    """unique."""
     seen = {}
     for v in values:
         if not scene_id.is_scene(v):
@@ -118,7 +107,6 @@ class _Fields:
     def _is_scene_condition(c):
         return (
             type(c) is dict
-            and "value" in c
             and c.get("path") == scene_id.SCENE_VALUE_PATH
             and c.get("op") in SCENE_OPS
         )
@@ -138,8 +126,9 @@ class _Fields:
         for r in self._rules():
             out.append(r.get("rule_id"))
             for c in self._scene_conditions(r):
-                out += c["value"] if type(c["value"]) is list else [c["value"]]
-        return [v for v in out if scene_id.spelling(v) is not None]
+                v = c.get("value")
+                out += v if type(v) is list else [v]
+        return [v for v in out if _form(v) is not None]
 
     def check(self):
         key, label = self._keyed()
@@ -148,16 +137,11 @@ class _Fields:
         seen = {}
         for i, r in enumerate(self._routes()):
             s = r.get("scene_id")
-            # Normalization precedes validation: leave malformed keys for the
-            # table validator's established 400 response, rather than hashing
-            # arbitrary JSON values and turning client errors into a 503.
-            if (
-                not scene_id.is_scene(s)
-                or type(r.get("issue_type")) is not str
-                or type(r.get("phase")) is not str
-            ):
+            if not scene_id.is_scene(s):
                 continue
-            k = (scene_id.canonical(s), r.get("issue_type"), r.get("phase"))
+            if type(r.get("issue_type")) is not str or type(r.get("phase")) is not str:
+                continue  # malformed: the validator refuses it with its own code and path
+            k = (scene_id.canonical(s), r["issue_type"], r["phase"])
             if k in seen and seen[k] != s:
                 _duplicate("路由", "routes[%d].scene_id" % i, seen[k], s)
             seen.setdefault(k, s)
@@ -165,7 +149,7 @@ class _Fields:
         _unique([r.get("rule_id") for r in rules], "规则", "model.rules")
         for i, r in enumerate(rules):
             for j, c in enumerate(r.get("when") if type(r.get("when")) is list else []):
-                if self._is_scene_condition(c) and type(c["value"]) is list:
+                if self._is_scene_condition(c) and type(c.get("value")) is list:
                     _unique(c["value"], "条件", "model.rules[%d].when[%d].value" % (i, j))
 
     def respell(self, target):
@@ -174,7 +158,7 @@ class _Fields:
 
         def to(v):
             nonlocal n
-            if scene_id.spelling(v) is None:
+            if _form(v) is None:
                 return v
             w = scene_id.spell(v, target)
             n += w != v
@@ -185,47 +169,50 @@ class _Fields:
             doc[key] = {to(k): v for k, v in doc[key].items()}
         copied = _Fields(doc)
         for r in copied._routes():
-            if "scene_id" in r:
-                r["scene_id"] = to(r["scene_id"])
+            r["scene_id"] = to(r.get("scene_id"))
         for r in copied._rules():
             if "rule_id" in r:
                 r["rule_id"] = to(r["rule_id"])
             for c in copied._scene_conditions(r):
-                c["value"] = (
-                    [to(v) for v in c["value"]] if type(c["value"]) is list else to(c["value"])
-                )
+                if "value" in c:
+                    c["value"] = (
+                        [to(v) for v in c["value"]] if type(c["value"]) is list else to(c["value"])
+                    )
         if self.kind == "supplement" and type(doc.get("scenes")) is dict:
             for row in doc["scenes"].values():
                 if type(row) is dict and type(row.get("basis")) is str:
+                    want = target == scene_id.CANONICAL
                     n += sum(
-                        1
-                        for t in _EMBEDDED.finditer(row["basis"])
-                        if bool(t.group(1)) != (target == scene_id.CANONICAL)
+                        1 for t in _LEAF_IN_TEXT.finditer(row["basis"]) if bool(t.group(1)) != want
                     )
-                    row["basis"] = scene_id.spell_ref(row["basis"], target)
+                    row["basis"] = _LEAF_IN_TEXT.sub(
+                        lambda t: scene_id.spell(t.group(0), target), row["basis"]
+                    )
         return doc, n
-
-
-_EMBEDDED = re.compile(scene_id.EMBEDDED_PATTERN)
 
 
 def table_spelling(doc):
     """LEGACY / CANONICAL when every scene-typed field of a document uses that spelling, else None."""
-    forms = {scene_id.spelling(v) for v in _Fields(doc).values()} if type(doc) is dict else set()
+    forms = {_form(v) for v in _Fields(doc).values()} if type(doc) is dict else set()
     return forms.pop() if len(forms) == 1 else None
 
 
 def respell(doc, current):
-    """(document to store, receipt fields). current: the stored version of the table, or None.
+    """Respell."""
+    try:
+        return _respell(doc, current)
+    except RouteTableError:
+        raise
+    except Exception:
+        return doc, {}
 
-    The receipt fields are {} when nothing was rewritten and the table keeps its spelling, so a save in today's
-    legacy spelling answers exactly as in 0.5.8; otherwise respelled_count, scene_spelling and, when the save changes
-    the table's spelling, scene_spelling_was."""
+
+def _respell(doc, current):
     fields = _Fields(doc)
     if fields.kind is None:
         return doc, {}
     fields.check()
-    forms = {scene_id.spelling(v) for v in fields.values()}
+    forms = {_form(v) for v in fields.values()}
     was = table_spelling(current) if type(current) is dict else None
     if len(forms) == 1:
         target = forms.pop()

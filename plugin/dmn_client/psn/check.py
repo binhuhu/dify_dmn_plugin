@@ -1,10 +1,4 @@
-"""psn check: compare one Dify workflow graph with its psn-structure/v1 entry, offline.
-
-Besides placement, numbering and decision nodes, it carries the ESE line's misplacement and
-failure-handling rules (placement.py) and checks declared phase io (phase_io.py). The report names nodes by their stable node_key and PSN
-ref only. It never echoes a Dify app id, a published workflow id or any hash, so it can be kept
-next to the structure.
-"""
+"""Check."""
 
 from __future__ import annotations
 
@@ -43,15 +37,12 @@ SEVERITY = {
     "NOT_STAMPED": "WARN",
     "SILENT_DMN_DEFAULT": "WARN",
     "DMN_STATUS_UNCHECKED": "WARN",
-    # ESE five-level rules F06–F09 and L5, see placement.py (solution-app/v1 §3).
     "MISPLACED_NODE": "WARN",
     "WORKFLOW_CALL_FORBIDDEN": "WARN",
     "DISPATCH_DECISION_COUNT": "WARN",
     "NO_FAILURE_HANDLING": "WARN",
     "SCENE_DEFINITION_IN_CODE": "WARN",
-    # solution-app/v1 N4, see placement.py.
     "SILENT_FETCH_DEFAULT": "WARN",
-    # Phase io, solution-app/v1 C10 and ESE F11, see phase_io.py.
     "PHASE_IO_UNDECLARED_OUTPUT": "WARN",
     "PHASE_IO_UNDECLARED_INPUT": "WARN",
     "PHASE_IO_UNUSED": "WARN",
@@ -104,7 +95,7 @@ def _reads_status_of(data: dict, source_id: str) -> bool:
 
 
 def check_graph(structure, graph, key, *, strict=False) -> dict:
-    """Return a psn-check-report/v1 dict. Raises StructureInputError for bad input."""
+    """Check graph."""
     issues = validate_structure(structure)
     if issues:
         raise StructureInputError("The structure itself is invalid.", issues)

@@ -1,11 +1,10 @@
 (() => {
   'use strict';
   // 按场景列出现网定位的全部场景，每行选一个去向（方案应用 / 转安全 / 无方案）；方案应用先在「方案登记」里登记。
-  // 保存前先列改动、确认后才写（评审 T2-05）；冲突时保留草稿，可载入最新版并把自己的改动重放上去。
   // 只经本端点的 /api/* 读写插件存储（请求头带编辑口令），不执行规则、不连别的地址。DOM API + textContent 出字，不拼 HTML；
   // 口令只放本标签页的 sessionStorage。
-  // invocation_scope / priority / package_id / target_handoff 只显示、原样带回；v2 表可以「升为 v3」。存前先挡住插件一定会拒的
-  // 0.5.9（plan-v2 M-06）：场景编号两种写法都认（P_02_04_01 / M_P_02_04_01）。导入的场景目录换成本表现有的写法（插件存表时也这样换），
+
+
   // 同一场景两种写法一起导入就拒；存后插件若换了写法，提示里说换了几处。
   const KEY_STORE = 'route-edit-key';
   const SCHEMA = 'dmn-json.route-table/v2';
@@ -19,6 +18,9 @@
   const CONFLICT = ['ROUTE_TABLE_STALE', 'ROUTE_TABLE_RACE'];
   const SCENE_ID = /^(M_)?P_\d{2}_\d{2}_\d{2}$/;
   const SPELLING_LABEL = { LEGACY: '旧写法 P_', CANONICAL: '新写法 M_P_' };
+  // 一张草稿（场景目录键 + 去向键）的写法：全 M_ 为 true，全旧写法为 false，混或空为 null。
+  const spellingOf = (d) => { const ids = [...Object.keys(d.scenes), ...[...d.routes.keys()].map(k => k.split('|')[0])]; return !ids.length ? null : ids.every(x => x.startsWith('M_')) ? true : ids.every(x => !x.startsWith('M_')) ? false : null; };
+  const spellAs = (sid, canonical) => canonical === null || !SCENE_ID.test(sid) ? sid : canonical ? 'M_' + sid.replace(/^M_/, '') : sid.replace(/^M_/, '');
   const app = document.getElementById('app');
   const base = (() => { const p = location.pathname; return p.endsWith('/') ? p : p.endsWith('/index.html') ? p.slice(0, -'index.html'.length) : p + '/'; })();
   const state = { key: readKey(), table: 'dispatch.route', loaded: false, doc: null, baseDoc: null, version: 0, draft: null, basedOn: 0, history: [],
@@ -54,7 +56,7 @@
   }
   const q = name => name + '?table=' + encodeURIComponent(state.table);
 
-  // 存的文档 ↔ 页面草稿：路由按「场景|类型|阶段」放进 Map。草稿记着载入的整份文档（base）和它的格式（v2 / v3）。
+
   const routeDoc = doc => doc && (doc.schema === SCHEMA || doc.schema === SCHEMA_V3) ? doc : null;
   const isV3 = d => d.schema === SCHEMA_V3;
   function toDraft(doc) {
@@ -63,7 +65,7 @@
     return { schema: doc?.schema || SCHEMA, issue_types: doc?.issue_types || ['COMPLAINT', 'CONSULT', 'FEEDBACK'], phases: doc?.phases || ['STAGE_1', 'STAGE_2', 'STAGE_3'],
       scenes: structuredClone(doc?.scenes || {}), solutions: structuredClone(doc?.solutions || {}), routes, note: '', base: structuredClone(doc || null) };
   }
-  // v2 → v3：每个方案先按 v2 的读法当 CURRENT，其余登记字段空着（保存前要写全，见 problems）。
+
   function upgrade(d) {
     d.schema = SCHEMA_V3;
     for (const [id, s] of Object.entries(d.solutions)) d.solutions[id] = { name: s.name, inputs: s.inputs, ...structuredClone(DEFAULTS), ...s };
@@ -106,7 +108,7 @@
     return { routes, solutions, scenes: canon(before.scenes) !== canon(d.scenes), schema: before.schema !== d.schema, before };
   }
   const changes = d => changesAgainst(state.doc, d);
-  // 保存前在页面上先挡住服务端一定会拒的：路由指向目录外的场景、未登记的应用；v3 登记里 GATED 没写闸、CURRENT 没写全。
+
   function routeProblems(d) {
     const out = [];
     for (const [k, t] of d.routes) {
@@ -184,15 +186,20 @@
     state.busy = true; paint();
     try {
       const t = await api(q('table')), head = routeDoc(t.doc);
-      const mine = changesAgainst(state.baseDoc, d), theirs = changesAgainst(state.baseDoc, toDraft(head));
       const next = toDraft(head), clash = [];
-      const theirRoute = new Map(theirs.routes.map(([k, , b]) => [k, b]));
-      for (const [k, , b] of mine.routes) {
+
+      const to = spellingOf(next), key = k => { const [sid, t, p] = k.split('|'); return key3(spellAs(sid, to), t, p); };
+      const base = state.baseDoc && { ...state.baseDoc, scenes: Object.fromEntries(Object.entries(state.baseDoc.scenes || {}).map(([sid, v]) => [spellAs(sid, to), v])),
+        routes: (state.baseDoc.routes || []).map(r => ({ ...r, scene_id: spellAs(r.scene_id, to) })) };
+      const mine = changesAgainst(state.baseDoc, d), theirs = changesAgainst(base, toDraft(head));
+      const theirRoute = new Map(theirs.routes.map(([k, , b]) => [key(k), b]));
+      for (const [k0, , b] of mine.routes) {
+        const k = key(k0);
         if (theirRoute.has(k) && canon(theirRoute.get(k)) !== canon(b)) clash.push(k.split('|')[0]);
         if (b) next.routes.set(k, b); else next.routes.delete(k);
       }
       for (const [id, , b] of mine.solutions) { if (b) next.solutions[id] = b; else delete next.solutions[id]; }
-      if (mine.scenes) next.scenes = d.scenes;
+      if (mine.scenes) next.scenes = Object.fromEntries(Object.entries(d.scenes).map(([sid, v]) => [spellAs(sid, to), v]));
       if (mine.schema) next.schema = d.schema;
       next.note = d.note;
       state.doc = t.doc; state.baseDoc = head; state.version = t.version; state.basedOn = t.version; state.draft = next; state.conflict = false;
@@ -217,7 +224,7 @@
     Object.assign(state.view, { issue_type: t, phase: p, domain: '', kind: 'ALL', q: sid });
     state.errKey = k;
   }
-  // 导入整张 v2 表（例如 80 生成的第一版），或只导入场景目录（{场景编号: {name, domain}} 或 [{scene_id, name, domain}]，例如现网定位 CATALOG）。
+
   function parse(text) { try { return JSON.parse(text); } catch (_) { state.msg = { cls: 'bad', text: '导入的内容不是 JSON。' }; paint(); return null; } }
   function importTable(text) {
     const v = parse(text); if (!v) return;
@@ -231,16 +238,15 @@
     const rows = Array.isArray(v) ? v : v.scenes && !Array.isArray(v.scenes) ? Object.entries(v.scenes).map(([scene_id, s]) => ({ scene_id, ...s }))
       : Array.isArray(v.scenes) ? v.scenes : Object.entries(v).map(([scene_id, s]) => ({ scene_id, ...s }));
     const scenes = {}, seen = {};
-    const ids = [...Object.keys(state.draft.scenes), ...[...state.draft.routes.keys()].map(k => k.split('|')[0])];
-    const canonical = ids.length && ids.every(x => x.startsWith('M_')), legacy = ids.length && ids.every(x => !x.startsWith('M_'));
+    const canonical = spellingOf(state.draft);
     let respelled = 0;
     for (const r of rows) {
       if (!(r && SCENE_ID.test(r.scene_id || '') && r.name && r.domain)) continue;
-      const bare = r.scene_id.replace(/^M_/, '');
-      if (seen[bare] !== undefined && seen[bare] !== r.scene_id) { state.msg = { cls: 'bad', text: '目录里 ' + seen[bare] + ' 和 ' + r.scene_id + ' 是同一个场景的两种写法，只能留一个。' }; paint(); return; }
-      seen[bare] = r.scene_id;
-      const sid = canonical ? 'M_' + bare : legacy ? bare : r.scene_id;
-      respelled += sid !== r.scene_id;
+      const raw = String(r.scene_id), bare = raw.replace(/^M_/, '');
+      if (seen[bare] !== undefined && seen[bare] !== raw) { state.msg = { cls: 'bad', text: '目录里 ' + seen[bare] + ' 和 ' + raw + ' 是同一个场景的两种写法，只能留一个。' }; paint(); return; }
+      seen[bare] = raw;
+      const sid = spellAs(raw, canonical);
+      respelled += sid !== raw;
       scenes[sid] = { name: String(r.name), domain: String(r.domain) };
     }
     if (!Object.keys(scenes).length) { state.msg = { cls: 'bad', text: '没认出场景：每项要有 scene_id、name、domain。' }; paint(); return; }
@@ -253,7 +259,7 @@
     const d = state.draft, a = state.newApp, id = a.app_id.trim().toLowerCase();
     if (!/^[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}$/.test(id)) { state.msg = { cls: 'bad', text: '应用编号要是 AgentHub 应用 id（36 位，形如 ee1aebd3-41ff-…）。' }; paint(); return; }
     if (!a.name.trim() || !words(a.inputs).length) { state.msg = { cls: 'bad', text: '登记方案要写名称和开始变量。' }; paint(); return; }
-    // v3 表上新登记的方案先是 CANDIDATE：写好请求合同、话题、诉求，再由人改成 CURRENT 才会被调。
+
     d.solutions[id] = isV3(d) ? { name: a.name.trim(), inputs: words(a.inputs), ...structuredClone(DEFAULTS), status: 'CANDIDATE' } : { name: a.name.trim(), inputs: words(a.inputs) };
     state.newApp = { app_id: '', name: '', inputs: 'call_id request_json' }; state.confirming = false;
     state.msg = { cls: 'warn', text: '已登记 ' + id.slice(0, 8) + '，还没保存；在场景路由里给场景选上它。' }; paint();
@@ -274,7 +280,7 @@
     const opts = [opt('NONE', '无方案', value === 'NONE'), opt('TRANSFER', '转安全', value === 'TRANSFER'),
       ...Object.entries(d.solutions).map(([id, s]) => opt('APP:' + id, s.name + ' · ' + id.slice(0, 8) + notCurrent(s), value === 'APP:' + id))];
     if (t?.kind === 'SOLUTION_APP' && !d.solutions[t.app_id]) opts.push(opt(value, '未登记的应用 · ' + t.app_id.slice(0, 8), true));
-    // 资源去向（0.5.3 起表里可以有）本页不新建，只如实显示、原样保留；以前显示成「无方案」
+
     if (t?.kind === 'RESOURCE') opts.push(opt('RESOURCE:' + t.resource_id, label(t, d), true));
     const box = [el('select', { 'data-k': k, 'data-f': 'target', 'aria-label': sid + ' 的去向' }, opts)];
     if (t?.kind === 'SOLUTION_APP') box.push(el('span', { cls: 're-app' }, el('code', { text: t.app_id }), ' ', appLink(t.app_id)));
@@ -328,7 +334,7 @@
         })))),
       el('p', { cls: 're-muted', text: '显示 ' + rows.length + ' / ' + Object.keys(d.scenes).length + ' 个场景' })));
 
-    // 方案登记（v3：带登记状态；v2：只有名称和开始变量，调用时都当 CURRENT）
+
     const used = {}; for (const t of d.routes.values()) if (t.kind === 'SOLUTION_APP') used[t.app_id] = (used[t.app_id] || 0) + 1;
     const v3 = isV3(d);
     const head = v3 ? ['应用编号', '名称', '开始变量', '状态', '闸（GATED 必填）', '请求合同', '话题', '诉求', '路由', ''] : ['应用编号', '名称', '开始变量', '用到的路由', ''];
@@ -345,7 +351,7 @@
           el('td', {}, text(id, 'inputs', s.inputs, '开始变量')),
           v3 ? [
             el('td', {}, el('select', { 'data-app': id, 'data-f': 'status', 'aria-label': '登记状态' }, STATUS.map(([k, t]) => opt(k, k + ' · ' + t, s.status === k)))),
-            el('td', {}, text(id, 'gate_code', s.gate_code, '闸编码', { placeholder: s.status === 'GATED' ? 'ESE_F01_ORDER_BINDING' : null, disabled: !GATE_STATUS.includes(s.status) })),
+            el('td', {}, text(id, 'gate_code', s.gate_code, '闸编码', { placeholder: s.status === 'GATED' ? 'EXAMPLE_GATE' : null, disabled: !GATE_STATUS.includes(s.status) })),
             el('td', {}, text(id, 'request_contract', s.request_contract, '请求合同', { placeholder: '场景方案调用/v4' })),
             el('td', {}, text(id, 'topics', s.topics, '话题')),
             el('td', {}, text(id, 'intents', s.intents, '诉求', { placeholder: 'REPORT_PROBLEM' })),
@@ -354,7 +360,7 @@
           el('td', {}, used[id] ? el('span', { cls: 're-muted', text: '有路由' }) : el('button', { type: 'button', cls: 'link', 'data-act': 'unreg', 'data-v': id, text: '删除登记' }))))))),
       el('div', { cls: 're-row' },
         el('label', { cls: 're-field' }, el('span', { text: '应用编号' }), el('input', { id: 're-new-id', value: state.newApp.app_id, placeholder: 'ee1aebd3-41ff-…', size: '38' })),
-        el('label', { cls: 're-field' }, el('span', { text: '名称' }), el('input', { id: 're-new-name', value: state.newApp.name, placeholder: '优惠券使用 · ESE B' })),
+        el('label', { cls: 're-field' }, el('span', { text: '名称' }), el('input', { id: 're-new-name', value: state.newApp.name, placeholder: '示例方案' })),
         el('label', { cls: 're-field' }, el('span', { text: '开始变量' }), el('input', { id: 're-new-inputs', value: state.newApp.inputs })),
         el('button', { type: 'button', 'data-act': 'reg', text: '登记' }))));
 
@@ -367,7 +373,7 @@
       state.confirming ? null : el('label', { cls: 're-field' }, el('span', { text: '改动说明（必填）' }), el('textarea', { id: 're-note', rows: '2', text: d.note })),
       state.confirming ? el('p', {}, '改动说明：' + d.note) : null,
       state.confirming ? (state.gateText.trim() ? el('p', { cls: 're-muted', text: '随这次保存发出存前闸报告（插件核内容摘要并记下）。' }) : null)
-        : el('details', { open: !!state.gateText.trim() }, el('summary', { text: '存前闸报告（可选，WO-78）' }),
+        : el('details', { open: !!state.gateText.trim() }, el('summary', { text: '存前闸报告（可选）' }),
           el('textarea', { id: 're-gate', rows: '3', 'aria-label': '存前闸报告 JSON', placeholder: '{"status": "PASS", "content_sha256": "…", …}', text: state.gateText })),
       el('div', { cls: 're-row' }, state.confirming
         ? [el('button', { type: 'button', cls: 'primary', 'data-act': 'confirm', disabled: state.busy, text: '确认保存' }), el('button', { type: 'button', 'data-act': 'cancel', text: '返回修改' })]

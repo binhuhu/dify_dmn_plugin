@@ -150,7 +150,7 @@ export function createServer(options = {}) {
         failure("INVALID_INPUT", "Content-Type must be application/json"),
       );
     }
-    // Reserve capacity before reading the body: slow uploads cannot exceed the bound.
+
     const slot = { child: null };
     active.add(slot);
     let finished = false,

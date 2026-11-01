@@ -1,9 +1,4 @@
-"""Validate one psn-structure/v1 snapshot without network or mutation.
-
-Numbers, including tombstones, are registry identities, never list positions.
-Historical deletion/renumbering cannot be proved from a single snapshot; the
-future assign/diff tools must compare it with a trusted previous registry.
-"""
+"""Structure."""
 
 from __future__ import annotations
 
@@ -34,7 +29,7 @@ FORBIDDEN_KEYS = {
 }
 # Dify start/end/if-else/iteration-start/loop-start nodes: placed in a Step, never numbered.
 UNNUMBERED_KINDS = {"GATE", "EVENT"}
-# Phase io declarations (solution-app/v1 C10; ESE F11), optional per workflow.
+
 IO_FIELDS = {"io", "fail_exits", "raw_fetch_steps"}
 MAX_BYTES = 1_048_576
 MAX_DEPTH = 64
@@ -108,11 +103,7 @@ def _shape_issue(error) -> StructureIssue:
 
 
 def _check_io(workflow, wp, fail) -> None:
-    """Phase io (solution-app/v1 C10): the declarations agree with each other and the structure.
-
-    Optional per workflow; once a workflow declares any of it, it declares all of it. Whether the
-    graph keeps to the declarations is psn check's part (phase_io.py).
-    """
+    """check io."""
     phases = workflow["phases"]
     if not (IO_FIELDS & set(workflow)) and not any("io" in phase for phase in phases):
         return
@@ -228,7 +219,6 @@ def validate_structure(value: object) -> list[StructureIssue]:
                         fail("INVALID_STRUCTURE", np + "/retired_reason", "A reason is required.")
                     by_key[(key, node["node_key"])].append((node, np))
                     if node["kind"] in UNNUMBERED_KINDS:
-                        # Gates and events are placed in a Step but never numbered (W1).
                         if node["ref"] is not None:
                             fail(
                                 "UNNUMBERED_NODE_HAS_REF",

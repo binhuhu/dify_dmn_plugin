@@ -173,8 +173,7 @@ def test_staged_sdk_registration_no_authorization_schema(tmp_path):
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     dest = module.stage(tmp_path / "staged")
-    # Keep a string scalar: PyYAML datetime dumping otherwise inserts a space,
-    # which the official CLI's RFC3339 time parser rejects.
+
     source_manifest = (root / "builtin/manifest.yaml").read_bytes()
     assert (dest / "manifest.yaml").read_bytes() == source_manifest
     manifest = yaml.safe_load(source_manifest)
@@ -186,7 +185,7 @@ def test_staged_sdk_registration_no_authorization_schema(tmp_path):
 from dify_plugin.core.plugin_registration import PluginRegistration
 from provider.dmn import JsonTableProvider
 r=PluginRegistration(DifyPluginEnv())
-assert r.configuration.version == "0.5.11"
+assert r.configuration.version == "0.5.12"
 c=r.tools_configuration[0]
 assert c.identity.name == "dmn_json"
 assert not c.credentials_schema

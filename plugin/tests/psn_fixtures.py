@@ -1,9 +1,4 @@
-"""Synthetic Dify graphs for the PSN tools (no host data, no real flow names).
-
-The decision node `solution_decision` carries the repository's evaluable example bundle with
-its ids renamed to the PSN family form (workflow SOLUTION, node N1), so the same graph can be
-checked, stamped and then evaluated.
-"""
+"""Psn fixtures."""
 
 import json
 from copy import deepcopy
@@ -33,7 +28,7 @@ def _rename(value):
 
 
 def evaluable_case():
-    """(bundle, invocation) for SOLUTION/P3/P3.S1/N1, renamed from the DSL v2 example."""
+    """Evaluable case."""
     bundle = json.loads((DSL_EXAMPLES / "architecture_bundle.json").read_text())
     invocation = json.loads((DSL_EXAMPLES / "invocation_decision.json").read_text())
     return _rename(bundle), _rename(invocation)

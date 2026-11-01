@@ -1,4 +1,4 @@
-"""Stage the credential-free companion from reviewed shared sources; no packaging/network."""
+"""Stage-builtin."""
 
 import argparse
 from pathlib import Path
@@ -33,7 +33,7 @@ def stage(destination):
     project.write_text(
         project.read_text()
         .replace('name = "dify-dmn-plugin"', 'name = "dify-dmn-json-plugin"')
-        .replace('version = "0.1.0"', 'version = "0.5.11"')
+        .replace('version = "0.1.0"', 'version = "0.5.12"')
         .replace(
             "A strict Dify tool client for a separately deployed DMN/FEEL engine",
             "Local typed node decisions and trusted queries; legacy SYNTHETIC demos",

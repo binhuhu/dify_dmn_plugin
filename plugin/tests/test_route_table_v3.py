@@ -1,12 +1,4 @@
-"""0.5.6: the route table's solutions{} is the single maintenance point of the solution registry.
-
-dmn-json.route-table/v3: every solution app carries its registry state - status CURRENT | CANDIDATE | GATED | SHADOW |
-RETIRED, gate_code (GATED only, required there), request_contract, topics, intents, invocation_scope, priority, package_id,
-target_handoff; never input_bindings (The caller builds its request by request_contract). A v2 table still reads: every app
-CURRENT, no gate. invoke_solution calls CURRENT apps only (GATED -> SOLUTION_GATED with the gate code). The routing-table/v4
-stub adds the solution block to the decision data; v2 / v3 stubs retain their legacy contract. Saves: one app has one state
-across route tables; a v3 table is never saved back as v2; an optional gate_report is recorded, not judged.
-"""
+"""Test route table v3."""
 
 import copy
 import hashlib
@@ -43,10 +35,10 @@ from tools.invoke_solution import InvokeSolutionTool
 ORDER = "00000000-0000-4000-8000-000000000004"
 GATE = "SYNTHETIC_GATE"
 INPUTS = ["call_id", "request_json"]
-# Public v0.5.9 baseline hashes for the synthetic fixture; preserve legacy v2/v3 behavior.
-V2_CONTENT_BASELINE = "92e59c06423f04dd8a442dc90e579ab04c4e0d40bb1b040c5df86df0db47816a"
-V2_MODEL_BASELINE = "b240aa9d9eda3248b734ae66d3b0cf276b9e96c90469ebdda36dda86bd39144a"
-V3_MODEL_BASELINE = "3cf6fe7f43c73e8ee1823abbcb8e9640324899ef163812fddb9832cf1ae9dbc3"
+
+V2_CONTENT_055 = "92e59c06423f04dd8a442dc90e579ab04c4e0d40bb1b040c5df86df0db47816a"
+V2_MODEL_055 = "b240aa9d9eda3248b734ae66d3b0cf276b9e96c90469ebdda36dda86bd39144a"
+V3_MODEL_055 = "3cf6fe7f43c73e8ee1823abbcb8e9640324899ef163812fddb9832cf1ae9dbc3"
 
 
 def v3(**over):
@@ -70,7 +62,7 @@ def v3(**over):
             "name": "Synthetic application B",
             "inputs": list(INPUTS),
             "status": "CANDIDATE",
-            "topics": ["property_left_in_vehicle"],
+            "topics": ["synthetic_topic_d"],
             "intents": ["REPORT_PROBLEM", "REQUEST_SERVICE"],
         },
         ORDER: {
@@ -113,9 +105,6 @@ def saved(*docs):
     return st
 
 
-# ── v3 document ───────────────────────────────────────────────────────────────
-
-
 def test_v3_validates_and_stores_every_entry_in_one_shape():
     clean = validate_doc(v3())
     assert clean["schema"] == SCHEMA_V3
@@ -126,7 +115,7 @@ def test_v3_validates_and_stores_every_entry_in_one_shape():
         "status": "CANDIDATE",
         "gate_code": None,
         "request_contract": None,
-        "topics": ["property_left_in_vehicle"],
+        "topics": ["synthetic_topic_d"],
         "intents": ["REPORT_PROBLEM", "REQUEST_SERVICE"],
         "invocation_scope": None,
         "priority": None,
@@ -148,7 +137,7 @@ def test_v3_status_set_includes_the_release_line_states():
 
 
 def test_a_shadow_app_may_keep_the_gate_holding_it():
-    # the release line: SUPPLEMENT_DEFAULT_HOLD holds 910769f0 (registered SHADOW); a held CANDIDATE is written GATED
+
     d = v3()
     d["solutions"][LOST].update(status="SHADOW", gate_code="SUPPLEMENT_DEFAULT_HOLD")
     clean = validate_doc(d)
@@ -178,7 +167,7 @@ def test_v2_reads_as_before_with_every_app_current():
     clean = validate_doc(doc_v2())
     assert clean["schema"] == SCHEMA_V2
     assert all(set(s) == {"name", "inputs"} for s in clean["solutions"].values())
-    assert content_sha256(clean) == V2_CONTENT_BASELINE, "a v2 table keeps its 0.5.5 digest"
+    assert content_sha256(clean) == V2_CONTENT_055, "a v2 table keeps its 0.5.5 digest"
     assert solution_entry(clean, COUPON) == {
         "name": "Synthetic application A",
         "inputs": INPUTS,
@@ -222,7 +211,7 @@ def _set(app, **fields):
             "solutions.%s.gate_code" % ORDER,
         ),
         (
-            _set(ORDER, gate_code="synthetic_invalid_gate"),
+            _set(ORDER, gate_code="synthetic_lower"),
             "ROUTE_TABLE_INVALID",
             "solutions.%s.gate_code" % ORDER,
         ),
@@ -249,7 +238,7 @@ def _set(app, **fields):
             "solutions.%s.input_bindings" % COUPON,
         ),
         (
-            _set(COUPON, solution_id="synthetic-app-a.ese"),
+            _set(COUPON, solution_id="example.solution"),
             "ROUTE_TABLE_INVALID",
             "solutions.%s" % COUPON,
         ),
@@ -269,7 +258,7 @@ def _set(app, **fields):
             "solutions.%s.topics" % COUPON,
         ),
         (
-            _set(COUPON, topics=["Synthetic Topic"]),
+            _set(COUPON, topics=["Coupon Use"]),
             "ROUTE_TABLE_INVALID",
             "solutions.%s.topics" % COUPON,
         ),
@@ -287,7 +276,7 @@ def _set(app, **fields):
             "solutions.%s.invocation_scope" % COUPON,
         ),
         (
-            _set(COUPON, package_id="Synthetic Topic"),
+            _set(COUPON, package_id="Coupon Use"),
             "ROUTE_TABLE_INVALID",
             "solutions.%s.package_id" % COUPON,
         ),
@@ -405,7 +394,7 @@ def test_invoke_checks_status_before_inputs():
 
 def test_lifting_a_gate_is_one_save():
     st = saved(v3())
-    lifted = v3(note="F-01 修好：翻闸")
+    lifted = v3(note="Synthetic gate opened")
     lifted["solutions"][ORDER]["status"] = "CURRENT"
     del lifted["solutions"][ORDER]["gate_code"]
     st.save(lifted, 1)
@@ -432,9 +421,6 @@ def test_invoke_tool_emits_status_and_gate():
     assert (variables["status"], variables["error_code"]) == ("REJECTED", "SOLUTION_GATED")
     assert (variables["gate_code"], variables["solution_status"]) == (GATE, "GATED")
     assert variables["receipt"]["gate_code"] == GATE
-
-
-# ── route evaluation: routing-table/v4 adds the solution block ───────────────
 
 
 def test_v4_stub_carries_the_solution_block():
@@ -478,20 +464,18 @@ def test_v4_stub_on_a_v2_table_reads_the_defaults():
         "request_contract": None,
         "topics": [],
         "intents": [],
-        "table_content_sha256": V2_CONTENT_BASELINE,
+        "table_content_sha256": V2_CONTENT_055,
     }
 
 
-def test_v2_and_v3_stubs_match_public_baseline():
+def test_v2_and_v3_stubs_compile_exactly_as_in_0_5_5():
     clean = validate_doc(doc_v2())
-    assert sha(compile_model_v2("4.0.0", clean)) == V2_MODEL_BASELINE
-    assert (
-        sha(compile_model_v2("4.1.0", clean, {"targets": {}, "transfers": {}})) == V3_MODEL_BASELINE
-    )
+    assert sha(compile_model_v2("4.0.0", clean)) == V2_MODEL_055
+    assert sha(compile_model_v2("4.1.0", clean, {"targets": {}, "transfers": {}})) == V3_MODEL_055
 
 
 def test_upgrading_the_table_to_v3_changes_nothing_a_v2_or_v3_stub_reads():
-    # the v3 table with the v2 table's names and inputs: the readers built before 0.5.6 compile the same model
+
     d = v3()
     d["routes"] = d["routes"][:-1]
     del d["scenes"]["P_04_01_01"]

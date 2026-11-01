@@ -1,4 +1,4 @@
-"""Typed stored policy, supplement, and resource tables using shared versioned storage."""
+"""Stored tables."""
 
 import copy
 import hashlib
@@ -61,7 +61,7 @@ TYPES = {
 QUALITIES = ("KNOWN", "UNKNOWN", "NOT_APPLICABLE", "CONFLICT")
 HIT_POLICIES = ("UNIQUE", "FIRST", "COLLECT")
 MAX_PARAMETERS = 32
-MAX_RULES = 512  # 0.5.5: one rule per scene (target.scene_entity has 182, every scene 224); was 128
+MAX_RULES = 512
 MAX_CONDITIONS = 32
 MAX_TEMPLATES = 128
 MAX_SUPPLEMENT_SCENES = 1024
@@ -78,8 +78,8 @@ TABLE_RESOURCE_SUFFIX = ".resource"
 TABLE_TARGET_PREFIX = "target."
 TABLE_TRIAGE_PREFIX = "triage."
 APP_TARGET = "56d3c0c5-4d41-4454-99ab-e3a6db6aa66c"  # 定位 TARGET
-APP_TRIAGE = "0f34962a-e380-45e1-8b35-fc64b5651776"  # 分诊 TRIAGE (DISPATCH is its legacy key)
-# 0.5.5: a policy table's name prefix -> the one workflow app that may own it
+APP_TRIAGE = "0f34962a-e380-45e1-8b35-fc64b5651776"
+
 POLICY_OWNERS = {TABLE_TARGET_PREFIX: APP_TARGET, TABLE_TRIAGE_PREFIX: APP_TRIAGE}
 POLICY_NAME_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{0,47}$")
 DECISION_NAME_RULE = (
@@ -106,8 +106,7 @@ def reserved_name(table):
 
 
 def decision_table_name(table, app_id):
-    """0.5.5: the closed set of decision-table names, each bound to its owner: p2.<owner.app_id> (a solution's P2
-    acceptance table), target.<name> owned by 定位 TARGET, triage.<name> owned by 分诊 TRIAGE."""
+    """Decision table name."""
     if table == TABLE_P2_PREFIX + app_id:
         return True
     for prefix, owner in POLICY_OWNERS.items():
@@ -129,9 +128,6 @@ def _note(doc):
     note = doc.get("note", "")
     _need(type(note) is str and len(note) <= 500, "ROUTE_TABLE_INVALID", "说明最多 500 字", "note")
     return note
-
-
-# --- decision-table/v1 -------------------------------------------------------------------------------------------------
 
 
 def _model(m, path):
@@ -323,9 +319,6 @@ def _validate_decision(doc):
     }
 
 
-# --- supplement-requirements/v1 ----------------------------------------------------------------------------------------
-
-
 def _validate_supplement(doc):
     v2 = doc.get("schema") == SCHEMA_SUPPLEMENT_V2
     table = _table(
@@ -423,8 +416,7 @@ def _validate_supplement(doc):
 
 
 def supplement_row(doc, scene_id):
-    """The scene's requirement; a scene the table does not list is UNDECLARED (SUPPLEMENT_UNDECLARED), never NONE.
-    0.5.9: the key is looked up in either spelling; the answer names the scene as it was asked."""
+    """Supplement row."""
     row = by_scene(doc["scenes"]).get(scene_id)
     if row is None:
         return {
@@ -444,9 +436,6 @@ def supplement_row(doc, scene_id):
         "gap_code": row.get("gap_code"),
         **({"associations": copy.deepcopy(row["associations"])} if "associations" in row else {}),
     }
-
-
-# --- resource-targets/v1 -----------------------------------------------------------------------------------------------
 
 
 def _entry(e, kind, path):
@@ -559,7 +548,7 @@ def _validate_resource(doc):
 
 
 def transfer_targets(resource_doc):
-    """TRANSFER to -> resource id (the legacy TRANSFER rows of a route table read as these targets)."""
+    """Transfer targets."""
     return {
         t["entry"]["to"]: rid
         for rid, t in resource_doc["targets"].items()
@@ -753,8 +742,7 @@ def evaluate_decision_table(doc, inputs):
 
 
 def _identity(params):
-    """0.5.9 (plan-v2 D1): a digest over a scene id eats its legacy form (identity_key), so one question asked in either
-    spelling has one inputs_digest; legacy parameters are returned as they are (the 0.5.8 digest)."""
+    """identity."""
     record = params.get("scene_id")
     if type(record) is not dict or not is_scene(record.get("value")):
         return params

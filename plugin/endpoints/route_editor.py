@@ -1,23 +1,4 @@
-"""Route table editor over this plugin's storage (Brian 2026-10-22: routes are edited in the Dify plugin).
-
-All paths sit under /routes/ (the structure viewer owns "/" and "/<path:route>"; see route_editor.yaml):
-    GET  /routes/                          editor page (static, allowlisted); /routes redirects here
-    GET  /routes/api/table?table=…         current table (null before the first save) and its version
-    GET  /routes/api/history?table=…       saved versions, newest first
-    GET  /routes/api/version?table=…&v=n   one saved version (load it, then save it as a new version to roll back)
-    POST /routes/api/table                 v1 {table, expected_version, note, issue_types, phases, registry, routes}
-                                    v2 {schema: dmn-json.route-table/v2, table, expected_version, note, issue_types, phases,
-                                        scenes, solutions, routes} -> saved document
-                                    v3 (0.5.6) the same keys with schema dmn-json.route-table/v3 (solutions carry status /
-                                        gate_code / request_contract / topics / intents / …); any save may also carry
-                                        gate_report (WO-78's pre-save gate report, optional; dmn_client.route_store)
-
-Every /api call needs header X-Route-Edit-Key equal to this endpoint's edit_key setting (constant-time compare); an
-unset or short key disables the API. With the store_app_id setting, reads and saves go through that maintenance app
-(route_table_store tool, tool storage); without it the endpoint uses its own storage, which on AgentHub workflows
-cannot see (dmn_client.route_store). The page never executes rules: workflow runs read the saved table through
-evaluate_decision (dmn_client.route_table). Errors never echo stored content.
-"""
+"""Route editor."""
 
 import hmac
 import json
@@ -108,8 +89,7 @@ class RouteEditorEndpoint(Endpoint):
             return _error(404, "NOT_FOUND", "接口不存在")
         else:
             return _error(405, "METHOD_NOT_ALLOWED", "只允许 GET / POST /api/table")
-        # On AgentHub an endpoint's plugin storage is not the tools' storage (0.5.1 probe): with store_app_id set,
-        # every read and save goes through the maintenance app, whose route_table_store tool uses tool storage.
+
         app_id = ((settings or {}).get("store_app_id") or "").strip()
         if app_id:
             status, out = via_app(

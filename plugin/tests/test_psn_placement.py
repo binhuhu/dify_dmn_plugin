@@ -1,4 +1,4 @@
-"""psn check carries the ESE five-level rules F06–F09 and L5 (solution-app/v1 §3); synthetic."""
+"""Test psn placement."""
 
 import base64
 import gzip
@@ -139,9 +139,6 @@ def placement(report):
     }
 
 
-# SOLUTION, ESE F09
-
-
 def solution_layout():
     return [
         ("start", "P1.S1", {"type": "start", "title": "start"}),
@@ -168,7 +165,6 @@ def test_solution_layout_of_the_standard_passes():
 @pytest.mark.parametrize(
     ("row", "fail_edge", "code"),
     [
-        # The ESE checker's own injected error: an http fetch in P5.S1.
         (("late_http", "P5.S1", http()), True, "MISPLACED_NODE"),
         (("late_tool", "P2.S1", other_tool()), True, "MISPLACED_NODE"),
         (
@@ -182,7 +178,6 @@ def test_solution_layout_of_the_standard_passes():
         (("judge", "P4.S1", llm("模型识读")), True, "MISPLACED_NODE"),
         (("loose_reading", "P1.S1", llm("模型识读")), True, "MISPLACED_NODE"),
         (("unmarked", "P1.S1", llm("read"), "fetch_loop"), True, "MISPLACED_NODE"),
-        # A fetch app may be called from P1.S1 only (solution-app/v1 D table, C6).
         (("late_fetch_app", "P2.S1", workflow_tool()), True, "MISPLACED_NODE"),
     ],
 )
@@ -200,13 +195,10 @@ def test_model_reading_http_by_url_or_title_is_a_model():
     assert placement(run("SOLUTION", rows, TABLES)) == set()
 
 
-# 2026-10-28 (方案从 P4 起, solution-app/v1 1.0.9 C12): a solution fetches its own P4 facts in P4.S1.
-
-
 @pytest.mark.parametrize(
     "row",
     [
-        ("p4_query", "P4.S1", workflow_tool()),  # ESE ee1aebd3 p4_query (WO-42)
+        ("p4_query", "P4.S1", workflow_tool()),
         ("p4_http", "P4.S1", http()),
     ],
 )
@@ -239,9 +231,6 @@ def test_a_p4s1_fetch_on_default_value_is_a_silent_fetch():
     assert placement(run("SOLUTION", rows, TABLES)) == {("SILENT_FETCH_DEFAULT", "p4_http")}
 
 
-# invoke_solution runs a solution app: a CALL, not a DECISION (WO-38, 交付编排 solve_call).
-
-
 def invoke_solution():
     return dict(DMN, tool_name="invoke_solution", title="solve")
 
@@ -269,11 +258,8 @@ def test_invoke_solution_is_a_call():
     }
 
 
-# L5
-
-
 def test_decision_without_fail_branch_has_no_failure_handling():
-    # The ESE checker's own injected error: a decision table without its fail-branch edge.
+
     report = run("SOLUTION", solution_layout(), ("p1_table", "p2_table"))
     assert placement(report) == {("NO_FAILURE_HANDLING", "p4_table")}
 
@@ -281,7 +267,6 @@ def test_decision_without_fail_branch_has_no_failure_handling():
 @pytest.mark.parametrize(
     ("rows", "edges", "flagged"),
     [
-        # default-value counts as handled for L5 (SILENT_DMN_DEFAULT still warns about it).
         ([("t", "P2.S1", dmn(error_strategy="default-value"))], (), set()),
         ([("loop", "P1.S1", iteration()), ("h", "P1.S1", http(), "loop")], (), set()),
         (
@@ -300,10 +285,10 @@ def test_failure_handling_l5(rows, edges, flagged):
 
 
 def test_solution_may_call_a_fetch_app_in_p1s1():
-    # solution-app/v1 (D table, C6) over ESE F09, which forbids workflow calls in SOLUTION.
+
     rows = [*solution_layout(), ("fetch_app", "P1.S1", workflow_tool())]
     assert placement(run("SOLUTION", rows, (*TABLES, "fetch_app"))) == set()
-    # Without a fail-branch it still lacks failure handling (L5), like the live coupon app.
+
     report = run("SOLUTION", [*solution_layout(), ("fetch_app", "P1.S1", workflow_tool())], TABLES)
     assert placement(report) == {("NO_FAILURE_HANDLING", "fetch_app")}
 
@@ -314,9 +299,6 @@ def test_a_forbidden_workflow_call_without_fail_branch_reports_both_rules():
         ("WORKFLOW_CALL_FORBIDDEN", "context"),
         ("NO_FAILURE_HANDLING", "context"),
     }
-
-
-# solution-app/v1 N4
 
 
 def default_value(data):
@@ -338,7 +320,6 @@ def default_value(data):
             (),
             {("SILENT_FETCH_DEFAULT", "h")},
         ),
-        # The model-reading cell is a fetch too (N6).
         (
             [
                 ("loop", "P1.S1", iteration()),
@@ -347,7 +328,6 @@ def default_value(data):
             (),
             {("SILENT_FETCH_DEFAULT", "r")},
         ),
-        # fail-branch is what N4 asks for.
         (
             [("fetch_app", "P1.S1", dict(workflow_tool(), error_strategy="fail-branch"))],
             ("fetch_app",),
@@ -373,9 +353,6 @@ def test_silent_fetch_default_is_a_solution_rule_and_warns():
     assert {i["severity"] for i in strict["issues"] if i["code"] == "SILENT_FETCH_DEFAULT"} == {
         "FAIL"
     }
-
-
-# DISPATCH, ESE F08
 
 
 def dispatch_layout():
@@ -418,7 +395,6 @@ def test_dispatch_layout_passes():
             [*dispatch_layout(), ("w", "D1.S1", workflow_tool())],
             {("WORKFLOW_CALL_FORBIDDEN", "w")},
         ),
-        # The ESE checker's own injected error: a scene definition hidden in a packed block.
         (
             [*dispatch_layout(), ("hidden", "D1.S1", code(packed('{"必要成立条件": []}')))],
             {("SCENE_DEFINITION_IN_CODE", "hidden")},
@@ -439,9 +415,6 @@ def test_dispatch_decision_count_names_no_node():
         if i["code"] == "DISPATCH_DECISION_COUNT"
     )
     assert "node_key" not in issue and "2 decision nodes" in issue["message"]
-
-
-# DELIVERY, ESE F06
 
 
 def delivery_layout():
@@ -495,9 +468,6 @@ def test_delivery_rules(row, code):
     assert placement(report) == {(code, row[0])}
 
 
-# TARGET, ESE F07
-
-
 def test_target_rules():
     rows = [
         ("semantic_read", "T2.S1", llm()),
@@ -517,9 +487,6 @@ def test_target_rules():
         ("MISPLACED_NODE", "observe"),
         ("WORKFLOW_CALL_FORBIDDEN", "context"),
     }
-
-
-# Families without an ESE rule, severities, skipped nodes
 
 
 @pytest.mark.parametrize(("family", "step"), [("HANDLE", "P6.S1"), ("KNOWLEDGE", "Q2.S1")])

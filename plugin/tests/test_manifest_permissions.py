@@ -1,4 +1,4 @@
-"""Protect Endpoint installation declarations at the release boundary."""
+"""Test manifest permissions."""
 
 import importlib.util
 import subprocess
@@ -63,7 +63,7 @@ def test_malformed_declarations_fail_closed(raw):
 
 
 def test_original_rc3_manifest_fails_and_only_permission_fix_passes():
-    # Git objects are the frozen release inputs, not a reconstruction of RC3.
+
     rc3 = subprocess.check_output(
         ["git", "show", "v0.4.0-rc3:builtin/manifest.yaml"], cwd=ROOT, text=True
     )

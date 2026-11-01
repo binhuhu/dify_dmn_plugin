@@ -1,4 +1,4 @@
-"""json-plan-v1: bounded local orchestration; all queries are SYNTHETIC mocks."""
+"""Local plan."""
 
 import hashlib
 import json

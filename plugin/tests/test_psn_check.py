@@ -1,4 +1,4 @@
-"""psn check (WO-20261015 item 2) on synthetic graphs; no host, no real flow data."""
+"""Test psn check."""
 
 import json
 import re
@@ -80,7 +80,6 @@ def test_unnumbered_nodes_are_never_reported_unstamped():
 @pytest.mark.parametrize(
     ("title", "desc", "message"),
     [
-        # Before solution-app/v1 N2 the title carried no family; that no longer counts.
         ("P1.S1.N1 · name", None, "Title does not start with the number SOLUTION/P1.S1.N1."),
         (
             "SOLUTION.coupon-use/P1.S1.N1 · name",
@@ -167,7 +166,7 @@ def test_node_ref_mismatch_by_family_phase_step_node():
 
 
 def test_instance_key_written_into_node_ref_is_caught_both_ways():
-    # The R6 failure: an instance key in node_ref never resolves in the embedded bundle.
+
     graph = copy_graph()
     node = graph_nodes(graph)["solution_decision"]
     ref = get_constant(node, "node_ref")

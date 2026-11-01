@@ -41,10 +41,8 @@ _KIND_BY_TYPE = {
 
 STAMP_SEPARATOR = " · "
 DESC_PREFIX = "psn:"
-# solution-app/v1 N2: a SOLUTION title is the family-form number and the name, at most 60
-# characters; a long name is cut, the number never. N2 covers solution apps only. Brian
-# 2026-10-23: 「标题族前缀只改 SOLUTION；其余族保留旧写法，check 对它们照旧认旧写法。」 So the
-# other families keep the bare number and have no length limit, as before N2.
+
+
 TITLE_MAX = 60
 TITLE_FAMILIES = {"SOLUTION"}
 _TAIL = re.compile(r"^[A-Z][1-9][0-9]*\.S[1-9][0-9]*\.N[1-9][0-9]*$")
@@ -118,8 +116,6 @@ def load_document(path) -> tuple:
     return value, graph
 
 
-# dmn_json tools that call another app instead of deciding: invoke_solution runs a solution app (交付编排 solve_call, O4.S1).
-# WO-38 (10-28): taken for a DECISION it drew KIND_MISMATCH, NODE_REF_MISSING and MISPLACED_NODE on 交付编排.
 DMN_CALL_TOOLS = frozenset({"invoke_solution"})
 
 
@@ -189,7 +185,7 @@ def bundle_of(data: dict):
 
 
 def family_ref(instance_ref: str, family: str) -> str:
-    """SOLUTION.coupon-use/P4.S2.N3 -> SOLUTION/P4.S2.N3 (R6)."""
+    """Family ref."""
     return f"{family}/{instance_ref.split('/', 1)[1]}"
 
 
@@ -209,20 +205,19 @@ def _n2(instance_ref: str) -> bool:
 
 
 def title_number(instance_ref: str) -> str:
-    """The number a title starts with: SOLUTION.coupon-use/P4.S2.N3 -> SOLUTION/P4.S2.N3 (N2);
-    other families keep the bare number, KNOWLEDGE.consult/Q1.S1.N2 -> Q1.S1.N2."""
+    """Title number."""
     if _n2(instance_ref):
         return family_ref(instance_ref, _family(instance_ref))
     return instance_ref.split("/", 1)[1]
 
 
 def title_length(title: str) -> int:
-    """Length in UTF-16 units, as JavaScript counts it; the ESE checker measures titles that way."""
+    """Title length."""
     return len(title.encode("utf-16-le")) // 2
 
 
 def stamp_title(instance_ref: str, name: str) -> str:
-    """Number, separator and name; under N2 the name is cut so the title fits TITLE_MAX."""
+    """Stamp title."""
     number = title_number(instance_ref)
     head = f"{number}{STAMP_SEPARATOR}"
     if not _n2(instance_ref):
@@ -240,7 +235,7 @@ def stamp_title(instance_ref: str, name: str) -> str:
 
 
 def title_problem(title, instance_ref: str):
-    """Why a numbered node's title is not what stamp writes, or None when it is (N2)."""
+    """Title problem."""
     number = title_number(instance_ref)
     if not isinstance(title, str) or not (
         title == number or title.startswith(f"{number}{STAMP_SEPARATOR}")

@@ -1,4 +1,4 @@
-"""Actual plugin save/read/evaluate paths, with synthetic shared association fixtures."""
+"""Test supplement v2."""
 
 import copy
 import json
@@ -56,7 +56,7 @@ def test_shared_invalid_cases_fail_on_save_and_on_corrupted_stored_read(case):
     ), reply
     assert storage.data == {}
     result = evaluate_stored(
-        raw["table"], FORMAT_SUPPLEMENT, {"scene_id": "P_99_04_01"}, lambda _: copy.deepcopy(raw)
+        raw["table"], FORMAT_SUPPLEMENT, {"scene_id": "P_02_04_01"}, lambda _: copy.deepcopy(raw)
     )
     assert result["status"] == "FAILED" and result["error"]["code"] == case["error_code"], result
 
@@ -83,13 +83,13 @@ def test_real_tools_share_storage_and_preserve_both_alternatives():
         {
             "table": raw["table"],
             "format": FORMAT_SUPPLEMENT,
-            "inputs_json": {"scene_id": "M_P_99_04_01"},
+            "inputs_json": {"scene_id": "M_P_02_04_01"},
         },
     )[0][1]
     assert result["status"] == "SUCCEEDED"
-    assert result["result"]["associations"] == raw["scenes"]["P_99_04_01"]["associations"]
+    assert result["result"]["associations"] == raw["scenes"]["P_02_04_01"]["associations"]
     assert result["result"]["state"] == "NONE", "association does not create a routing hold"
-    assert result["result"]["scene_id"] == "M_P_99_04_01"
+    assert result["result"]["scene_id"] == "M_P_02_04_01"
 
 
 def test_editor_maintenance_app_saves_into_tools_not_endpoint_storage():
@@ -104,7 +104,7 @@ def test_editor_maintenance_app_saves_into_tools_not_endpoint_storage():
     result = evaluate_stored(
         raw["table"],
         FORMAT_SUPPLEMENT,
-        {"scene_id": "P_99_04_01"},
+        {"scene_id": "P_02_04_01"},
         StorageTables(tool_storage).load,
     )
     assert result["status"] == "SUCCEEDED"
@@ -125,41 +125,41 @@ def test_v1_to_v2_upgrade_is_cas_protected_and_retains_immutable_v1_history():
     downgrade = run_op(storage, "save", body={**old, "expected_version": 2})
     assert downgrade[0] == 400 and downgrade[1]["error"]["code"] == "STORED_TABLE_SCHEMA_CHANGED"
     old_result = evaluate_stored(
-        old["table"], FORMAT_SUPPLEMENT, {"scene_id": "P_99_04_01"}, lambda _: json.loads(v1_bytes)
+        old["table"], FORMAT_SUPPLEMENT, {"scene_id": "P_02_04_01"}, lambda _: json.loads(v1_bytes)
     )
     assert old_result["status"] == "SUCCEEDED" and "associations" not in old_result["result"]
 
 
 def test_v2_mixed_scene_spelling_preserves_existing_canonical_key_and_rejects_duplicate():
     storage, raw = FakeStorage(), doc()
-    raw["scenes"] = {"M_P_99_04_01": raw["scenes"]["P_99_04_01"]}
+    raw["scenes"] = {"M_P_02_04_01": raw["scenes"]["P_02_04_01"]}
     assert run_op(storage, "save", body={**raw, "expected_version": 0})[0] == 200
     mixed = copy.deepcopy(raw)
-    mixed["scenes"]["P_99_05_01"] = {"state": "NONE", "basis": "P_99_05_01 synthetic"}
+    mixed["scenes"]["P_05_01_01"] = {"state": "NONE", "basis": "P_05_01_01 synthetic"}
     status, saved = run_op(storage, "save", body={**mixed, "expected_version": 1})
-    assert status == 200 and set(saved["doc"]["scenes"]) == {"M_P_99_04_01", "M_P_99_05_01"}
+    assert status == 200 and set(saved["doc"]["scenes"]) == {"M_P_02_04_01", "M_P_05_01_01"}
     assert saved["scene_spelling"] == "CANONICAL"
     duplicate = copy.deepcopy(raw)
-    duplicate["scenes"]["P_99_04_01"] = copy.deepcopy(raw["scenes"]["M_P_99_04_01"])
+    duplicate["scenes"]["P_02_04_01"] = copy.deepcopy(raw["scenes"]["M_P_02_04_01"])
     failed = run_op(storage, "save", body={**duplicate, "expected_version": 2})
     assert failed[0] == 400 and failed[1]["error"]["code"] == "SCENE_KEY_DUPLICATE"
 
 
 def test_content_digest_includes_associations_and_result_cannot_mutate_doc():
     raw, other = doc(), doc()
-    other["scenes"]["P_99_04_01"]["associations"][0]["min_satisfied"] = 2
+    other["scenes"]["P_02_04_01"]["associations"][0]["min_satisfied"] = 2
     assert content_sha256(validate_doc(raw)) != content_sha256(validate_doc(other))
     result = evaluate_stored(
-        raw["table"], FORMAT_SUPPLEMENT, {"scene_id": "P_99_04_01"}, lambda _: raw
+        raw["table"], FORMAT_SUPPLEMENT, {"scene_id": "P_02_04_01"}, lambda _: raw
     )
     result["result"]["associations"][0]["any_of"].clear()
-    assert len(raw["scenes"]["P_99_04_01"]["associations"][0]["any_of"]) == 2
+    assert len(raw["scenes"]["P_02_04_01"]["associations"][0]["any_of"]) == 2
 
 
 def test_v2_does_not_add_inputs_or_change_missing_scene_default():
     raw = doc()
     missing = evaluate_stored(
-        raw["table"], FORMAT_SUPPLEMENT, {"scene_id": "P_99_01_01"}, lambda _: raw
+        raw["table"], FORMAT_SUPPLEMENT, {"scene_id": "P_01_01_01"}, lambda _: raw
     )
     assert missing["result"]["state"] == "UNDECLARED"
     assert missing["result"]["gap_code"] == "SUPPLEMENT_UNDECLARED"
@@ -167,7 +167,7 @@ def test_v2_does_not_add_inputs_or_change_missing_scene_default():
     extra = evaluate_stored(
         raw["table"],
         FORMAT_SUPPLEMENT,
-        {"scene_id": "P_99_04_01", "entity": "COUPON"},
+        {"scene_id": "P_02_04_01", "entity": "COUPON"},
         lambda _: raw,
     )
     assert extra["status"] == "FAILED" and extra["error"]["code"] == "INPUT_INVALID"

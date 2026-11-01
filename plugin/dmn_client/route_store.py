@@ -1,4 +1,4 @@
-"""Shared stored-table operations and maintenance-application forwarding."""
+"""Route store."""
 
 import json
 
@@ -61,7 +61,10 @@ def run_op(storage, op, table=DEFAULT_TABLE, version=None, body=None):
             if doc.get("resource_table") is None:
                 doc.pop("resource_table", None)
             name = doc.get("table")
-            current = tables.load(name) if type(name) is str and TABLE_RE.match(name) else None
+            try:  # the stored version, for its spelling only: a storage failure is left to save(), after validation
+                current = tables.load(name) if type(name) is str and TABLE_RE.match(name) else None
+            except Exception:
+                current = None
             doc, spelled = respell(doc, current)
             saved = tables.save(
                 doc,

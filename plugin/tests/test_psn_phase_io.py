@@ -1,4 +1,4 @@
-"""Phase io: solution-app/v1 C10, ESE F11 (structure declarations and psn check); synthetic."""
+"""Test psn phase io."""
 
 import json
 from copy import deepcopy
@@ -47,7 +47,7 @@ def table(*reads):
 
 
 def solution_rows():
-    """An ESE-shaped SOLUTION: fetch in P1.S1, tables, facts across phases, a P5 fail exit."""
+    """Solution rows."""
     return [
         ("start", "P1.S1", start(call_id=("text-input", 16), request_json=("paragraph", 100000))),
         ("fx_i0", "P1.S1", {"type": "iteration", "title": "fetch", "output_type": "array[string]"}),
@@ -166,7 +166,6 @@ def test_workflows_without_io_are_not_checked():
 @pytest.mark.parametrize(
     "selector",
     [
-        # The ESE checker's own injected errors: P4 reads a P1 output P1 does not declare.
         ["call_input", "call_json"],
         ["call_input", "call_json", "a"],
     ],
@@ -207,7 +206,7 @@ def test_a_declared_output_read_without_the_input_declaration():
 
 @pytest.mark.parametrize("selector", [["fx_i0", "output"], ["fx_i0_h", "body"]])
 def test_p2_reads_raw_fetch_detail_of_p1s1(selector):
-    # The ESE checker's own injected error: P2 reads the fetch loop's raw output.
+
     structure, graph, key = solution()
     node(graph, "p2_input")["data"]["variables"].append(
         {"variable": "raw", "value_selector": selector}
@@ -326,7 +325,7 @@ def test_declared_delivery_passes():
 
 
 def test_delivery_failure_signal_into_a_step_that_is_not_a_fail_exit():
-    # The ESE checker's own injected error: O2.S1 reads O1's error.
+
     structure, graph, key = delivery()
     node(graph, "locate_req")["data"]["variables"].append(
         {"variable": "init_error", "value_selector": ["init", "error"]}

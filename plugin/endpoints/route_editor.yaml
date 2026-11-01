@@ -25,7 +25,6 @@ settings:
       zh_Hans: AgentHub 上端点的存储和流程里工具读的存储不是一份。填「路由表维护」应用（只有一个 route_table_store 工具节点）的 app_id，编辑页就经它读写，落在 evaluate_decision 读得到的地方。只有本地调试才留空。
 # The editor lives under /routes/ (open <endpoint url>/routes/). The structure viewer group, declared first in the
 # manifest, owns "/" and "/<path:route>" for GET; the SDK routes both groups through one werkzeug Map, so identical
-# patterns went to the viewer on AgentHub (0.5.1 probe, 2026-10-23). A static prefix is matched before the viewer's
 # catch-all whatever the declaration order.
 endpoints:
   - path: /routes

@@ -1,9 +1,4 @@
-"""Pure service-decision-table-v1 evaluator; no clock, IO, or graph activation.
-
-A definition pin binds content, not authority. An optional deployment-owned policy
-may verify source attestations, activation, tenant and age before this evaluator runs.
-It must never be obtained from dynamic tool JSON.
-"""
+"""Decision executor."""
 
 import hashlib
 import json
@@ -40,12 +35,7 @@ _PSN_NODE = re.compile(r"^N[1-9][0-9]*$")
 
 
 def psn_ref(node_ref):
-    """`SOLUTION/P4.S2.N3` when node_ref uses the PSN family form, else None.
-
-    Read-only echo for traces. The plugin does not know the structure's instance key
-    (SOLUTION.coupon-use), so it echoes the family form; references in other forms are
-    still evaluated as before and simply carry no psn_ref.
-    """
+    """Psn ref."""
     if isinstance(node_ref, str):
         try:
             node_ref = json.loads(node_ref)
@@ -143,7 +133,7 @@ def _rule(rule, params, scene_aware=False):
         record = params.get(path[1])
         if path[2] == "value" and (record is None or record["quality"] != "KNOWN"):
             state = "UNKNOWN"
-        elif scene_aware:  # 0.5.9: a stored route table matches a scene id in either spelling
+        elif scene_aware:
             state = scene_state(predicate, params)
         else:
             state = condition(predicate, {"parameters": params})["state"]

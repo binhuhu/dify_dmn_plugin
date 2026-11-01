@@ -1,4 +1,4 @@
-// Reference only: not wired into product consumers. Same fixtures/ranges as Python.
+// Reference only: not wired into Viewer/81. Same fixtures/ranges as Python.
 'use strict';
 const {forbidden_ranges:R}=require('./label-boundary.json');
 const validLabel=s=>typeof s==='string'&&[...s].length>0&&[...s].length<=128&&s.trim()!==''&&![...s].some(c=>R.some(([lo,hi])=>lo<=c.codePointAt(0)&&c.codePointAt(0)<=hi));

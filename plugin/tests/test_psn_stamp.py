@@ -1,4 +1,4 @@
-"""psn stamp / from-graph (WO-20261015 item 3) on synthetic graphs."""
+"""Test psn stamp."""
 
 import json
 from copy import deepcopy
@@ -65,7 +65,6 @@ def test_from_graph_round_trip():
             "P9.S9.N9 · already stamped wrong",
             "SOLUTION/P1.S2.N2 · already stamped wrong",
         ),
-        # N2: the number before N2 had no family; some drafts used the instance key.
         ("solution_node_1", "P1.S1.N1 · bare number", "SOLUTION/P1.S1.N1 · bare number"),
         (
             "solution_node_2",
@@ -107,7 +106,7 @@ def test_long_name_is_cut_to_sixty_characters_and_the_number_is_kept(name, kept)
     graph_nodes(graph)["solution_node_1"]["data"]["title"] = name
     after, _ = stamp(graph)
     title = {n["id"]: n["data"]["title"] for n in after["nodes"]}["solution_node_1"]
-    # "SOLUTION/P1.S1.N1 · " is 20 characters, which leaves 40 for the name.
+
     assert title == "SOLUTION/P1.S1.N1 · " + kept
     assert len(title.encode("utf-16-le")) // 2 <= 60
     again, _ = stamp_graph(structure(), deepcopy(after), KEY)
@@ -228,11 +227,9 @@ def test_cli_stamp_and_from_graph(tmp_path, capsys):
     ("ref", "name", "title"),
     [
         ("SOLUTION.coupon-use/P1.S1.N1", "name", "SOLUTION/P1.S1.N1 · name"),
-        # N2 covers solution apps; the other families keep the bare number.
         ("KNOWLEDGE.consult/Q1.S1.N2", "name", "Q1.S1.N2 · name"),
         ("TARGET/T3.S1.N4", "name", "T3.S1.N4 · name"),
         ("DELIVERY/O1.S1.N1", "", "O1.S1.N1"),
-        # ...and no length limit: other families are not cut and not flagged, as before N2.
         ("KNOWLEDGE.consult/Q1.S1.N2", "名" * 80, "Q1.S1.N2 · " + "名" * 80),
     ],
 )

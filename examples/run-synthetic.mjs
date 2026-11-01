@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { executePlan, queryCapability } from "../engine/src/plan.js";
 import { calculateAvailabilityFact } from "./fact-calculator.mjs";
-// Example of the external L1 boundary: trusted caller obtains mock L0, runs an ESM
+
 // calculator, then supplies the resulting fact to the plan. No arbitrary calculator
 // is dynamically loaded by the engine. Production provenance checks remain a gap.
 const ticket_id = process.argv[2] || "T-100";

@@ -1,8 +1,4 @@
-"""Association requirements, shared by save and evaluate validation.
-
-This is configuration, not proof that an entity or relationship was verified.
-Relationship names and allowed values are validated against a closed schema.
-"""
+"""Supplement associations."""
 
 import copy
 import re
@@ -60,7 +56,7 @@ def valid_label(value):
 
 def _need(ok, code, path):
     if not ok:
-        raise RouteTableError(code, "关联要求形状或值域不符合关联要求约束", path)
+        raise RouteTableError(code, "关联要求形状或值域不符合 J-1", path)
 
 
 def validate_associations(value, state, path):

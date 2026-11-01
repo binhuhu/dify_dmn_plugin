@@ -1,4 +1,4 @@
-"""psn assign / diff (WO-20261015 item 4, W8, W9): numbers are only ever added."""
+"""Test psn registry."""
 
 import json
 

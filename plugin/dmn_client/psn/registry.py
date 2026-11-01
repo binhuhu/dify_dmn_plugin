@@ -1,17 +1,4 @@
-"""psn assign / diff: append-only numbering (R2, W8, W9).
-
-assign applies a placement file in order and never changes an existing number:
-  {"action": "add",    "workflow": K, "node_key": X, "step": "P4.S2", "kind": "TRANSFORM", "name": "...",
-   "step_name": "... (only when the step is new)"}
-  {"action": "move",   "workflow": K_from, "node_key": X, "to_workflow": K_to (default K_from),
-   "step": "T3.S3", "reason": "...", "step_name": "..."}
-  {"action": "retire", "workflow": K, "node_key": X, "reason": "..."}
-  {"action": "kind",   "workflow": K, "node_key": X, "kind": "TOOL"}
-A new number is the next free N in its Step, counting tombstones; entries are taken in file order,
-so the same input always gives the same output.
-
-diff compares two structures by number and reports what changed, refusing renumbering and reuse.
-"""
+"""Registry."""
 
 from __future__ import annotations
 

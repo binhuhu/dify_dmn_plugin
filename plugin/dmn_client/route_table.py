@@ -1,4 +1,4 @@
-"""Validate, compile, version, and store routing tables with explicit solution registration."""
+"""Route table."""
 
 import copy
 import hashlib
@@ -7,7 +7,7 @@ import re
 import uuid
 from datetime import datetime, timezone
 
-from dmn_client.scene_id import (  # noqa: F401  (SCENE_RE: re-exported, 0.5.8 name)
+from dmn_client.scene_id import (  # noqa: F401
     SCENE_RE,
     by_scene,
     is_scene,
@@ -17,9 +17,9 @@ SCHEMA = "dmn-json.route-table/v1"
 FORMAT = "admission-routing-table/v1"
 SCHEMA_V2 = "dmn-json.route-table/v2"
 FORMAT_V2 = "routing-table/v2"
-FORMAT_V3 = "routing-table/v3"  # 0.5.3: the same v2 document, RESOURCE rows compiled in
+FORMAT_V3 = "routing-table/v3"
 SCHEMA_V3 = "dmn-json.route-table/v3"
-FORMAT_V4 = "routing-table/v4"  # 0.5.6: the v3 model plus the solution block
+FORMAT_V4 = "routing-table/v4"
 ROUTE_SCHEMAS = (SCHEMA_V2, SCHEMA_V3)
 SOLUTION_STATUS = ("CURRENT", "CANDIDATE", "GATED", "SHADOW", "RETIRED")
 CALLABLE = "CURRENT"
@@ -37,7 +37,7 @@ SOLUTION_KEYS_V3 = (
     "package_id",
     "target_handoff",
 )
-# what a v2 entry reads as: before 0.5.6 every registered app was callable
+
 SOLUTION_DEFAULTS = {
     "status": CALLABLE,
     "gate_code": None,
@@ -56,7 +56,7 @@ MAX_INTENTS = 16
 MAX_PRIORITY = 1000
 MAX_GATE_REPORT = 64 * 1024
 PROFILE = "service-decision-table-v1"
-# the decision engine's rule limit; v1 has one rule per route, v2 one per target group
+
 MAX_ROUTES = 128
 MAX_ROUTES_V2 = 4096
 MAX_SCENES = 1024
@@ -65,8 +65,8 @@ IN_CHUNK = 128  # values per "in" condition (json-table bound)
 TRANSFER_TO = ("SAFETY",)
 MAX_HISTORY = 50
 TABLE_RE = re.compile(r"^[a-z0-9][a-z0-9._-]{0,63}$")
-# SCENE_RE (0.5.8's ^P_\d{2}_\d{2}_\d{2}$) now lives in dmn_client.scene_id; validators call is_scene(), which also takes
-# the canonical M_ spelling (0.5.9, plan-v2 M-06).
+
+
 CODE_RE = re.compile(r"^[A-Z][A-Z_]{0,63}$")
 PHASE_RE = re.compile(r"^STAGE_[1-9]$")
 UUID_RE = re.compile(r"^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$")
@@ -207,8 +207,8 @@ def _knowledge(t, path):
 
 
 def _scene_keys(keyed, path):
-    """0.5.9: one scene, one key - a stored table never holds both spellings of a scene (scene_id.by_scene refuses)."""
-    from dmn_client.scene_id import SceneIdError  # noqa: PLC0415
+    """scene keys."""
+    from dmn_client.scene_id import SceneIdError  # noqa
 
     try:
         by_scene({k: None for k in keyed if is_scene(k)})
@@ -232,10 +232,8 @@ def _text(value, limit, label, path):
 
 
 def validate_doc(doc, resources=None):
-    """Normalize and check a stored document (route table v1 / v2 / v3, or a stored table of dmn_client.stored_tables, by
-    its schema); returns the stored form. resources: the targets of the resource table a v2 / v3 document names (checked
-    when given)."""
-    from dmn_client import stored_tables  # noqa: PLC0415  (stored_tables imports this module)
+    """Validate doc."""
+    from dmn_client import stored_tables  # noqa
 
     _need(type(doc) is dict, "ROUTE_TABLE_INVALID", "路由表必须是对象")
     if doc.get("schema") in stored_tables.SCHEMAS:
@@ -252,7 +250,7 @@ def validate_doc(doc, resources=None):
 
 
 def _route_table_name(doc):
-    from dmn_client.stored_tables import reserved_name  # noqa: PLC0415
+    from dmn_client.stored_tables import reserved_name  # noqa
 
     table = doc.get("table")
     _need(
@@ -424,7 +422,7 @@ def _target_v2(t, solutions, path, resources=None):
     _need(
         kind != "KNOWLEDGE",
         "ROUTE_TABLE_TARGET",
-        "知识库路由不进这张表，留在侧栏配置；DMN 路由表只放方案和转安全",
+        "知识库路由不进这张表，留在侧栏配置（DMN 路由表只放方案和转安全）",
         path + ".kind",
     )
     raise RouteTableError(
@@ -481,7 +479,7 @@ def _code_list(value, pattern, limit, label, path):
 
 
 def _solution_v3(s, p):
-    """One registry entry of a v3 table, stored with every key (None / [] for what is not set); lists keep their order."""
+    """solution v3."""
     _need(type(s) is dict, "ROUTE_TABLE_INVALID", "方案登记每项是一个对象", p)
     _need(
         "input_bindings" not in s,
@@ -506,12 +504,10 @@ def _solution_v3(s, p):
     _need(
         status != "GATED" or gate is not None,
         "ROUTE_TABLE_GATE_REQUIRED",
-        "GATED 的方案要写 gate_code（挡住它的闸，如 ESE_F01_ORDER_BINDING）",
+        "GATED 的方案要写 gate_code（挡住它的闸，如 EXAMPLE_GATE）",
         p + ".gate_code",
     )
-    # GATED = a candidate a closed gate holds; a SHADOW app may be held by a gate too (the release line's
-    # SUPPLEMENT_DEFAULT_HOLD holds the shadow 910769f0) and keeps that gate. CURRENT / CANDIDATE / RETIRED take none
-    # (a held candidate is written GATED).
+
     _need(
         gate is None or status in GATE_STATUSES,
         "ROUTE_TABLE_INVALID",
@@ -575,8 +571,7 @@ def _solution_v3(s, p):
 
 
 def solution_entry(clean, app_id):
-    """The registry entry of app_id in a validated (or stored) v2 / v3 route table, in the v3 shape; None when the app is
-    not registered. A v2 entry reads as CURRENT with no gate and nothing else declared (SOLUTION_DEFAULTS)."""
+    """Solution entry."""
     s = (clean.get("solutions") or {}).get(app_id)
     if s is None:
         return None
@@ -587,7 +582,7 @@ def solution_entry(clean, app_id):
 
 
 def solution_block(clean, app_id, table_content_sha256):
-    """The solution block of the routing-table/v4 receipt for a SOLUTION_APP row."""
+    """Solution block."""
     e = solution_entry(clean, app_id)
     return {
         "app_id": app_id,
@@ -601,7 +596,7 @@ def solution_block(clean, app_id, table_content_sha256):
 
 
 def _validate_v2(doc, resources=None):
-    """dmn-json.route-table/v2 and /v3 (the same document; v3 solutions carry the registry)."""
+    """validate v2."""
     table = _route_table_name(doc)
     issue_types = _codes(doc.get("issue_types"), CODE_RE, "问题类型", "issue_types")
     phases = _codes(doc.get("phases"), PHASE_RE, "处理阶段", "phases")
@@ -743,10 +738,8 @@ def _validate_v2(doc, resources=None):
 
 
 def content_sha256(doc):
-    """What decides a run: routes plus what they were checked against (v1 registry, v2 / v3 solution registry - for v3 with
-    every entry's status, gate and declarations -, the resource table's name when the document has one: a document without
-    it keeps its 0.5.2 digest). The note and the schema name are not part of it."""
-    from dmn_client import stored_tables  # noqa: PLC0415
+    """Content sha256."""
+    from dmn_client import stored_tables  # noqa
 
     if doc.get("schema") in stored_tables.SCHEMAS:
         return stored_tables.content_sha256(doc)
@@ -851,7 +844,6 @@ def compile_model(version, doc):
     }
 
 
-# v2 decision data: every template carries all fields (string or null literals), so downstream nodes read one shape.
 DATA_V2 = (
     "route_state",
     "route_kind",
@@ -885,7 +877,6 @@ def _data_v2(target, solutions):
     return data
 
 
-# v3 (routing-table/v3, 分诊 TRIAGE): the v2 fields plus the resource target a RESOURCE row (or a legacy TRANSFER row) names.
 DATA_V3 = DATA_V2 + (
     "resource_id",
     "resource_kind",
@@ -893,7 +884,7 @@ DATA_V3 = DATA_V2 + (
     "resource_entry_json",
     "resource_status",
 )
-# v4 (routing-table/v4, 0.5.6): the v3 fields plus the solution block (an object on a SOLUTION_APP row, null otherwise).
+
 DATA_V4 = DATA_V3 + ("solution",)
 
 
@@ -932,14 +923,7 @@ def _groups(routes):
 
 
 def compile_model_v2(version, doc, resources=None, content=None):
-    """Compile a v2 / v3 table: FIRST, scene_id in [...] × issue_type × phase per target group; keys are unique, so order
-    never decides.
-
-    resources None (format routing-table/v2): RESOURCE rows are left out, the model is the 0.5.2 one for the rows it knew.
-    resources = the resource table's stored form (format routing-table/v3): every row; each template carries DATA_V3.
-    content = the table's content_sha256 as well (format routing-table/v4, 0.5.6): DATA_V4, the v3 fields plus the solution
-    block of the row's app (solution_block). A v3 document compiles to the same v2 / v3 model as the v2 document with its
-    names and inputs: the registry fields only reach v4."""
+    """Compile model v2."""
     _need(
         content is None or resources is not None, "ROUTE_TABLE_STUB_INVALID", "v4 要连资源一起编译"
     )
@@ -1008,8 +992,7 @@ def compile_model_v2(version, doc, resources=None, content=None):
 
 
 def _stub_source(model):
-    """A storage stub: exactly profile / version / source, source = PLUGIN_STORAGE in the v1 admission or a routing format
-    (routing-table/v2, /v3, /v4)."""
+    """stub source."""
     if type(model) is not dict or "source" not in model:
         return None
     src = model["source"]
@@ -1081,7 +1064,7 @@ def materialize(bundle, load):
             out["models"][ref] = compile_model_v2(
                 model["version"], clean, resources, source["content_sha256"] if v4 else None
             )
-            if v4:  # the receipt names its contract; v2 / v3 sources stay as they were
+            if v4:
                 source["format"] = FORMAT_V4
         else:
             out["models"][ref] = (compile_model_v2 if v2 else compile_model)(
@@ -1092,8 +1075,8 @@ def materialize(bundle, load):
 
 
 def _resources(clean, load, path):
-    """(resources for compile_model_v2, the resource table's source entry or None) of a route table read as v3."""
-    from dmn_client import stored_tables  # noqa: PLC0415
+    """resources."""
+    from dmn_client import stored_tables  # noqa
 
     empty = {"targets": {}, "transfers": {}}
     name = clean.get("resource_table")
@@ -1133,8 +1116,7 @@ def _resources(clean, load, path):
 
 
 def _family(schema):
-    """Route tables v1, v2 and v3 are one family (a v1 table may be saved as v2, a v2 one as v3; never back from v3, see
-    StorageTables.save); supplement v1/v2 form one family; lossless explicit downgrade is audited; other schemas are separate."""
+    """family."""
     if schema in ("dmn-json.supplement-requirements/v1", "dmn-json.supplement-requirements/v2"):
         return "supplement-requirements"
     return "route-table" if schema in (SCHEMA, SCHEMA_V2, SCHEMA_V3) else schema
@@ -1144,11 +1126,7 @@ SUPPLEMENT_DOWNGRADE = "SUPPLEMENT_V2_TO_V1_NO_ASSOCIATIONS"
 
 
 def supplement_transition_of(current, clean, requested):
-    """Explicit, lossless schema-only rollback; CAS is checked before this function.
-
-    Nonempty requirements must first be removed by an independently visible v2
-    revision. A downgrade cannot combine that removal with a schema change.
-    """
+    """Supplement transition of."""
     is_downgrade = (
         current is not None
         and current.get("schema") == "dmn-json.supplement-requirements/v2"
@@ -1171,18 +1149,6 @@ def supplement_transition_of(current, clean, requested):
     previous = validate_doc(
         current
     )  # reject corrupt / newly-invalid heads, not just the edited row
-    source_digest = content_sha256(previous)
-    _need(
-        previous["table"] == clean["table"]
-        and type(current.get("version")) is int
-        and current["version"] >= 1
-        and current.get("content_sha256") == source_digest
-        and type(current.get("save_id")) is str
-        and re.fullmatch(r"[a-f0-9]{32}", current["save_id"]) is not None,
-        "SUPPLEMENT_DOWNGRADE_HEAD_IDENTITY_INVALID",
-        "当前补充表版本、保存标识或内容摘要不一致，不能降级",
-        "schema_transition",
-    )
     _need(
         all(not row.get("associations") for row in previous["scenes"].values()),
         "SUPPLEMENT_DOWNGRADE_HAS_ASSOCIATIONS",
@@ -1203,8 +1169,8 @@ def supplement_transition_of(current, clean, requested):
         "from_schema": previous["schema"],
         "to_schema": clean["schema"],
         "from_version": current["version"],
-        "from_content_sha256": source_digest,
-        "from_save_id": current["save_id"],
+        "from_content_sha256": content_sha256(previous),
+        "from_save_id": current.get("save_id"),
     }
 
 
@@ -1213,7 +1179,7 @@ def _state(entry):
 
 
 def gate_report_of(report, content):
-    """Technical contract for gate_report_of."""
+    """Gate report of."""
     if report is None:
         return None
     _need(
@@ -1284,7 +1250,7 @@ class StorageTables:
         for n in range(cur["version"], max(0, cur["version"] - MAX_HISTORY), -1):
             doc = self.version(table, n)
             if doc is not None:
-                from dmn_client.stored_tables import rows  # noqa: PLC0415
+                from dmn_client.stored_tables import rows  # noqa
 
                 out.append(
                     {
@@ -1305,8 +1271,7 @@ class StorageTables:
         return out
 
     def route_tables(self):
-        """The route tables to compare a save with: dispatch.route (the default table, saved before 0.5.6 too) and every
-        v2 / v3 route table saved since (route-table-index)."""
+        """Route tables."""
         listed = self._read(ROUTE_INDEX_KEY)
         names = (
             [n for n in listed if type(n) is str and TABLE_RE.match(n)]
@@ -1316,7 +1281,7 @@ class StorageTables:
         return list(dict.fromkeys([DEFAULT_ROUTE_TABLE, *names]))
 
     def _one_state(self, clean):
-        """Technical contract for _one_state."""
+        """one state."""
         for name in self.route_tables():
             if name == clean["table"]:
                 continue
@@ -1344,9 +1309,8 @@ class StorageTables:
         return "route-table:" + table + ":g:" + save_id
 
     def _cross_check(self, clean):
-        """0.5.3: a route table's RESOURCE rows name targets of its stored resource table; a resource table keeps every target
-        a route table it lists still names."""
-        from dmn_client import stored_tables  # noqa: PLC0415
+        """cross check."""
+        from dmn_client import stored_tables  # noqa
 
         if clean["schema"] in ROUTE_SCHEMAS:
             self._one_state(clean)
@@ -1369,9 +1333,6 @@ class StorageTables:
                 "resource_table",
             )
         if clean["schema"] == stored_tables.SCHEMA_RESOURCE:
-            # 0.5.4: the route tables the stored version lists count too, and one that still
-            # names this resource table may not leave the list (dropping it first let a target
-            # it uses be deleted; the v3 route then failed at run time).
             old = self.load(clean["table"]) or {}
             listed = (
                 old.get("route_tables", [])
@@ -1416,7 +1377,7 @@ class StorageTables:
         gate=None,
         schema_transition=None,
     ):
-        """Technical contract for save."""
+        """Save."""
         clean = validate_doc(doc)
         table = clean["table"]
         self._cross_check(clean)

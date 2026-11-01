@@ -360,9 +360,6 @@ def test_validation_does_not_attempt_network(monkeypatch):
     assert "INVALID_STRUCTURE" in codes(value)
 
 
-# --- W1: unnumbered GATE / EVENT nodes are placed in a Step without a number ---------------
-
-
 def delivery_step(value):
     return value["process"]["phases"][0]["steps"][0]
 
@@ -427,9 +424,6 @@ def test_unnumbered_node_key_may_repeat_across_workflows():
     other = deepcopy(delivery_step(value)["nodes"][0])
     solution(value)["phases"][0]["steps"][0]["nodes"].append(other)
     assert validate_structure(value) == []
-
-
-# --- W9: a numbered node may move to another workflow, keeping its node key ----------------
 
 
 def test_cross_workflow_move_is_a_valid_tombstone_chain():

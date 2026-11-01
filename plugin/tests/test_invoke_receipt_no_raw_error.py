@@ -1,11 +1,4 @@
-"""0.5.8: invoke_solution receipts never carry the child run's error text or the platform's exception text.
-
-A child run that did not succeed is SOLUTION_RUN_FAILED with the fixed message 「方案运行没有成功结束（<run_status>）」;
-a platform call that raised (before or during the stream) is SOLUTION_INVOKE_FAILED with 「调方案没有成功（<exception
-class>）」. Sandbox errors and stack traces from a solution's code node, and values from the run, stop at the plugin; the
-child run id stays in the receipt to look the run up. Other receipts retain the legacy contract with synthetic metadata pinned below.
-Synthetic ids only; the uid in the leak text is fake.
-"""
+"""Test invoke receipt no raw error."""
 
 import json
 from types import SimpleNamespace
@@ -18,14 +11,14 @@ from test_route_table_v2 import doc as doc_v2
 from dmn_client.route_table import StorageTables, content_sha256, validate_doc
 from tools.invoke_solution import InvokeSolutionTool
 
-FAKE_UID = "synthetic-user-001"
+FAKE_UID = "1234567890123"
 LEAK = (
     "Traceback (most recent call last):\n"
-    '  File "/synthetic/example.py", line 7, in main\n'
+    '  File "/var/sandbox/sandbox-python/code.py", line 7, in main\n'
     "    raise ValueError(payload)\n"
-    "ValueError: synthetic lookup failed for uid=" + FAKE_UID
+    "ValueError: coupon lookup failed for uid=" + FAKE_UID
 )
-LEAK_MARKS = ("Traceback", "most recent call", "/synthetic", "uid=", FAKE_UID)
+LEAK_MARKS = ("Traceback", "most recent call", "/var/sandbox", "uid=", FAKE_UID)
 
 
 def dumped(value):
@@ -50,11 +43,7 @@ def raises_at_once(exc):
 
 def raises_mid_stream(exc):
     def invoke(a, i):
-        yield {
-            "event": "workflow_started",
-            "workflow_run_id": "synthetic-run-9",
-            "data": {"id": "synthetic-run-9"},
-        }
+        yield {"event": "workflow_started", "workflow_run_id": "run-9", "data": {"id": "run-9"}}
         raise exc
 
     return invoke
@@ -86,9 +75,7 @@ def test_failed_run_receipt_has_the_fixed_text_not_the_child_error(run_status, e
         receipt["run_status"],
         receipt["elapsed_time"],
         receipt["outputs"],
-    ) == ("synthetic-workflow-1", "synthetic-run-9", run_status, 12.5, {}), (
-        "the run stays traceable; no outputs on failure"
-    )
+    ) == ("wf-1", "run-9", run_status, 12.5, {}), "the run stays traceable; no outputs on failure"
     assert seen == [(COUPON, {"call_id": "c1", "request_json": "{}"})]
 
 
@@ -160,8 +147,6 @@ def test_invoke_tool_messages_carry_no_raw_error(workflow_invoke, code, message)
     assert_no_leak([m.model_dump(mode="json") for m in msgs])
 
 
-# ── everything else: the legacy receipt contract ──────────────────────────────────
-
 SHA_V2 = "92e59c06423f04dd8a442dc90e579ab04c4e0d40bb1b040c5df86df0db47816a"
 EMPTY = {
     "status": "",
@@ -199,19 +184,18 @@ def v1_table():
 
 
 def blocking(a, i):
-    data = {"workflow_id": "synthetic-workflow-2", "status": "succeeded", "outputs": {"x": "1"}}
-    return iter([{"task_id": "t", "workflow_run_id": "synthetic-run-2", "data": data}])
+    data = {"workflow_id": "wf-2", "status": "succeeded", "outputs": {"x": "1"}}
+    return iter([{"task_id": "t", "workflow_run_id": "run-2", "data": data}])
 
 
-# Legacy receipt contract, with synthetic identity metadata and baseline-verified fixture digest.
-PINNED_LEGACY = {
+PINNED_0_5_7 = {
     "succeeded": (
         {},
         dict(
             IDENT,
             status="SUCCEEDED",
-            child_workflow_id="synthetic-workflow-1",
-            child_workflow_run_id="synthetic-run-9",
+            child_workflow_id="wf-1",
+            child_workflow_run_id="run-9",
             run_status="succeeded",
             elapsed_time=12.5,
             outputs={"receipt_json": "{}"},
@@ -222,8 +206,8 @@ PINNED_LEGACY = {
         dict(
             IDENT,
             status="SUCCEEDED",
-            child_workflow_id="synthetic-workflow-2",
-            child_workflow_run_id="synthetic-run-2",
+            child_workflow_id="wf-2",
+            child_workflow_run_id="run-2",
             run_status="succeeded",
             outputs={"x": "1"},
         ),
@@ -337,9 +321,9 @@ def test_pinned_route_table_digest_is_the_fixture():
     assert content_sha256(validate_doc(doc_v2())) == SHA_V2
 
 
-@pytest.mark.parametrize("case", sorted(PINNED_LEGACY))
-def test_every_other_receipt_matches_legacy_contract(case):
-    kwargs, overlay = PINNED_LEGACY[case]
+@pytest.mark.parametrize("case", sorted(PINNED_0_5_7))
+def test_every_other_receipt_is_exactly_0_5_7(case):
+    kwargs, overlay = PINNED_0_5_7[case]
     kwargs = dict(kwargs)
     if "table" in kwargs:
         kwargs["table"] = TABLES[kwargs["table"]]()

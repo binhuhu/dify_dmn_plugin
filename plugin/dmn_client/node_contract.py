@@ -1,8 +1,4 @@
-"""Bounded v2 contract validation. No IO, activation or authorization is performed.
-
-Graph checks extend the reviewed v2 fixture checker with conservative deployment
-constraints; supported structured graphs are deliberately narrower than BPMN.
-"""
+"""Node contract."""
 
 from __future__ import annotations
 
@@ -679,9 +675,7 @@ def make_result(
         "trace": trace or {},
         "error": error,
     }
-    # Bound the complete UTF-8 response, including trace and intents, before
-    # copying or handing it to the SDK. Streaming counts repeated projections
-    # without allocating the full expanded serialized response.
+
     try:
         total = 0
         for chunk in json.JSONEncoder(ensure_ascii=False, allow_nan=False).iterencode(result):

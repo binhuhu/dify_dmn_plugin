@@ -1,11 +1,4 @@
-"""Both endpoint groups share one plugin endpoint (AgentHub 0.5.1 probe, 2026-10-23).
-
-The SDK puts every declared endpoint of the manifest into one werkzeug Map, in manifest order
-(dify_plugin PluginRegistration._resolve_endpoints, dispatch via Map.bind_to_environ().match()).
-In 0.5.1 the route editor declared the same "/" and "/<path:route>" GET patterns as the structure
-viewer, which is listed first, so every GET on the endpoint reached the viewer and the editor page
-and its read API were unreachable. The editor now lives under /routes/.
-"""
+"""Test endpoint routing."""
 
 from pathlib import Path
 

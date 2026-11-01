@@ -1,4 +1,4 @@
-"""evaluate_decision echoes the PSN number in trace (WO-20261015 item 5)."""
+"""Test psn runtime."""
 
 import json
 from pathlib import Path
