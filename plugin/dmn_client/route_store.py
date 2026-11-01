@@ -64,7 +64,10 @@ def run_op(storage, op, table=DEFAULT_TABLE, version=None, body=None):
             current = tables.load(name) if type(name) is str and TABLE_RE.match(name) else None
             doc, spelled = respell(doc, current)
             saved = tables.save(
-                doc, body.get("expected_version"), gate_report=body.get("gate_report")
+                doc,
+                body.get("expected_version"),
+                gate_report=body.get("gate_report"),
+                schema_transition=body.get("schema_transition"),
             )
             return 200, {
                 "table": saved["table"],

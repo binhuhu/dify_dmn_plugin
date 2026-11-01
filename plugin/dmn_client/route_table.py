@@ -424,7 +424,7 @@ def _target_v2(t, solutions, path, resources=None):
     _need(
         kind != "KNOWLEDGE",
         "ROUTE_TABLE_TARGET",
-        "知识库路由不进这张表，留在侧栏配置（Brian 10-23 D8：DMN 路由表只放方案和转安全）",
+        "知识库路由不进这张表，留在侧栏配置；DMN 路由表只放方案和转安全",
         path + ".kind",
     )
     raise RouteTableError(
@@ -1134,8 +1134,78 @@ def _resources(clean, load, path):
 
 def _family(schema):
     """Route tables v1, v2 and v3 are one family (a v1 table may be saved as v2, a v2 one as v3; never back from v3, see
-    StorageTables.save); every stored-table schema is its own."""
+    StorageTables.save); supplement v1/v2 form one family; lossless explicit downgrade is audited; other schemas are separate."""
+    if schema in ("dmn-json.supplement-requirements/v1", "dmn-json.supplement-requirements/v2"):
+        return "supplement-requirements"
     return "route-table" if schema in (SCHEMA, SCHEMA_V2, SCHEMA_V3) else schema
+
+
+SUPPLEMENT_DOWNGRADE = "SUPPLEMENT_V2_TO_V1_NO_ASSOCIATIONS"
+
+
+def supplement_transition_of(current, clean, requested):
+    """Explicit, lossless schema-only rollback; CAS is checked before this function.
+
+    Nonempty requirements must first be removed by an independently visible v2
+    revision. A downgrade cannot combine that removal with a schema change.
+    """
+    is_downgrade = (
+        current is not None
+        and current.get("schema") == "dmn-json.supplement-requirements/v2"
+        and clean["schema"] == "dmn-json.supplement-requirements/v1"
+    )
+    if not is_downgrade:
+        _need(
+            requested is None,
+            "STORED_TABLE_SCHEMA_TRANSITION_INVALID",
+            "降级标记只能用于补充表 v2 到 v1",
+            "schema_transition",
+        )
+        return None
+    _need(
+        requested == SUPPLEMENT_DOWNGRADE,
+        "STORED_TABLE_SCHEMA_CHANGED",
+        "补充表 v2 降级必须显式声明无关联要求，并保留原表内容",
+        "schema_transition",
+    )
+    previous = validate_doc(
+        current
+    )  # reject corrupt / newly-invalid heads, not just the edited row
+    source_digest = content_sha256(previous)
+    _need(
+        previous["table"] == clean["table"]
+        and type(current.get("version")) is int
+        and current["version"] >= 1
+        and current.get("content_sha256") == source_digest
+        and type(current.get("save_id")) is str
+        and re.fullmatch(r"[a-f0-9]{32}", current["save_id"]) is not None,
+        "SUPPLEMENT_DOWNGRADE_HEAD_IDENTITY_INVALID",
+        "当前补充表版本、保存标识或内容摘要不一致，不能降级",
+        "schema_transition",
+    )
+    _need(
+        all(not row.get("associations") for row in previous["scenes"].values()),
+        "SUPPLEMENT_DOWNGRADE_HAS_ASSOCIATIONS",
+        "当前 v2 仍有非空关联要求，不能降级丢弃；须先保留历史地修订 v2",
+        "schema_transition",
+    )
+    projected = copy.deepcopy(previous["scenes"])
+    for row in projected.values():
+        row.pop("associations", None)
+    _need(
+        projected == clean["scenes"],
+        "SUPPLEMENT_DOWNGRADE_CONTENT_CHANGED",
+        "降级只能移除空关联列表，其他行内容须与当前头相同",
+        "scenes",
+    )
+    return {
+        "kind": SUPPLEMENT_DOWNGRADE,
+        "from_schema": previous["schema"],
+        "to_schema": clean["schema"],
+        "from_version": current["version"],
+        "from_content_sha256": source_digest,
+        "from_save_id": current["save_id"],
+    }
 
 
 def _state(entry):
@@ -1225,6 +1295,11 @@ class StorageTables:
                         "routes": len(doc.get("routes", [])),
                         "rows": rows(doc),
                         "schema": doc.get("schema", SCHEMA),
+                        **(
+                            {"schema_transition": copy.deepcopy(doc["schema_transition"])}
+                            if "schema_transition" in doc
+                            else {}
+                        ),
                     }
                 )
         return out
@@ -1339,6 +1414,7 @@ class StorageTables:
         new_id=lambda: uuid.uuid4().hex,
         gate_report=None,
         gate=None,
+        schema_transition=None,
     ):
         """Technical contract for save."""
         clean = validate_doc(doc)
@@ -1367,6 +1443,7 @@ class StorageTables:
             % (have, expected_version),
             "expected_version",
         )
+        transition = supplement_transition_of(cur, clean, schema_transition)
         _need(clean["note"].strip() != "", "ROUTE_TABLE_NOTE_REQUIRED", "写一句改动说明", "note")
         n = have + 1
         _need(
@@ -1386,6 +1463,8 @@ class StorageTables:
             save_id=new_id(),
             parent_save_id=(cur or {}).get("save_id"),
         )
+        if transition is not None:
+            clean["schema_transition"] = transition
         if report is not None:
             clean["gate_report_sha256"] = digest(report)
             self.storage.set(self.gate_key(table, clean["save_id"]), canon(report).encode("utf-8"))

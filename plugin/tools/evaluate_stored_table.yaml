@@ -8,9 +8,9 @@ description:
   human:
     en_US: Read one table kept in this plugin's tool storage (saved like a route table, with versions and CAS) - a solution's
       P2 acceptance table or a TARGET / TRIAGE policy table (decision-table/v1, evaluated), the per-scene supplement requirements
-      (supplement-requirements/v1) or the resource-routing targets (resource-targets/v1).
-    zh_Hans: 读插件工具存储里的一张表（与路由表同样存、带版本与 CAS）：方案的 P2 受理表或定位 / 分诊的策略表（decision-table/v1，求值）、按场景的补充要求（supplement-requirements/v1）或资源路由目标（resource-targets/v1）。
-  llm: Read or evaluate one stored table of this plugin (P2 acceptance or policy table, supplement requirements, resource targets).
+      (supplement-requirements/v1 | supplement-requirements/v2) or the resource-routing targets (resource-targets/v1).
+    zh_Hans: 读插件工具存储里的一张表（与路由表同样存、带版本与 CAS）：方案的 P2 受理表或定位 / 分诊的策略表（decision-table/v1，求值）、按场景的补充要求（supplement-requirements/v1 | supplement-requirements/v2）或资源路由目标（resource-targets/v1）。
+  llm: Read or evaluate one stored table of this plugin (P2 acceptance or policy table, supplement requirements, resource targets). The legacy supplement-requirements/v1 reader also accepts v2 documents; inputs remain {scene_id}.
 parameters:
 - name: table
   type: string
@@ -31,8 +31,8 @@ parameters:
     en_US: format
     zh_Hans: 表格式
   human_description:
-    en_US: decision-table/v1 | supplement-requirements/v1 | resource-targets/v1 (fixed in the workflow).
-    zh_Hans: decision-table/v1 / supplement-requirements/v1 / resource-targets/v1（在流程里固定）。
+    en_US: decision-table/v1 | supplement-requirements/v1 | supplement-requirements/v2 | resource-targets/v1 (fixed in the workflow).
+    zh_Hans: decision-table/v1 / supplement-requirements/v1 | supplement-requirements/v2 / resource-targets/v1（在流程里固定）。
   llm_description: The table format, fixed by the workflow.
 - name: inputs_json
   type: any
@@ -43,8 +43,8 @@ parameters:
     zh_Hans: inputs_json
   human_description:
     en_US: 'decision-table/v1: {"parameters": {name: {quality, value, source_refs}}, "missing": "BLOCK"|"UNKNOWN", "undeclared": "REFUSE"|"IGNORE"};
-      supplement-requirements/v1: {"scene_id"}; resource-targets/v1: {"resource_id"}. Object or JSON string.'
-    zh_Hans: 'decision-table/v1：{"parameters": {参数: {quality, value, source_refs}}, "missing": "BLOCK"|"UNKNOWN", "undeclared": "REFUSE"|"IGNORE"}；supplement-requirements/v1：{"scene_id"}；resource-targets/v1：{"resource_id"}。对象或 JSON 字符串。'
+      supplement-requirements/v1 | supplement-requirements/v2: {"scene_id"}; resource-targets/v1: {"resource_id"}. Object or JSON string.'
+    zh_Hans: 'decision-table/v1：{"parameters": {参数: {quality, value, source_refs}}, "missing": "BLOCK"|"UNKNOWN", "undeclared": "REFUSE"|"IGNORE"}；supplement-requirements/v1 | supplement-requirements/v2：{"scene_id"}；resource-targets/v1：{"resource_id"}。对象或 JSON 字符串。'
   llm_description: Inputs for the table, object or JSON string.
 output_schema:
   type: object

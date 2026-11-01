@@ -29,6 +29,7 @@ from dmn_client.route_table import ROUTE_SCHEMAS, RouteTableError
 
 SCHEMA_DECISION = "dmn-json.decision-table/v1"
 SCHEMA_SUPPLEMENT = "dmn-json.supplement-requirements/v1"
+SUPPLEMENT_SCHEMAS = (SCHEMA_SUPPLEMENT, "dmn-json.supplement-requirements/v2")
 SCENE_OPS = ("eq", "ne", "in")
 
 
@@ -90,7 +91,7 @@ class _Fields:
             else "decision"
             if schema == SCHEMA_DECISION
             else "supplement"
-            if schema == SCHEMA_SUPPLEMENT
+            if schema in SUPPLEMENT_SCHEMAS
             else "route_v1"
             if type(doc) is dict and schema in (None, "dmn-json.route-table/v1")
             else None

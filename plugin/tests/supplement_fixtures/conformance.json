@@ -1,0 +1,2052 @@
+{
+  "schema": "supplement-v2-conformance/v1",
+  "source": "Synthetic supplement association conformance",
+  "valid": [
+    {
+      "name": "both_alternatives_nonblocking",
+      "doc": {
+        "schema": "dmn-json.supplement-requirements/v2",
+        "table": "supplement.synthetic",
+        "scenes": {
+          "P_99_04_01": {
+            "state": "NONE",
+            "basis": "Synthetic fixture, not production configuration",
+            "associations": [
+              {
+                "assoc_id": "coupon_usage_context",
+                "on": "COUPON",
+                "any_of": [
+                  {
+                    "entity_type": "ORDER",
+                    "relation": "COUPON_USED_ON_ORDER",
+                    "proof": "AGENT_PICK"
+                  },
+                  {
+                    "entity_type": "ESTIMATE",
+                    "relation": "COUPON_EVALUATED_IN_ESTIMATE",
+                    "proof": "VERIFIED_QUERY"
+                  }
+                ],
+                "min_satisfied": 1,
+                "routing": "NON_BLOCKING",
+                "label": "\u8ba2\u5355\u6216\u9884\u4f30"
+              }
+            ]
+          }
+        },
+        "note": "Synthetic v2 conformance"
+      }
+    },
+    {
+      "name": "canonical_scene",
+      "doc": {
+        "schema": "dmn-json.supplement-requirements/v2",
+        "table": "supplement.synthetic",
+        "scenes": {
+          "M_P_99_04_01": {
+            "state": "NONE",
+            "basis": "Synthetic fixture, not production configuration",
+            "associations": [
+              {
+                "assoc_id": "coupon_usage_context",
+                "on": "COUPON",
+                "any_of": [
+                  {
+                    "entity_type": "ORDER",
+                    "relation": "COUPON_USED_ON_ORDER",
+                    "proof": "AGENT_PICK"
+                  },
+                  {
+                    "entity_type": "ESTIMATE",
+                    "relation": "COUPON_EVALUATED_IN_ESTIMATE",
+                    "proof": "VERIFIED_QUERY"
+                  }
+                ],
+                "min_satisfied": 1,
+                "routing": "NON_BLOCKING",
+                "label": "\u8ba2\u5355\u6216\u9884\u4f30"
+              }
+            ]
+          }
+        },
+        "note": "Synthetic v2 conformance"
+      }
+    },
+    {
+      "name": "no_associations",
+      "doc": {
+        "schema": "dmn-json.supplement-requirements/v2",
+        "table": "supplement.synthetic",
+        "scenes": {
+          "P_99_04_01": {
+            "state": "NONE",
+            "basis": "Synthetic fixture, not production configuration"
+          }
+        },
+        "note": "Synthetic v2 conformance"
+      }
+    },
+    {
+      "name": "empty_associations",
+      "doc": {
+        "schema": "dmn-json.supplement-requirements/v2",
+        "table": "supplement.synthetic",
+        "scenes": {
+          "P_99_04_01": {
+            "state": "NONE",
+            "basis": "Synthetic fixture, not production configuration",
+            "associations": []
+          }
+        },
+        "note": "Synthetic v2 conformance"
+      }
+    },
+    {
+      "name": "required_with_items",
+      "doc": {
+        "schema": "dmn-json.supplement-requirements/v2",
+        "table": "supplement.synthetic",
+        "scenes": {
+          "P_99_04_01": {
+            "state": "REQUIRED",
+            "basis": "Synthetic fixture, not production configuration",
+            "associations": [
+              {
+                "assoc_id": "coupon_usage_context",
+                "on": "COUPON",
+                "any_of": [
+                  {
+                    "entity_type": "ORDER",
+                    "relation": "COUPON_USED_ON_ORDER",
+                    "proof": "AGENT_PICK"
+                  },
+                  {
+                    "entity_type": "ESTIMATE",
+                    "relation": "COUPON_EVALUATED_IN_ESTIMATE",
+                    "proof": "VERIFIED_QUERY"
+                  }
+                ],
+                "min_satisfied": 1,
+                "routing": "NON_BLOCKING",
+                "label": "\u8ba2\u5355\u6216\u9884\u4f30"
+              }
+            ],
+            "items": [
+              {
+                "item_id": "describe",
+                "kind": "EXPRESSION",
+                "prompt_key": "supplement.describe",
+                "required": true
+              }
+            ]
+          }
+        },
+        "note": "Synthetic v2 conformance"
+      }
+    },
+    {
+      "name": "min_two",
+      "doc": {
+        "schema": "dmn-json.supplement-requirements/v2",
+        "table": "supplement.synthetic",
+        "scenes": {
+          "P_99_04_01": {
+            "state": "NONE",
+            "basis": "Synthetic fixture, not production configuration",
+            "associations": [
+              {
+                "assoc_id": "coupon_usage_context",
+                "on": "COUPON",
+                "any_of": [
+                  {
+                    "entity_type": "ORDER",
+                    "relation": "COUPON_USED_ON_ORDER",
+                    "proof": "AGENT_PICK"
+                  },
+                  {
+                    "entity_type": "ESTIMATE",
+                    "relation": "COUPON_EVALUATED_IN_ESTIMATE",
+                    "proof": "VERIFIED_QUERY"
+                  }
+                ],
+                "min_satisfied": 2,
+                "routing": "NON_BLOCKING",
+                "label": "\u8ba2\u5355\u6216\u9884\u4f30"
+              }
+            ]
+          }
+        },
+        "note": "Synthetic v2 conformance"
+      }
+    },
+    {
+      "name": "order_only",
+      "doc": {
+        "schema": "dmn-json.supplement-requirements/v2",
+        "table": "supplement.synthetic",
+        "scenes": {
+          "P_99_04_01": {
+            "state": "NONE",
+            "basis": "Synthetic fixture, not production configuration",
+            "associations": [
+              {
+                "assoc_id": "coupon_usage_context",
+                "on": "COUPON",
+                "any_of": [
+                  {
+                    "entity_type": "ORDER",
+                    "relation": "COUPON_USED_ON_ORDER",
+                    "proof": "AGENT_PICK"
+                  }
+                ],
+                "min_satisfied": 1,
+                "routing": "NON_BLOCKING",
+                "label": "\u8ba2\u5355\u6216\u9884\u4f30"
+              }
+            ]
+          }
+        },
+        "note": "Synthetic v2 conformance"
+      }
+    },
+    {
+      "name": "label_128_astral",
+      "doc": {
+        "schema": "dmn-json.supplement-requirements/v2",
+        "table": "supplement.synthetic",
+        "scenes": {
+          "P_99_04_01": {
+            "state": "NONE",
+            "basis": "Synthetic fixture, not production configuration",
+            "associations": [
+              {
+                "assoc_id": "coupon_usage_context",
+                "on": "COUPON",
+                "any_of": [
+                  {
+                    "entity_type": "ORDER",
+                    "relation": "COUPON_USED_ON_ORDER",
+                    "proof": "AGENT_PICK"
+                  },
+                  {
+                    "entity_type": "ESTIMATE",
+                    "relation": "COUPON_EVALUATED_IN_ESTIMATE",
+                    "proof": "VERIFIED_QUERY"
+                  }
+                ],
+                "min_satisfied": 1,
+                "routing": "NON_BLOCKING",
+                "label": "\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00"
+              }
+            ]
+          }
+        },
+        "note": "Synthetic v2 conformance"
+      }
+    },
+    {
+      "name": "label_multilingual",
+      "doc": {
+        "schema": "dmn-json.supplement-requirements/v2",
+        "table": "supplement.synthetic",
+        "scenes": {
+          "P_99_04_01": {
+            "state": "NONE",
+            "basis": "Synthetic fixture, not production configuration",
+            "associations": [
+              {
+                "assoc_id": "coupon_usage_context",
+                "on": "COUPON",
+                "any_of": [
+                  {
+                    "entity_type": "ORDER",
+                    "relation": "COUPON_USED_ON_ORDER",
+                    "proof": "AGENT_PICK"
+                  },
+                  {
+                    "entity_type": "ESTIMATE",
+                    "relation": "COUPON_EVALUATED_IN_ESTIMATE",
+                    "proof": "VERIFIED_QUERY"
+                  }
+                ],
+                "min_satisfied": 1,
+                "routing": "NON_BLOCKING",
+                "label": "\u786e\u8ba4\u8ba2\u5355 / \u9884\u4f30 \u00b7 caf\u00e9"
+              }
+            ]
+          }
+        },
+        "note": "Synthetic v2 conformance"
+      }
+    },
+    {
+      "name": "multiple_groups_same_on",
+      "doc": {
+        "schema": "dmn-json.supplement-requirements/v2",
+        "table": "supplement.synthetic",
+        "scenes": {
+          "P_99_04_01": {
+            "state": "NONE",
+            "basis": "Synthetic fixture, not production configuration",
+            "associations": [
+              {
+                "assoc_id": "coupon_usage_context",
+                "on": "COUPON",
+                "any_of": [
+                  {
+                    "entity_type": "ORDER",
+                    "relation": "COUPON_USED_ON_ORDER",
+                    "proof": "AGENT_PICK"
+                  },
+                  {
+                    "entity_type": "ESTIMATE",
+                    "relation": "COUPON_EVALUATED_IN_ESTIMATE",
+                    "proof": "VERIFIED_QUERY"
+                  }
+                ],
+                "min_satisfied": 1,
+                "routing": "NON_BLOCKING",
+                "label": "\u8ba2\u5355\u6216\u9884\u4f30"
+              },
+              {
+                "assoc_id": "second_group",
+                "on": "COUPON",
+                "any_of": [
+                  {
+                    "entity_type": "ORDER",
+                    "relation": "COUPON_USED_ON_ORDER",
+                    "proof": "AGENT_PICK"
+                  },
+                  {
+                    "entity_type": "ESTIMATE",
+                    "relation": "COUPON_EVALUATED_IN_ESTIMATE",
+                    "proof": "VERIFIED_QUERY"
+                  }
+                ],
+                "min_satisfied": 1,
+                "routing": "NON_BLOCKING",
+                "label": "\u8ba2\u5355\u6216\u9884\u4f30"
+              }
+            ]
+          }
+        },
+        "note": "Synthetic v2 conformance"
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "name": "undeclared_associations",
+      "doc": {
+        "schema": "dmn-json.supplement-requirements/v2",
+        "table": "supplement.synthetic",
+        "scenes": {
+          "P_99_04_01": {
+            "state": "UNDECLARED",
+            "basis": "Synthetic fixture, not production configuration",
+            "associations": [
+              {
+                "assoc_id": "coupon_usage_context",
+                "on": "COUPON",
+                "any_of": [
+                  {
+                    "entity_type": "ORDER",
+                    "relation": "COUPON_USED_ON_ORDER",
+                    "proof": "AGENT_PICK"
+                  },
+                  {
+                    "entity_type": "ESTIMATE",
+                    "relation": "COUPON_EVALUATED_IN_ESTIMATE",
+                    "proof": "VERIFIED_QUERY"
+                  }
+                ],
+                "min_satisfied": 1,
+                "routing": "NON_BLOCKING",
+                "label": "\u8ba2\u5355\u6216\u9884\u4f30"
+              }
+            ],
+            "gap_code": "SUPPLEMENT_UNDECLARED"
+          }
+        },
+        "note": "Synthetic v2 conformance"
+      },
+      "error_code": "ASSOCIATION_ON_UNDECLARED"
+    },
+    {
+      "name": "exclusive_one_of",
+      "doc": {
+        "schema": "dmn-json.supplement-requirements/v2",
+        "table": "supplement.synthetic",
+        "scenes": {
+          "P_99_04_01": {
+            "state": "NONE",
+            "basis": "Synthetic fixture, not production configuration",
+            "associations": [
+              {
+                "assoc_id": "coupon_usage_context",
+                "on": "COUPON",
+                "any_of": [
+                  {
+                    "entity_type": "ORDER",
+                    "relation": "COUPON_USED_ON_ORDER",
+                    "proof": "AGENT_PICK"
+                  },
+                  {
+                    "entity_type": "ESTIMATE",
+                    "relation": "COUPON_EVALUATED_IN_ESTIMATE",
+                    "proof": "VERIFIED_QUERY"
+                  }
+                ],
+                "min_satisfied": 1,
+                "routing": "NON_BLOCKING",
+                "label": "\u8ba2\u5355\u6216\u9884\u4f30",
+                "one_of": 1
+              }
+            ]
+          }
+        },
+        "note": "Synthetic v2 conformance"
+      },
+      "error_code": "ASSOCIATION_EXCLUSIVE_FORBIDDEN"
+    },
+    {
+      "name": "exclusive_exactly",
+      "doc": {
+        "schema": "dmn-json.supplement-requirements/v2",
+        "table": "supplement.synthetic",
+        "scenes": {
+          "P_99_04_01": {
+            "state": "NONE",
+            "basis": "Synthetic fixture, not production configuration",
+            "associations": [
+              {
+                "assoc_id": "coupon_usage_context",
+                "on": "COUPON",
+                "any_of": [
+                  {
+                    "entity_type": "ORDER",
+                    "relation": "COUPON_USED_ON_ORDER",
+                    "proof": "AGENT_PICK"
+                  },
+                  {
+                    "entity_type": "ESTIMATE",
+                    "relation": "COUPON_EVALUATED_IN_ESTIMATE",
+                    "proof": "VERIFIED_QUERY"
+                  }
+                ],
+                "min_satisfied": 1,
+                "routing": "NON_BLOCKING",
+                "label": "\u8ba2\u5355\u6216\u9884\u4f30",
+                "exactly": 1
+              }
+            ]
+          }
+        },
+        "note": "Synthetic v2 conformance"
+      },
+      "error_code": "ASSOCIATION_EXCLUSIVE_FORBIDDEN"
+    },
+    {
+      "name": "exclusive_max_satisfied",
+      "doc": {
+        "schema": "dmn-json.supplement-requirements/v2",
+        "table": "supplement.synthetic",
+        "scenes": {
+          "P_99_04_01": {
+            "state": "NONE",
+            "basis": "Synthetic fixture, not production configuration",
+            "associations": [
+              {
+                "assoc_id": "coupon_usage_context",
+                "on": "COUPON",
+                "any_of": [
+                  {
+                    "entity_type": "ORDER",
+                    "relation": "COUPON_USED_ON_ORDER",
+                    "proof": "AGENT_PICK"
+                  },
+                  {
+                    "entity_type": "ESTIMATE",
+                    "relation": "COUPON_EVALUATED_IN_ESTIMATE",
+                    "proof": "VERIFIED_QUERY"
+                  }
+                ],
+                "min_satisfied": 1,
+                "routing": "NON_BLOCKING",
+                "label": "\u8ba2\u5355\u6216\u9884\u4f30",
+                "max_satisfied": 1
+              }
+            ]
+          }
+        },
+        "note": "Synthetic v2 conformance"
+      },
+      "error_code": "ASSOCIATION_EXCLUSIVE_FORBIDDEN"
+    },
+    {
+      "name": "candidate_required",
+      "doc": {
+        "schema": "dmn-json.supplement-requirements/v2",
+        "table": "supplement.synthetic",
+        "scenes": {
+          "P_99_04_01": {
+            "state": "NONE",
+            "basis": "Synthetic fixture, not production configuration",
+            "associations": [
+              {
+                "assoc_id": "coupon_usage_context",
+                "on": "COUPON",
+                "any_of": [
+                  {
+                    "entity_type": "ORDER",
+                    "relation": "COUPON_USED_ON_ORDER",
+                    "proof": "AGENT_PICK",
+                    "required": true
+                  },
+                  {
+                    "entity_type": "ESTIMATE",
+                    "relation": "COUPON_EVALUATED_IN_ESTIMATE",
+                    "proof": "VERIFIED_QUERY"
+                  }
+                ],
+                "min_satisfied": 1,
+                "routing": "NON_BLOCKING",
+                "label": "\u8ba2\u5355\u6216\u9884\u4f30"
+              }
+            ]
+          }
+        },
+        "note": "Synthetic v2 conformance"
+      },
+      "error_code": "ASSOCIATION_EXCLUSIVE_FORBIDDEN"
+    },
+    {
+      "name": "min_zero",
+      "doc": {
+        "schema": "dmn-json.supplement-requirements/v2",
+        "table": "supplement.synthetic",
+        "scenes": {
+          "P_99_04_01": {
+            "state": "NONE",
+            "basis": "Synthetic fixture, not production configuration",
+            "associations": [
+              {
+                "assoc_id": "coupon_usage_context",
+                "on": "COUPON",
+                "any_of": [
+                  {
+                    "entity_type": "ORDER",
+                    "relation": "COUPON_USED_ON_ORDER",
+                    "proof": "AGENT_PICK"
+                  },
+                  {
+                    "entity_type": "ESTIMATE",
+                    "relation": "COUPON_EVALUATED_IN_ESTIMATE",
+                    "proof": "VERIFIED_QUERY"
+                  }
+                ],
+                "min_satisfied": 0,
+                "routing": "NON_BLOCKING",
+                "label": "\u8ba2\u5355\u6216\u9884\u4f30"
+              }
+            ]
+          }
+        },
+        "note": "Synthetic v2 conformance"
+      },
+      "error_code": "ASSOCIATION_MIN_INVALID"
+    },
+    {
+      "name": "min_negative",
+      "doc": {
+        "schema": "dmn-json.supplement-requirements/v2",
+        "table": "supplement.synthetic",
+        "scenes": {
+          "P_99_04_01": {
+            "state": "NONE",
+            "basis": "Synthetic fixture, not production configuration",
+            "associations": [
+              {
+                "assoc_id": "coupon_usage_context",
+                "on": "COUPON",
+                "any_of": [
+                  {
+                    "entity_type": "ORDER",
+                    "relation": "COUPON_USED_ON_ORDER",
+                    "proof": "AGENT_PICK"
+                  },
+                  {
+                    "entity_type": "ESTIMATE",
+                    "relation": "COUPON_EVALUATED_IN_ESTIMATE",
+                    "proof": "VERIFIED_QUERY"
+                  }
+                ],
+                "min_satisfied": -1,
+                "routing": "NON_BLOCKING",
+                "label": "\u8ba2\u5355\u6216\u9884\u4f30"
+              }
+            ]
+          }
+        },
+        "note": "Synthetic v2 conformance"
+      },
+      "error_code": "ASSOCIATION_MIN_INVALID"
+    },
+    {
+      "name": "min_too_large",
+      "doc": {
+        "schema": "dmn-json.supplement-requirements/v2",
+        "table": "supplement.synthetic",
+        "scenes": {
+          "P_99_04_01": {
+            "state": "NONE",
+            "basis": "Synthetic fixture, not production configuration",
+            "associations": [
+              {
+                "assoc_id": "coupon_usage_context",
+                "on": "COUPON",
+                "any_of": [
+                  {
+                    "entity_type": "ORDER",
+                    "relation": "COUPON_USED_ON_ORDER",
+                    "proof": "AGENT_PICK"
+                  },
+                  {
+                    "entity_type": "ESTIMATE",
+                    "relation": "COUPON_EVALUATED_IN_ESTIMATE",
+                    "proof": "VERIFIED_QUERY"
+                  }
+                ],
+                "min_satisfied": 3,
+                "routing": "NON_BLOCKING",
+                "label": "\u8ba2\u5355\u6216\u9884\u4f30"
+              }
+            ]
+          }
+        },
+        "note": "Synthetic v2 conformance"
+      },
+      "error_code": "ASSOCIATION_MIN_INVALID"
+    },
+    {
+      "name": "min_bool",
+      "doc": {
+        "schema": "dmn-json.supplement-requirements/v2",
+        "table": "supplement.synthetic",
+        "scenes": {
+          "P_99_04_01": {
+            "state": "NONE",
+            "basis": "Synthetic fixture, not production configuration",
+            "associations": [
+              {
+                "assoc_id": "coupon_usage_context",
+                "on": "COUPON",
+                "any_of": [
+                  {
+                    "entity_type": "ORDER",
+                    "relation": "COUPON_USED_ON_ORDER",
+                    "proof": "AGENT_PICK"
+                  },
+                  {
+                    "entity_type": "ESTIMATE",
+                    "relation": "COUPON_EVALUATED_IN_ESTIMATE",
+                    "proof": "VERIFIED_QUERY"
+                  }
+                ],
+                "min_satisfied": true,
+                "routing": "NON_BLOCKING",
+                "label": "\u8ba2\u5355\u6216\u9884\u4f30"
+              }
+            ]
+          }
+        },
+        "note": "Synthetic v2 conformance"
+      },
+      "error_code": "ASSOCIATION_MIN_INVALID"
+    },
+    {
+      "name": "min_float",
+      "doc": {
+        "schema": "dmn-json.supplement-requirements/v2",
+        "table": "supplement.synthetic",
+        "scenes": {
+          "P_99_04_01": {
+            "state": "NONE",
+            "basis": "Synthetic fixture, not production configuration",
+            "associations": [
+              {
+                "assoc_id": "coupon_usage_context",
+                "on": "COUPON",
+                "any_of": [
+                  {
+                    "entity_type": "ORDER",
+                    "relation": "COUPON_USED_ON_ORDER",
+                    "proof": "AGENT_PICK"
+                  },
+                  {
+                    "entity_type": "ESTIMATE",
+                    "relation": "COUPON_EVALUATED_IN_ESTIMATE",
+                    "proof": "VERIFIED_QUERY"
+                  }
+                ],
+                "min_satisfied": 1.0,
+                "routing": "NON_BLOCKING",
+                "label": "\u8ba2\u5355\u6216\u9884\u4f30"
+              }
+            ]
+          }
+        },
+        "note": "Synthetic v2 conformance"
+      },
+      "error_code": "ASSOCIATION_MIN_INVALID"
+    },
+    {
+      "name": "min_string",
+      "doc": {
+        "schema": "dmn-json.supplement-requirements/v2",
+        "table": "supplement.synthetic",
+        "scenes": {
+          "P_99_04_01": {
+            "state": "NONE",
+            "basis": "Synthetic fixture, not production configuration",
+            "associations": [
+              {
+                "assoc_id": "coupon_usage_context",
+                "on": "COUPON",
+                "any_of": [
+                  {
+                    "entity_type": "ORDER",
+                    "relation": "COUPON_USED_ON_ORDER",
+                    "proof": "AGENT_PICK"
+                  },
+                  {
+                    "entity_type": "ESTIMATE",
+                    "relation": "COUPON_EVALUATED_IN_ESTIMATE",
+                    "proof": "VERIFIED_QUERY"
+                  }
+                ],
+                "min_satisfied": "1",
+                "routing": "NON_BLOCKING",
+                "label": "\u8ba2\u5355\u6216\u9884\u4f30"
+              }
+            ]
+          }
+        },
+        "note": "Synthetic v2 conformance"
+      },
+      "error_code": "ASSOCIATION_MIN_INVALID"
+    },
+    {
+      "name": "duplicate_alternative",
+      "doc": {
+        "schema": "dmn-json.supplement-requirements/v2",
+        "table": "supplement.synthetic",
+        "scenes": {
+          "P_99_04_01": {
+            "state": "NONE",
+            "basis": "Synthetic fixture, not production configuration",
+            "associations": [
+              {
+                "assoc_id": "coupon_usage_context",
+                "on": "COUPON",
+                "any_of": [
+                  {
+                    "entity_type": "ORDER",
+                    "relation": "COUPON_USED_ON_ORDER",
+                    "proof": "AGENT_PICK"
+                  },
+                  {
+                    "entity_type": "ORDER",
+                    "relation": "COUPON_USED_ON_ORDER",
+                    "proof": "AGENT_PICK"
+                  }
+                ],
+                "min_satisfied": 1,
+                "routing": "NON_BLOCKING",
+                "label": "\u8ba2\u5355\u6216\u9884\u4f30"
+              }
+            ]
+          }
+        },
+        "note": "Synthetic v2 conformance"
+      },
+      "error_code": "ASSOCIATION_DUPLICATE_ALTERNATIVE"
+    },
+    {
+      "name": "third_duplicate",
+      "doc": {
+        "schema": "dmn-json.supplement-requirements/v2",
+        "table": "supplement.synthetic",
+        "scenes": {
+          "P_99_04_01": {
+            "state": "NONE",
+            "basis": "Synthetic fixture, not production configuration",
+            "associations": [
+              {
+                "assoc_id": "coupon_usage_context",
+                "on": "COUPON",
+                "any_of": [
+                  {
+                    "entity_type": "ORDER",
+                    "relation": "COUPON_USED_ON_ORDER",
+                    "proof": "AGENT_PICK"
+                  },
+                  {
+                    "entity_type": "ESTIMATE",
+                    "relation": "COUPON_EVALUATED_IN_ESTIMATE",
+                    "proof": "VERIFIED_QUERY"
+                  },
+                  {
+                    "entity_type": "ORDER",
+                    "relation": "COUPON_USED_ON_ORDER",
+                    "proof": "AGENT_PICK"
+                  }
+                ],
+                "min_satisfied": 1,
+                "routing": "NON_BLOCKING",
+                "label": "\u8ba2\u5355\u6216\u9884\u4f30"
+              }
+            ]
+          }
+        },
+        "note": "Synthetic v2 conformance"
+      },
+      "error_code": "ASSOCIATION_DUPLICATE_ALTERNATIVE"
+    },
+    {
+      "name": "empty_any_of",
+      "doc": {
+        "schema": "dmn-json.supplement-requirements/v2",
+        "table": "supplement.synthetic",
+        "scenes": {
+          "P_99_04_01": {
+            "state": "NONE",
+            "basis": "Synthetic fixture, not production configuration",
+            "associations": [
+              {
+                "assoc_id": "coupon_usage_context",
+                "on": "COUPON",
+                "any_of": [],
+                "min_satisfied": 1,
+                "routing": "NON_BLOCKING",
+                "label": "\u8ba2\u5355\u6216\u9884\u4f30"
+              }
+            ]
+          }
+        },
+        "note": "Synthetic v2 conformance"
+      },
+      "error_code": "ASSOCIATION_SHAPE"
+    },
+    {
+      "name": "routing_blocking",
+      "doc": {
+        "schema": "dmn-json.supplement-requirements/v2",
+        "table": "supplement.synthetic",
+        "scenes": {
+          "P_99_04_01": {
+            "state": "NONE",
+            "basis": "Synthetic fixture, not production configuration",
+            "associations": [
+              {
+                "assoc_id": "coupon_usage_context",
+                "on": "COUPON",
+                "any_of": [
+                  {
+                    "entity_type": "ORDER",
+                    "relation": "COUPON_USED_ON_ORDER",
+                    "proof": "AGENT_PICK"
+                  },
+                  {
+                    "entity_type": "ESTIMATE",
+                    "relation": "COUPON_EVALUATED_IN_ESTIMATE",
+                    "proof": "VERIFIED_QUERY"
+                  }
+                ],
+                "min_satisfied": 1,
+                "routing": "BLOCKING",
+                "label": "\u8ba2\u5355\u6216\u9884\u4f30"
+              }
+            ]
+          }
+        },
+        "note": "Synthetic v2 conformance"
+      },
+      "error_code": "ASSOCIATION_ROUTING_INVALID"
+    },
+    {
+      "name": "unknown_group_key",
+      "doc": {
+        "schema": "dmn-json.supplement-requirements/v2",
+        "table": "supplement.synthetic",
+        "scenes": {
+          "P_99_04_01": {
+            "state": "NONE",
+            "basis": "Synthetic fixture, not production configuration",
+            "associations": [
+              {
+                "assoc_id": "coupon_usage_context",
+                "on": "COUPON",
+                "any_of": [
+                  {
+                    "entity_type": "ORDER",
+                    "relation": "COUPON_USED_ON_ORDER",
+                    "proof": "AGENT_PICK"
+                  },
+                  {
+                    "entity_type": "ESTIMATE",
+                    "relation": "COUPON_EVALUATED_IN_ESTIMATE",
+                    "proof": "VERIFIED_QUERY"
+                  }
+                ],
+                "min_satisfied": 1,
+                "routing": "NON_BLOCKING",
+                "label": "\u8ba2\u5355\u6216\u9884\u4f30",
+                "verified": true
+              }
+            ]
+          }
+        },
+        "note": "Synthetic v2 conformance"
+      },
+      "error_code": "ASSOCIATION_SHAPE"
+    },
+    {
+      "name": "unknown_alternative_key",
+      "doc": {
+        "schema": "dmn-json.supplement-requirements/v2",
+        "table": "supplement.synthetic",
+        "scenes": {
+          "P_99_04_01": {
+            "state": "NONE",
+            "basis": "Synthetic fixture, not production configuration",
+            "associations": [
+              {
+                "assoc_id": "coupon_usage_context",
+                "on": "COUPON",
+                "any_of": [
+                  {
+                    "entity_type": "ORDER",
+                    "relation": "COUPON_USED_ON_ORDER",
+                    "proof": "AGENT_PICK",
+                    "verified": true
+                  },
+                  {
+                    "entity_type": "ESTIMATE",
+                    "relation": "COUPON_EVALUATED_IN_ESTIMATE",
+                    "proof": "VERIFIED_QUERY"
+                  }
+                ],
+                "min_satisfied": 1,
+                "routing": "NON_BLOCKING",
+                "label": "\u8ba2\u5355\u6216\u9884\u4f30"
+              }
+            ]
+          }
+        },
+        "note": "Synthetic v2 conformance"
+      },
+      "error_code": "ASSOCIATION_SHAPE"
+    },
+    {
+      "name": "old_applied_relation",
+      "doc": {
+        "schema": "dmn-json.supplement-requirements/v2",
+        "table": "supplement.synthetic",
+        "scenes": {
+          "P_99_04_01": {
+            "state": "NONE",
+            "basis": "Synthetic fixture, not production configuration",
+            "associations": [
+              {
+                "assoc_id": "coupon_usage_context",
+                "on": "COUPON",
+                "any_of": [
+                  {
+                    "entity_type": "ORDER",
+                    "relation": "COUPON_USED_ON_ORDER",
+                    "proof": "AGENT_PICK"
+                  },
+                  {
+                    "entity_type": "ESTIMATE",
+                    "relation": "COUPON_APPLIED_TO_ESTIMATE",
+                    "proof": "VERIFIED_QUERY"
+                  }
+                ],
+                "min_satisfied": 1,
+                "routing": "NON_BLOCKING",
+                "label": "\u8ba2\u5355\u6216\u9884\u4f30"
+              }
+            ]
+          }
+        },
+        "note": "Synthetic v2 conformance"
+      },
+      "error_code": "ASSOCIATION_SHAPE"
+    },
+    {
+      "name": "relation_wrong_entity",
+      "doc": {
+        "schema": "dmn-json.supplement-requirements/v2",
+        "table": "supplement.synthetic",
+        "scenes": {
+          "P_99_04_01": {
+            "state": "NONE",
+            "basis": "Synthetic fixture, not production configuration",
+            "associations": [
+              {
+                "assoc_id": "coupon_usage_context",
+                "on": "COUPON",
+                "any_of": [
+                  {
+                    "entity_type": "ORDER",
+                    "relation": "COUPON_EVALUATED_IN_ESTIMATE",
+                    "proof": "AGENT_PICK"
+                  },
+                  {
+                    "entity_type": "ESTIMATE",
+                    "relation": "COUPON_EVALUATED_IN_ESTIMATE",
+                    "proof": "VERIFIED_QUERY"
+                  }
+                ],
+                "min_satisfied": 1,
+                "routing": "NON_BLOCKING",
+                "label": "\u8ba2\u5355\u6216\u9884\u4f30"
+              }
+            ]
+          }
+        },
+        "note": "Synthetic v2 conformance"
+      },
+      "error_code": "ASSOCIATION_SHAPE"
+    },
+    {
+      "name": "unknown_entity",
+      "doc": {
+        "schema": "dmn-json.supplement-requirements/v2",
+        "table": "supplement.synthetic",
+        "scenes": {
+          "P_99_04_01": {
+            "state": "NONE",
+            "basis": "Synthetic fixture, not production configuration",
+            "associations": [
+              {
+                "assoc_id": "coupon_usage_context",
+                "on": "COUPON",
+                "any_of": [
+                  {
+                    "entity_type": "PAYMENT",
+                    "relation": "COUPON_USED_ON_ORDER",
+                    "proof": "AGENT_PICK"
+                  },
+                  {
+                    "entity_type": "ESTIMATE",
+                    "relation": "COUPON_EVALUATED_IN_ESTIMATE",
+                    "proof": "VERIFIED_QUERY"
+                  }
+                ],
+                "min_satisfied": 1,
+                "routing": "NON_BLOCKING",
+                "label": "\u8ba2\u5355\u6216\u9884\u4f30"
+              }
+            ]
+          }
+        },
+        "note": "Synthetic v2 conformance"
+      },
+      "error_code": "ASSOCIATION_SHAPE"
+    },
+    {
+      "name": "unknown_proof",
+      "doc": {
+        "schema": "dmn-json.supplement-requirements/v2",
+        "table": "supplement.synthetic",
+        "scenes": {
+          "P_99_04_01": {
+            "state": "NONE",
+            "basis": "Synthetic fixture, not production configuration",
+            "associations": [
+              {
+                "assoc_id": "coupon_usage_context",
+                "on": "COUPON",
+                "any_of": [
+                  {
+                    "entity_type": "ORDER",
+                    "relation": "COUPON_USED_ON_ORDER",
+                    "proof": "ASSUME"
+                  },
+                  {
+                    "entity_type": "ESTIMATE",
+                    "relation": "COUPON_EVALUATED_IN_ESTIMATE",
+                    "proof": "VERIFIED_QUERY"
+                  }
+                ],
+                "min_satisfied": 1,
+                "routing": "NON_BLOCKING",
+                "label": "\u8ba2\u5355\u6216\u9884\u4f30"
+              }
+            ]
+          }
+        },
+        "note": "Synthetic v2 conformance"
+      },
+      "error_code": "ASSOCIATION_SHAPE"
+    },
+    {
+      "name": "non_coupon",
+      "doc": {
+        "schema": "dmn-json.supplement-requirements/v2",
+        "table": "supplement.synthetic",
+        "scenes": {
+          "P_99_04_01": {
+            "state": "NONE",
+            "basis": "Synthetic fixture, not production configuration",
+            "associations": [
+              {
+                "assoc_id": "coupon_usage_context",
+                "on": "ORDER",
+                "any_of": [
+                  {
+                    "entity_type": "ORDER",
+                    "relation": "COUPON_USED_ON_ORDER",
+                    "proof": "AGENT_PICK"
+                  },
+                  {
+                    "entity_type": "ESTIMATE",
+                    "relation": "COUPON_EVALUATED_IN_ESTIMATE",
+                    "proof": "VERIFIED_QUERY"
+                  }
+                ],
+                "min_satisfied": 1,
+                "routing": "NON_BLOCKING",
+                "label": "\u8ba2\u5355\u6216\u9884\u4f30"
+              }
+            ]
+          }
+        },
+        "note": "Synthetic v2 conformance"
+      },
+      "error_code": "ASSOCIATION_SHAPE"
+    },
+    {
+      "name": "duplicate_group",
+      "doc": {
+        "schema": "dmn-json.supplement-requirements/v2",
+        "table": "supplement.synthetic",
+        "scenes": {
+          "P_99_04_01": {
+            "state": "NONE",
+            "basis": "Synthetic fixture, not production configuration",
+            "associations": [
+              {
+                "assoc_id": "coupon_usage_context",
+                "on": "COUPON",
+                "any_of": [
+                  {
+                    "entity_type": "ORDER",
+                    "relation": "COUPON_USED_ON_ORDER",
+                    "proof": "AGENT_PICK"
+                  },
+                  {
+                    "entity_type": "ESTIMATE",
+                    "relation": "COUPON_EVALUATED_IN_ESTIMATE",
+                    "proof": "VERIFIED_QUERY"
+                  }
+                ],
+                "min_satisfied": 1,
+                "routing": "NON_BLOCKING",
+                "label": "\u8ba2\u5355\u6216\u9884\u4f30"
+              },
+              {
+                "assoc_id": "coupon_usage_context",
+                "on": "COUPON",
+                "any_of": [
+                  {
+                    "entity_type": "ORDER",
+                    "relation": "COUPON_USED_ON_ORDER",
+                    "proof": "AGENT_PICK"
+                  },
+                  {
+                    "entity_type": "ESTIMATE",
+                    "relation": "COUPON_EVALUATED_IN_ESTIMATE",
+                    "proof": "VERIFIED_QUERY"
+                  }
+                ],
+                "min_satisfied": 1,
+                "routing": "NON_BLOCKING",
+                "label": "\u8ba2\u5355\u6216\u9884\u4f30"
+              }
+            ]
+          }
+        },
+        "note": "Synthetic v2 conformance"
+      },
+      "error_code": "ASSOCIATION_SHAPE"
+    },
+    {
+      "name": "non_array",
+      "doc": {
+        "schema": "dmn-json.supplement-requirements/v2",
+        "table": "supplement.synthetic",
+        "scenes": {
+          "P_99_04_01": {
+            "state": "NONE",
+            "basis": "Synthetic fixture, not production configuration",
+            "associations": {
+              "assoc_id": "coupon_usage_context",
+              "on": "COUPON",
+              "any_of": [
+                {
+                  "entity_type": "ORDER",
+                  "relation": "COUPON_USED_ON_ORDER",
+                  "proof": "AGENT_PICK"
+                },
+                {
+                  "entity_type": "ESTIMATE",
+                  "relation": "COUPON_EVALUATED_IN_ESTIMATE",
+                  "proof": "VERIFIED_QUERY"
+                }
+              ],
+              "min_satisfied": 1,
+              "routing": "NON_BLOCKING",
+              "label": "\u8ba2\u5355\u6216\u9884\u4f30"
+            }
+          }
+        },
+        "note": "Synthetic v2 conformance"
+      },
+      "error_code": "ASSOCIATION_SHAPE"
+    },
+    {
+      "name": "empty_label",
+      "doc": {
+        "schema": "dmn-json.supplement-requirements/v2",
+        "table": "supplement.synthetic",
+        "scenes": {
+          "P_99_04_01": {
+            "state": "NONE",
+            "basis": "Synthetic fixture, not production configuration",
+            "associations": [
+              {
+                "assoc_id": "coupon_usage_context",
+                "on": "COUPON",
+                "any_of": [
+                  {
+                    "entity_type": "ORDER",
+                    "relation": "COUPON_USED_ON_ORDER",
+                    "proof": "AGENT_PICK"
+                  },
+                  {
+                    "entity_type": "ESTIMATE",
+                    "relation": "COUPON_EVALUATED_IN_ESTIMATE",
+                    "proof": "VERIFIED_QUERY"
+                  }
+                ],
+                "min_satisfied": 1,
+                "routing": "NON_BLOCKING",
+                "label": ""
+              }
+            ]
+          }
+        },
+        "note": "Synthetic v2 conformance"
+      },
+      "error_code": "ASSOCIATION_SHAPE"
+    },
+    {
+      "name": "invalid_group_id",
+      "doc": {
+        "schema": "dmn-json.supplement-requirements/v2",
+        "table": "supplement.synthetic",
+        "scenes": {
+          "P_99_04_01": {
+            "state": "NONE",
+            "basis": "Synthetic fixture, not production configuration",
+            "associations": [
+              {
+                "assoc_id": "not a code",
+                "on": "COUPON",
+                "any_of": [
+                  {
+                    "entity_type": "ORDER",
+                    "relation": "COUPON_USED_ON_ORDER",
+                    "proof": "AGENT_PICK"
+                  },
+                  {
+                    "entity_type": "ESTIMATE",
+                    "relation": "COUPON_EVALUATED_IN_ESTIMATE",
+                    "proof": "VERIFIED_QUERY"
+                  }
+                ],
+                "min_satisfied": 1,
+                "routing": "NON_BLOCKING",
+                "label": "\u8ba2\u5355\u6216\u9884\u4f30"
+              }
+            ]
+          }
+        },
+        "note": "Synthetic v2 conformance"
+      },
+      "error_code": "ASSOCIATION_SHAPE"
+    },
+    {
+      "name": "v1_cannot_hide_v2",
+      "doc": {
+        "schema": "dmn-json.supplement-requirements/v1",
+        "table": "supplement.synthetic",
+        "scenes": {
+          "P_99_04_01": {
+            "state": "NONE",
+            "basis": "Synthetic fixture, not production configuration",
+            "associations": [
+              {
+                "assoc_id": "coupon_usage_context",
+                "on": "COUPON",
+                "any_of": [
+                  {
+                    "entity_type": "ORDER",
+                    "relation": "COUPON_USED_ON_ORDER",
+                    "proof": "AGENT_PICK"
+                  },
+                  {
+                    "entity_type": "ESTIMATE",
+                    "relation": "COUPON_EVALUATED_IN_ESTIMATE",
+                    "proof": "VERIFIED_QUERY"
+                  }
+                ],
+                "min_satisfied": 1,
+                "routing": "NON_BLOCKING",
+                "label": "\u8ba2\u5355\u6216\u9884\u4f30"
+              }
+            ]
+          }
+        },
+        "note": "Synthetic v2 conformance"
+      },
+      "error_code": "SUPPLEMENT_TABLE_INVALID"
+    },
+    {
+      "name": "label_line_sep",
+      "doc": {
+        "schema": "dmn-json.supplement-requirements/v2",
+        "table": "supplement.synthetic",
+        "scenes": {
+          "P_99_04_01": {
+            "state": "NONE",
+            "basis": "Synthetic fixture, not production configuration",
+            "associations": [
+              {
+                "assoc_id": "coupon_usage_context",
+                "on": "COUPON",
+                "any_of": [
+                  {
+                    "entity_type": "ORDER",
+                    "relation": "COUPON_USED_ON_ORDER",
+                    "proof": "AGENT_PICK"
+                  },
+                  {
+                    "entity_type": "ESTIMATE",
+                    "relation": "COUPON_EVALUATED_IN_ESTIMATE",
+                    "proof": "VERIFIED_QUERY"
+                  }
+                ],
+                "min_satisfied": 1,
+                "routing": "NON_BLOCKING",
+                "label": "a\u2028b"
+              }
+            ]
+          }
+        },
+        "note": "Synthetic v2 conformance"
+      },
+      "error_code": "ASSOCIATION_SHAPE"
+    },
+    {
+      "name": "label_paragraph_sep",
+      "doc": {
+        "schema": "dmn-json.supplement-requirements/v2",
+        "table": "supplement.synthetic",
+        "scenes": {
+          "P_99_04_01": {
+            "state": "NONE",
+            "basis": "Synthetic fixture, not production configuration",
+            "associations": [
+              {
+                "assoc_id": "coupon_usage_context",
+                "on": "COUPON",
+                "any_of": [
+                  {
+                    "entity_type": "ORDER",
+                    "relation": "COUPON_USED_ON_ORDER",
+                    "proof": "AGENT_PICK"
+                  },
+                  {
+                    "entity_type": "ESTIMATE",
+                    "relation": "COUPON_EVALUATED_IN_ESTIMATE",
+                    "proof": "VERIFIED_QUERY"
+                  }
+                ],
+                "min_satisfied": 1,
+                "routing": "NON_BLOCKING",
+                "label": "a\u2029b"
+              }
+            ]
+          }
+        },
+        "note": "Synthetic v2 conformance"
+      },
+      "error_code": "ASSOCIATION_SHAPE"
+    },
+    {
+      "name": "label_zero_width_space",
+      "doc": {
+        "schema": "dmn-json.supplement-requirements/v2",
+        "table": "supplement.synthetic",
+        "scenes": {
+          "P_99_04_01": {
+            "state": "NONE",
+            "basis": "Synthetic fixture, not production configuration",
+            "associations": [
+              {
+                "assoc_id": "coupon_usage_context",
+                "on": "COUPON",
+                "any_of": [
+                  {
+                    "entity_type": "ORDER",
+                    "relation": "COUPON_USED_ON_ORDER",
+                    "proof": "AGENT_PICK"
+                  },
+                  {
+                    "entity_type": "ESTIMATE",
+                    "relation": "COUPON_EVALUATED_IN_ESTIMATE",
+                    "proof": "VERIFIED_QUERY"
+                  }
+                ],
+                "min_satisfied": 1,
+                "routing": "NON_BLOCKING",
+                "label": "a\u200bb"
+              }
+            ]
+          }
+        },
+        "note": "Synthetic v2 conformance"
+      },
+      "error_code": "ASSOCIATION_SHAPE"
+    },
+    {
+      "name": "label_zero_width_joiner",
+      "doc": {
+        "schema": "dmn-json.supplement-requirements/v2",
+        "table": "supplement.synthetic",
+        "scenes": {
+          "P_99_04_01": {
+            "state": "NONE",
+            "basis": "Synthetic fixture, not production configuration",
+            "associations": [
+              {
+                "assoc_id": "coupon_usage_context",
+                "on": "COUPON",
+                "any_of": [
+                  {
+                    "entity_type": "ORDER",
+                    "relation": "COUPON_USED_ON_ORDER",
+                    "proof": "AGENT_PICK"
+                  },
+                  {
+                    "entity_type": "ESTIMATE",
+                    "relation": "COUPON_EVALUATED_IN_ESTIMATE",
+                    "proof": "VERIFIED_QUERY"
+                  }
+                ],
+                "min_satisfied": 1,
+                "routing": "NON_BLOCKING",
+                "label": "a\u200db"
+              }
+            ]
+          }
+        },
+        "note": "Synthetic v2 conformance"
+      },
+      "error_code": "ASSOCIATION_SHAPE"
+    },
+    {
+      "name": "label_zero_width_nonjoiner",
+      "doc": {
+        "schema": "dmn-json.supplement-requirements/v2",
+        "table": "supplement.synthetic",
+        "scenes": {
+          "P_99_04_01": {
+            "state": "NONE",
+            "basis": "Synthetic fixture, not production configuration",
+            "associations": [
+              {
+                "assoc_id": "coupon_usage_context",
+                "on": "COUPON",
+                "any_of": [
+                  {
+                    "entity_type": "ORDER",
+                    "relation": "COUPON_USED_ON_ORDER",
+                    "proof": "AGENT_PICK"
+                  },
+                  {
+                    "entity_type": "ESTIMATE",
+                    "relation": "COUPON_EVALUATED_IN_ESTIMATE",
+                    "proof": "VERIFIED_QUERY"
+                  }
+                ],
+                "min_satisfied": 1,
+                "routing": "NON_BLOCKING",
+                "label": "a\u200cb"
+              }
+            ]
+          }
+        },
+        "note": "Synthetic v2 conformance"
+      },
+      "error_code": "ASSOCIATION_SHAPE"
+    },
+    {
+      "name": "label_bidi_override",
+      "doc": {
+        "schema": "dmn-json.supplement-requirements/v2",
+        "table": "supplement.synthetic",
+        "scenes": {
+          "P_99_04_01": {
+            "state": "NONE",
+            "basis": "Synthetic fixture, not production configuration",
+            "associations": [
+              {
+                "assoc_id": "coupon_usage_context",
+                "on": "COUPON",
+                "any_of": [
+                  {
+                    "entity_type": "ORDER",
+                    "relation": "COUPON_USED_ON_ORDER",
+                    "proof": "AGENT_PICK"
+                  },
+                  {
+                    "entity_type": "ESTIMATE",
+                    "relation": "COUPON_EVALUATED_IN_ESTIMATE",
+                    "proof": "VERIFIED_QUERY"
+                  }
+                ],
+                "min_satisfied": 1,
+                "routing": "NON_BLOCKING",
+                "label": "a\u202eb"
+              }
+            ]
+          }
+        },
+        "note": "Synthetic v2 conformance"
+      },
+      "error_code": "ASSOCIATION_SHAPE"
+    },
+    {
+      "name": "label_bom",
+      "doc": {
+        "schema": "dmn-json.supplement-requirements/v2",
+        "table": "supplement.synthetic",
+        "scenes": {
+          "P_99_04_01": {
+            "state": "NONE",
+            "basis": "Synthetic fixture, not production configuration",
+            "associations": [
+              {
+                "assoc_id": "coupon_usage_context",
+                "on": "COUPON",
+                "any_of": [
+                  {
+                    "entity_type": "ORDER",
+                    "relation": "COUPON_USED_ON_ORDER",
+                    "proof": "AGENT_PICK"
+                  },
+                  {
+                    "entity_type": "ESTIMATE",
+                    "relation": "COUPON_EVALUATED_IN_ESTIMATE",
+                    "proof": "VERIFIED_QUERY"
+                  }
+                ],
+                "min_satisfied": 1,
+                "routing": "NON_BLOCKING",
+                "label": "a\ufeffb"
+              }
+            ]
+          }
+        },
+        "note": "Synthetic v2 conformance"
+      },
+      "error_code": "ASSOCIATION_SHAPE"
+    },
+    {
+      "name": "label_soft_hyphen",
+      "doc": {
+        "schema": "dmn-json.supplement-requirements/v2",
+        "table": "supplement.synthetic",
+        "scenes": {
+          "P_99_04_01": {
+            "state": "NONE",
+            "basis": "Synthetic fixture, not production configuration",
+            "associations": [
+              {
+                "assoc_id": "coupon_usage_context",
+                "on": "COUPON",
+                "any_of": [
+                  {
+                    "entity_type": "ORDER",
+                    "relation": "COUPON_USED_ON_ORDER",
+                    "proof": "AGENT_PICK"
+                  },
+                  {
+                    "entity_type": "ESTIMATE",
+                    "relation": "COUPON_EVALUATED_IN_ESTIMATE",
+                    "proof": "VERIFIED_QUERY"
+                  }
+                ],
+                "min_satisfied": 1,
+                "routing": "NON_BLOCKING",
+                "label": "a\u00adb"
+              }
+            ]
+          }
+        },
+        "note": "Synthetic v2 conformance"
+      },
+      "error_code": "ASSOCIATION_SHAPE"
+    },
+    {
+      "name": "label_astral_tag",
+      "doc": {
+        "schema": "dmn-json.supplement-requirements/v2",
+        "table": "supplement.synthetic",
+        "scenes": {
+          "P_99_04_01": {
+            "state": "NONE",
+            "basis": "Synthetic fixture, not production configuration",
+            "associations": [
+              {
+                "assoc_id": "coupon_usage_context",
+                "on": "COUPON",
+                "any_of": [
+                  {
+                    "entity_type": "ORDER",
+                    "relation": "COUPON_USED_ON_ORDER",
+                    "proof": "AGENT_PICK"
+                  },
+                  {
+                    "entity_type": "ESTIMATE",
+                    "relation": "COUPON_EVALUATED_IN_ESTIMATE",
+                    "proof": "VERIFIED_QUERY"
+                  }
+                ],
+                "min_satisfied": 1,
+                "routing": "NON_BLOCKING",
+                "label": "a\udb40\udc01b"
+              }
+            ]
+          }
+        },
+        "note": "Synthetic v2 conformance"
+      },
+      "error_code": "ASSOCIATION_SHAPE"
+    },
+    {
+      "name": "label_surrogate",
+      "doc": {
+        "schema": "dmn-json.supplement-requirements/v2",
+        "table": "supplement.synthetic",
+        "scenes": {
+          "P_99_04_01": {
+            "state": "NONE",
+            "basis": "Synthetic fixture, not production configuration",
+            "associations": [
+              {
+                "assoc_id": "coupon_usage_context",
+                "on": "COUPON",
+                "any_of": [
+                  {
+                    "entity_type": "ORDER",
+                    "relation": "COUPON_USED_ON_ORDER",
+                    "proof": "AGENT_PICK"
+                  },
+                  {
+                    "entity_type": "ESTIMATE",
+                    "relation": "COUPON_EVALUATED_IN_ESTIMATE",
+                    "proof": "VERIFIED_QUERY"
+                  }
+                ],
+                "min_satisfied": 1,
+                "routing": "NON_BLOCKING",
+                "label": "a\ud800b"
+              }
+            ]
+          }
+        },
+        "note": "Synthetic v2 conformance"
+      },
+      "error_code": "ASSOCIATION_SHAPE",
+      "save_error_code": "INVALID_JSON"
+    },
+    {
+      "name": "label_c0",
+      "doc": {
+        "schema": "dmn-json.supplement-requirements/v2",
+        "table": "supplement.synthetic",
+        "scenes": {
+          "P_99_04_01": {
+            "state": "NONE",
+            "basis": "Synthetic fixture, not production configuration",
+            "associations": [
+              {
+                "assoc_id": "coupon_usage_context",
+                "on": "COUPON",
+                "any_of": [
+                  {
+                    "entity_type": "ORDER",
+                    "relation": "COUPON_USED_ON_ORDER",
+                    "proof": "AGENT_PICK"
+                  },
+                  {
+                    "entity_type": "ESTIMATE",
+                    "relation": "COUPON_EVALUATED_IN_ESTIMATE",
+                    "proof": "VERIFIED_QUERY"
+                  }
+                ],
+                "min_satisfied": 1,
+                "routing": "NON_BLOCKING",
+                "label": "a\u0000b"
+              }
+            ]
+          }
+        },
+        "note": "Synthetic v2 conformance"
+      },
+      "error_code": "ASSOCIATION_SHAPE"
+    },
+    {
+      "name": "label_c1",
+      "doc": {
+        "schema": "dmn-json.supplement-requirements/v2",
+        "table": "supplement.synthetic",
+        "scenes": {
+          "P_99_04_01": {
+            "state": "NONE",
+            "basis": "Synthetic fixture, not production configuration",
+            "associations": [
+              {
+                "assoc_id": "coupon_usage_context",
+                "on": "COUPON",
+                "any_of": [
+                  {
+                    "entity_type": "ORDER",
+                    "relation": "COUPON_USED_ON_ORDER",
+                    "proof": "AGENT_PICK"
+                  },
+                  {
+                    "entity_type": "ESTIMATE",
+                    "relation": "COUPON_EVALUATED_IN_ESTIMATE",
+                    "proof": "VERIFIED_QUERY"
+                  }
+                ],
+                "min_satisfied": 1,
+                "routing": "NON_BLOCKING",
+                "label": "a\u0085b"
+              }
+            ]
+          }
+        },
+        "note": "Synthetic v2 conformance"
+      },
+      "error_code": "ASSOCIATION_SHAPE"
+    },
+    {
+      "name": "label_white_only",
+      "doc": {
+        "schema": "dmn-json.supplement-requirements/v2",
+        "table": "supplement.synthetic",
+        "scenes": {
+          "P_99_04_01": {
+            "state": "NONE",
+            "basis": "Synthetic fixture, not production configuration",
+            "associations": [
+              {
+                "assoc_id": "coupon_usage_context",
+                "on": "COUPON",
+                "any_of": [
+                  {
+                    "entity_type": "ORDER",
+                    "relation": "COUPON_USED_ON_ORDER",
+                    "proof": "AGENT_PICK"
+                  },
+                  {
+                    "entity_type": "ESTIMATE",
+                    "relation": "COUPON_EVALUATED_IN_ESTIMATE",
+                    "proof": "VERIFIED_QUERY"
+                  }
+                ],
+                "min_satisfied": 1,
+                "routing": "NON_BLOCKING",
+                "label": " \u00a0 "
+              }
+            ]
+          }
+        },
+        "note": "Synthetic v2 conformance"
+      },
+      "error_code": "ASSOCIATION_SHAPE"
+    },
+    {
+      "name": "label_too_long",
+      "doc": {
+        "schema": "dmn-json.supplement-requirements/v2",
+        "table": "supplement.synthetic",
+        "scenes": {
+          "P_99_04_01": {
+            "state": "NONE",
+            "basis": "Synthetic fixture, not production configuration",
+            "associations": [
+              {
+                "assoc_id": "coupon_usage_context",
+                "on": "COUPON",
+                "any_of": [
+                  {
+                    "entity_type": "ORDER",
+                    "relation": "COUPON_USED_ON_ORDER",
+                    "proof": "AGENT_PICK"
+                  },
+                  {
+                    "entity_type": "ESTIMATE",
+                    "relation": "COUPON_EVALUATED_IN_ESTIMATE",
+                    "proof": "VERIFIED_QUERY"
+                  }
+                ],
+                "min_satisfied": 1,
+                "routing": "NON_BLOCKING",
+                "label": "\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d\u4e2d"
+              }
+            ]
+          }
+        },
+        "note": "Synthetic v2 conformance"
+      },
+      "error_code": "ASSOCIATION_SHAPE"
+    },
+    {
+      "name": "assoc_id_not_string",
+      "doc": {
+        "schema": "dmn-json.supplement-requirements/v2",
+        "table": "supplement.synthetic",
+        "scenes": {
+          "P_99_04_01": {
+            "state": "NONE",
+            "basis": "Synthetic fixture, not production configuration",
+            "associations": [
+              {
+                "assoc_id": [],
+                "on": "COUPON",
+                "any_of": [
+                  {
+                    "entity_type": "ORDER",
+                    "relation": "COUPON_USED_ON_ORDER",
+                    "proof": "AGENT_PICK"
+                  },
+                  {
+                    "entity_type": "ESTIMATE",
+                    "relation": "COUPON_EVALUATED_IN_ESTIMATE",
+                    "proof": "VERIFIED_QUERY"
+                  }
+                ],
+                "min_satisfied": 1,
+                "routing": "NON_BLOCKING",
+                "label": "\u8ba2\u5355\u6216\u9884\u4f30"
+              }
+            ]
+          }
+        },
+        "note": "Synthetic v2 conformance"
+      },
+      "error_code": "ASSOCIATION_SHAPE"
+    },
+    {
+      "name": "entity_type_array",
+      "doc": {
+        "schema": "dmn-json.supplement-requirements/v2",
+        "table": "supplement.synthetic",
+        "scenes": {
+          "P_99_04_01": {
+            "state": "NONE",
+            "basis": "Synthetic fixture, not production configuration",
+            "associations": [
+              {
+                "assoc_id": "coupon_usage_context",
+                "on": "COUPON",
+                "any_of": [
+                  {
+                    "entity_type": [],
+                    "relation": "COUPON_USED_ON_ORDER",
+                    "proof": "AGENT_PICK"
+                  },
+                  {
+                    "entity_type": "ESTIMATE",
+                    "relation": "COUPON_EVALUATED_IN_ESTIMATE",
+                    "proof": "VERIFIED_QUERY"
+                  }
+                ],
+                "min_satisfied": 1,
+                "routing": "NON_BLOCKING",
+                "label": "\u8ba2\u5355\u6216\u9884\u4f30"
+              }
+            ]
+          }
+        },
+        "note": "Synthetic v2 conformance"
+      },
+      "error_code": "ASSOCIATION_SHAPE"
+    },
+    {
+      "name": "proof_array",
+      "doc": {
+        "schema": "dmn-json.supplement-requirements/v2",
+        "table": "supplement.synthetic",
+        "scenes": {
+          "P_99_04_01": {
+            "state": "NONE",
+            "basis": "Synthetic fixture, not production configuration",
+            "associations": [
+              {
+                "assoc_id": "coupon_usage_context",
+                "on": "COUPON",
+                "any_of": [
+                  {
+                    "entity_type": "ORDER",
+                    "relation": "COUPON_USED_ON_ORDER",
+                    "proof": []
+                  },
+                  {
+                    "entity_type": "ESTIMATE",
+                    "relation": "COUPON_EVALUATED_IN_ESTIMATE",
+                    "proof": "VERIFIED_QUERY"
+                  }
+                ],
+                "min_satisfied": 1,
+                "routing": "NON_BLOCKING",
+                "label": "\u8ba2\u5355\u6216\u9884\u4f30"
+              }
+            ]
+          }
+        },
+        "note": "Synthetic v2 conformance"
+      },
+      "error_code": "ASSOCIATION_SHAPE"
+    },
+    {
+      "name": "group_required",
+      "doc": {
+        "schema": "dmn-json.supplement-requirements/v2",
+        "table": "supplement.synthetic",
+        "scenes": {
+          "P_99_04_01": {
+            "state": "NONE",
+            "basis": "Synthetic fixture, not production configuration",
+            "associations": [
+              {
+                "assoc_id": "coupon_usage_context",
+                "on": "COUPON",
+                "any_of": [
+                  {
+                    "entity_type": "ORDER",
+                    "relation": "COUPON_USED_ON_ORDER",
+                    "proof": "AGENT_PICK"
+                  },
+                  {
+                    "entity_type": "ESTIMATE",
+                    "relation": "COUPON_EVALUATED_IN_ESTIMATE",
+                    "proof": "VERIFIED_QUERY"
+                  }
+                ],
+                "min_satisfied": 1,
+                "routing": "NON_BLOCKING",
+                "label": "\u8ba2\u5355\u6216\u9884\u4f30",
+                "required": true
+              }
+            ]
+          }
+        },
+        "note": "Synthetic v2 conformance"
+      },
+      "error_code": "ASSOCIATION_SHAPE"
+    },
+    {
+      "name": "precedence_exclusive_before_label",
+      "doc": {
+        "schema": "dmn-json.supplement-requirements/v2",
+        "table": "supplement.synthetic",
+        "scenes": {
+          "P_99_04_01": {
+            "state": "NONE",
+            "basis": "Synthetic fixture, not production configuration",
+            "associations": [
+              {
+                "assoc_id": "coupon_usage_context",
+                "on": "COUPON",
+                "any_of": [
+                  {
+                    "entity_type": "ORDER",
+                    "relation": "COUPON_USED_ON_ORDER",
+                    "proof": "AGENT_PICK"
+                  },
+                  {
+                    "entity_type": "ESTIMATE",
+                    "relation": "COUPON_EVALUATED_IN_ESTIMATE",
+                    "proof": "VERIFIED_QUERY"
+                  }
+                ],
+                "min_satisfied": 1,
+                "routing": "NON_BLOCKING",
+                "label": "",
+                "one_of": []
+              }
+            ]
+          }
+        },
+        "note": "Synthetic v2 conformance"
+      },
+      "error_code": "ASSOCIATION_EXCLUSIVE_FORBIDDEN"
+    },
+    {
+      "name": "precedence_routing_before_min",
+      "doc": {
+        "schema": "dmn-json.supplement-requirements/v2",
+        "table": "supplement.synthetic",
+        "scenes": {
+          "P_99_04_01": {
+            "state": "NONE",
+            "basis": "Synthetic fixture, not production configuration",
+            "associations": [
+              {
+                "assoc_id": "coupon_usage_context",
+                "on": "COUPON",
+                "any_of": [
+                  {
+                    "entity_type": "ORDER",
+                    "relation": "COUPON_USED_ON_ORDER",
+                    "proof": "AGENT_PICK"
+                  },
+                  {
+                    "entity_type": "ESTIMATE",
+                    "relation": "COUPON_EVALUATED_IN_ESTIMATE",
+                    "proof": "VERIFIED_QUERY"
+                  }
+                ],
+                "min_satisfied": 0,
+                "routing": "BLOCKING",
+                "label": "\u8ba2\u5355\u6216\u9884\u4f30"
+              }
+            ]
+          }
+        },
+        "note": "Synthetic v2 conformance"
+      },
+      "error_code": "ASSOCIATION_ROUTING_INVALID"
+    }
+  ]
+}

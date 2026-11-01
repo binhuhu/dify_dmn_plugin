@@ -1,11 +1,11 @@
-"""0.5.6 (WO-79): the route table's solutions{} is the single maintenance point of the solution registry.
+"""0.5.6: the route table's solutions{} is the single maintenance point of the solution registry.
 
 dmn-json.route-table/v3: every solution app carries its registry state - status CURRENT | CANDIDATE | GATED | SHADOW |
 RETIRED, gate_code (GATED only, required there), request_contract, topics, intents, invocation_scope, priority, package_id,
-target_handoff; never input_bindings (交付编排 builds its request by request_contract). A v2 table still reads: every app
+target_handoff; never input_bindings (The caller builds its request by request_contract). A v2 table still reads: every app
 CURRENT, no gate. invoke_solution calls CURRENT apps only (GATED -> SOLUTION_GATED with the gate code). The routing-table/v4
-stub adds the solution block to the decision data; v2 / v3 stubs compile exactly as in 0.5.5. Saves: one app has one state
-across route tables; a v3 table is never saved back as v2; an optional gate_report (WO-78 hook) is recorded, not judged.
+stub adds the solution block to the decision data; v2 / v3 stubs retain their legacy contract. Saves: one app has one state
+across route tables; a v3 table is never saved back as v2; an optional gate_report is recorded, not judged.
 """
 
 import copy
@@ -40,46 +40,46 @@ from dmn_client.route_table import (
 from dmn_client.solution_invoke import invoke_solution
 from tools.invoke_solution import InvokeSolutionTool
 
-ORDER = "6727d647-b4aa-4bce-bad1-5b345bbf61e5"
-GATE = "ESE_F01_ORDER_BINDING"
+ORDER = "00000000-0000-4000-8000-000000000004"
+GATE = "SYNTHETIC_GATE"
 INPUTS = ["call_id", "request_json"]
-# computed with the 0.5.5 code (9e250bd) on test_route_table_v2.doc(): what 0.5.6 must keep for v2 tables and v2 / v3 stubs
-V2_CONTENT_055 = "2481a2665005961f3fc9e9e6374148484b869e280913f0dd5ad73c5a89942eba"
-V2_MODEL_055 = "0cd356a0b992a1f59241be79711886afe15a35b5563077573e5f228acabf7f27"
-V3_MODEL_055 = "b1c164c246f5a5141257656a999d050216b33e0bc0a6ebaabdf66d6514c2d3f6"
+# Public v0.5.9 baseline hashes for the synthetic fixture; preserve legacy v2/v3 behavior.
+V2_CONTENT_BASELINE = "92e59c06423f04dd8a442dc90e579ab04c4e0d40bb1b040c5df86df0db47816a"
+V2_MODEL_BASELINE = "b240aa9d9eda3248b734ae66d3b0cf276b9e96c90469ebdda36dda86bd39144a"
+V3_MODEL_BASELINE = "3cf6fe7f43c73e8ee1823abbcb8e9640324899ef163812fddb9832cf1ae9dbc3"
 
 
 def v3(**over):
     d = doc_v2()
     d["schema"] = SCHEMA_V3
-    d["scenes"]["P_04_01_01"] = {"name": "司机爽约与无故取消", "domain": "履约"}
+    d["scenes"]["P_04_01_01"] = {"name": "Synthetic scene D", "domain": "Synthetic domain B"}
     d["solutions"] = {
         COUPON: {
-            "name": "优惠券使用 · ESE B",
+            "name": "Synthetic application A",
             "inputs": list(INPUTS),
             "status": "CURRENT",
             "request_contract": "场景方案调用/v4",
-            "topics": ["coupon_use", "coupon_not_deducted"],
+            "topics": ["synthetic_topic_a", "synthetic_topic_b"],
             "intents": ["REPORT_PROBLEM"],
             "invocation_scope": "ISSUE_TARGET",
             "priority": 1,
-            "package_id": "coupon-use",
+            "package_id": "synthetic-app-a",
             "target_handoff": "SUPPORTED",
         },
         LOST: {
-            "name": "物品遗失 · ESE B",
+            "name": "Synthetic application B",
             "inputs": list(INPUTS),
             "status": "CANDIDATE",
             "topics": ["property_left_in_vehicle"],
             "intents": ["REPORT_PROBLEM", "REQUEST_SERVICE"],
         },
         ORDER: {
-            "name": "司机爽约 · ESE B",
+            "name": "Synthetic application C",
             "inputs": list(INPUTS),
             "status": "GATED",
             "gate_code": GATE,
             "request_contract": "场景方案调用/v4",
-            "topics": ["driver_no_show"],
+            "topics": ["synthetic_topic_c"],
             "intents": ["REPORT_PROBLEM"],
         },
     }
@@ -121,7 +121,7 @@ def test_v3_validates_and_stores_every_entry_in_one_shape():
     assert clean["schema"] == SCHEMA_V3
     assert all(set(s) == set(SOLUTION_KEYS_V3) for s in clean["solutions"].values())
     assert clean["solutions"][LOST] == {
-        "name": "物品遗失 · ESE B",
+        "name": "Synthetic application B",
         "inputs": INPUTS,
         "status": "CANDIDATE",
         "gate_code": None,
@@ -133,7 +133,7 @@ def test_v3_validates_and_stores_every_entry_in_one_shape():
         "package_id": None,
         "target_handoff": None,
     }
-    assert clean["solutions"][COUPON]["topics"] == ["coupon_use", "coupon_not_deducted"], (
+    assert clean["solutions"][COUPON]["topics"] == ["synthetic_topic_a", "synthetic_topic_b"], (
         "order kept as registered (round trip)"
     )
     assert validate_doc(clean) == clean, "the stored form validates to itself"
@@ -178,9 +178,9 @@ def test_v2_reads_as_before_with_every_app_current():
     clean = validate_doc(doc_v2())
     assert clean["schema"] == SCHEMA_V2
     assert all(set(s) == {"name", "inputs"} for s in clean["solutions"].values())
-    assert content_sha256(clean) == V2_CONTENT_055, "a v2 table keeps its 0.5.5 digest"
+    assert content_sha256(clean) == V2_CONTENT_BASELINE, "a v2 table keeps its 0.5.5 digest"
     assert solution_entry(clean, COUPON) == {
-        "name": "优惠券使用 · ESE B",
+        "name": "Synthetic application A",
         "inputs": INPUTS,
         "status": "CURRENT",
         "gate_code": None,
@@ -192,7 +192,7 @@ def test_v2_reads_as_before_with_every_app_current():
         "package_id": None,
         "target_handoff": None,
     }
-    assert solution_entry(clean, "21c0c72a-9e44-4fa4-bbae-80b05ed79cbf") is None
+    assert solution_entry(clean, "00000000-0000-4000-8000-000000000003") is None
 
 
 def _set(app, **fields):
@@ -222,7 +222,7 @@ def _set(app, **fields):
             "solutions.%s.gate_code" % ORDER,
         ),
         (
-            _set(ORDER, gate_code="ese_f01"),
+            _set(ORDER, gate_code="synthetic_invalid_gate"),
             "ROUTE_TABLE_INVALID",
             "solutions.%s.gate_code" % ORDER,
         ),
@@ -244,12 +244,12 @@ def _set(app, **fields):
             "solutions.%s.intents" % COUPON,
         ),
         (
-            _set(COUPON, input_bindings={"request_json": "request.coupon_solve"}),
+            _set(COUPON, input_bindings={"request_json": "request.synthetic_action"}),
             "ROUTE_TABLE_INVALID",
             "solutions.%s.input_bindings" % COUPON,
         ),
         (
-            _set(COUPON, solution_id="coupon-use.ese"),
+            _set(COUPON, solution_id="synthetic-app-a.ese"),
             "ROUTE_TABLE_INVALID",
             "solutions.%s" % COUPON,
         ),
@@ -264,12 +264,12 @@ def _set(app, **fields):
             "solutions.%s.request_contract" % COUPON,
         ),
         (
-            _set(COUPON, topics=["coupon_use", "coupon_use"]),
+            _set(COUPON, topics=["synthetic_topic_a", "synthetic_topic_a"]),
             "ROUTE_TABLE_INVALID",
             "solutions.%s.topics" % COUPON,
         ),
         (
-            _set(COUPON, topics=["Coupon Use"]),
+            _set(COUPON, topics=["Synthetic Topic"]),
             "ROUTE_TABLE_INVALID",
             "solutions.%s.topics" % COUPON,
         ),
@@ -287,7 +287,7 @@ def _set(app, **fields):
             "solutions.%s.invocation_scope" % COUPON,
         ),
         (
-            _set(COUPON, package_id="Coupon Use"),
+            _set(COUPON, package_id="Synthetic Topic"),
             "ROUTE_TABLE_INVALID",
             "solutions.%s.package_id" % COUPON,
         ),
@@ -453,7 +453,7 @@ def test_v4_stub_carries_the_solution_block():
         "status": "GATED",
         "gate_code": GATE,
         "request_contract": "场景方案调用/v4",
-        "topics": ["driver_no_show"],
+        "topics": ["synthetic_topic_c"],
         "intents": ["REPORT_PROBLEM"],
         "table_content_sha256": source["content_sha256"],
     }
@@ -478,14 +478,16 @@ def test_v4_stub_on_a_v2_table_reads_the_defaults():
         "request_contract": None,
         "topics": [],
         "intents": [],
-        "table_content_sha256": V2_CONTENT_055,
+        "table_content_sha256": V2_CONTENT_BASELINE,
     }
 
 
-def test_v2_and_v3_stubs_compile_exactly_as_in_0_5_5():
+def test_v2_and_v3_stubs_match_public_baseline():
     clean = validate_doc(doc_v2())
-    assert sha(compile_model_v2("4.0.0", clean)) == V2_MODEL_055
-    assert sha(compile_model_v2("4.1.0", clean, {"targets": {}, "transfers": {}})) == V3_MODEL_055
+    assert sha(compile_model_v2("4.0.0", clean)) == V2_MODEL_BASELINE
+    assert (
+        sha(compile_model_v2("4.1.0", clean, {"targets": {}, "transfers": {}})) == V3_MODEL_BASELINE
+    )
 
 
 def test_upgrading_the_table_to_v3_changes_nothing_a_v2_or_v3_stub_reads():
@@ -540,7 +542,7 @@ def test_one_app_has_one_state_across_route_tables():
     assert exc.value.code == "ROUTE_TABLE_SOLUTION_STATUS_CONFLICT"
     assert exc.value.path == "solutions.%s.status" % ORDER and "dispatch.route" in exc.value.message
     with pytest.raises(RouteTableError) as exc:
-        st.save(other("other.route", gate_code="ESE_OTHER_GATE"), 0)
+        st.save(other("other.route", gate_code="SYNTHETIC_OTHER_GATE"), 0)
     assert exc.value.code == "ROUTE_TABLE_SOLUTION_STATUS_CONFLICT"
     assert st.save(other("other.route"), 0)["version"] == 1, "same status and gate: fine"
     assert st.load("other.route") is not None

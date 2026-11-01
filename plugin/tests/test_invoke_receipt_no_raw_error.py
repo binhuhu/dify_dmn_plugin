@@ -1,9 +1,9 @@
-"""0.5.8 (WO-115): invoke_solution receipts never carry the child run's error text or the platform's exception text.
+"""0.5.8: invoke_solution receipts never carry the child run's error text or the platform's exception text.
 
 A child run that did not succeed is SOLUTION_RUN_FAILED with the fixed message 「方案运行没有成功结束（<run_status>）」;
 a platform call that raised (before or during the stream) is SOLUTION_INVOKE_FAILED with 「调方案没有成功（<exception
 class>）」. Sandbox errors and stack traces from a solution's code node, and values from the run, stop at the plugin; the
-child run id stays in the receipt to look the run up. Every other receipt is what 0.5.7 returned (pinned below).
+child run id stays in the receipt to look the run up. Other receipts retain the legacy contract with synthetic metadata pinned below.
 Synthetic ids only; the uid in the leak text is fake.
 """
 
@@ -18,14 +18,14 @@ from test_route_table_v2 import doc as doc_v2
 from dmn_client.route_table import StorageTables, content_sha256, validate_doc
 from tools.invoke_solution import InvokeSolutionTool
 
-FAKE_UID = "1234567890123"
+FAKE_UID = "synthetic-user-001"
 LEAK = (
     "Traceback (most recent call last):\n"
-    '  File "/var/sandbox/sandbox-python/code.py", line 7, in main\n'
+    '  File "/synthetic/example.py", line 7, in main\n'
     "    raise ValueError(payload)\n"
-    "ValueError: coupon lookup failed for uid=" + FAKE_UID
+    "ValueError: synthetic lookup failed for uid=" + FAKE_UID
 )
-LEAK_MARKS = ("Traceback", "most recent call", "/var/sandbox", "uid=", FAKE_UID)
+LEAK_MARKS = ("Traceback", "most recent call", "/synthetic", "uid=", FAKE_UID)
 
 
 def dumped(value):
@@ -50,7 +50,11 @@ def raises_at_once(exc):
 
 def raises_mid_stream(exc):
     def invoke(a, i):
-        yield {"event": "workflow_started", "workflow_run_id": "run-9", "data": {"id": "run-9"}}
+        yield {
+            "event": "workflow_started",
+            "workflow_run_id": "synthetic-run-9",
+            "data": {"id": "synthetic-run-9"},
+        }
         raise exc
 
     return invoke
@@ -82,7 +86,9 @@ def test_failed_run_receipt_has_the_fixed_text_not_the_child_error(run_status, e
         receipt["run_status"],
         receipt["elapsed_time"],
         receipt["outputs"],
-    ) == ("wf-1", "run-9", run_status, 12.5, {}), "the run stays traceable; no outputs on failure"
+    ) == ("synthetic-workflow-1", "synthetic-run-9", run_status, 12.5, {}), (
+        "the run stays traceable; no outputs on failure"
+    )
     assert seen == [(COUPON, {"call_id": "c1", "request_json": "{}"})]
 
 
@@ -154,9 +160,9 @@ def test_invoke_tool_messages_carry_no_raw_error(workflow_invoke, code, message)
     assert_no_leak([m.model_dump(mode="json") for m in msgs])
 
 
-# ── everything else: exactly the 0.5.7 receipt ──────────────────────────────────
+# ── everything else: the legacy receipt contract ──────────────────────────────────
 
-SHA_V2 = "2481a2665005961f3fc9e9e6374148484b869e280913f0dd5ad73c5a89942eba"
+SHA_V2 = "92e59c06423f04dd8a442dc90e579ab04c4e0d40bb1b040c5df86df0db47816a"
 EMPTY = {
     "status": "",
     "error_code": "",
@@ -179,7 +185,7 @@ IDENT = {
     "table": "dispatch.route",
     "table_version": 1,
     "table_content_sha256": SHA_V2,
-    "solution_name": "优惠券使用 · ESE B",
+    "solution_name": "Synthetic application A",
     "solution_status": "CURRENT",
 }
 
@@ -193,19 +199,19 @@ def v1_table():
 
 
 def blocking(a, i):
-    data = {"workflow_id": "wf-2", "status": "succeeded", "outputs": {"x": "1"}}
-    return iter([{"task_id": "t", "workflow_run_id": "run-2", "data": data}])
+    data = {"workflow_id": "synthetic-workflow-2", "status": "succeeded", "outputs": {"x": "1"}}
+    return iter([{"task_id": "t", "workflow_run_id": "synthetic-run-2", "data": data}])
 
 
-# (run kwargs, the 0.5.7 receipt as an overlay on EMPTY) - printed from v0.5.7 (ab65ea2) on these exact inputs.
-PINNED_0_5_7 = {
+# Legacy receipt contract, with synthetic identity metadata and baseline-verified fixture digest.
+PINNED_LEGACY = {
     "succeeded": (
         {},
         dict(
             IDENT,
             status="SUCCEEDED",
-            child_workflow_id="wf-1",
-            child_workflow_run_id="run-9",
+            child_workflow_id="synthetic-workflow-1",
+            child_workflow_run_id="synthetic-run-9",
             run_status="succeeded",
             elapsed_time=12.5,
             outputs={"receipt_json": "{}"},
@@ -216,8 +222,8 @@ PINNED_0_5_7 = {
         dict(
             IDENT,
             status="SUCCEEDED",
-            child_workflow_id="wf-2",
-            child_workflow_run_id="run-2",
+            child_workflow_id="synthetic-workflow-2",
+            child_workflow_run_id="synthetic-run-2",
             run_status="succeeded",
             outputs={"x": "1"},
         ),
@@ -232,15 +238,15 @@ PINNED_0_5_7 = {
         ),
     ),
     "not-registered": (
-        {"app_id": "21c0c72a-9e44-4fa4-bbae-80b05ed79cbf"},
+        {"app_id": "00000000-0000-4000-8000-000000000003"},
         dict(
             IDENT,
-            app_id="21c0c72a-9e44-4fa4-bbae-80b05ed79cbf",
+            app_id="00000000-0000-4000-8000-000000000003",
             solution_name="",
             solution_status="",
             status="REJECTED",
             error_code="SOLUTION_NOT_REGISTERED",
-            error_message="应用 21c0c72a-9e44-4fa4-bbae-80b05ed79cbf 没在路由表的方案登记里",
+            error_message="应用 00000000-0000-4000-8000-000000000003 没在路由表的方案登记里",
         ),
     ),
     "app-id-invalid": (
@@ -331,9 +337,9 @@ def test_pinned_route_table_digest_is_the_fixture():
     assert content_sha256(validate_doc(doc_v2())) == SHA_V2
 
 
-@pytest.mark.parametrize("case", sorted(PINNED_0_5_7))
-def test_every_other_receipt_is_exactly_0_5_7(case):
-    kwargs, overlay = PINNED_0_5_7[case]
+@pytest.mark.parametrize("case", sorted(PINNED_LEGACY))
+def test_every_other_receipt_matches_legacy_contract(case):
+    kwargs, overlay = PINNED_LEGACY[case]
     kwargs = dict(kwargs)
     if "table" in kwargs:
         kwargs["table"] = TABLES[kwargs["table"]]()

@@ -1,5 +1,6 @@
 """Typed stored policy, supplement, and resource tables using shared versioned storage."""
 
+import copy
 import hashlib
 import json
 import re
@@ -23,22 +24,28 @@ from dmn_client.route_table import (
 )
 from dmn_client.scene_id import by_scene, identity_key, is_scene
 from dmn_client.scene_spelling import scene_state
+from dmn_client.supplement_associations import validate_associations
 
 SCHEMA_DECISION = "dmn-json.decision-table/v1"
 SCHEMA_SUPPLEMENT = "dmn-json.supplement-requirements/v1"
+SCHEMA_SUPPLEMENT_V2 = "dmn-json.supplement-requirements/v2"
+SUPPLEMENT_SCHEMAS = (SCHEMA_SUPPLEMENT, SCHEMA_SUPPLEMENT_V2)
 SCHEMA_RESOURCE = "dmn-json.resource-targets/v1"
 FORMAT_DECISION = "decision-table/v1"
 FORMAT_SUPPLEMENT = "supplement-requirements/v1"
+FORMAT_SUPPLEMENT_V2 = "supplement-requirements/v2"
 FORMAT_RESOURCE = "resource-targets/v1"
 FORMATS = {
     FORMAT_DECISION: SCHEMA_DECISION,
     FORMAT_SUPPLEMENT: SCHEMA_SUPPLEMENT,
+    FORMAT_SUPPLEMENT_V2: SCHEMA_SUPPLEMENT_V2,
     FORMAT_RESOURCE: SCHEMA_RESOURCE,
 }
 SCHEMAS = tuple(FORMATS.values())
 KEYS = {
     SCHEMA_DECISION: ("schema", "table", "owner", "model_ref", "model", "note"),
     SCHEMA_SUPPLEMENT: ("schema", "table", "scenes", "note"),
+    SCHEMA_SUPPLEMENT_V2: ("schema", "table", "scenes", "note"),
     SCHEMA_RESOURCE: ("schema", "table", "targets", "route_tables", "note"),
 }
 RESULT_SCHEMA = "dmn-json.stored-table-result/v1"
@@ -320,6 +327,7 @@ def _validate_decision(doc):
 
 
 def _validate_supplement(doc):
+    v2 = doc.get("schema") == SCHEMA_SUPPLEMENT_V2
     table = _table(
         doc, lambda t: t.startswith(TABLE_SUPPLEMENT_PREFIX), "补充要求表的表名以 supplement. 开头"
     )
@@ -350,6 +358,10 @@ def _validate_supplement(doc):
         want = {"state", "basis"} | (
             {"items"} if state == "REQUIRED" else {"gap_code"} if state == "UNDECLARED" else set()
         )
+        associations = None
+        if v2 and "associations" in row:
+            associations = validate_associations(row["associations"], state, p + ".associations")
+            want.add("associations")
         _need(
             set(row) == want,
             "SUPPLEMENT_TABLE_INVALID",
@@ -399,8 +411,15 @@ def _validate_supplement(doc):
                 p + ".items",
             )
             out["items"] = clean
+        if associations is not None:
+            out["associations"] = associations
         scenes[sid] = out
-    return {"schema": SCHEMA_SUPPLEMENT, "table": table, "scenes": scenes, "note": _note(doc)}
+    return {
+        "schema": SCHEMA_SUPPLEMENT_V2 if v2 else SCHEMA_SUPPLEMENT,
+        "table": table,
+        "scenes": scenes,
+        "note": _note(doc),
+    }
 
 
 def supplement_row(doc, scene_id):
@@ -423,6 +442,7 @@ def supplement_row(doc, scene_id):
         "basis": row["basis"],
         "items": list(row.get("items", [])),
         "gap_code": row.get("gap_code"),
+        **({"associations": copy.deepcopy(row["associations"])} if "associations" in row else {}),
     }
 
 
@@ -554,7 +574,7 @@ def validate(doc):
     schema = doc.get("schema")
     if schema == SCHEMA_DECISION:
         return _validate_decision(doc)
-    if schema == SCHEMA_SUPPLEMENT:
+    if schema in SUPPLEMENT_SCHEMAS:
         return _validate_supplement(doc)
     if schema == SCHEMA_RESOURCE:
         return _validate_resource(doc)
@@ -565,7 +585,7 @@ def content_sha256(doc):
     schema = doc["schema"]
     if schema == SCHEMA_DECISION:
         return digest({"owner": doc["owner"], "model_ref": doc["model_ref"], "model": doc["model"]})
-    if schema == SCHEMA_SUPPLEMENT:
+    if schema in SUPPLEMENT_SCHEMAS:
         return digest({"scenes": doc["scenes"]})
     return digest({"targets": doc["targets"]})
 
@@ -574,7 +594,7 @@ def rows(doc):
     schema = doc.get("schema")
     if schema == SCHEMA_DECISION:
         return len(doc.get("model", {}).get("rules", []))
-    if schema == SCHEMA_SUPPLEMENT:
+    if schema in SUPPLEMENT_SCHEMAS:
         return len(doc.get("scenes", {}))
     if schema == SCHEMA_RESOURCE:
         return len(doc.get("targets", {}))
@@ -792,7 +812,8 @@ def evaluate_stored(table, fmt, inputs, load):
             )
             return out
         _need(
-            doc.get("schema") == FORMATS[fmt],
+            doc.get("schema") == FORMATS[fmt]
+            or (fmt == FORMAT_SUPPLEMENT and doc.get("schema") == SCHEMA_SUPPLEMENT_V2),
             "STORED_TABLE_FORMAT_MISMATCH",
             "要的是 %s，插件里的表 %s 是 %s" % (fmt, table, doc.get("schema")),
             "format",
@@ -807,7 +828,7 @@ def evaluate_stored(table, fmt, inputs, load):
         }
         if fmt == FORMAT_DECISION:
             out["result"] = evaluate_decision_table(clean, inputs)
-        elif fmt == FORMAT_SUPPLEMENT:
+        elif fmt in (FORMAT_SUPPLEMENT, FORMAT_SUPPLEMENT_V2):
             sid = inputs.get("scene_id")
             _need(
                 set(inputs) == {"scene_id"} and is_scene(sid),

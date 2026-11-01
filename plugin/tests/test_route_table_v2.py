@@ -1,6 +1,11 @@
-"""Route table v2 (Brian 2026-10-23): scene catalog + solution registry in the plugin, grouped compile, invoke_solution."""
+"""Synthetic route-table v2 fixtures and grouped compile/invoke regressions.
+
+All application UUIDs, labels, run IDs, and timestamps below are test-only.
+Legacy fixture export names and scene grammar keys remain for dependent suites.
+"""
 
 import json
+import os
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -21,23 +26,25 @@ from dmn_client.route_table import (
 from dmn_client.solution_invoke import invoke_solution
 from tools.invoke_solution import InvokeSolutionTool
 
-COUPON = "ee1aebd3-41ff-4d83-adc5-afb95160b7a2"
-LOST = "ac58b244-b131-4362-bf9f-b12c5226dfd7"
+COUPON = "00000000-0000-4000-8000-000000000001"
+LOST = "00000000-0000-4000-8000-000000000002"
 SAFETY = ["P_07_02_%02d" % i for i in range(1, 13)]
-# The 80 module's seed for the first plugin version (global complaint table, 2026-10-23), when this checkout sits in the workspace.
-DRAFT = (
-    Path(__file__).resolve().parents[4]
-    / "80_服务方案Monorepo/00_governance/reviews/受理路由全局表_20261023/plugin_import.draft.json"
-)
+# Optional deployment-owned fixture; never bundled with the public tests.
+DRAFT = Path(os.environ["DMN_ROUTE_DRAFT"]) if os.environ.get("DMN_ROUTE_DRAFT") else None
 
 
 def doc(**over):
     scenes = {
-        "P_02_04_01": {"name": "优惠券使用", "domain": "营销"},
-        "P_04_04_01": {"name": "物品遗失寻找与送回协调", "domain": "履约"},
-        "P_05_01_01": {"name": "计价规则与收费标准", "domain": "费用"},
+        "P_02_04_01": {"name": "Synthetic scene A", "domain": "Synthetic domain A"},
+        "P_04_04_01": {"name": "Synthetic scene B", "domain": "Synthetic domain B"},
+        "P_05_01_01": {"name": "Synthetic scene C", "domain": "Synthetic domain C"},
     }
-    scenes.update({s: {"name": "安全场景 " + s, "domain": "安全"} for s in SAFETY})
+    scenes.update(
+        {
+            s: {"name": "Synthetic transfer scene " + s, "domain": "Synthetic transfer domain"}
+            for s in SAFETY
+        }
+    )
     base = {
         "schema": "dmn-json.route-table/v2",
         "table": "dispatch.route",
@@ -45,8 +52,8 @@ def doc(**over):
         "phases": ["STAGE_1", "STAGE_2", "STAGE_3"],
         "scenes": scenes,
         "solutions": {
-            COUPON: {"name": "优惠券使用 · ESE B", "inputs": ["call_id", "request_json"]},
-            LOST: {"name": "物品遗失 · ESE B", "inputs": ["call_id", "request_json"]},
+            COUPON: {"name": "Synthetic application A", "inputs": ["call_id", "request_json"]},
+            LOST: {"name": "Synthetic application B", "inputs": ["call_id", "request_json"]},
         },
         "routes": [
             {
@@ -71,7 +78,7 @@ def doc(**over):
             }
             for s in SAFETY
         ],
-        "note": "第一版：全局投诉表",
+        "note": "Synthetic initial table",
     }
     base.update(over)
     return base
@@ -101,7 +108,7 @@ def test_v2_validates_and_normalizes():
         "routes are stored in key order"
     )
     assert clean["solutions"][COUPON] == {
-        "name": "优惠券使用 · ESE B",
+        "name": "Synthetic application A",
         "inputs": ["call_id", "request_json"],
     }
 
@@ -131,7 +138,7 @@ def test_v2_validates_and_normalizes():
                         "phase": "STAGE_1",
                         "target": {
                             "kind": "SOLUTION_APP",
-                            "app_id": "21c0c72a-9e44-4fa4-bbae-80b05ed79cbf",
+                            "app_id": "00000000-0000-4000-8000-000000000003",
                         },
                     }
                 ]
@@ -179,20 +186,28 @@ def test_v2_validates_and_normalizes():
             "ROUTE_TABLE_KEY",
         ),
         (
-            {"solutions": {COUPON: {"name": "券", "inputs": []}}, "routes": []},
+            {"solutions": {COUPON: {"name": "Synthetic application", "inputs": []}}, "routes": []},
             "ROUTE_TABLE_INVALID",
         ),
         (
-            {"solutions": {COUPON: {"name": "券", "inputs": ["call id"]}}, "routes": []},
+            {
+                "solutions": {COUPON: {"name": "Synthetic application", "inputs": ["call id"]}},
+                "routes": [],
+            },
             "ROUTE_TABLE_INVALID",
         ),
         (
-            {"solutions": {"not-a-uuid": {"name": "券", "inputs": ["call_id"]}}, "routes": []},
+            {
+                "solutions": {
+                    "not-a-uuid": {"name": "Synthetic application", "inputs": ["call_id"]}
+                },
+                "routes": [],
+            },
             "ROUTE_TABLE_INVALID",
         ),
         ({"scenes": {}, "routes": []}, "ROUTE_TABLE_INVALID"),
         (
-            {"scenes": {"P_02_04_01": {"name": " ", "domain": "营销"}}, "routes": []},
+            {"scenes": {"P_02_04_01": {"name": " ", "domain": "Synthetic domain A"}}, "routes": []},
             "ROUTE_TABLE_INVALID",
         ),
         ({"schema": "dmn-json.route-table/v9"}, "ROUTE_TABLE_INVALID"),
@@ -209,7 +224,7 @@ def test_v2_rejects(over, code):
 
 def test_compile_groups_scenes_by_target():
     model = compile_model_v2("4.0.0", validate_doc(doc()))
-    assert len(model["rules"]) == 3, "coupon, lost item, safety transfer"
+    assert len(model["rules"]) == 3, "two synthetic applications and the transfer enum"
     safety = next(r for r in model["rules"] if r["output_template_ref"] == "transfer:SAFETY")
     assert safety["when"][0] == {
         "op": "in",
@@ -221,7 +236,7 @@ def test_compile_groups_scenes_by_target():
         data["solution_inputs_json"]["literal"]
     ) == ["call_id", "request_json"]
     assert (
-        data["solution_name"]["literal"] == "优惠券使用 · ESE B"
+        data["solution_name"]["literal"] == "Synthetic application A"
         and data["transfer_to"]["literal"] is None
     )
     assert set(model["result_templates"]["unregistered"]["data"]) == set(data), (
@@ -265,7 +280,7 @@ def test_compile_splits_large_groups_and_caps_distinct_targets():
     assert exc.value.code == "ROUTE_TABLE_TOO_LARGE"
 
 
-# ── 现网读法：evaluate_decision 读 v2 存储引用 ─────────────────────────────────
+# ── Stored-table read path：evaluate_decision 读 v2 存储引用 ─────────────────────────────────
 
 
 def test_decision_reads_v2_table():
@@ -276,7 +291,7 @@ def test_decision_reads_v2_table():
     assert (
         data["route_kind"] == "SOLUTION_APP"
         and data["app_id"] == COUPON
-        and data["solution_name"] == "优惠券使用 · ESE B"
+        and data["solution_name"] == "Synthetic application A"
     )
     assert r["trace"]["model_source"]["version"] == 1
     t = call(v2_stub(), "P_07_02_05", "COMPLAINT", "STAGE_1", st.load)["outputs"]["decision"][
@@ -291,9 +306,12 @@ def test_decision_reads_v2_table():
 
 def test_switching_a_scene_is_one_save_and_no_new_bundle():
     st = saved()
-    other = "6727d647-b4aa-4bce-bad1-5b345bbf61e5"
-    d = doc(note="券换应用")
-    d["solutions"][other] = {"name": "另一个方案", "inputs": ["call_id", "request_json"]}
+    other = "00000000-0000-4000-8000-000000000004"
+    d = doc(note="Synthetic application replacement")
+    d["solutions"][other] = {
+        "name": "Synthetic alternate application",
+        "inputs": ["call_id", "request_json"],
+    }
     d["routes"][1]["target"]["app_id"] = other
     st.save(d, 1)
     r = call(v2_stub(), "P_02_04_01", "COMPLAINT", "STAGE_1", st.load)
@@ -343,8 +361,8 @@ def test_editor_saves_v2():
     assert hit(ep, "api/table", key="x" * len(KEY))[0] == 401
 
 
-@pytest.mark.skipif(not DRAFT.exists(), reason="80 module draft not in this checkout")
-def test_80_global_table_draft_is_a_valid_first_version():
+@pytest.mark.skipif(DRAFT is None or not DRAFT.exists(), reason="Optional route draft unavailable")
+def test_optional_route_draft_is_a_valid_first_version():
     draft = json.loads(DRAFT.read_text())
     clean = validate_doc(draft)
     st = StorageTables(FakeStorage())
@@ -360,16 +378,20 @@ def test_80_global_table_draft_is_a_valid_first_version():
 def events(status="succeeded", outputs=None, error=None):
     yield {
         "event": "workflow_started",
-        "workflow_run_id": "run-9",
-        "data": {"id": "run-9", "workflow_id": "wf-1"},
+        "workflow_run_id": "synthetic-run-9",
+        "data": {"id": "synthetic-run-9", "workflow_id": "synthetic-workflow-1"},
     }
-    yield {"event": "node_finished", "workflow_run_id": "run-9", "data": {"node_id": "n1"}}
+    yield {
+        "event": "node_finished",
+        "workflow_run_id": "synthetic-run-9",
+        "data": {"node_id": "n1"},
+    }
     yield {
         "event": "workflow_finished",
-        "workflow_run_id": "run-9",
+        "workflow_run_id": "synthetic-run-9",
         "data": {
-            "id": "run-9",
-            "workflow_id": "wf-1",
+            "id": "synthetic-run-9",
+            "workflow_id": "synthetic-workflow-1",
             "status": status,
             "outputs": outputs or {"receipt_json": "{}"},
             "error": error,
@@ -404,9 +426,9 @@ def test_invoke_calls_a_registered_app_and_returns_outputs_and_identity():
         receipt["child_workflow_id"],
         receipt["child_workflow_run_id"],
         receipt["run_status"],
-    ) == ("wf-1", "run-9", "succeeded")
+    ) == ("synthetic-workflow-1", "synthetic-run-9", "succeeded")
     assert (
-        receipt["solution_name"] == "优惠券使用 · ESE B"
+        receipt["solution_name"] == "Synthetic application A"
         and receipt["table_version"] == 1
         and len(receipt["table_content_sha256"]) == 64
     )
@@ -418,8 +440,12 @@ def test_invoke_accepts_the_blocking_shape_too():
             [
                 {
                     "task_id": "t",
-                    "workflow_run_id": "run-2",
-                    "data": {"workflow_id": "wf-2", "status": "succeeded", "outputs": {"x": "1"}},
+                    "workflow_run_id": "synthetic-run-2",
+                    "data": {
+                        "workflow_id": "synthetic-workflow-2",
+                        "status": "succeeded",
+                        "outputs": {"x": "1"},
+                    },
                 }
             ]
         )
@@ -427,7 +453,7 @@ def test_invoke_accepts_the_blocking_shape_too():
     receipt, _ = run(invoke=blocking)
     assert (
         receipt["status"] == "SUCCEEDED"
-        and receipt["child_workflow_run_id"] == "run-2"
+        and receipt["child_workflow_run_id"] == "synthetic-run-2"
         and receipt["outputs"] == {"x": "1"}
     )
 
@@ -435,7 +461,7 @@ def test_invoke_accepts_the_blocking_shape_too():
 @pytest.mark.parametrize(
     "kwargs, status, code",
     [
-        ({"app_id": "21c0c72a-9e44-4fa4-bbae-80b05ed79cbf"}, "REJECTED", "SOLUTION_NOT_REGISTERED"),
+        ({"app_id": "00000000-0000-4000-8000-000000000003"}, "REJECTED", "SOLUTION_NOT_REGISTERED"),
         ({"app_id": "not an id"}, "REJECTED", "SOLUTION_APP_ID_INVALID"),
         ({"inputs": {"call_id": "c1"}}, "REJECTED", "SOLUTION_INPUTS_MISMATCH"),
         (
@@ -506,7 +532,7 @@ def test_invoke_tool_wiring():
     assert (
         variables["status"] == "SUCCEEDED"
         and variables["child_app_id"] == COUPON
-        and variables["child_workflow_run_id"] == "run-9"
+        and variables["child_workflow_run_id"] == "synthetic-run-9"
     )
     assert (
         variables["outputs"] == {"receipt_json": '{"ok":true}'}
@@ -527,7 +553,7 @@ def test_builtin_manifest_asks_for_app_invocation():
     assert permission["storage"]["enabled"] is True and permission["endpoint"]["enabled"] is True
 
 
-# ── 并发保存（评审 T2-12）、知识库不进表（D8）、现网存储接线（T2-15）────────────────
+# ── Concurrent save, unsupported knowledge routes, and storage wiring────────────────
 
 
 class RacingStorage(FakeStorage):
@@ -586,12 +612,12 @@ def test_knowledge_routes_stay_out_of_the_v2_table():
         "target": {
             "kind": "KNOWLEDGE",
             "kb_refs": [{"space_id": "s", "article_id": "1"}],
-            "topics": ["coupon_use"],
+            "topics": ["synthetic_topic"],
         },
     }
     with pytest.raises(RouteTableError) as exc:
         validate_doc(doc(routes=[route]))
-    assert exc.value.code == "ROUTE_TABLE_TARGET" and "D8" in exc.value.message
+    assert exc.value.code == "ROUTE_TABLE_TARGET" and "知识库路由不进这张表" in exc.value.message
 
 
 def test_evaluate_decision_tool_reads_plugin_storage():
@@ -604,17 +630,17 @@ def test_evaluate_decision_tool_reads_plugin_storage():
     probe = call(bundle, "P_02_04_01", "COMPLAINT", "STAGE_1", st.load)
     assert probe["execution_status"] == "SUCCEEDED"
     context = {
-        "workflow_run_id": "run-1",
-        "step_run_id": "run-1:admission",
-        "attempt_id": "req-1",
-        "node_run_id": "run-1:decision",
-        "activation_ref": "passenger-admission:issue-1",
+        "workflow_run_id": "synthetic-run-1",
+        "step_run_id": "synthetic-run-1:admission",
+        "attempt_id": "synthetic-request-1",
+        "node_run_id": "synthetic-run-1:decision",
+        "activation_ref": "synthetic-activation:case-1",
         "subject_scope_ref": "{}",
-        "authorization_context_ref": "parent-1",
-        "as_of": "2026-10-22T00:00:00+00:00",
+        "authorization_context_ref": "synthetic-parent-1",
+        "as_of": "2000-01-01T00:00:00+00:00",
     }
     params = {
-        k: {"quality": "KNOWN", "value": v, "source_refs": ["parent-1:issue-1"]}
+        k: {"quality": "KNOWN", "value": v, "source_refs": ["synthetic-parent-1:synthetic-case-1"]}
         for k, v in [("scene_id", "P_02_04_01"), ("issue_type", "COMPLAINT"), ("phase", "STAGE_1")]
     }
     snapshot = {
@@ -624,7 +650,7 @@ def test_evaluate_decision_tool_reads_plugin_storage():
             "subject_scope_ref": "{}",
             "as_of": context["as_of"],
             "parameters": params,
-            "provenance": {"issue_key": "issue-1"},
+            "provenance": {"issue_key": "synthetic-case-1"},
         },
         "runtime_snapshot": {},
     }
