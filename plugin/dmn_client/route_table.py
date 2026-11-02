@@ -12,6 +12,7 @@ from dmn_client.scene_id import (  # noqa: F401
     by_scene,
     is_scene,
 )
+from dmn_client.table_names import alias_of, storage_name
 
 SCHEMA = "dmn-json.route-table/v1"
 FORMAT = "admission-routing-table/v1"
@@ -1225,7 +1226,8 @@ class StorageTables:
             "路由表名格式不对",
             "table",
         )
-        return "route-table:" + table + ("" if version is None else ":v%d" % version)
+        # a new policy-table name reads its current name's storage (dmn_client.table_names)
+        return "route-table:" + storage_name(table) + ("" if version is None else ":v%d" % version)
 
     def _read(self, key):
         try:
@@ -1235,12 +1237,27 @@ class StorageTables:
         except (ValueError, UnicodeDecodeError) as exc:
             raise RouteTableError("ROUTE_TABLE_CORRUPT", "插件存储里的路由表读不出来", key) from exc
 
+    def _alias_collision_check(self, table, version=None):
+        if alias_of(table):
+            physical = "route-table:" + table
+            _need(
+                not self.storage.exist(physical)
+                and (version is None or not self.storage.exist(physical + ":v%d" % version)),
+                "STORED_TABLE_ALIAS_COLLISION",
+                "只读别名与已有独立表冲突，请先检查存储；未读取或修改任何表内容",
+                "table",
+            )
+
     def load(self, table):
-        return self._read(self.key(table))
+        key = self.key(table)
+        self._alias_collision_check(table)
+        return self._read(key)
 
     def version(self, table, n):
         _need(type(n) is int and n >= 1, "ROUTE_TABLE_INVALID", "版本号必须是正整数", "version")
-        return self._read(self.key(table, n))
+        key = self.key(table, n)
+        self._alias_collision_check(table, n)
+        return self._read(key)
 
     def history(self, table):
         cur = self.load(table)
@@ -1341,7 +1358,7 @@ class StorageTables:
             )
             for name in dict.fromkeys([*clean["route_tables"], *listed]):
                 route = self.load(name)
-                if not route or route.get("resource_table") != clean["table"]:
+                if not route or storage_name(route.get("resource_table")) != clean["table"]:
                     continue
                 _need(
                     name in clean["route_tables"],
@@ -1378,6 +1395,29 @@ class StorageTables:
         schema_transition=None,
     ):
         """Save."""
+        _need(
+            not (isinstance(doc, dict) and alias_of(doc.get("table"))),
+            "STORED_TABLE_ALIAS_READ_ONLY",
+            "这个表名现在只读（指向 %s），存表请用现名"
+            % (alias_of(doc.get("table")) if isinstance(doc, dict) else ""),
+            "table",
+        )
+        # Aliases are read interfaces, never persisted relationship identifiers.
+        raw = doc if isinstance(doc, dict) else {}
+        references = [("resource_table", raw.get("resource_table"))]
+        references.extend(
+            ("route_tables[%d]" % i, name)
+            for i, name in enumerate(
+                raw.get("route_tables") if isinstance(raw.get("route_tables"), list) else []
+            )
+        )
+        for path, name in references:
+            _need(
+                not alias_of(name),
+                "STORED_TABLE_ALIAS_READ_ONLY",
+                "关联表名请用现名，不可保存只读别名",
+                path,
+            )
         clean = validate_doc(doc)
         table = clean["table"]
         self._cross_check(clean)

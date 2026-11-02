@@ -25,6 +25,7 @@ from dmn_client.route_table import (
 from dmn_client.scene_id import by_scene, identity_key, is_scene
 from dmn_client.scene_spelling import scene_state
 from dmn_client.supplement_associations import validate_associations
+from dmn_client.table_names import alias_of
 
 SCHEMA_DECISION = "dmn-json.decision-table/v1"
 SCHEMA_SUPPLEMENT = "dmn-json.supplement-requirements/v1"
@@ -814,6 +815,8 @@ def evaluate_stored(table, fmt, inputs, load):
             "saved_at": doc.get("saved_at"),
             "content_sha256": content_sha256(clean),
         }
+        if alias_of(table):
+            out["source"]["alias_of"] = alias_of(table)
         if fmt == FORMAT_DECISION:
             out["result"] = evaluate_decision_table(clean, inputs)
         elif fmt in (FORMAT_SUPPLEMENT, FORMAT_SUPPLEMENT_V2):

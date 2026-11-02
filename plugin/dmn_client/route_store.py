@@ -6,6 +6,7 @@ from dmn_client.client import EngineError, json_object
 from dmn_client.route_table import ROUTE_SCHEMAS, TABLE_RE, UUID_RE, RouteTableError, StorageTables
 from dmn_client.scene_spelling import respell
 from dmn_client.stored_tables import KEYS
+from dmn_client.table_names import alias_of
 
 OPS = ("table", "history", "version", "save")
 MAX_BODY = 512 * 1024
@@ -34,22 +35,30 @@ def run_op(storage, op, table=DEFAULT_TABLE, version=None, body=None):
     tables = StorageTables(storage)
     table = table or DEFAULT_TABLE
     try:
+        alias = {"alias_of": alias_of(table)} if alias_of(table) else {}
         if op == "table":
             doc = tables.load(table)
-            return 200, {"table": table, "version": doc["version"] if doc else 0, "doc": doc}
+            return 200, {
+                "table": table,
+                "version": doc["version"] if doc else 0,
+                "doc": doc,
+                **alias,
+            }
         if op == "history":
-            return 200, {"table": table, "versions": tables.history(table)}
+            return 200, {"table": table, "versions": tables.history(table), **alias}
         if op == "version":
             raw = str(version if version is not None else "")
             if not raw.isdigit() or int(raw) < 1:
                 return error(400, "ROUTE_TABLE_INVALID", "版本号必须是正整数", "v")
             doc = tables.version(table, int(raw))
             return (
-                (200, {"table": table, "doc": doc})
+                (200, {"table": table, "doc": doc, **alias})
                 if doc
                 else error(404, "ROUTE_TABLE_VERSION_MISSING", "没有这一版")
             )
         if op == "save":
+            if alias_of(table):
+                return error(400, "STORED_TABLE_ALIAS_READ_ONLY", "只读别名不可用于存表", "table")
             try:
                 body = json_object(body, "body", MAX_BODY)
             except EngineError:
