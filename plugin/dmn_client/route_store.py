@@ -2,8 +2,16 @@
 
 import json
 
+from dmn_client import declarations
 from dmn_client.client import EngineError, json_object
-from dmn_client.route_table import ROUTE_SCHEMAS, TABLE_RE, UUID_RE, RouteTableError, StorageTables
+from dmn_client.route_table import (
+    ROUTE_SCHEMAS,
+    TABLE_RE,
+    UUID_RE,
+    RouteTableError,
+    StorageTables,
+    validate_doc,
+)
 from dmn_client.scene_spelling import respell
 from dmn_client.stored_tables import KEYS
 from dmn_client.table_names import alias_of
@@ -22,6 +30,7 @@ V2_KEYS = (
     "routes",
     "note",
     "resource_table",
+    "declare",
 )
 CONFLICT = ("ROUTE_TABLE_STALE", "ROUTE_TABLE_RACE")
 
@@ -70,10 +79,19 @@ def run_op(storage, op, table=DEFAULT_TABLE, version=None, body=None):
             if doc.get("resource_table") is None:
                 doc.pop("resource_table", None)
             name = doc.get("table")
-            try:  # the stored version, for its spelling only: a storage failure is left to save(), after validation
+            # Never turn a failed read into an absent declaration or spelling baseline.
+            try:
                 current = tables.load(name) if type(name) is str and TABLE_RE.match(name) else None
             except Exception:
-                current = None
+                # Preserve request-validation precedence, but never save without its baseline.
+                validate_doc(respell(doc, None)[0])
+                raise
+            if "declare" in keys and "declare" not in body and isinstance(current, dict):
+                doc["declare"] = current.get(
+                    "declare"
+                )  # 0.5.14: a save that leaves declare out keeps it
+            if doc.get("declare") is None:
+                doc.pop("declare", None)  # declare: null removes it
             doc, spelled = respell(doc, current)
             saved = tables.save(
                 doc,
@@ -81,11 +99,13 @@ def run_op(storage, op, table=DEFAULT_TABLE, version=None, body=None):
                 gate_report=body.get("gate_report"),
                 schema_transition=body.get("schema_transition"),
             )
+            warned = declarations.warnings(saved)
             return 200, {
                 "table": saved["table"],
                 "version": saved["version"],
                 "doc": saved,
                 **spelled,
+                **({"warnings": warned} if warned else {}),
             }
         return error(404, "NOT_FOUND", "接口不存在")
     except RouteTableError as exc:

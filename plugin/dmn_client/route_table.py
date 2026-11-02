@@ -232,15 +232,16 @@ def _text(value, limit, label, path):
     return value.strip()
 
 
-def validate_doc(doc, resources=None):
+def validate_doc(doc, resources=None, *, validate_declaration=True):
     """Validate doc."""
     from dmn_client import stored_tables  # noqa
 
     _need(type(doc) is dict, "ROUTE_TABLE_INVALID", "路由表必须是对象")
     if doc.get("schema") in stored_tables.SCHEMAS:
-        return stored_tables.validate(doc)
+        return stored_tables.validate(doc, validate_declaration=validate_declaration)
     if doc.get("schema") in ROUTE_SCHEMAS:
-        return _validate_v2(doc, resources)
+        clean = _validate_v2(doc, resources)
+        return stored_tables.declared(doc, clean) if validate_declaration else clean
     _need(
         doc.get("schema") in (None, SCHEMA),
         "ROUTE_TABLE_INVALID",
@@ -1038,7 +1039,7 @@ def materialize(bundle, load):
             "插件里还没有路由表 " + src["table"] + "：先在路由表编辑页导入或保存一版",
             "models." + ref,
         )
-        clean = validate_doc(doc)
+        clean = validate_doc(doc, validate_declaration=False)
         v2 = src["format"] in (FORMAT_V2, FORMAT_V3, FORMAT_V4)
         _need(
             v2 == (clean["schema"] in ROUTE_SCHEMAS),
@@ -1096,7 +1097,7 @@ def _resources(clean, load, path):
         name + " 不是资源目标表",
         path,
     )
-    rdoc = validate_doc(raw)
+    rdoc = validate_doc(raw, validate_declaration=False)
     for row in clean["routes"]:
         if row["target"]["kind"] == "RESOURCE":
             _need(

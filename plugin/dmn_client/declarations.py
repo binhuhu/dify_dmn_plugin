@@ -1,0 +1,433 @@
+"""Table declarations: what a stored table means, checked against its content when it is saved.
+
+A declaration is optional and never read when a table is evaluated; it is not part of content_sha256. It names the
+table's role, its parameters (business name, source), its outputs, what each state means here, and why each rule
+exists. Two stages:
+
+    TRANSITION  describes the table as it is (any states, any data keys, each declared).
+    STANDARD    decision tables only: state is one of STATES, data = {result, note}; result is an object with
+                actions (a list) and declared keys, never rule_id (provenance is returned separately in selected_rule_ids); note is a short text;
+                result.texts.customer is customer-facing text checked against internal words.
+
+check(declare, clean, schema) -> clean declaration (raises RouteTableError on a mismatch).
+warnings(clean) -> declaration warnings of a stored document (a rule changed after its explanation was written).
+"""
+
+import re
+
+from dmn_client.json_table import equal
+from dmn_client.route_table import DATA_V4, RouteTableError, digest
+
+ROLES_BY_SCHEMA = {
+    "dmn-json.decision-table/v1": (
+        "SCENE_ENTITY",
+        "ACCEPTANCE",
+        "FACT_FEATURE",
+        "FEATURE_REALITY",
+        "DISPOSAL",
+    ),
+    "dmn-json.supplement-requirements/v1": ("SUPPLEMENT",),
+    "dmn-json.supplement-requirements/v2": ("SUPPLEMENT",),
+    "dmn-json.resource-targets/v1": ("RESOURCE",),
+    "dmn-json.route-table/v2": ("ROUTE",),
+    "dmn-json.route-table/v3": ("ROUTE",),
+}
+DECISION = "dmn-json.decision-table/v1"
+STAGES = ("TRANSITION", "STANDARD")
+STATES = ("PASS", "FAIL", "PENDING", "UNKNOWN", "CONFLICT", "NOT_APPLICABLE", "NO_MATCH")
+TYPES = {
+    "string": (str,),
+    "boolean": (bool,),
+    "integer": (int,),
+    "number": (int, float),
+    "object": (dict,),
+    "array": (list,),
+}
+FIXED_INPUTS = {
+    "SUPPLEMENT": ("scene_id",),
+    "RESOURCE": ("resource_id",),
+    "ROUTE": ("scene_id", "issue_type", "phase"),
+}
+KEYS = {"stage", "role", "priority", "parameters", "outputs", "states", "rows"}
+SOURCE_RE = re.compile(r"^(fact|feature|calc|table|request):\S{1,160}$")
+KEY_RE = re.compile(r"^[A-Za-z0-9_.:#/一-鿿-]{1,160}$")
+HEX64 = re.compile(r"^[0-9a-f]{64}$")
+CUSTOMER_MAX = 200
+NOTE_MAX = 200
+# Customer-facing text never names an internal verdict, a code or a long number (phone, order id).
+CUSTOMER_WORDS = ("作弊", "风控", "黑名单", "反作弊", "规则号", "命中规则", "内部")
+CODE_RE = re.compile(r"[A-Z][A-Z0-9]*[_-][A-Z0-9_-]+")
+LONG_DIGITS = re.compile(r"\d{7,}")
+# STANDARD: the business code each state carries, where the role fixes one
+ACCEPTANCE = {
+    "PASS": "ACCEPTED",
+    "FAIL": "NOT_ACCEPTED",
+    "PENDING": "PENDING_ENTITY",
+    "NO_MATCH": "UNDETERMINED",
+}
+OUTCOME = {"DONE": "PASS", "NEED_INPUT": "PENDING", "NEED_REVIEW": "PENDING", "REFUSED": "FAIL"}
+
+
+def _need(ok, message, path):
+    if not ok:
+        raise RouteTableError("TABLE_DECLARATION_INVALID", message, "declare" + path)
+
+
+def _text(value, limit, label, path):
+    _need(
+        type(value) is str and value.strip() and len(value.strip()) <= limit,
+        label + "要写，最多 %d 个字" % limit,
+        path,
+    )
+    return value.strip()
+
+
+def _scalar(v):
+    return v is None or type(v) in (str, bool, int, float)
+
+
+def _named_map(value, path, label, entry):
+    _need(type(value) is dict and 0 < len(value) <= 512, label + "是非空对象", path)
+    out = {}
+    for k, v in value.items():
+        _need(type(k) is str and KEY_RE.match(k), label + "的键不对", path + "." + str(k)[:64])
+        out[k] = entry(v, path + "." + k)
+    return out
+
+
+def _parameter(v, path):
+    _need(
+        type(v) is dict and set(v) <= {"name", "source", "domain"},
+        "参数 = name + source（+ domain）",
+        path,
+    )
+    out = {"name": _text(v.get("name"), 40, "参数中文名", path + ".name")}
+    src = v.get("source")
+    _need(
+        type(src) is str and SOURCE_RE.match(src),
+        "source = fact: / feature: / calc: / table: / request: 开头",
+        path + ".source",
+    )
+    out["source"] = src
+    if "domain" in v:
+        d = v["domain"]
+        _need(
+            type(d) is str
+            and 0 < len(d) <= 120
+            or type(d) is list
+            and 0 < len(d) <= 256
+            and all(_scalar(x) for x in d),
+            "domain = 取值列表或码表引用",
+            path + ".domain",
+        )
+        out["domain"] = d
+    return out
+
+
+def _output(v, path):
+    _need(
+        type(v) is dict and set(v) <= {"type", "name", "values", "names"},
+        "输出 = type + name（+ values / names）",
+        path,
+    )
+    _need(
+        type(v.get("type")) is str and v["type"] in TYPES,
+        "type 只能是 " + " / ".join(TYPES),
+        path + ".type",
+    )
+    out = {"type": v["type"], "name": _text(v.get("name"), 40, "输出中文名", path + ".name")}
+    if "values" in v:
+        _need(
+            type(v["values"]) is list
+            and 0 < len(v["values"]) <= 256
+            and all(_scalar(x) for x in v["values"]),
+            "values = 取值列表",
+            path + ".values",
+        )
+        out["values"] = v["values"]
+    if "names" in v:
+        _need(
+            type(v["names"]) is dict
+            and all(type(x) is str and 0 < len(x) <= 40 for x in v["names"].values()),
+            "names = {取值: 中文名}",
+            path + ".names",
+        )
+        _need(
+            set(v["names"]) <= {str(x) for x in v.get("values", [])},
+            "names 只能给 values 里的取值起名",
+            path + ".names",
+        )
+        out["names"] = v["names"]
+    return out
+
+
+def _row(v, path):
+    _need(
+        type(v) is dict and set(v) <= {"why", "rule_sha256"},
+        "规则说明 = why（+ rule_sha256）",
+        path,
+    )
+    out = {"why": _text(v.get("why"), 300, "规则依据", path + ".why")}
+    if "rule_sha256" in v:
+        _need(
+            type(v["rule_sha256"]) is str and HEX64.match(v["rule_sha256"]),
+            "rule_sha256 = 64 位小写十六进制",
+            path + ".rule_sha256",
+        )
+        out["rule_sha256"] = v["rule_sha256"]
+    return out
+
+
+def _typed(value, spec):
+    if value is None:
+        return True
+    if spec["type"] in ("integer", "number") and type(value) is bool:
+        return False
+    if type(value) not in TYPES[spec["type"]]:
+        return False
+    if "values" not in spec:
+        return True
+    items = value if type(value) is list else [value]
+    return all(any(equal(x, allowed) for allowed in spec["values"]) for x in items if _scalar(x))
+
+
+def customer_problems(text):
+    """Why a customer-facing text may not be sent ([] = fine)."""
+    found = [w for w in CUSTOMER_WORDS if w in text]
+    if CODE_RE.search(text):
+        found.append("内部编码 " + CODE_RE.search(text).group(0))
+    if LONG_DIGITS.search(text):
+        found.append("长串数字")
+    if len(text) > CUSTOMER_MAX:
+        found.append("超过 %d 字" % CUSTOMER_MAX)
+    return found
+
+
+def rule_sha256(rule):
+    return digest(rule)
+
+
+def check(declare, clean, schema):
+    """The declaration of a valid table document (clean), itself cleaned."""
+    roles = ROLES_BY_SCHEMA.get(schema)
+    _need(roles is not None, "这种表还不能写声明", "")
+    _need(
+        type(declare) is dict and set(declare) <= KEYS,
+        "declare 只能有 " + " / ".join(sorted(KEYS)),
+        "",
+    )
+    out = {"stage": declare.get("stage"), "role": declare.get("role")}
+    _need(out["stage"] in STAGES, "stage 只能是 TRANSITION / STANDARD", ".stage")
+    _need(out["role"] in roles, "这种表的 role 只能是 " + " / ".join(roles), ".role")
+    _need(
+        out["stage"] == "TRANSITION" or schema == DECISION,
+        "补充、资源去向、路由的标准输出由插件产出，声明先写 TRANSITION",
+        ".stage",
+    )
+    out["states"] = _named_map(
+        declare.get("states"), ".states", "states", lambda v, p: _text(v, 120, "state 的意思", p)
+    )
+    if out["stage"] == "STANDARD":
+        bad = sorted(set(out["states"]) - set(STATES))
+        _need(
+            not bad,
+            "STANDARD 的 state 只能是 " + " / ".join(STATES) + "；多了 " + ", ".join(bad),
+            ".states",
+        )
+    out["outputs"] = _named_map(declare.get("outputs"), ".outputs", "outputs", _output)
+    if "parameters" in declare:
+        out["parameters"] = _named_map(
+            declare["parameters"], ".parameters", "parameters", _parameter
+        )
+    if "rows" in declare:
+        out["rows"] = _named_map(declare["rows"], ".rows", "rows", _row)
+    if "priority" in declare:
+        _need(declare["priority"] == "ROW_ORDER", "priority 只能是 ROW_ORDER", ".priority")
+        out["priority"] = "ROW_ORDER"
+    if schema == DECISION:
+        _decision(out, clean["model"])
+    elif out["role"] == "SUPPLEMENT":
+        _keyed(
+            out,
+            clean["scenes"],
+            {r.get("state") for r in clean["scenes"].values()} | {"UNDECLARED"},
+            "state",
+        )
+    elif out["role"] == "RESOURCE":
+        _keyed(
+            out, clean["targets"], {t.get("status") for t in clean["targets"].values()}, "status"
+        )
+    else:
+        _route(out)
+    return out
+
+
+def _inputs(out, names):
+    if "parameters" in out:
+        _need(
+            set(out["parameters"]) == set(names),
+            "parameters 要和表的输入一一对应：" + ", ".join(sorted(names)),
+            ".parameters",
+        )
+
+
+def _decision(out, model):
+    rules, templates = model["rules"], model["result_templates"]
+    _need("parameters" in out, "决策表要声明每个参数", ".parameters")
+    _inputs(out, model["parameters"])
+    first = model["hit_policy"] == "FIRST"
+    _need(first == ("priority" in out), "FIRST 表要写 priority: ROW_ORDER，其他表不写", ".priority")
+    _need("rows" in out, "决策表要给每条规则写依据", ".rows")
+    ids = [r["rule_id"] for r in rules]
+    missing, extra = sorted(set(ids) - set(out["rows"])), sorted(set(out["rows"]) - set(ids))
+    _need(not extra, "rows 里有表里没有的规则：" + ", ".join(extra[:5]), ".rows")
+    _need(not missing, "这些规则没写依据：" + ", ".join(missing[:5]), ".rows")
+    used = {t["state"] for t in templates.values()}
+    undeclared = sorted(used - set(out["states"]))
+    _need(not undeclared, "模板用到但没声明的 state：" + ", ".join(undeclared), ".states")
+    for ref, t in templates.items():
+        p = ".templates." + str(ref)[:64]
+        if out["stage"] == "TRANSITION":
+            for k, v in t["data"].items():
+                spec = out["outputs"].get(k)
+                _need(spec is not None, "模板的数据键 %s 没声明" % k, p)
+                _need(_typed(v["literal"], spec), "模板的数据键 %s 和声明的类型或取值对不上" % k, p)
+        else:
+            _standard(out, t, p)
+
+
+def _standard(out, t, p):
+    data = t["data"]
+    _need(set(data) == {"result", "note"}, "STANDARD 模板的 data 只能是 result + note", p)
+    note, result = data["note"]["literal"], data["result"]["literal"]
+    _need(
+        type(note) is str and note.strip() and len(note) <= NOTE_MAX,
+        "note 要写，最多 %d 字" % NOTE_MAX,
+        p + ".note",
+    )
+    _need(type(result) is dict, "result 是 JSON 对象", p + ".result")
+    _need(
+        "rule_id" not in result,
+        "命中规则由 selected_rule_ids 返回，模板里不写 result.rule_id",
+        p + ".result.rule_id",
+    )
+    _need(
+        type(result.get("actions")) is list,
+        "result.actions 要写（没有就 []）",
+        p + ".result.actions",
+    )
+    for k, v in result.items():
+        if k in ("actions", "texts"):
+            continue
+        spec = out["outputs"].get(k)
+        _need(spec is not None, "result.%s 没声明" % k, p + ".result")
+        _need(_typed(v, spec), "result.%s 和声明的类型或取值对不上" % k, p + ".result." + k)
+    texts = result.get("texts")
+    _need(
+        texts is None or type(texts) is dict and set(texts) <= {"customer", "agent", "by_channel"},
+        "texts = customer / agent / by_channel",
+        p + ".result.texts",
+    )
+    texts = texts or {}
+    for k in ("customer", "agent"):
+        if k in texts:
+            _need(
+                type(texts[k]) is str and texts[k].strip(),
+                "texts.%s 是一句话" % k,
+                p + ".result.texts." + k,
+            )
+    if "by_channel" in texts:
+        bc = texts["by_channel"]
+        _need(
+            type(bc) is dict and all(type(x) is str and x.strip() for x in bc.values()),
+            "texts.by_channel = {渠道: 一句话}",
+            p + ".result.texts.by_channel",
+        )
+    for line in [texts.get("customer")] + list((texts.get("by_channel") or {}).values()):
+        if line:
+            bad = customer_problems(line)
+            _need(not bad, "对乘客的话不能有：" + "、".join(bad), p + ".result.texts")
+    role, state = out["role"], t["state"]
+    if role in ("ACCEPTANCE", "SUPPLEMENT", "DISPOSAL"):
+        if role == "ACCEPTANCE":
+            _need(
+                result.get("decision") == ACCEPTANCE.get(state),
+                "受理：state %s 对应 decision %s" % (state, ACCEPTANCE.get(state)),
+                p + ".result.decision",
+            )
+            need = state in ("FAIL", "PENDING")
+        elif role == "SUPPLEMENT":
+            need = state == "PENDING"
+        else:
+            oc = result.get("outcome")
+            _need(
+                type(oc) is str and OUTCOME.get(oc) == state,
+                "处置：outcome 只能是 DONE / NEED_INPUT / NEED_REVIEW / REFUSED，且和 state 对应",
+                p + ".result.outcome",
+            )
+            need = oc != "NEED_REVIEW"
+            _need(
+                oc != "NEED_REVIEW" or texts.get("agent"),
+                "处置 NEED_REVIEW 要写 texts.agent",
+                p + ".result.texts.agent",
+            )
+        _need(
+            not need or texts.get("customer"),
+            "这个结论会告诉乘客，要写 texts.customer",
+            p + ".result.texts.customer",
+        )
+    else:
+        _need(not texts, "这种表不对乘客说话，不写 texts", p + ".result.texts")
+
+
+def _keyed(out, entries, used_states, field):
+    _inputs(out, FIXED_INPUTS[out["role"]])
+    undeclared = sorted(s for s in used_states - set(out["states"]) if s is not None)
+    _need(not undeclared, "用到但没声明的 %s：%s" % (field, ", ".join(undeclared)), ".states")
+    keys = {k for e in entries.values() for k in e if k != field}
+    missing = sorted(keys - set(out["outputs"]))
+    _need(not missing, "这些字段没声明：" + ", ".join(missing), ".outputs")
+    for entry in entries.values():
+        for name, value in entry.items():
+            if name != field:
+                _need(
+                    _typed(value, out["outputs"][name]),
+                    "字段类型或取值和声明不符",
+                    ".outputs." + name,
+                )
+    if "rows" in out:
+        extra = sorted(set(out["rows"]) - set(entries))
+        _need(not extra, "rows 里有表里没有的行：" + ", ".join(extra[:5]), ".rows")
+    _need("priority" not in out, "按键查一行的表不写 priority", ".priority")
+
+
+def _route(out):
+    _inputs(out, FIXED_INPUTS["ROUTE"])
+    missing = sorted({"ROUTED", "UNREGISTERED"} - set(out["states"]))
+    _need(not missing, "路由要声明 ROUTED 和 UNREGISTERED", ".states")
+    extra = sorted(set(out["outputs"]) - set(DATA_V4))
+    _need(not extra, "路由的输出只能是编译出的字段：" + ", ".join(extra), ".outputs")
+    for name, spec in out["outputs"].items():
+        expected = "object" if name == "solution" else "string"
+        _need(spec["type"] == expected, "路由输出类型应为 " + expected, ".outputs." + name)
+    _need("rows" not in out, "路由行没有编号，依据写在 note", ".rows")
+    _need("priority" not in out, "路由由插件编译，不写 priority", ".priority")
+
+
+def warnings(clean):
+    """Rules changed after their explanation was written (rule_sha256 no longer matches)."""
+    d = clean.get("declare") if type(clean) is dict else None
+    if not d or clean.get("schema") != DECISION:
+        return []
+    out = []
+    for rule in clean["model"]["rules"]:
+        sha = d.get("rows", {}).get(rule["rule_id"], {}).get("rule_sha256")
+        if sha and sha != rule_sha256(rule):
+            out.append(
+                {
+                    "code": "RULE_WHY_STALE",
+                    "rule_id": rule["rule_id"],
+                    "message": "规则改过，依据待重新确认",
+                }
+            )
+    return out

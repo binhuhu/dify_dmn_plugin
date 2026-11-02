@@ -7,6 +7,7 @@ import re
 
 import rfc8785
 
+from dmn_client import declarations
 from dmn_client.decision_executor import PROFILE
 from dmn_client.json_table import OPS, equal
 from dmn_client.route_table import (
@@ -44,10 +45,10 @@ FORMATS = {
 }
 SCHEMAS = tuple(FORMATS.values())
 KEYS = {
-    SCHEMA_DECISION: ("schema", "table", "owner", "model_ref", "model", "note"),
-    SCHEMA_SUPPLEMENT: ("schema", "table", "scenes", "note"),
-    SCHEMA_SUPPLEMENT_V2: ("schema", "table", "scenes", "note"),
-    SCHEMA_RESOURCE: ("schema", "table", "targets", "route_tables", "note"),
+    SCHEMA_DECISION: ("schema", "table", "owner", "model_ref", "model", "note", "declare"),
+    SCHEMA_SUPPLEMENT: ("schema", "table", "scenes", "note", "declare"),
+    SCHEMA_SUPPLEMENT_V2: ("schema", "table", "scenes", "note", "declare"),
+    SCHEMA_RESOURCE: ("schema", "table", "targets", "route_tables", "note", "declare"),
 }
 RESULT_SCHEMA = "dmn-json.stored-table-result/v1"
 
@@ -560,15 +561,27 @@ def transfer_targets(resource_doc):
 # --- dispatch on schema ------------------------------------------------------------------------------------------------
 
 
-def validate(doc):
+def validate(doc, *, validate_declaration=True):
     schema = doc.get("schema")
     if schema == SCHEMA_DECISION:
-        return _validate_decision(doc)
+        clean = _validate_decision(doc)
+        return declared(doc, clean) if validate_declaration else clean
     if schema in SUPPLEMENT_SCHEMAS:
-        return _validate_supplement(doc)
+        clean = _validate_supplement(doc)
+        return declared(doc, clean) if validate_declaration else clean
     if schema == SCHEMA_RESOURCE:
-        return _validate_resource(doc)
+        clean = _validate_resource(doc)
+        return declared(doc, clean) if validate_declaration else clean
     raise RouteTableError("ROUTE_TABLE_INVALID", "不认识的表格式：" + str(schema)[:64], "schema")
+
+
+def declared(doc, clean):
+    """0.5.14: the table's declaration (dmn_client.declarations), checked against the clean content. Not part of
+    content_sha256 and never read at evaluation; a document without one is stored exactly as before."""
+    if doc.get("declare") is None:
+        return clean
+    clean["declare"] = declarations.check(doc["declare"], clean, doc["schema"])
+    return clean
 
 
 def content_sha256(doc):
@@ -807,7 +820,7 @@ def evaluate_stored(table, fmt, inputs, load):
             "要的是 %s，插件里的表 %s 是 %s" % (fmt, table, doc.get("schema")),
             "format",
         )
-        clean = validate(doc)
+        clean = validate(doc, validate_declaration=False)
         out["source"] = {
             "kind": "PLUGIN_STORAGE",
             "table": table,
