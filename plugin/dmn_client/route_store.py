@@ -10,6 +10,7 @@ from dmn_client.route_table import (
     UUID_RE,
     RouteTableError,
     StorageTables,
+    canon,
     validate_doc,
 )
 from dmn_client.scene_spelling import respell
@@ -17,7 +18,12 @@ from dmn_client.stored_tables import KEYS
 from dmn_client.table_names import alias_of
 
 OPS = ("table", "history", "version", "save")
+# 0.5.15 (DMN 2.0 draft.10 体积): the table content (everything but declare, canonical JSON) and its declaration are
+# counted separately. Dify plugin storage has no per-value limit of its own; a value travels hex-encoded in one plugin
+# message (PLUGIN_STDIO_MAX_BUFFER_SIZE, 5 MiB by default), so one stored document stays in one key.
 MAX_BODY = 512 * 1024
+MAX_DECLARE = 256 * 1024
+MAX_REQUEST = MAX_BODY + MAX_DECLARE + 64 * 1024
 DEFAULT_TABLE = "dispatch.route"
 V1_KEYS = ("table", "issue_types", "phases", "registry", "routes", "note")
 V2_KEYS = (
@@ -37,6 +43,32 @@ CONFLICT = ("ROUTE_TABLE_STALE", "ROUTE_TABLE_RACE")
 
 def error(status, code, message, path=""):
     return status, {"error": {"code": code, "message": message, "path": path}}
+
+
+def _sizes(doc):
+    """None, or the refusal of a table whose content or declaration is over its own limit."""
+    try:
+        content = len(canon({k: v for k, v in doc.items() if k != "declare"}).encode("utf-8"))
+        declared = (
+            len(canon(doc["declare"]).encode("utf-8")) if doc.get("declare") is not None else 0
+        )
+    except (TypeError, ValueError):
+        return None  # not JSON-shaped: the validator refuses it with its own code and path
+    if content > MAX_BODY:
+        return error(
+            400,
+            "STORED_TABLE_TOO_LARGE",
+            "表内容（不含声明）%d KiB，超过 %d KiB：按 .<part> 拆"
+            % (content // 1024, MAX_BODY // 1024),
+        )
+    if declared > MAX_DECLARE:
+        return error(
+            400,
+            "TABLE_DECLARATION_TOO_LARGE",
+            "声明 %d KiB，超过 %d KiB" % (declared // 1024, MAX_DECLARE // 1024),
+            "declare",
+        )
+    return None
 
 
 def run_op(storage, op, table=DEFAULT_TABLE, version=None, body=None):
@@ -68,9 +100,17 @@ def run_op(storage, op, table=DEFAULT_TABLE, version=None, body=None):
         if op == "save":
             if alias_of(table):
                 return error(400, "STORED_TABLE_ALIAS_READ_ONLY", "只读别名不可用于存表", "table")
+            if isinstance(body, str) and len(body.encode("utf-8")) > MAX_REQUEST:
+                return error(
+                    413, "BODY_TOO_LARGE", "存表请求太大（最多 %d KiB）" % (MAX_REQUEST // 1024)
+                )
             try:
-                body = json_object(body, "body", MAX_BODY)
-            except EngineError:
+                body = json_object(body, "body", MAX_REQUEST)
+            except EngineError as exc:
+                if exc.code == "INPUT_TOO_LARGE":
+                    return error(
+                        413, "BODY_TOO_LARGE", "存表请求太大（最多 %d KiB）" % (MAX_REQUEST // 1024)
+                    )
                 return error(400, "INVALID_JSON", "请求不是合法的 JSON 对象")
             keys = KEYS.get(body.get("schema")) or (
                 V2_KEYS if body.get("schema") in ROUTE_SCHEMAS else V1_KEYS
@@ -78,6 +118,9 @@ def run_op(storage, op, table=DEFAULT_TABLE, version=None, body=None):
             doc = {k: body.get(k) for k in keys}
             if doc.get("resource_table") is None:
                 doc.pop("resource_table", None)
+            sized = _sizes(doc)
+            if sized:
+                return sized
             name = doc.get("table")
             # Never turn a failed read into an absent declaration or spelling baseline.
             try:
@@ -93,13 +136,16 @@ def run_op(storage, op, table=DEFAULT_TABLE, version=None, body=None):
             if doc.get("declare") is None:
                 doc.pop("declare", None)  # declare: null removes it
             doc, spelled = respell(doc, current)
+            sized = _sizes(doc)
+            if sized:
+                return sized
             saved = tables.save(
                 doc,
                 body.get("expected_version"),
                 gate_report=body.get("gate_report"),
                 schema_transition=body.get("schema_transition"),
             )
-            warned = declarations.warnings(saved)
+            warned = declarations.warnings(saved, current if isinstance(current, dict) else None)
             return 200, {
                 "table": saved["table"],
                 "version": saved["version"],

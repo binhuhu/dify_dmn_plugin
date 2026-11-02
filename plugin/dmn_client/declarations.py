@@ -9,23 +9,30 @@ exists. Two stages:
                 actions (a list) and declared keys, never rule_id (provenance is returned separately in selected_rule_ids); note is a short text;
                 result.texts.customer is customer-facing text checked against internal words.
 
+0.5.15 (DMN 2.0 draft.10): `states` may be a list of the states the table uses (STANDARD: row states only, NO_MATCH is
+the table's own); FIRST tables record a row-order fingerprint (`row_order_sha256`); a decision set declares each model.
+
 check(declare, clean, schema) -> clean declaration (raises RouteTableError on a mismatch).
-warnings(clean) -> declaration warnings of a stored document (a rule changed after its explanation was written).
+warnings(clean, previous) -> declaration warnings of a stored document (a rule changed after its explanation was written;
+rows of a FIRST table moved, with the shadowing changes against the previous version).
 """
 
+import json
 import re
 
-from dmn_client.json_table import equal
+from dmn_client.json_table import MISSING, condition, equal
 from dmn_client.route_table import DATA_V4, RouteTableError, digest
 
+DECISION_ROLES = (
+    "SCENE_ENTITY",
+    "ACCEPTANCE",
+    "FACT_FEATURE",
+    "FEATURE_REALITY",
+    "DISPOSAL",
+)
 ROLES_BY_SCHEMA = {
-    "dmn-json.decision-table/v1": (
-        "SCENE_ENTITY",
-        "ACCEPTANCE",
-        "FACT_FEATURE",
-        "FEATURE_REALITY",
-        "DISPOSAL",
-    ),
+    "dmn-json.decision-table/v1": DECISION_ROLES,
+    "dmn-json.decision-set/v1": DECISION_ROLES,
     "dmn-json.supplement-requirements/v1": ("SUPPLEMENT",),
     "dmn-json.supplement-requirements/v2": ("SUPPLEMENT",),
     "dmn-json.resource-targets/v1": ("RESOURCE",),
@@ -33,8 +40,11 @@ ROLES_BY_SCHEMA = {
     "dmn-json.route-table/v3": ("ROUTE",),
 }
 DECISION = "dmn-json.decision-table/v1"
+DECISION_SET = "dmn-json.decision-set/v1"
 STAGES = ("TRANSITION", "STANDARD")
 STATES = ("PASS", "FAIL", "PENDING", "UNKNOWN", "CONFLICT", "NOT_APPLICABLE", "NO_MATCH")
+# what an author writes on a rule; NO_MATCH is the table state when no rule hits
+ROW_STATES = STATES[:6]
 TYPES = {
     "string": (str,),
     "boolean": (bool,),
@@ -48,7 +58,9 @@ FIXED_INPUTS = {
     "RESOURCE": ("resource_id",),
     "ROUTE": ("scene_id", "issue_type", "phase"),
 }
-KEYS = {"stage", "role", "priority", "parameters", "outputs", "states", "rows"}
+KEYS = {"stage", "role", "priority", "parameters", "outputs", "states", "rows", "row_order_sha256"}
+SET_KEYS = {"stage", "role", "models"}
+MAX_SHADOWING = 100
 SOURCE_RE = re.compile(r"^(fact|feature|calc|table|request):\S{1,160}$")
 KEY_RE = re.compile(r"^[A-Za-z0-9_.:#/一-鿿-]{1,160}$")
 HEX64 = re.compile(r"^[0-9a-f]{64}$")
@@ -207,10 +219,30 @@ def rule_sha256(rule):
     return digest(rule)
 
 
+def row_order_sha256(model):
+    """The row-order fingerprint of a model: the digest of its rule ids in order."""
+    return digest([r["rule_id"] for r in model["rules"]])
+
+
+def _states(value):
+    """A list of the states the table uses (0.5.15), or the 0.5.14 object state -> meaning."""
+    if type(value) is list:
+        _need(
+            0 < len(value) <= 64 and all(type(x) is str and KEY_RE.match(x) for x in value),
+            "states = 这张表用到的 state 列表",
+            ".states",
+        )
+        _need(len(set(value)) == len(value), "states 里有重复", ".states")
+        return list(value)
+    return _named_map(value, ".states", "states", lambda v, p: _text(v, 120, "state 的意思", p))
+
+
 def check(declare, clean, schema):
     """The declaration of a valid table document (clean), itself cleaned."""
     roles = ROLES_BY_SCHEMA.get(schema)
     _need(roles is not None, "这种表还不能写声明", "")
+    if schema == DECISION_SET:
+        return _set(declare, clean, roles)
     _need(
         type(declare) is dict and set(declare) <= KEYS,
         "declare 只能有 " + " / ".join(sorted(KEYS)),
@@ -224,10 +256,8 @@ def check(declare, clean, schema):
         "补充、资源去向、路由的标准输出由插件产出，声明先写 TRANSITION",
         ".stage",
     )
-    out["states"] = _named_map(
-        declare.get("states"), ".states", "states", lambda v, p: _text(v, 120, "state 的意思", p)
-    )
-    if out["stage"] == "STANDARD":
+    out["states"] = _states(declare.get("states"))
+    if out["stage"] == "STANDARD" and type(out["states"]) is dict:
         bad = sorted(set(out["states"]) - set(STATES))
         _need(
             not bad,
@@ -244,6 +274,13 @@ def check(declare, clean, schema):
     if "priority" in declare:
         _need(declare["priority"] == "ROW_ORDER", "priority 只能是 ROW_ORDER", ".priority")
         out["priority"] = "ROW_ORDER"
+    if "row_order_sha256" in declare:
+        _need(
+            type(declare["row_order_sha256"]) is str and HEX64.match(declare["row_order_sha256"]),
+            "row_order_sha256 = 64 位小写十六进制（按序 rule_id 列表的摘要）",
+            ".row_order_sha256",
+        )
+        out["row_order_sha256"] = declare["row_order_sha256"]
     if schema == DECISION:
         _decision(out, clean["model"])
     elif out["role"] == "SUPPLEMENT":
@@ -277,14 +314,28 @@ def _decision(out, model):
     _inputs(out, model["parameters"])
     first = model["hit_policy"] == "FIRST"
     _need(first == ("priority" in out), "FIRST 表要写 priority: ROW_ORDER，其他表不写", ".priority")
+    listed = type(out["states"]) is list
+    _need(
+        first or "row_order_sha256" not in out,
+        "只有 FIRST 表写行顺序指纹 row_order_sha256",
+        ".row_order_sha256",
+    )
+    _need(
+        not (first and listed) or "row_order_sha256" in out,
+        "FIRST 表要写行顺序指纹 row_order_sha256（按序 rule_id 列表的摘要）",
+        ".row_order_sha256",
+    )
     _need("rows" in out, "决策表要给每条规则写依据", ".rows")
     ids = [r["rule_id"] for r in rules]
     missing, extra = sorted(set(ids) - set(out["rows"])), sorted(set(out["rows"]) - set(ids))
     _need(not extra, "rows 里有表里没有的规则：" + ", ".join(extra[:5]), ".rows")
     _need(not missing, "这些规则没写依据：" + ", ".join(missing[:5]), ".rows")
-    used = {t["state"] for t in templates.values()}
-    undeclared = sorted(used - set(out["states"]))
-    _need(not undeclared, "模板用到但没声明的 state：" + ", ".join(undeclared), ".states")
+    if listed and out["stage"] == "STANDARD":
+        _row_states(out["states"], model)
+    else:
+        used = {t["state"] for t in templates.values()}
+        undeclared = sorted(used - set(out["states"]))
+        _need(not undeclared, "模板用到但没声明的 state：" + ", ".join(undeclared), ".states")
     for ref, t in templates.items():
         p = ".templates." + str(ref)[:64]
         if out["stage"] == "TRANSITION":
@@ -294,6 +345,76 @@ def _decision(out, model):
                 _need(_typed(v["literal"], spec), "模板的数据键 %s 和声明的类型或取值对不上" % k, p)
         else:
             _standard(out, t, p)
+
+
+def _row_states(listed, model):
+    """draft.10: a STANDARD table lists the row states its rules use; the no-match template is the table state NO_MATCH
+    and no rule points at it."""
+    bad = [s for s in listed if s not in ROW_STATES]
+    _need(
+        not bad,
+        "states 只列行 state（%s）%s"
+        % (
+            " / ".join(ROW_STATES),
+            "；NO_MATCH 是表 state，不列" if "NO_MATCH" in bad else "；多了 " + ", ".join(bad),
+        ),
+        ".states",
+    )
+    empty = model["empty_template_ref"]
+    _need(
+        model["result_templates"][empty]["state"] == "NO_MATCH",
+        "一行没中时用的模板（empty_template_ref）的 state 是表 state NO_MATCH",
+        ".empty_template_ref",
+    )
+    pointed = [r["rule_id"] for r in model["rules"] if r["output_template_ref"] == empty]
+    _need(
+        not pointed,
+        "NO_MATCH 只在表这层：规则不得指向一行没中时用的模板（%s）" % ", ".join(pointed[:5]),
+        ".empty_template_ref",
+    )
+    used = {t["state"] for ref, t in model["result_templates"].items() if ref != empty}
+    unlisted = sorted(used - set(listed))
+    _need(not unlisted, "规则用到但没列的行 state：" + ", ".join(unlisted), ".states")
+
+
+def _set(declare, clean, roles):
+    """A decision set's declaration: one stage and role for the table, one model declaration per model."""
+    _need(
+        type(declare) is dict and set(declare) <= SET_KEYS,
+        "决策集的 declare 只能有 " + " / ".join(sorted(SET_KEYS)),
+        "",
+    )
+    out = {"stage": declare.get("stage"), "role": declare.get("role")}
+    _need(out["stage"] in STAGES, "stage 只能是 TRANSITION / STANDARD", ".stage")
+    _need(out["role"] in roles, "这种表的 role 只能是 " + " / ".join(roles), ".role")
+    models = declare.get("models")
+    _need(type(models) is dict, "models = 模型键 → 这个模型的声明", ".models")
+    have = set(clean["models"])
+    extra, missing = sorted(set(models) - have), sorted(have - set(models))
+    _need(not extra, "models 里有表里没有的模型：" + ", ".join(map(str, extra[:5])), ".models")
+    _need(not missing, "这些模型没写声明：" + ", ".join(missing[:5]), ".models")
+    out["models"] = {}
+    for key in sorted(models):
+        sub = models[key]
+        _need(
+            type(sub) is dict and not ({"stage", "role", "models"} & set(sub)),
+            "模型的声明不写 stage / role（整张表一个）",
+            ".models." + key,
+        )
+        try:
+            one = check(
+                dict(sub, stage=out["stage"], role=out["role"]),
+                {"model": clean["models"][key]["model"]},
+                DECISION,
+            )
+        except RouteTableError as exc:
+            raise RouteTableError(
+                exc.code, exc.message, "declare.models." + key + exc.path[len("declare") :]
+            ) from None
+        one.pop("stage")
+        one.pop("role")
+        out["models"][key] = one
+    return out
 
 
 def _standard(out, t, p):
@@ -399,6 +520,7 @@ def _keyed(out, entries, used_states, field):
         extra = sorted(set(out["rows"]) - set(entries))
         _need(not extra, "rows 里有表里没有的行：" + ", ".join(extra[:5]), ".rows")
     _need("priority" not in out, "按键查一行的表不写 priority", ".priority")
+    _need("row_order_sha256" not in out, "按键查一行的表没有行顺序", ".row_order_sha256")
 
 
 def _route(out):
@@ -412,15 +534,41 @@ def _route(out):
         _need(spec["type"] == expected, "路由输出类型应为 " + expected, ".outputs." + name)
     _need("rows" not in out, "路由行没有编号，依据写在 note", ".rows")
     _need("priority" not in out, "路由由插件编译，不写 priority", ".priority")
+    _need("row_order_sha256" not in out, "路由由插件编译，不写行顺序指纹", ".row_order_sha256")
 
 
-def warnings(clean):
-    """Rules changed after their explanation was written (rule_sha256 no longer matches)."""
+def warnings(clean, previous=None):
+    """Rules changed after their explanation was written (rule_sha256 no longer matches); a FIRST table whose row order
+    no longer matches its fingerprint (ROW_ORDER_STALE, the whole table; with the shadowing changes against previous,
+    the version before this save, when the order changed in this save). Never a refusal."""
     d = clean.get("declare") if type(clean) is dict else None
-    if not d or clean.get("schema") != DECISION:
+    if not d:
         return []
+    if clean.get("schema") == DECISION:
+        before = previous.get("model") if _same(previous, DECISION) else None
+        return _model_warnings(d, clean["model"], before)
+    if clean.get("schema") == DECISION_SET:
+        out, before = [], previous.get("models") if _same(previous, DECISION_SET) else {}
+        for key in sorted(clean["models"]):
+            mine = d.get("models", {}).get(key)
+            if not mine:
+                continue
+            old = (before.get(key) or {}).get("model") if type(before) is dict else None
+            out += [
+                dict(w, model=key)
+                for w in _model_warnings(mine, clean["models"][key]["model"], old)
+            ]
+        return out
+    return []
+
+
+def _same(doc, schema):
+    return type(doc) is dict and doc.get("schema") == schema
+
+
+def _model_warnings(d, model, before):
     out = []
-    for rule in clean["model"]["rules"]:
+    for rule in model["rules"]:
         sha = d.get("rows", {}).get(rule["rule_id"], {}).get("rule_sha256")
         if sha and sha != rule_sha256(rule):
             out.append(
@@ -430,4 +578,79 @@ def warnings(clean):
                     "message": "规则改过，依据待重新确认",
                 }
             )
+    sha = d.get("row_order_sha256")
+    if sha and model["hit_policy"] == "FIRST" and sha != row_order_sha256(model):
+        w = {"code": "ROW_ORDER_STALE", "level": "TABLE", "message": "行顺序变了，优先级待重新确认"}
+        if type(before) is dict and _ids(before) != _ids(model):
+            w["shadowing"] = row_order_changes(before, model)
+        out.append(w)
     return out
+
+
+def _ids(model):
+    return [r["rule_id"] for r in model.get("rules", [])] if type(model) is dict else []
+
+
+def row_order_changes(before, after):
+    """Shadowing changes between two orders of a FIRST table: pairs of rules both have whose precedence flipped and
+    that may both hold for one input ({rules: [a, b], before: a, after: b}: a used to win, now b does)."""
+    old, pos = _ids(before), {rid: i for i, rid in enumerate(_ids(after))}
+    by_id = {r["rule_id"]: r for r in after["rules"]}
+    common = [rid for rid in old if rid in pos]
+    out = []
+    for i, a in enumerate(common):
+        for b in common[i + 1 :]:
+            if pos[b] < pos[a] and may_overlap(by_id[a], by_id[b]):
+                out.append({"rules": [a, b], "before": a, "after": b})
+                if len(out) >= MAX_SHADOWING:
+                    return out
+    return out
+
+
+def may_overlap(a, b):
+    """Whether two rules may hold for one input: False only when the conditions on some path cannot all be true."""
+    paths = {}
+    for c in list(a.get("when", [])) + list(b.get("when", [])):
+        paths.setdefault(json.dumps(c["path"], ensure_ascii=False), []).append(c)
+    return all(_satisfiable(cs) for cs in paths.values())
+
+
+def _at(path, value):
+    if value is MISSING:
+        return {}
+    for key in reversed(path):
+        value = {key: value}
+    return value
+
+
+def _satisfiable(conds):
+    """Conservatively test overlap; return False only for a proven contradiction."""
+    path = conds[0]["path"]
+
+    def holds(value):
+        return all(condition(c, _at(path, value))["state"] == "TRUE" for c in conds)
+
+    # An equality or membership restriction exhaustively bounds the candidate domain.
+    for c in conds:
+        if c["op"] == "eq":
+            return holds(c["value"])
+        if c["op"] == "in":
+            return any(holds(v) for v in c["value"])
+    for c in conds:
+        if c["op"] == "exists" and not c["value"]:
+            return holds(MISSING)
+        if c["op"] == "is_null" and c["value"]:
+            return holds(None)
+    ordered = [c for c in conds if c["op"] in ("lt", "lte", "gt", "gte")]
+    # A finite set of excluded samples cannot establish that an interval is empty.
+    # Only compatible numeric bounds are compared; other domains stay conservative.
+    if ordered and all(type(c["value"]) in (int, float) for c in ordered):
+        lower = [c["value"] for c in ordered if c["op"] in ("gt", "gte")]
+        upper = [c["value"] for c in ordered if c["op"] in ("lt", "lte")]
+        if lower and upper:
+            lo, hi = max(lower), min(upper)
+            if lo > hi:
+                return False
+            if lo == hi:
+                return holds(lo)
+    return True

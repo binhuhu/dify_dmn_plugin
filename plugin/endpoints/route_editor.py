@@ -7,7 +7,7 @@ from pathlib import Path
 from dify_plugin import Endpoint
 from werkzeug import Response
 
-from dmn_client.route_store import DEFAULT_TABLE, MAX_BODY, run_op, via_app
+from dmn_client.route_store import DEFAULT_TABLE, MAX_REQUEST, run_op, via_app
 
 STATIC = Path(__file__).resolve().parents[1] / "route_editor_static"
 ASSETS = {
@@ -78,8 +78,10 @@ class RouteEditorEndpoint(Endpoint):
             op, version, body = name, (r.args.get("v", "") if name == "version" else None), None
         elif r.method == "POST" and name == "table":
             raw = r.get_data(cache=False)
-            if len(raw) > MAX_BODY:
-                return _error(413, "BODY_TOO_LARGE", "路由表太大（最多 512 KiB）")
+            if len(raw) > MAX_REQUEST:
+                return _error(
+                    413, "BODY_TOO_LARGE", "存表请求太大（最多 %d KiB）" % (MAX_REQUEST // 1024)
+                )
             try:
                 body = raw.decode("utf-8")
             except UnicodeDecodeError:

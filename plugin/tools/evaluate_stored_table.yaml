@@ -7,10 +7,12 @@ identity:
 description:
   human:
     en_US: Read one table kept in this plugin's tool storage (saved like a route table, with versions and CAS) - a solution's
-      P2 acceptance table or a TARGET / TRIAGE policy table (decision-table/v1, evaluated), the per-scene supplement requirements
-      (supplement-requirements/v1 | supplement-requirements/v2) or the resource-routing targets (resource-targets/v1).
-    zh_Hans: 读插件工具存储里的一张表（与路由表同样存、带版本与 CAS）：方案的 P2 受理表或定位 / 分诊的策略表（decision-table/v1，求值）、按场景的补充要求（supplement-requirements/v1 | supplement-requirements/v2）或资源路由目标（resource-targets/v1）。
-  llm: Read or evaluate one stored table of this plugin (P2 acceptance or policy table, supplement requirements, resource targets). The legacy supplement-requirements/v1 reader also accepts v2 documents; inputs remain {scene_id}.
+      P2 acceptance table or a TARGET / TRIAGE policy table (decision-table/v1, evaluated; decision-set/v1 for several models
+      in one table, each with its own call status), the per-scene supplement requirements (supplement-requirements/v1 |
+      supplement-requirements/v2) or the resource-routing targets (resource-targets/v1). Optional version / content_sha256
+      pin the exact stored version (a missing pin fails, never falls back to the latest).
+    zh_Hans: 读插件工具存储里的一张表（与路由表同样存、带版本与 CAS）：方案的 P2 受理表或定位 / 分诊的策略表（decision-table/v1，求值；一张表多个模型用 decision-set/v1，每个模型各带调用 status）、按场景的补充要求（supplement-requirements/v1 | supplement-requirements/v2）或资源路由目标（resource-targets/v1）。可选 version / content_sha256 钉住存储里的那一版（不在就失败，不回退最新版）。
+  llm: Read or evaluate one stored table of this plugin (P2 acceptance or policy table, decision set, supplement requirements, resource targets). The legacy supplement-requirements/v1 reader also accepts v2 documents; inputs remain {scene_id}.
 parameters:
 - name: table
   type: string
@@ -31,8 +33,8 @@ parameters:
     en_US: format
     zh_Hans: 表格式
   human_description:
-    en_US: decision-table/v1 | supplement-requirements/v1 | supplement-requirements/v2 | resource-targets/v1 (fixed in the workflow).
-    zh_Hans: decision-table/v1 / supplement-requirements/v1 | supplement-requirements/v2 / resource-targets/v1（在流程里固定）。
+    en_US: decision-table/v1 | decision-set/v1 | supplement-requirements/v1 | supplement-requirements/v2 | resource-targets/v1 (fixed in the workflow).
+    zh_Hans: decision-table/v1 / decision-set/v1 / supplement-requirements/v1 | supplement-requirements/v2 / resource-targets/v1（在流程里固定）。
   llm_description: The table format, fixed by the workflow.
 - name: inputs_json
   type: any
@@ -43,9 +45,33 @@ parameters:
     zh_Hans: inputs_json
   human_description:
     en_US: 'decision-table/v1: {"parameters": {name: {quality, value, source_refs}}, "missing": "BLOCK"|"UNKNOWN", "undeclared": "REFUSE"|"IGNORE"};
-      supplement-requirements/v1 | supplement-requirements/v2: {"scene_id"}; resource-targets/v1: {"resource_id"}. Object or JSON string.'
-    zh_Hans: 'decision-table/v1：{"parameters": {参数: {quality, value, source_refs}}, "missing": "BLOCK"|"UNKNOWN", "undeclared": "REFUSE"|"IGNORE"}；supplement-requirements/v1 | supplement-requirements/v2：{"scene_id"}；resource-targets/v1：{"resource_id"}。对象或 JSON 字符串。'
+      a table parameter takes {"from_table": <the upstream results>, "model": <model key, for a decision set>};
+      decision-set/v1: the same plus "models": [model keys] (absent = all); supplement-requirements/v1 | supplement-requirements/v2:
+      {"scene_id"}; resource-targets/v1: {"resource_id"}. Object or JSON string.'
+    zh_Hans: 'decision-table/v1：{"parameters": {参数: {quality, value, source_refs}}, "missing": "BLOCK"|"UNKNOWN", "undeclared": "REFUSE"|"IGNORE"}；table 参数收 {"from_table": <上一张表的 results>, "model": <决策集的模型键>}；decision-set/v1：同上再加 "models": [模型键]（不写 = 全部）；supplement-requirements/v1 | supplement-requirements/v2：{"scene_id"}；resource-targets/v1：{"resource_id"}。对象或 JSON 字符串。'
   llm_description: Inputs for the table, object or JSON string.
+- name: version
+  type: string
+  required: false
+  form: form
+  label:
+    en_US: version
+    zh_Hans: 钉的版本
+  human_description:
+    en_US: Optional. Read exactly this stored version (positive integer); missing = FAILED STORED_TABLE_VERSION_MISSING, never the latest. Empty = latest. A published solution workflow pins its tables.
+    zh_Hans: 可选。只读存储里的这一版（正整数）；不在 = FAILED STORED_TABLE_VERSION_MISSING，不回退最新版。空 = 读最新版。已发布的方案流程要钉版本。
+  llm_description: Optional stored version to pin; empty means latest.
+- name: content_sha256
+  type: string
+  required: false
+  form: form
+  label:
+    en_US: content_sha256
+    zh_Hans: 钉的内容摘要
+  human_description:
+    en_US: Optional. The pinned version's content_sha256 (64 lowercase hex); with version it must match that version, alone it picks the newest of the last 50 versions with this digest.
+    zh_Hans: 可选。钉的那一版的 content_sha256（64 位小写十六进制）；和 version 一起写就要对得上那一版，单独写就取最近 50 版里摘要相同的最新一版。
+  llm_description: Optional content digest to pin; empty means not pinned.
 output_schema:
   type: object
   properties:

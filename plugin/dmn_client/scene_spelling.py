@@ -8,6 +8,7 @@ from dmn_client.json_table import condition
 from dmn_client.route_table import ROUTE_SCHEMAS, RouteTableError
 
 SCHEMA_DECISION = "dmn-json.decision-table/v1"
+SCHEMA_DECISION_SET = "dmn-json.decision-set/v1"
 SCHEMA_SUPPLEMENT = "dmn-json.supplement-requirements/v1"
 SUPPLEMENT_SCHEMAS = (SCHEMA_SUPPLEMENT, "dmn-json.supplement-requirements/v2")
 SCENE_OPS = ("eq", "ne", "in")
@@ -79,6 +80,8 @@ class _Fields:
             if schema in ROUTE_SCHEMAS
             else "decision"
             if schema == SCHEMA_DECISION
+            else "decision_set"
+            if schema == SCHEMA_DECISION_SET
             else "supplement"
             if schema in SUPPLEMENT_SCHEMAS
             else "route_v1"
@@ -98,10 +101,24 @@ class _Fields:
         routes = self.doc.get("routes") if self.kind in ("route_v1", "route_v2") else None
         return [r for r in routes if type(r) is dict] if type(routes) is list else []
 
-    def _rules(self):
-        model = self.doc.get("model") if self.kind == "decision" else None
+    def _models(self):
+        """(path, model) of every model: the decision table's one, or each model of a decision set."""
+        if self.kind == "decision":
+            return [("model", self.doc.get("model"))]
+        models = self.doc.get("models") if self.kind == "decision_set" else None
+        if type(models) is not dict:
+            return []
+        return [
+            ("models.%s.model" % k, m.get("model")) for k, m in models.items() if type(m) is dict
+        ]
+
+    @staticmethod
+    def _model_rules(model):
         rules = model.get("rules") if type(model) is dict else None
         return [r for r in rules if type(r) is dict] if type(rules) is list else []
+
+    def _rules(self):
+        return [r for _, m in self._models() for r in self._model_rules(m)]
 
     @staticmethod
     def _is_scene_condition(c):
@@ -145,12 +162,13 @@ class _Fields:
             if k in seen and seen[k] != s:
                 _duplicate("路由", "routes[%d].scene_id" % i, seen[k], s)
             seen.setdefault(k, s)
-        rules = self._rules()
-        _unique([r.get("rule_id") for r in rules], "规则", "model.rules")
-        for i, r in enumerate(rules):
-            for j, c in enumerate(r.get("when") if type(r.get("when")) is list else []):
-                if self._is_scene_condition(c) and type(c.get("value")) is list:
-                    _unique(c["value"], "条件", "model.rules[%d].when[%d].value" % (i, j))
+        for where, model in self._models():
+            rules = self._model_rules(model)
+            _unique([r.get("rule_id") for r in rules], "规则", where + ".rules")
+            for i, r in enumerate(rules):
+                for j, c in enumerate(r.get("when") if type(r.get("when")) is list else []):
+                    if self._is_scene_condition(c) and type(c.get("value")) is list:
+                        _unique(c["value"], "条件", "%s.rules[%d].when[%d].value" % (where, i, j))
 
     def respell(self, target):
         """A copy of the document with every scene-typed field (and basis token) in target; (copy, how many changed)."""
