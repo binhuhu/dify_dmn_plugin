@@ -20,8 +20,10 @@ rows of a FIRST table moved, with the shadowing changes against the previous ver
 import json
 import re
 
+from dmn_client import scene_id
 from dmn_client.json_table import MISSING, condition, equal
 from dmn_client.route_table import DATA_V4, RouteTableError, digest
+from dmn_client.scene_spelling import scene_state
 
 DECISION_ROLES = (
     "SCENE_ENTITY",
@@ -332,6 +334,9 @@ def _decision(out, model):
     _need(not missing, "这些规则没写依据：" + ", ".join(missing[:5]), ".rows")
     if listed and out["stage"] == "STANDARD":
         _row_states(out["states"], model)
+    elif listed:
+        empty = templates[model["empty_template_ref"]]["state"]
+        _exactly(out["states"], _rule_states(model) | {empty}, " state")
     else:
         used = {t["state"] for t in templates.values()}
         undeclared = sorted(used - set(out["states"]))
@@ -372,9 +377,19 @@ def _row_states(listed, model):
         "NO_MATCH 只在表这层：规则不得指向一行没中时用的模板（%s）" % ", ".join(pointed[:5]),
         ".empty_template_ref",
     )
-    used = {t["state"] for ref, t in model["result_templates"].items() if ref != empty}
-    unlisted = sorted(used - set(listed))
-    _need(not unlisted, "规则用到但没列的行 state：" + ", ".join(unlisted), ".states")
+    _exactly(listed, _rule_states(model), "行 state")
+
+
+def _rule_states(model):
+    """The states of the templates the rules point at (an unreferenced template is not used by the table)."""
+    templates = model["result_templates"]
+    return {templates[r["output_template_ref"]]["state"] for r in model["rules"]}
+
+
+def _exactly(listed, used, label):
+    unlisted, unused = sorted(used - set(listed)), sorted(set(listed) - used)
+    _need(not unlisted, "规则用到但没列的%s：%s" % (label, ", ".join(unlisted)), ".states")
+    _need(not unused, "列了但没有规则用到的 state：" + ", ".join(unused), ".states")
 
 
 def _set(declare, clean, roles):
@@ -479,6 +494,14 @@ def _standard(out, t, p):
             need = state in ("FAIL", "PENDING")
         elif role == "SUPPLEMENT":
             need = state == "PENDING"
+        elif state == "NO_MATCH":
+            # the table state when no rule hits: no disposal was decided, so there is no outcome
+            _need(
+                "outcome" not in result,
+                "处置：一行没中（NO_MATCH）不写 outcome",
+                p + ".result.outcome",
+            )
+            need = False
         else:
             oc = result.get("outcome")
             _need(
@@ -582,7 +605,10 @@ def _model_warnings(d, model, before):
     if sha and model["hit_policy"] == "FIRST" and sha != row_order_sha256(model):
         w = {"code": "ROW_ORDER_STALE", "level": "TABLE", "message": "行顺序变了，优先级待重新确认"}
         if type(before) is dict and _ids(before) != _ids(model):
-            w["shadowing"] = row_order_changes(before, model)
+            changes = row_order_changes(before, model, MAX_SHADOWING + 1)
+            w["shadowing"] = changes[:MAX_SHADOWING]
+            if len(changes) > MAX_SHADOWING:
+                w["shadowing_truncated"] = True
         out.append(w)
     return out
 
@@ -591,7 +617,7 @@ def _ids(model):
     return [r["rule_id"] for r in model.get("rules", [])] if type(model) is dict else []
 
 
-def row_order_changes(before, after):
+def row_order_changes(before, after, limit=MAX_SHADOWING):
     """Shadowing changes between two orders of a FIRST table: pairs of rules both have whose precedence flipped and
     that may both hold for one input ({rules: [a, b], before: a, after: b}: a used to win, now b does)."""
     old, pos = _ids(before), {rid: i for i, rid in enumerate(_ids(after))}
@@ -602,7 +628,7 @@ def row_order_changes(before, after):
         for b in common[i + 1 :]:
             if pos[b] < pos[a] and may_overlap(by_id[a], by_id[b]):
                 out.append({"rules": [a, b], "before": a, "after": b})
-                if len(out) >= MAX_SHADOWING:
+                if len(out) >= limit:
                     return out
     return out
 
@@ -628,14 +654,31 @@ def _satisfiable(conds):
     path = conds[0]["path"]
 
     def holds(value):
-        return all(condition(c, _at(path, value))["state"] == "TRUE" for c in conds)
+        # the runtime's matching: on parameters.scene_id.value a scene id also matches its other spelling
+        built = _at(path, value)
+        if path and path[0] == "parameters":
+            return all(scene_state(c, built.get("parameters", {})) == "TRUE" for c in conds)
+        return all(condition(c, built)["state"] == "TRUE" for c in conds)
 
-    # An equality or membership restriction exhaustively bounds the candidate domain.
+    def spellings(value):
+        if path == scene_id.SCENE_VALUE_PATH and scene_id.is_scene(value):
+            return list(
+                dict.fromkeys(
+                    [
+                        value,
+                        scene_id.spell(value, scene_id.LEGACY),
+                        scene_id.spell(value, scene_id.CANONICAL),
+                    ]
+                )
+            )
+        return [value]
+
+    # An equality or membership restriction exhaustively bounds the candidate domain (with both spellings).
     for c in conds:
         if c["op"] == "eq":
-            return holds(c["value"])
+            return any(holds(v) for v in spellings(c["value"]))
         if c["op"] == "in":
-            return any(holds(v) for v in c["value"])
+            return any(holds(v) for x in c["value"] for v in spellings(x))
     for c in conds:
         if c["op"] == "exists" and not c["value"]:
             return holds(MISSING)

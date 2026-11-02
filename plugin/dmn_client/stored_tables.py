@@ -720,14 +720,27 @@ def _plain_shape(r, name):
         "参数记录 = quality + value + source_refs（1–16 条）",
         name,
     )
+    try:
+        canon(r).encode("utf-8")
+    except (ValueError, TypeError, OverflowError, UnicodeError, RecursionError):
+        _fail("INPUT_INVALID", "参数记录不是有限数值的合法 JSON", name)
 
 
-def _input_object(value, name):
-    """Reject invalid/nonfinite JSON without narrowing supported business-object keys."""
+def _input_object(value, name, strict=True):
+    """Reject invalid JSON without narrowing supported business-object keys. strict: the whole value must also be finite,
+    encodable JSON (an upstream envelope). Otherwise everything a receipt may echo (keys, parameter names, model keys,
+    modes) must be, but the values of parameters wait for _plain_shape, which checks the records a table uses: v0.5.14
+    never inspected the parameters it ignores."""
     try:
         if isinstance(value, str):
             value = json.loads(value)
-        canon(value).encode("utf-8")
+        if strict:
+            canon(value).encode("utf-8")
+        elif type(value) is dict:
+            shell = dict(value)
+            if type(shell.get("parameters")) is dict:
+                shell["parameters"] = dict.fromkeys(shell["parameters"])
+            canon(shell).encode("utf-8")
     except (ValueError, TypeError, OverflowError, UnicodeError, RecursionError):
         _fail("INPUT_INVALID", "输入不是有限数值的合法 JSON", name)
     _need(type(value) is dict, "INPUT_INVALID", "输入必须是 JSON 对象", name)
@@ -757,16 +770,22 @@ def _chain(envelope, model_key, name):
         "model 是决策集的模型键",
         name,
     )
-    table = env.get("table") if type(env.get("table")) is str else None
-    if env["status"] != "SUCCEEDED":
-        return None, {"table": table, "upstream_status": env["status"], "missing": True}
     fmt, source, result = env.get("format"), env.get("source"), env.get("result")
     _need(
-        fmt in (FORMAT_DECISION, FORMAT_DECISION_SET),
+        type(fmt) is str and fmt in (FORMAT_DECISION, FORMAT_DECISION_SET),
         "INPUT_INVALID",
         "只能接决策表、决策集的回执",
         name,
     )
+    _need(
+        (model_key is not None) == (fmt == FORMAT_DECISION_SET),
+        "INPUT_INVALID",
+        "读决策集要写 model（模型键）；决策表的回执不写 model",
+        name,
+    )
+    table = env.get("table") if type(env.get("table")) is str else None
+    if env["status"] != "SUCCEEDED":
+        return None, {"table": table, "upstream_status": env["status"], "missing": True}
     _need(
         type(source) is dict
         and type(source.get("table")) is str
@@ -777,7 +796,6 @@ def _chain(envelope, model_key, name):
         name,
     )
     if fmt == FORMAT_DECISION_SET:
-        _need(model_key is not None, "INPUT_INVALID", "读决策集要写 model（模型键）", name)
         models = result.get("models")
         entry = models.get(model_key) if type(models) is dict else None
         _need(
@@ -795,7 +813,6 @@ def _chain(envelope, model_key, name):
             }
         result, model = entry.get("result"), model_key
     else:
-        _need(model_key is None, "INPUT_INVALID", "决策表的回执不写 model", name)
         model = result.get("model_ref")
     decision = result.get("decision") if type(result) is dict else None
     rules = result.get("selected_rule_ids") if type(result) is dict else None
@@ -1168,14 +1185,25 @@ def _pinned(table, pin, load, load_version):
     )
 
 
+def _echo(value):
+    """A caller's string, echoed in the envelope only when it can be encoded (a receipt must always serialize)."""
+    if type(value) is not str or not value:
+        return None
+    try:
+        value.encode("utf-8")
+    except UnicodeEncodeError:
+        return None
+    return value
+
+
 def evaluate_stored(table, fmt, inputs, load, version=None, content_sha256=None, load_version=None):
     """The evaluate_stored_table tool. load(table) -> stored doc or None; load_version(table, n) -> that stored version
     or None (needed for a pin). Never raises: errors are in the envelope."""
     out = {
         "schema_version": RESULT_SCHEMA,
         "status": "FAILED",
-        "table": table if type(table) is str and table else None,
-        "format": fmt if type(fmt) is str else None,
+        "table": _echo(table),
+        "format": _echo(fmt) if fmt != "" else fmt,
         "source": None,
         "result": None,
         "error": None,
@@ -1199,7 +1227,7 @@ def evaluate_stored(table, fmt, inputs, load, version=None, content_sha256=None,
         pin = _pin(version, content_sha256)
         if isinstance(inputs, str) and not inputs.strip():
             inputs = {}
-        inputs = _input_object(inputs, "inputs_json")
+        inputs = _input_object(inputs, "inputs_json", strict=False)
         doc = _pinned(table, pin, load, load_version) if pin else _read(load, table)
         if doc is None:
             out.update(
@@ -1229,6 +1257,7 @@ def evaluate_stored(table, fmt, inputs, load, version=None, content_sha256=None,
         if alias_of(table):
             out["source"]["alias_of"] = alias_of(table)
         if pin:
+            out["source"]["pin"] = dict(pin)
             got = out["source"]["content_sha256"]
             if "content_sha256" in pin and got != pin["content_sha256"]:
                 _fail(
@@ -1237,7 +1266,6 @@ def evaluate_stored(table, fmt, inputs, load, version=None, content_sha256=None,
                     % (table, doc.get("version"), got[:12], pin["content_sha256"][:12]),
                     "content_sha256",
                 )
-            out["source"]["pin"] = dict(pin)
         if fmt == FORMAT_DECISION:
             out["result"] = evaluate_decision_table(clean, inputs)
         elif fmt == FORMAT_DECISION_SET:

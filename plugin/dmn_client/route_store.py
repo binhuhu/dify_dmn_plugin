@@ -100,7 +100,11 @@ def run_op(storage, op, table=DEFAULT_TABLE, version=None, body=None):
         if op == "save":
             if alias_of(table):
                 return error(400, "STORED_TABLE_ALIAS_READ_ONLY", "只读别名不可用于存表", "table")
-            if isinstance(body, str) and len(body.encode("utf-8")) > MAX_REQUEST:
+            try:
+                size = len(body.encode("utf-8")) if isinstance(body, str) else 0
+            except UnicodeEncodeError:
+                return error(400, "INVALID_JSON", "请求不是合法的 JSON 对象")
+            if size > MAX_REQUEST:
                 return error(
                     413, "BODY_TOO_LARGE", "存表请求太大（最多 %d KiB）" % (MAX_REQUEST // 1024)
                 )
