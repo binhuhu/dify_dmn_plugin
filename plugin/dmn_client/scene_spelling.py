@@ -129,9 +129,15 @@ class _Fields:
         )
 
     @staticmethod
+    def _combinations(rule):
+        """0.5.18: every condition list of a rule — when, or each when_any combination."""
+        if type(rule.get("when_any")) is list:
+            return [w for w in rule["when_any"] if type(w) is list]
+        return [rule["when"]] if type(rule.get("when")) is list else []
+
+    @staticmethod
     def _scene_conditions(rule):
-        when = rule.get("when")
-        return [c for c in when if _Fields._is_scene_condition(c)] if type(when) is list else []
+        return [c for w in _Fields._combinations(rule) for c in w if _Fields._is_scene_condition(c)]
 
     def values(self):
         """Every scene-typed value (not free text), in document order."""
@@ -166,9 +172,12 @@ class _Fields:
             rules = self._model_rules(model)
             _unique([r.get("rule_id") for r in rules], "规则", where + ".rules")
             for i, r in enumerate(rules):
-                for j, c in enumerate(r.get("when") if type(r.get("when")) is list else []):
-                    if self._is_scene_condition(c) and type(c.get("value")) is list:
-                        _unique(c["value"], "条件", "%s.rules[%d].when[%d].value" % (where, i, j))
+                many = type(r.get("when_any")) is list
+                for k, w in enumerate(self._combinations(r)):
+                    for j, c in enumerate(w):
+                        if self._is_scene_condition(c) and type(c.get("value")) is list:
+                            at = "when_any[%d][%d]" % (k, j) if many else "when[%d]" % j
+                            _unique(c["value"], "条件", "%s.rules[%d].%s.value" % (where, i, at))
 
     def respell(self, target):
         """A copy of the document with every scene-typed field (and basis token) in target; (copy, how many changed)."""

@@ -6,11 +6,11 @@ from dmn_client import declarations
 from dmn_client.client import EngineError, json_object
 from dmn_client.route_table import (
     ROUTE_SCHEMAS,
-    TABLE_RE,
     UUID_RE,
     RouteTableError,
     StorageTables,
     canon,
+    table_name,
     validate_doc,
 )
 from dmn_client.scene_spelling import respell
@@ -128,7 +128,7 @@ def run_op(storage, op, table=DEFAULT_TABLE, version=None, body=None):
             name = doc.get("table")
             # Never turn a failed read into an absent declaration or spelling baseline.
             try:
-                current = tables.load(name) if type(name) is str and TABLE_RE.match(name) else None
+                current = tables.load(name) if table_name(name) else None
             except Exception:
                 # Preserve request-validation precedence, but never save without its baseline.
                 validate_doc(respell(doc, None)[0])

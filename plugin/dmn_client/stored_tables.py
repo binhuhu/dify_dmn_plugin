@@ -13,6 +13,7 @@ from dmn_client.json_table import OPS, equal
 from dmn_client.route_table import (
     CODE_RE,
     SHA256_RE,
+    SOLUTION_TABLE_RE,
     STABLE_RE,
     TABLE_RE,
     TRANSFER_TO,
@@ -23,6 +24,7 @@ from dmn_client.route_table import (
     _text,
     canon,
     digest,
+    table_name,
 )
 from dmn_client.scene_id import by_scene, identity_key, is_scene
 from dmn_client.scene_spelling import scene_state
@@ -75,10 +77,12 @@ TABLE_TYPE = "table"
 RESULT_KEY_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_]{0,63}$")
 MAX_SOURCE_REFS = 16
 MAX_SET_MODELS = 64
+MAX_HITS = 512  # a COLLECT table outputs at most one result per rule
 MODEL_KEY_RE = re.compile(r"^[a-z][a-z0-9_]{0,47}$")
 MAX_PARAMETERS = 32
 MAX_RULES = 512
 MAX_CONDITIONS = 32
+MAX_COMBINATIONS = 32  # 0.5.18: condition combinations in one rule (when_any)
 MAX_TEMPLATES = 128
 MAX_SUPPLEMENT_SCENES = 1024
 MAX_ITEMS = 16
@@ -93,15 +97,18 @@ TABLE_SUPPLEMENT_PREFIX = "supplement."
 TABLE_RESOURCE_SUFFIX = ".resource"
 TABLE_TARGET_PREFIX = "target."
 TABLE_TRIAGE_PREFIX = "triage."
+TABLE_SOLUTION_PREFIX = "solution."
 APP_TARGET = "56d3c0c5-4d41-4454-99ab-e3a6db6aa66c"  # 定位 TARGET
 APP_TRIAGE = "0f34962a-e380-45e1-8b35-fc64b5651776"
 
 POLICY_OWNERS = {TABLE_TARGET_PREFIX: APP_TARGET, TABLE_TRIAGE_PREFIX: APP_TRIAGE}
 POLICY_NAME_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{0,47}$")
 DECISION_NAME_RULE = (
-    "决策表的表名只能是三种之一：p2.<方案应用编号>（owner.app_id = 该方案应用）、"
+    "决策表的表名只能是四种之一：p2.<方案应用编号>（owner.app_id = 该方案应用）、"
     "target.<名称>（owner.app_id = 定位 TARGET " + APP_TARGET + "）、"
-    "triage.<名称>（owner.app_id = 分诊 TRIAGE " + APP_TRIAGE + "）；"
+    "triage.<名称>（owner.app_id = 分诊 TRIAGE " + APP_TRIAGE + "）、"
+    "solution.<fact.feature|feature.reality|disposal.strategy|disposal.status>.<场景号>[.<分片>]"
+    "（owner.app_id = 该方案应用；场景号如 M_P_02_04_01；分片小写字母开头，只含小写字母、数字、_，最多 24 个字符）；"
     "<名称> 小写字母或数字开头，只含小写字母、数字、_、-，最多 48 个字符"
 )
 ITEM_RE = re.compile(r"^[a-z][a-z0-9_]{0,63}$")
@@ -118,6 +125,7 @@ def reserved_name(table):
         or table.startswith(TABLE_SUPPLEMENT_PREFIX)
         or table.endswith(TABLE_RESOURCE_SUFFIX)
         or table.startswith(tuple(POLICY_OWNERS))
+        or table.startswith(TABLE_SOLUTION_PREFIX)
     )
 
 
@@ -125,6 +133,9 @@ def decision_table_name(table, app_id):
     """Decision table name."""
     if table == TABLE_P2_PREFIX + app_id:
         return True
+    if table.startswith(TABLE_SOLUTION_PREFIX):
+        # 0.5.17: the owner is the solution app; which scene a solution app serves is not the plugin's to check
+        return bool(SOLUTION_TABLE_RE.fullmatch(table)) and table_name(table)
     for prefix, owner in POLICY_OWNERS.items():
         if table.startswith(prefix):
             return bool(POLICY_NAME_RE.match(table[len(prefix) :])) and app_id == owner
@@ -133,9 +144,7 @@ def decision_table_name(table, app_id):
 
 def _table(doc, ok, message):
     table = doc.get("table")
-    _need(
-        type(table) is str and TABLE_RE.match(table), "ROUTE_TABLE_INVALID", "表名格式不对", "table"
-    )
+    _need(table_name(table), "ROUTE_TABLE_INVALID", "表名格式不对", "table")
     _need(ok(table), "STORED_TABLE_NAME", message, "table")
     return table
 
@@ -268,23 +277,28 @@ def _model(m, path):
     seen = set()
     for i, r in enumerate(rules):
         p = "%s.rules[%d]" % (path, i)
+        many = type(r) is dict and "when_any" in r
         _need(
             type(r) is dict
-            and set(r) == {"rule_id", "when", "output_template_ref"}
+            and set(r) == {"rule_id", "when_any" if many else "when", "output_template_ref"}
             and type(r["rule_id"]) is str
             and STABLE_RE.match(r["rule_id"])
             and r["rule_id"] not in seen
             and r["output_template_ref"] in templates
-            and type(r["when"]) is list
-            and len(r["when"]) <= MAX_CONDITIONS,
+            and (
+                type(r["when_any"]) is list
+                and 0 < len(r["when_any"]) <= MAX_COMBINATIONS
+                and all(type(w) is list and 0 < len(w) <= MAX_CONDITIONS for w in r["when_any"])
+                if many
+                else type(r["when"]) is list and len(r["when"]) <= MAX_CONDITIONS
+            ),
             "DECISION_TABLE_INVALID",
-            "规则 = 不重复的 rule_id + when（≤%d 条）+ 已登记的 output_template_ref"
-            % MAX_CONDITIONS,
+            "规则 = 不重复的 rule_id + when（≤%d 条）或 when_any（1–%d 种组合，每种 1–%d 条，任一成立）"
+            "+ 已登记的 output_template_ref" % (MAX_CONDITIONS, MAX_COMBINATIONS, MAX_CONDITIONS),
             p,
         )
         seen.add(r["rule_id"])
-        for j, c in enumerate(r["when"]):
-            q = "%s.when[%d]" % (p, j)
+        for j, q, c in _conditions_at(r, p):
             _need(
                 type(c) is dict
                 and set(c) == {"path", "op", "value"}
@@ -323,6 +337,22 @@ def _model(m, path):
         path,
     )
     return m
+
+
+def rule_combinations(rule):
+    """0.5.18: the condition combinations of a rule — when_any (any one), or the single combination when."""
+    return rule["when_any"] if "when_any" in rule else [rule["when"]]
+
+
+def _conditions_at(rule, p):
+    """(index, path label, condition) for every condition of a rule, in order."""
+    if "when_any" not in rule:
+        return [(j, "%s.when[%d]" % (p, j), c) for j, c in enumerate(rule["when"])]
+    return [
+        (j, "%s.when_any[%d][%d]" % (p, k, j), c)
+        for k, w in enumerate(rule["when_any"])
+        for j, c in enumerate(w)
+    ]
 
 
 def _owner(doc, code):
@@ -760,14 +790,21 @@ def _envelope(value, name):
     return value
 
 
-def _chain(envelope, model_key, name):
+def _chain(envelope, model_key, name, hit=None):
     """(record or None, provenance) of a table parameter from the upstream envelope; None = the upstream call did not
-    succeed, so there is no state and the parameter is missing."""
+    succeed, so there is no state and the parameter is missing. hit (0.5.17): which output of a standard COLLECT
+    receipt (decisions[hit]); none = the first (decision)."""
     env = _envelope(envelope, name)
     _need(
         model_key is None or (type(model_key) is str and MODEL_KEY_RE.match(model_key)),
         "INPUT_INVALID",
         "model 是决策集的模型键",
+        name,
+    )
+    _need(
+        hit is None or (type(hit) is int and 0 <= hit < MAX_HITS),
+        "INPUT_INVALID",
+        "hit 是 COLLECT 回执 decisions 里的第几份（从 0 起的整数）",
         name,
     )
     fmt, source, result = env.get("format"), env.get("source"), env.get("result")
@@ -827,6 +864,19 @@ def _chain(envelope, model_key, name):
         "上一张表的回执缺 decision / selected_rule_ids",
         name,
     )
+    if hit is not None:
+        hits = result.get("decisions")
+        one = hits[hit] if type(hits) is list and hit < len(hits) else None
+        _need(
+            type(one) is dict
+            and type(one.get("rule_id")) is str
+            and type(one.get("state")) is str
+            and type(one.get("data")) is dict,
+            "INPUT_INVALID",
+            "上一张表的回执没有第 %d 份输出（hit 只读 COLLECT 标准表回执的 decisions）" % hit,
+            name,
+        )
+        decision, rules = {"state": one["state"], "data": one["data"]}, [one["rule_id"]]
     refs = ["stored-table:%s@%d#%s" % (source["table"], source["version"], model)]
     refs += ["rule:" + r for r in rules][: MAX_SOURCE_REFS - 1]
     data = decision["data"]
@@ -837,20 +887,23 @@ def _chain(envelope, model_key, name):
         "result": data["result"] if type(data.get("result")) is dict else None,
         "source_refs": [s[:256] for s in refs],
     }
-    return record, {
+    info = {
         "table": source["table"],
         "version": source["version"],
         "model": model,
         "rule_ids": list(rules),
         "state": decision["state"],
     }
+    if hit is not None:
+        info["hit"] = hit
+    return record, info
 
 
-def chained_record(envelope, model_key, name):
+def chained_record(envelope, model_key, name, hit=None):
     """0.5.15 表间衔接: the record of a table parameter, built from the upstream evaluate_stored_table envelope (its
     results, as an object or JSON text): the upstream table state and result, with the source filled in
     (stored-table:<table>@<version>#<model>, rule:<rule_id>). None when the upstream call did not succeed."""
-    return _chain(envelope, model_key, name)[0]
+    return _chain(envelope, model_key, name, hit)[0]
 
 
 def _absent(name, c, missing, params, filled):
@@ -887,12 +940,12 @@ def _records(model, raw, missing, undeclared="REFUSE", chained=None):
         r = raw[name]
         if c["type"] == TABLE_TYPE:
             _need(
-                type(r) is dict and "from_table" in r and set(r) <= {"from_table", "model"},
+                type(r) is dict and "from_table" in r and set(r) <= {"from_table", "model", "hit"},
                 "INPUT_INVALID",
-                "table 参数只收上一张表的回执：{from_table, model（读决策集时）}",
+                "table 参数只收上一张表的回执：{from_table, model（读决策集时）, hit（读 COLLECT 的第几份）}",
                 name,
             )
-            record, info = _chain(r["from_table"], r.get("model"), name)
+            record, info = _chain(r["from_table"], r.get("model"), name, r.get("hit"))
             if chained is not None:
                 chained[name] = info
             if record is None:
@@ -932,8 +985,22 @@ def _records(model, raw, missing, undeclared="REFUSE", chained=None):
 
 
 def _rule_state(rule, params):
+    """TRUE / FALSE / UNKNOWN for a rule."""
+    return _rule_match(rule, params)[0]
+
+
+def _rule_match(rule, params):
+    """(rule state, combination states or None). 0.5.18: the combinations of when_any are joined by a three-valued or —
+    TRUE when any is TRUE, else UNKNOWN when any is UNKNOWN, else FALSE."""
+    if "when_any" not in rule:
+        return _combination_state(rule["when"], params), None
+    states = [_combination_state(w, params) for w in rule["when_any"]]
+    return ("TRUE" if "TRUE" in states else "UNKNOWN" if "UNKNOWN" in states else "FALSE"), states
+
+
+def _combination_state(when, params):
     states = []
-    for c in rule["when"]:
+    for c in when:
         name, part = c["path"][1], c["path"][2]
         record = params.get(name)
         if part in ("value", "state", "result") and (
@@ -975,6 +1042,27 @@ def _modes(inputs, allowed, label):
     return missing, undeclared
 
 
+def _standard_shaped(model):
+    """Every template's data is exactly {result, note} with an object result (DMN 2.0 STANDARD output)."""
+    return all(
+        set(t["data"]) == {"result", "note"} and type(t["data"]["result"]["literal"]) is dict
+        for t in model["result_templates"].values()
+    )
+
+
+def _standard_hit(model, rule):
+    """One standard output: the rule's template (or the no-match template) with result.rule_id filled in."""
+    ref = rule["output_template_ref"] if rule else model["empty_template_ref"]
+    t = model["result_templates"][ref]
+    result = copy.deepcopy(t["data"]["result"]["literal"])
+    rid = rule["rule_id"] if rule else None
+    return {
+        "rule_id": rid,
+        "state": t["state"],
+        "data": {"result": {**result, "rule_id": rid}, "note": t["data"]["note"]["literal"]},
+    }
+
+
 def evaluate_decision_table(doc, inputs):
     model = doc["model"]
     missing, undeclared = _modes(
@@ -985,31 +1073,44 @@ def evaluate_decision_table(doc, inputs):
     params, filled = _records(model, given, missing, undeclared, chained)
     trace, selected, unknown = [], [], False
     policy = model["hit_policy"]
+    combinations = {}
     for rule in model["rules"]:
-        state = _rule_state(rule, params)
-        trace.append({"rule_id": rule["rule_id"], "match": state})
+        state, per = _rule_match(rule, params)
+        entry = {"rule_id": rule["rule_id"], "match": state}
+        if per is not None:
+            entry["combinations"] = per
+        trace.append(entry)
         if policy == "FIRST" and selected:
             continue
         unknown |= state == "UNKNOWN"
         if state == "TRUE":
             selected.append(rule)
+            if per is not None:
+                combinations[rule["rule_id"]] = [k for k, st in enumerate(per, 1) if st == "TRUE"]
     if unknown:
         raise RouteTableError("INDETERMINATE_MATCH", "有规则因未知输入无法判定，可能改变结果", "")
     if policy == "UNIQUE" and len(selected) > 1:
         _fail("UNIQUE_HIT_CONFLICT", "多条规则同时成立", "")
-    refs = [r["output_template_ref"] for r in selected] or [model["empty_template_ref"]]
-    templates = [model["result_templates"][ref] for ref in refs]
-    decision = {"state": templates[0]["state"], "data": {}}
-    for t in templates:
-        _need(t["state"] == decision["state"], "RESULT_CONFLICT", "命中的模板状态不一致", "")
-        for k, v in t["data"].items():
-            _need(
-                k not in decision["data"] or equal(decision["data"][k], v["literal"]),
-                "RESULT_CONFLICT",
-                "命中的模板数据冲突",
-                k,
-            )
-            decision["data"][k] = v["literal"]
+    standard = _standard_shaped(model)
+    if standard:
+        # 0.5.17 (DMN 2.0 §五、§七 第二步): a standard-shaped table gets result.rule_id from the plugin, and a COLLECT
+        # table one {state, result, note} per hit; decision stays the first (compatibility), decisions lists them all
+        hits = [_standard_hit(model, r) for r in selected] or [_standard_hit(model, None)]
+        decision = {"state": hits[0]["state"], "data": hits[0]["data"]}
+    else:
+        refs = [r["output_template_ref"] for r in selected] or [model["empty_template_ref"]]
+        templates = [model["result_templates"][ref] for ref in refs]
+        decision = {"state": templates[0]["state"], "data": {}}
+        for t in templates:
+            _need(t["state"] == decision["state"], "RESULT_CONFLICT", "命中的模板状态不一致", "")
+            for k, v in t["data"].items():
+                _need(
+                    k not in decision["data"] or equal(decision["data"][k], v["literal"]),
+                    "RESULT_CONFLICT",
+                    "命中的模板数据冲突",
+                    k,
+                )
+                decision["data"][k] = v["literal"]
     out = {
         "model_ref": doc["model_ref"],
         "model_version": model["version"],
@@ -1025,6 +1126,11 @@ def evaluate_decision_table(doc, inputs):
         else [],
         "inputs_digest": digest(_identity(params)),
     }
+    if standard and policy == "COLLECT":
+        out["decisions"] = [h for h in hits if h["rule_id"] is not None]
+    if combinations:
+        # 0.5.18: which combination(s) of a when_any rule held (from 1); tables without when_any are unchanged
+        out["selected_combinations"] = combinations
     if chained:
         out["chained_parameters"] = chained
     return out
@@ -1071,9 +1177,9 @@ def evaluate_decision_set(doc, inputs):
         r = given[name]
         if type(r) is dict and "from_table" in r:
             _need(
-                set(r) <= {"from_table", "model"},
+                set(r) <= {"from_table", "model", "hit"},
                 "INPUT_INVALID",
-                "table 参数只收上一张表的回执：{from_table, model（读决策集时）}",
+                "table 参数只收上一张表的回执：{from_table, model（读决策集时）, hit（读 COLLECT 的第几份）}",
                 name,
             )
             env = _envelope(r["from_table"], name)
@@ -1085,7 +1191,7 @@ def evaluate_decision_set(doc, inputs):
                 "同组模型不得互读输出",
                 name,
             )
-            _chain(env, r.get("model"), name)
+            _chain(env, r.get("model"), name, r.get("hit"))
         else:
             _plain_shape(r, name)
     models = {}
@@ -1218,12 +1324,7 @@ def evaluate_stored(table, fmt, inputs, load, version=None, content_sha256=None,
         if table in (None, ""):
             out["status"] = "NOT_REQUESTED"
             return out
-        _need(
-            type(table) is str and TABLE_RE.match(table),
-            "ROUTE_TABLE_INVALID",
-            "表名格式不对",
-            "table",
-        )
+        _need(table_name(table), "ROUTE_TABLE_INVALID", "表名格式不对", "table")
         pin = _pin(version, content_sha256)
         if isinstance(inputs, str) and not inputs.strip():
             inputs = {}

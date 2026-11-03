@@ -724,7 +724,8 @@ def test_the_chained_record_carries_the_upstream_provenance():
     st = chain_store()
     rec = chained_record(upstream(st, False), None, "up")
     assert rec["quality"] == "KNOWN" and rec["state"] == "PASS"
-    assert rec["result"] == {"actions": [], "decision": "ACCEPTED"}
+    # 0.5.17: a standard-shaped table's result carries the hit rule (result.rule_id, filled by the plugin)
+    assert rec["result"] == {"rule_id": "UP_OK", "actions": [], "decision": "ACCEPTED"}
     assert rec["source_refs"] == ["stored-table:triage.up@1#triage.up@1.0.0", "rule:UP_OK"]
 
 

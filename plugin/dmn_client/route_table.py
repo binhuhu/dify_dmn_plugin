@@ -8,6 +8,8 @@ import uuid
 from datetime import datetime, timezone
 
 from dmn_client.scene_id import (  # noqa: F401
+    CANONICAL_PATTERN,
+    NEW_MODE_PATTERN,
     SCENE_RE,
     by_scene,
     is_scene,
@@ -66,6 +68,22 @@ IN_CHUNK = 128  # values per "in" condition (json-table bound)
 TRANSFER_TO = ("SAFETY",)
 MAX_HISTORY = 50
 TABLE_RE = re.compile(r"^[a-z0-9][a-z0-9._-]{0,63}$")
+# 0.5.17 (DMN 2.0 §二): a solution-layer policy table is solution.<two segments>.<scene_id>[.<part>]. The scene id keeps its
+# canonical spelling (M_P_02_04_01), so this is the one storable name outside TABLE_RE; <part> is lower case, up to 24.
+SOLUTION_TABLE_RE = re.compile(
+    r"^solution\.(?:fact\.feature|feature\.reality|disposal\.strategy|disposal\.status)"
+    r"\.(?:" + CANONICAL_PATTERN[1:-1] + "|" + NEW_MODE_PATTERN[1:-1] + r")"
+    r"(?:\.[a-z][a-z0-9_]{0,23})?$"
+)
+
+
+def table_name(table):
+    """A storable table name: TABLE_RE, or (0.5.17) a solution-layer policy table name. At most 64 characters."""
+    return (
+        type(table) is str
+        and len(table) <= 64
+        and bool(TABLE_RE.match(table) or SOLUTION_TABLE_RE.fullmatch(table))
+    )
 
 
 CODE_RE = re.compile(r"^[A-Z][A-Z_]{0,63}$")
@@ -1222,7 +1240,7 @@ class StorageTables:
     @staticmethod
     def key(table, version=None):
         _need(
-            type(table) is str and TABLE_RE.match(table),
+            table_name(table),
             "ROUTE_TABLE_INVALID",
             "路由表名格式不对",
             "table",

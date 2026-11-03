@@ -22,8 +22,8 @@ parameters:
     en_US: table
     zh_Hans: 表名
   human_description:
-    en_US: Stored table name (p2.<app_id>, target.<name>, triage.<name>, supplement.requirements, dispatch.resource). Empty = not requested.
-    zh_Hans: 存储表名（p2.<方案应用编号>、target.<名称>、triage.<名称>、supplement.requirements、dispatch.resource）；空 = 本次不读。
+    en_US: Stored table name (p2.<app_id>, target.<name>, triage.<name>, solution.<fact.feature|feature.reality|disposal.strategy|disposal.status>.<scene_id>[.<part>], supplement.requirements, dispatch.resource). Empty = not requested.
+    zh_Hans: 存储表名（p2.<方案应用编号>、target.<名称>、triage.<名称>、solution.<fact.feature|feature.reality|disposal.strategy|disposal.status>.<场景号>[.<分片>]、supplement.requirements、dispatch.resource）；空 = 本次不读。
   llm_description: Stored table name; empty means not requested.
 - name: format
   type: string
@@ -45,10 +45,10 @@ parameters:
     zh_Hans: inputs_json
   human_description:
     en_US: 'decision-table/v1: {"parameters": {name: {quality, value, source_refs}}, "missing": "BLOCK"|"UNKNOWN", "undeclared": "REFUSE"|"IGNORE"};
-      a table parameter takes {"from_table": <the upstream results>, "model": <model key, for a decision set>};
+      a table parameter takes {"from_table": <the upstream results>, "model": <model key, for a decision set>, "hit": <which output of a COLLECT receipt, from 0>};
       decision-set/v1: the same plus "models": [model keys] (absent = all); supplement-requirements/v1 | supplement-requirements/v2:
       {"scene_id"}; resource-targets/v1: {"resource_id"}. Object or JSON string.'
-    zh_Hans: 'decision-table/v1：{"parameters": {参数: {quality, value, source_refs}}, "missing": "BLOCK"|"UNKNOWN", "undeclared": "REFUSE"|"IGNORE"}；table 参数收 {"from_table": <上一张表的 results>, "model": <决策集的模型键>}；decision-set/v1：同上再加 "models": [模型键]（不写 = 全部）；supplement-requirements/v1 | supplement-requirements/v2：{"scene_id"}；resource-targets/v1：{"resource_id"}。对象或 JSON 字符串。'
+    zh_Hans: 'decision-table/v1：{"parameters": {参数: {quality, value, source_refs}}, "missing": "BLOCK"|"UNKNOWN", "undeclared": "REFUSE"|"IGNORE"}；table 参数收 {"from_table": <上一张表的 results>, "model": <决策集的模型键>, "hit": <读 COLLECT 回执的第几份，从 0 起>}；decision-set/v1：同上再加 "models": [模型键]（不写 = 全部）；supplement-requirements/v1 | supplement-requirements/v2：{"scene_id"}；resource-targets/v1：{"resource_id"}。对象或 JSON 字符串。'
   llm_description: Inputs for the table, object or JSON string.
 - name: version
   type: string

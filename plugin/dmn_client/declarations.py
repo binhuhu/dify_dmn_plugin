@@ -31,6 +31,7 @@ DECISION_ROLES = (
     "FACT_FEATURE",
     "FEATURE_REALITY",
     "DISPOSAL",
+    "DISPOSAL_STATUS",  # 0.5.17 (DMN 2.0 R9): once per run, outcome + reason_code
 )
 ROLES_BY_SCHEMA = {
     "dmn-json.decision-table/v1": DECISION_ROLES,
@@ -60,14 +61,35 @@ FIXED_INPUTS = {
     "RESOURCE": ("resource_id",),
     "ROUTE": ("scene_id", "issue_type", "phase"),
 }
-KEYS = {"stage", "role", "priority", "parameters", "outputs", "states", "rows", "row_order_sha256"}
+KEYS = {
+    "stage",
+    "role",
+    "priority",
+    "parameters",
+    "outputs",
+    "states",
+    "rows",
+    "row_order_sha256",
+    "texts",
+}
 SET_KEYS = {"stage", "role", "models"}
 MAX_SHADOWING = 100
+MAX_OVERLAP_CHECKS = 4096
 SOURCE_RE = re.compile(r"^(fact|feature|calc|table|request):\S{1,160}$")
 KEY_RE = re.compile(r"^[A-Za-z0-9_.:#/一-鿿-]{1,160}$")
 HEX64 = re.compile(r"^[0-9a-f]{64}$")
 CUSTOMER_MAX = 200
 NOTE_MAX = 200
+# 0.5.17 (DMN 2.0 R7): texts.customer may be split into segments, joined by a shared node in this order
+SEGMENTS = ("ACKNOWLEDGE", "CURRENT", "ANSWER", "PLAN", "CLOSING")
+AUDIENCES = (
+    "CUSTOMER",
+    "AGENT_ONLY",
+)  # R8: whether this disposal itself may be told to the customer
+SLOT_RE = re.compile(r"\{([^{}\s]{1,40})\}")
+SLOT_NAME_RE = re.compile(r"^[^{}\s]{1,40}$")
+MAX_SLOTS = 64
+MAX_WORDS = 64
 # Customer-facing text never names an internal verdict, a code or a long number (phone, order id).
 CUSTOMER_WORDS = ("作弊", "风控", "黑名单", "反作弊", "规则号", "命中规则", "内部")
 CODE_RE = re.compile(r"[A-Z][A-Z0-9]*[_-][A-Z0-9_-]+")
@@ -80,6 +102,24 @@ ACCEPTANCE = {
     "NO_MATCH": "UNDETERMINED",
 }
 OUTCOME = {"DONE": "PASS", "NEED_INPUT": "PENDING", "NEED_REVIEW": "PENDING", "REFUSED": "FAIL"}
+# 0.5.18 (DMN 2.0 §三、§五): a conclusion is the row state plus the role's business keys (plus gap.code when something is
+# missing); a STANDARD table writes one rule per conclusion, its alternatives as when_any combinations
+CONCLUSION_KEYS = {
+    # a scene's entity requirement is all of its keys: two scenes that both need an ORDER may confirm it differently
+    "SCENE_ENTITY": (
+        "object_type",
+        "instance_required",
+        "confirm_methods",
+        "necessary_state",
+        "necessary_rule_ids",
+        "label",
+    ),
+    "ACCEPTANCE": ("decision", "reason_code"),
+    "FACT_FEATURE": ("feature_id", "value"),
+    "FEATURE_REALITY": ("reality_id",),
+    "DISPOSAL": ("disposal_id",),
+    "DISPOSAL_STATUS": ("outcome", "reason_code"),
+}
 
 
 def _need(ok, message, path):
@@ -276,6 +316,8 @@ def check(declare, clean, schema):
     if "priority" in declare:
         _need(declare["priority"] == "ROW_ORDER", "priority 只能是 ROW_ORDER", ".priority")
         out["priority"] = "ROW_ORDER"
+    if "texts" in declare:
+        out["texts"] = _texts_declare(declare["texts"])
     if "row_order_sha256" in declare:
         _need(
             type(declare["row_order_sha256"]) is str and HEX64.match(declare["row_order_sha256"]),
@@ -298,6 +340,56 @@ def check(declare, clean, schema):
         )
     else:
         _route(out)
+    return out
+
+
+def _texts_declare(v):
+    """0.5.17 (R7): the table's slots ({名: {source, format?}}) and words ({forbid: [词…]}), checked against its texts."""
+    _need(
+        type(v) is dict and v and set(v) <= {"slots", "words"}, "texts = slots（+ words）", ".texts"
+    )
+    out = {}
+    if "slots" in v:
+        slots = v["slots"]
+        _need(
+            type(slots) is dict and 0 < len(slots) <= MAX_SLOTS,
+            "texts.slots = 槽位名 → {source, format}",
+            ".texts.slots",
+        )
+        out["slots"] = {}
+        for name, spec in slots.items():
+            p = ".texts.slots." + str(name)[:40]
+            _need(type(name) is str and SLOT_NAME_RE.match(name), "槽位名不对", p)
+            _need(
+                type(spec) is dict and "source" in spec and set(spec) <= {"source", "format"},
+                "槽位 = source（+ format）",
+                p,
+            )
+            _need(
+                type(spec["source"]) is str and SOURCE_RE.match(spec["source"]),
+                "source = fact: / feature: / calc: / table: / request: 开头",
+                p + ".source",
+            )
+            one = {"source": spec["source"]}
+            if "format" in spec:
+                one["format"] = _text(spec["format"], 40, "槽位格式", p + ".format")
+            out["slots"][name] = one
+    if "words" in v:
+        words = v["words"]
+        _need(
+            type(words) is dict and set(words) == {"forbid"},
+            "texts.words = {forbid: [词…]}",
+            ".texts.words",
+        )
+        forbid = words["forbid"]
+        _need(
+            type(forbid) is list
+            and 0 < len(forbid) <= MAX_WORDS
+            and all(type(w) is str and 0 < len(w.strip()) <= 20 for w in forbid),
+            "texts.words.forbid = 1–%d 个词，每个最多 20 字" % MAX_WORDS,
+            ".texts.words.forbid",
+        )
+        out["words"] = {"forbid": [w.strip() for w in forbid]}
     return out
 
 
@@ -341,6 +433,8 @@ def _decision(out, model):
         used = {t["state"] for t in templates.values()}
         undeclared = sorted(used - set(out["states"]))
         _need(not undeclared, "模板用到但没声明的 state：" + ", ".join(undeclared), ".states")
+    if out["stage"] == "STANDARD":
+        _one_rule_per_conclusion(out["role"], model)
     for ref, t in templates.items():
         p = ".templates." + str(ref)[:64]
         if out["stage"] == "TRANSITION":
@@ -350,6 +444,47 @@ def _decision(out, model):
                 _need(_typed(v["literal"], spec), "模板的数据键 %s 和声明的类型或取值对不上" % k, p)
         else:
             _standard(out, t, p)
+
+
+def _conclusion_numbers(value):
+    """Use the same numeric equality as JSON conditions, keeping booleans distinct."""
+    if type(value) is float and value.is_integer():
+        return int(value)
+    if type(value) is list:
+        return [_conclusion_numbers(item) for item in value]
+    if type(value) is dict:
+        return {key: _conclusion_numbers(item) for key, item in value.items()}
+    return value
+
+
+def conclusion_of(role, template):
+    """The conclusion a template gives: (state, business keys…, gap codes) as canonical JSON (DMN 2.0 §五)."""
+    result = (template.get("data", {}).get("result") or {}).get("literal")
+    result = result if type(result) is dict else {}
+    gap = result.get("gap")
+    codes = [g.get("code") for g in (gap if type(gap) is list else [gap]) if type(g) is dict]
+    keys = CONCLUSION_KEYS.get(role, ())
+    return json.dumps(
+        _conclusion_numbers([template.get("state")] + [result.get(k) for k in keys] + [codes]),
+        ensure_ascii=False,
+        sort_keys=True,
+    )
+
+
+def _one_rule_per_conclusion(role, model):
+    """0.5.18: two rules giving the same conclusion are one rule with when_any combinations."""
+    if role not in CONCLUSION_KEYS:
+        return
+    seen = {}
+    for r in model["rules"]:
+        key = conclusion_of(role, model["result_templates"][r["output_template_ref"]])
+        _need(
+            key not in seen,
+            "同一结论只写一条规则：%s 和 %s 给出同一个结论（%s）；把它们的条件写成一条规则的 when_any"
+            % (seen.get(key), r["rule_id"], key[:120]),
+            ".rules." + str(r["rule_id"])[:64],
+        )
+        seen[key] = r["rule_id"]
 
 
 def _row_states(listed, model):
@@ -432,6 +567,24 @@ def _set(declare, clean, roles):
     return out
 
 
+def _customer_lines(value, path):
+    """texts.customer as its lines: one sentence (str) or segments (0.5.17, R7); None = not written."""
+    if value is None:
+        return []
+    if type(value) is str:
+        _need(value.strip(), "texts.customer 是一句话或分段", path)
+        return [value]
+    _need(
+        type(value) is dict
+        and value
+        and set(value) <= set(SEGMENTS)
+        and all(type(x) is str and x.strip() for x in value.values()),
+        "texts.customer 是一句话，或分段 {" + " / ".join(SEGMENTS) + "}，每段一句话",
+        path,
+    )
+    return [value[k] for k in SEGMENTS if k in value]
+
+
 def _standard(out, t, p):
     data = t["data"]
     _need(set(data) == {"result", "note"}, "STANDARD 模板的 data 只能是 result + note", p)
@@ -444,7 +597,7 @@ def _standard(out, t, p):
     _need(type(result) is dict, "result 是 JSON 对象", p + ".result")
     _need(
         "rule_id" not in result,
-        "命中规则由 selected_rule_ids 返回，模板里不写 result.rule_id",
+        "命中规则由插件填进 result.rule_id（并在 selected_rule_ids 返回），模板里不写 result.rule_id",
         p + ".result.rule_id",
     )
     _need(
@@ -465,13 +618,13 @@ def _standard(out, t, p):
         p + ".result.texts",
     )
     texts = texts or {}
-    for k in ("customer", "agent"):
-        if k in texts:
-            _need(
-                type(texts[k]) is str and texts[k].strip(),
-                "texts.%s 是一句话" % k,
-                p + ".result.texts." + k,
-            )
+    customer = _customer_lines(texts.get("customer"), p + ".result.texts.customer")
+    if "agent" in texts:
+        _need(
+            type(texts["agent"]) is str and texts["agent"].strip(),
+            "texts.agent 是一句话",
+            p + ".result.texts.agent",
+        )
     if "by_channel" in texts:
         bc = texts["by_channel"]
         _need(
@@ -479,12 +632,18 @@ def _standard(out, t, p):
             "texts.by_channel = {渠道: 一句话}",
             p + ".result.texts.by_channel",
         )
-    for line in [texts.get("customer")] + list((texts.get("by_channel") or {}).values()):
-        if line:
-            bad = customer_problems(line)
-            _need(not bad, "对乘客的话不能有：" + "、".join(bad), p + ".result.texts")
+    told = customer + list((texts.get("by_channel") or {}).values())
+    for line in told:
+        bad = customer_problems(line)
+        _need(not bad, "对乘客的话不能有：" + "、".join(bad), p + ".result.texts")
+    _texts_against_declare(out, told + ([texts["agent"]] if texts.get("agent") else []), p)
     role, state = out["role"], t["state"]
     if role in ("ACCEPTANCE", "SUPPLEMENT", "DISPOSAL"):
+        _need(
+            role == "DISPOSAL" or texts.get("customer") is not None or "customer" not in texts,
+            "texts.customer 是一句话或分段",
+            p + ".result.texts.customer",
+        )
         if role == "ACCEPTANCE":
             _need(
                 result.get("decision") == ACCEPTANCE.get(state),
@@ -494,34 +653,112 @@ def _standard(out, t, p):
             need = state in ("FAIL", "PENDING")
         elif role == "SUPPLEMENT":
             need = state == "PENDING"
-        elif state == "NO_MATCH":
-            # the table state when no rule hits: no disposal was decided, so there is no outcome
-            _need(
-                "outcome" not in result,
-                "处置：一行没中（NO_MATCH）不写 outcome",
-                p + ".result.outcome",
-            )
-            need = False
         else:
-            oc = result.get("outcome")
-            _need(
-                type(oc) is str and OUTCOME.get(oc) == state,
-                "处置：outcome 只能是 DONE / NEED_INPUT / NEED_REVIEW / REFUSED，且和 state 对应",
-                p + ".result.outcome",
-            )
-            need = oc != "NEED_REVIEW"
-            _need(
-                oc != "NEED_REVIEW" or texts.get("agent"),
-                "处置 NEED_REVIEW 要写 texts.agent",
-                p + ".result.texts.agent",
-            )
+            need = _disposal(result, texts, state, p)
         _need(
-            not need or texts.get("customer"),
+            not need or customer,
             "这个结论会告诉乘客，要写 texts.customer",
             p + ".result.texts.customer",
         )
+    elif role == "DISPOSAL_STATUS":
+        _need(not texts, "处置状态不对乘客说话，不写 texts", p + ".result.texts")
+        _outcome(result, state, p, required=True)
+        if state != "NO_MATCH":
+            _need(
+                type(result.get("reason_code")) is str and result["reason_code"].strip(),
+                "处置状态要写 reason_code",
+                p + ".result.reason_code",
+            )
     else:
         _need(not texts, "这种表不对乘客说话，不写 texts", p + ".result.texts")
+
+
+def _outcome(result, state, p, required):
+    """outcome on a disposal (optional since 0.5.17, R9) or disposal status (required): it follows the state (§九-1);
+    a no-match result has none."""
+    if state == "NO_MATCH":
+        _need(
+            "outcome" not in result,
+            "一行没中（NO_MATCH）不写 outcome",
+            p + ".result.outcome",
+        )
+        return None
+    if not required and "outcome" not in result:
+        return None
+    oc = result.get("outcome")
+    _need(
+        type(oc) is str and OUTCOME.get(oc) == state,
+        "outcome 只能是 DONE / NEED_INPUT / NEED_REVIEW / REFUSED，且和 state 对应",
+        p + ".result.outcome",
+    )
+    return oc
+
+
+def _disposal(result, texts, state, p):
+    """Whether this disposal must carry texts.customer. 0.5.17 (R8, R9): audience CUSTOMER → yes; AGENT_ONLY →
+    customer is null or left out and texts.agent is required; a disposal without outcome (the R9 shape) must say its
+    audience. Without audience the draft.10 rule stands (every outcome but NEED_REVIEW tells the customer)."""
+    oc = _outcome(result, state, p, required=False)
+    audience = result.get("audience")
+    _need(
+        audience is None or audience in AUDIENCES,
+        "audience 只能是 CUSTOMER / AGENT_ONLY",
+        p + ".result.audience",
+    )
+    if audience == "AGENT_ONLY":
+        _need(
+            texts.get("customer") is None,
+            "只给坐席（AGENT_ONLY）时 texts.customer 写 null 或不写",
+            p + ".result.texts.customer",
+        )
+        _need(
+            not texts.get("by_channel"),
+            "只给坐席（AGENT_ONLY）时不写对客渠道话术 texts.by_channel",
+            p + ".result.texts.by_channel",
+        )
+    if state == "NO_MATCH":
+        return False
+    _need(
+        oc != "NEED_REVIEW" or texts.get("agent"),
+        "处置 NEED_REVIEW 要写 texts.agent",
+        p + ".result.texts.agent",
+    )
+    _need(
+        audience is not None or oc is not None,
+        "处置不写 outcome 时要写 audience（CUSTOMER / AGENT_ONLY）",
+        p + ".result.audience",
+    )
+    if audience is None:
+        _need(
+            texts.get("customer") is not None or "customer" not in texts,
+            "texts.customer 是一句话或分段",
+            p + ".result.texts.customer",
+        )
+        return oc != "NEED_REVIEW"
+    if audience == "AGENT_ONLY":
+        _need(
+            texts.get("agent"),
+            "只给坐席（AGENT_ONLY）时要写 texts.agent",
+            p + ".result.texts.agent",
+        )
+        return False
+    return True
+
+
+def _texts_against_declare(out, lines, p):
+    """0.5.17 (R7): every {槽位} is declared when the table declares slots; no declared forbidden word appears."""
+    decl = out.get("texts") or {}
+    if "slots" in decl:
+        for line in lines:
+            for name in SLOT_RE.findall(line):
+                _need(
+                    name in decl["slots"],
+                    "话术里的槽位 {%s} 没在 texts.slots 声明" % name,
+                    p + ".result.texts",
+                )
+    for word in (decl.get("words") or {}).get("forbid", []):
+        for line in lines:
+            _need(word not in line, "话术里有本表的禁用词：" + word, p + ".result.texts")
 
 
 def _keyed(out, entries, used_states, field):
@@ -605,10 +842,13 @@ def _model_warnings(d, model, before):
     if sha and model["hit_policy"] == "FIRST" and sha != row_order_sha256(model):
         w = {"code": "ROW_ORDER_STALE", "level": "TABLE", "message": "行顺序变了，优先级待重新确认"}
         if type(before) is dict and _ids(before) != _ids(model):
-            changes = row_order_changes(before, model, MAX_SHADOWING + 1)
+            analysis = {}
+            changes = row_order_changes(before, model, MAX_SHADOWING + 1, analysis=analysis)
             w["shadowing"] = changes[:MAX_SHADOWING]
             if len(changes) > MAX_SHADOWING:
                 w["shadowing_truncated"] = True
+            if analysis.get("limited"):
+                w["shadowing_analysis_limited"] = True
         out.append(w)
     return out
 
@@ -617,26 +857,81 @@ def _ids(model):
     return [r["rule_id"] for r in model.get("rules", [])] if type(model) is dict else []
 
 
-def row_order_changes(before, after, limit=MAX_SHADOWING):
-    """Shadowing changes between two orders of a FIRST table: pairs of rules both have whose precedence flipped and
-    that may both hold for one input ({rules: [a, b], before: a, after: b}: a used to win, now b does)."""
+def row_order_changes(before, after, limit=MAX_SHADOWING, *, analysis=None):
+    """Flipped FIRST rule pairs that may overlap. Work is bounded; unresolved pairs remain possible overlaps,
+    never silently disappear. The caller can inspect analysis["limited"] for conservative budget fallback."""
     old, pos = _ids(before), {rid: i for i, rid in enumerate(_ids(after))}
     by_id = {r["rule_id"]: r for r in after["rules"]}
     common = [rid for rid in old if rid in pos]
+    domains = {rid: _finite_domains(by_id[rid]) for rid in common}
+    budget = {"remaining": MAX_OVERLAP_CHECKS, "limited": False}
     out = []
     for i, a in enumerate(common):
         for b in common[i + 1 :]:
-            if pos[b] < pos[a] and may_overlap(by_id[a], by_id[b]):
+            if pos[b] < pos[a] and may_overlap(
+                by_id[a], by_id[b], domains=(domains[a], domains[b]), budget=budget
+            ):
                 out.append({"rules": [a, b], "before": a, "after": b})
                 if len(out) >= limit:
+                    if analysis is not None:
+                        analysis["limited"] = budget["limited"]
                     return out
+    if analysis is not None:
+        analysis["limited"] = budget["limited"]
     return out
 
 
-def may_overlap(a, b):
-    """Whether two rules may hold for one input: False only when the conditions on some path cannot all be true."""
+def _domain_key(path, value):
+    if path == tuple(scene_id.SCENE_VALUE_PATH) and scene_id.is_scene(value):
+        value = scene_id.spell(value, scene_id.CANONICAL)
+    return json.dumps(_conclusion_numbers(value), ensure_ascii=False, sort_keys=True)
+
+
+def _finite_domains(rule):
+    """Finite upper bounds on paths constrained by every combination. Extra constraints may only shrink them."""
+    domains = None
+    for when in _combinations(rule):
+        one = {}
+        for c in when:
+            if c["op"] in ("eq", "in"):
+                path = tuple(c["path"])
+                values = [c["value"]] if c["op"] == "eq" else c["value"]
+                one.setdefault(path, {_domain_key(path, value) for value in values})
+        domains = (
+            one
+            if domains is None
+            else {path: domains[path] | one[path] for path in domains.keys() & one.keys()}
+        )
+        if not domains:
+            return {}
+    return domains or {}
+
+
+def may_overlap(a, b, *, domains=None, budget=None):
+    """False only for proven contradiction. Finite-domain filtering is conservative; a work limit can only
+    turn an unresolved pair into a possible overlap, never suppress a warning."""
+    left, right = domains if domains is not None else (_finite_domains(a), _finite_domains(b))
+    if any(left[path].isdisjoint(right[path]) for path in left.keys() & right.keys()):
+        return False
+    for x in _combinations(a):
+        for y in _combinations(b):
+            if budget is not None:
+                if budget["remaining"] <= 0:
+                    budget["limited"] = True
+                    return True
+                budget["remaining"] -= 1
+            if _combinations_overlap(x, y):
+                return True
+    return False
+
+
+def _combinations(rule):
+    return rule["when_any"] if type(rule.get("when_any")) is list else [list(rule.get("when", []))]
+
+
+def _combinations_overlap(x, y):
     paths = {}
-    for c in list(a.get("when", [])) + list(b.get("when", [])):
+    for c in list(x) + list(y):
         paths.setdefault(json.dumps(c["path"], ensure_ascii=False), []).append(c)
     return all(_satisfiable(cs) for cs in paths.values())
 
