@@ -22,8 +22,8 @@ parameters:
     en_US: table
     zh_Hans: 表名
   human_description:
-    en_US: Stored table name (p2.<app_id>, target.<name>, triage.<name>, solution.<fact.feature|feature.reality|disposal.strategy|disposal.status>.<scene_id>[.<part>], supplement.requirements, dispatch.resource). Empty = not requested.
-    zh_Hans: 存储表名（p2.<方案应用编号>、target.<名称>、triage.<名称>、solution.<fact.feature|feature.reality|disposal.strategy|disposal.status>.<场景号>[.<分片>]、supplement.requirements、dispatch.resource）；空 = 本次不读。
+    en_US: Stored table name (p2.<app_id>, target.<name>, triage.<name>, solution.<fact.feature|feature.reality|disposal.strategy|disposal.status>.<scene_id>[.<part>], triage.supplement.requirements, triage.dispatch.resource; the old names target.scene_entity, triage.acceptance, supplement.requirements, dispatch.resource are read-only aliases during the transition). Empty = not requested.
+    zh_Hans: 存储表名（p2.<方案应用编号>、target.<名称>、triage.<名称>、solution.<fact.feature|feature.reality|disposal.strategy|disposal.status>.<场景号>[.<分片>]、triage.supplement.requirements、triage.dispatch.resource；旧名 target.scene_entity、triage.acceptance、supplement.requirements、dispatch.resource 是过渡期只读别名）；空 = 本次不读。
   llm_description: Stored table name; empty means not requested.
 - name: format
   type: string

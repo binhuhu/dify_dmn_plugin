@@ -19,9 +19,9 @@ parameters:
     en_US: op
     zh_Hans: 操作
   human_description:
-    en_US: table | history | version | save
-    zh_Hans: table（当前版）/ history（历史）/ version（某一版）/ save（保存）
-  llm_description: table, history, version or save.
+    en_US: table | history | version | save | undo (undo a first store under a standard name; version = its head version) | check (the standard-name keys 0.5.19 would see, and the old name's version keys above its head; both empty before a first store and before reinstalling 0.5.19)
+    zh_Hans: table（当前版）/ history（历史）/ version（某一版）/ save（保存）/ undo（撤销标准名的首存，version 写它当前头版的版本号）/ check（0.5.19 会看到的标准名键，以及旧名头版之上的版本键；首存前、回退装 0.5.19 前都应为空）
+  llm_description: table, history, version, save, undo or check.
 - name: table
   type: string
   required: false

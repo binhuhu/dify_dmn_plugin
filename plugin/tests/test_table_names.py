@@ -1,4 +1,5 @@
-"""New policy-table names read the current names' storage; saves under them are refused; current names are unchanged."""
+"""New policy-table names read the current names' storage; saves under them are refused; current names are unchanged.
+0.5.20 (存表名即标准名): all of this holds until a table's first store under its standard name (test_v0520_store_name)."""
 
 import json
 
@@ -10,7 +11,9 @@ from test_stored_tables import p2_doc, resource_doc, store, supplement_doc, with
 from dmn_client.route_store import run_op
 from dmn_client.route_table import RouteTableError, StorageTables
 from dmn_client.stored_tables import APP_TARGET, APP_TRIAGE, FORMAT_SUPPLEMENT, evaluate_stored
-from dmn_client.table_names import ALIASES, alias_of, storage_name
+from dmn_client.table_names import STANDARD, alias_of, storage_name
+
+ALIASES = STANDARD  # 0.5.20: standard → old is table_names.STANDARD; table_names.ALIASES is old → standard
 
 
 def test_the_five_names():
@@ -21,10 +24,12 @@ def test_the_five_names():
         "triage.dispatch.route": "dispatch.route",
         "triage.dispatch.resource": "dispatch.resource",
     }
-    assert storage_name("dispatch.route") == "dispatch.route" and alias_of("dispatch.route") is None
-    assert storage_name("triage.dispatch.route") == "dispatch.route"
+    # 0.5.20: one table, two names; the standard name is the storage name, reads before its first store go to the old
+    assert storage_name("dispatch.route") == storage_name("triage.dispatch.route")
+    assert alias_of("triage.dispatch.route") is None
     for new in ALIASES:  # every new name passes the storage name rule
-        assert StorageTables.key(new) == "route-table:" + ALIASES[new]
+        assert StorageTables.key(new) == "route-table:" + new
+        assert StorageTables(FakeStorage()).where(new) == ALIASES[new]
 
 
 def saved_storage():
@@ -85,9 +90,13 @@ def test_a_save_under_a_new_name_is_refused_and_writes_nothing(new):
     )
     if before is not None:
         assert storage.data == before
+    # 0.5.20: a body under a standard name is its first store (the copy, test_v0520_store_name); this one does not
+    # validate, and nothing is written
     with pytest.raises(RouteTableError) as e:
         StorageTables(storage).save({"table": new}, 0)
-    assert e.value.code == "STORED_TABLE_ALIAS_READ_ONLY"
+    assert e.value.code in ("ROUTE_TABLE_INVALID", "STORED_TABLE_NAME")
+    if before is not None:
+        assert storage.data == before
 
 
 def test_evaluate_through_the_alias_names_both():

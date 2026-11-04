@@ -24,6 +24,8 @@ class EvaluateStoredTableTool(Tool):
             version=_text(tool_parameters.get("version")),
             content_sha256=_text(tool_parameters.get("content_sha256")),
             load_version=tables.version,
+            # 0.5.20 (I4): a content pin searches the table's one chain (StorageTables.find_content)
+            find_content=tables.find_content,
         )
         yield self.create_json_message(result)
         yield self.create_variable_message("results", result)

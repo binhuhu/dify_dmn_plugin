@@ -138,7 +138,9 @@
   async function load() {
     state.busy = true; state.msg = null; state.confirming = false; state.conflict = false; state.errKey = state.errApp = null; paint();
     try {
-      const [t, h] = await Promise.all([api(q('table')), api(q('history'))]);
+      let [t, h] = await Promise.all([api(q('table')), api(q('history'))]);
+      // 0.5.20 (存表名即标准名): an old name read after the first store answers with the standard name; edit that one
+      if (t.read_as && t.table) { state.table = t.table; h = await api(q('history')); }
       state.doc = t.doc; state.baseDoc = routeDoc(t.doc); state.version = t.version; state.history = h.versions; state.basedOn = t.version; state.loaded = true;
       state.draft = toDraft(routeDoc(t.doc));
       if (t.doc && !routeDoc(t.doc)) state.msg = { cls: 'warn', text: '插件里的 ' + state.table + ' 是旧格式（' + t.doc.schema + '），本页只编辑 v2 / v3：用「导入 JSON」放进第一版后保存。' };

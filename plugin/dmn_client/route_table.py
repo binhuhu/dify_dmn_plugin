@@ -14,7 +14,7 @@ from dmn_client.scene_id import (  # noqa: F401
     by_scene,
     is_scene,
 )
-from dmn_client.table_names import alias_of, storage_name
+from dmn_client.table_names import alias_of, old_name, read_as, storage_name
 
 SCHEMA = "dmn-json.route-table/v1"
 FORMAT = "admission-routing-table/v1"
@@ -1080,6 +1080,9 @@ def materialize(bundle, load):
             "saved_at": doc.get("saved_at"),
             "content_sha256": content_sha256(clean),
         }
+        source.update(
+            read_as(src["table"], doc.get("table"))
+        )  # 0.5.20: an old name read after the first store
         if src["format"] in (FORMAT_V3, FORMAT_V4):
             resources, source["resources"] = _resources(clean, load, "models." + ref)
             v4 = src["format"] == FORMAT_V4
@@ -1133,6 +1136,7 @@ def _resources(clean, load, path):
             "version": raw.get("version"),
             "saved_at": raw.get("saved_at"),
             "content_sha256": stored_tables.content_sha256(rdoc),
+            **read_as(name, raw.get("table")),  # 0.5.20: an old name read after the first store
         },
     )
 
@@ -1233,8 +1237,74 @@ def gate_report_of(report, content):
     return report
 
 
+# 0.5.20 (存表名即标准名, 迁移不变式 I1–I27): the first-store state of a standard name lives in its first record
+# (route-table:<standard name>:first). No record: OLD, epoch 0, storage as 0.5.19 left it. A record says OLD (a first
+# store that aborted, or one undone), COPYING, NEW or UNDOING, with an epoch that grows at every change and the id of the
+# operation that wrote it (I18). It is read from storage at every decision, never cached; it is only written when it is
+# still what the writer read, and read back (I21). Every writer re-reads it before and after its commit (I19, I20).
+OLD, COPYING, NEW, UNDOING = "OLD", "COPYING", "NEW", "UNDOING"
+STATES = (OLD, COPYING, NEW, UNDOING)
+STAMP = "%Y-%m-%dT%H:%M:%SZ"
+NO_RECORD = (OLD, 0, None)
+RAW = "RAW"  # R5: the mark of a first record that does not read: (RAW, 0, sha256 of its bytes)
+# I25: the fields a first store may set itself; every other field of the copy equals the old version's
+COPY_OWN_FIELDS = (
+    "table",
+    "note",
+    "version",
+    "saved_at",
+    "save_id",
+    "parent_save_id",
+    "content_sha256",
+    "supersedes",
+    "schema_transition",
+)
+
+
+def _unavailable(table, why):
+    """I13: a state that cannot be read is never taken for OLD: no read switches names, no write goes through."""
+    return RouteTableError(
+        "STORED_TABLE_UNAVAILABLE",
+        "判不清表 %s 的首存状态（%s）：这次不读也不存，先查插件存储" % (table, why),
+        "table",
+    )
+
+
+def _record_ok(rec, table):
+    if type(rec) is not dict or rec.get("state") not in STATES or rec.get("table") != table:
+        return False
+    if type(rec.get("epoch")) is not int or rec["epoch"] < 1 or type(rec.get("owner")) is not str:
+        return False
+    if type(rec.get("old_head_version")) is not int or rec["old_head_version"] < 0:
+        return False
+    if type(rec.get("keys")) is not list or not all(type(k) is str for k in rec["keys"]):
+        return False
+    if rec["state"] == OLD:
+        return True
+    return (
+        all(type(rec.get(k)) is str for k in ("save_id", "saved_at", "doc_sha256"))
+        and (rec.get("supersedes") is None or type(rec.get("supersedes")) is dict)
+        and (rec["state"] != UNDOING or type(rec.get("undo_head_version")) in (int, type(None)))
+    )
+
+
+def _mark(rec):
+    """(state, epoch, owner) of a record; no record: (OLD, 0, None) (I18)."""
+    return NO_RECORD if rec is None else (rec["state"], rec["epoch"], rec["owner"])
+
+
+def _fix_id(owner, table):
+    """The save id of an undo's reference fix of table (I24): derived from the undo, the same for its retries."""
+    return hashlib.sha256(("undo-fix:%s:%s" % (owner, table)).encode("utf-8")).hexdigest()[:32]
+
+
+def _change(mark, now):
+    """How a first record changed, for a message: the same state again is another round of it (I18)."""
+    return "%s → %s" % (mark[0], now[0] if now[0] != mark[0] else "另一轮的 " + now[0])
+
+
 class StorageTables:
-    """Route tables in Dify plugin storage (session.storage: set / get / exist)."""
+    """Route tables in Dify plugin storage (session.storage: set / get / exist; delete only to undo a first store)."""
 
     def __init__(self, storage, now=lambda: datetime.now(timezone.utc)):
         self.storage, self.now = storage, now
@@ -1247,41 +1317,221 @@ class StorageTables:
             "路由表名格式不对",
             "table",
         )
-        # a new policy-table name reads its current name's storage (dmn_client.table_names)
-        return "route-table:" + storage_name(table) + ("" if version is None else ":v%d" % version)
+        # 0.5.20 (存表名即标准名): the storage key of the name itself; which name a read reads is where()
+        return "route-table:" + table + ("" if version is None else ":v%d" % version)
+
+    @staticmethod
+    def first_key(table):
+        """0.5.20: the first record of a standard name (its first-store state)."""
+        return "route-table:" + table + ":first"
 
     def _read(self, key):
         try:
             if not self.storage.exist(key):
                 return None
-            return json.loads(self.storage.get(key).decode("utf-8"))
+            try:
+                raw = self.storage.get(key)
+            except Exception:
+                # 0.5.20 (存表名即标准名): an undo deletes keys; one gone between exist and get reads as absent, any
+                # other storage failure raises as it is
+                if not self.storage.exist(key):
+                    return None
+                raise
+            return json.loads(raw.decode("utf-8"))
         except (ValueError, UnicodeDecodeError) as exc:
             raise RouteTableError("ROUTE_TABLE_CORRUPT", "插件存储里的路由表读不出来", key) from exc
 
-    def _alias_collision_check(self, table, version=None):
-        if alias_of(table):
-            physical = "route-table:" + table
-            _need(
-                not self.storage.exist(physical)
-                and (version is None or not self.storage.exist(physical + ":v%d" % version)),
-                "STORED_TABLE_ALIAS_COLLISION",
-                "只读别名与已有独立表冲突，请先检查存储；未读取或修改任何表内容",
-                "table",
-            )
+    # ── 0.5.20: the first record ─────────────────────────────────────────────
 
-    def load(self, table):
-        key = self.key(table)
-        self._alias_collision_check(table)
-        return self._read(key)
+    def _record(self, table):
+        """(mark, record) as storage holds it now, nothing inferred (I23). A storage failure raises as it is; a record
+        that does not read raises STORED_TABLE_UNAVAILABLE (I13)."""
+        key = self.first_key(table)
+        if not self.storage.exist(key):
+            return NO_RECORD, None
+        raw = self.storage.get(key)
+        try:
+            rec = json.loads(raw.decode("utf-8"))
+        except (ValueError, UnicodeDecodeError, AttributeError):
+            raise _unavailable(table, "首存记录读不出来") from None
+        if not _record_ok(rec, table):
+            raise _unavailable(table, "首存记录不完整")
+        return _mark(rec), rec
+
+    def _put_record(self, table, expect, rec, owner):
+        """I21: write the record only if it is still `expect`, then read it back: ours, or STORED_TABLE_IN_PROGRESS. The
+        record written by this very operation already (same state, next epoch, same owner) counts as done."""
+        target = (rec["state"], expect[1] + 1, owner)
+        if (
+            expect[0] == RAW
+        ):  # R5: replacing a record that does not read: only if its bytes are still the same
+            key = self.first_key(table)
+            raw = self.storage.get(key) if self.storage.exist(key) else b""
+            now = (RAW, 0, hashlib.sha256(raw).hexdigest())
+        else:
+            now, _ = self._record(table)
+        if now == target:
+            return target
+        _need(
+            now == expect,
+            "STORED_TABLE_IN_PROGRESS",
+            "表 %s 的首存状态刚被另一个操作改了（%s → %s）：这次没有生效，读最新状态后再来"
+            % (table, expect[0], now[0]),
+            "table",
+        )
+        body = dict(rec, state=target[0], epoch=target[1], owner=owner, table=table)
+        self.storage.set(self.first_key(table), canon(body).encode("utf-8"))
+        back, _ = self._record(table)
+        _need(
+            back == target,
+            "STORED_TABLE_IN_PROGRESS",
+            "表 %s 的首存状态同时被另一个操作写了：这次没有生效，读最新状态后再来" % table,
+            "table",
+        )
+        return target
+
+    def state(self, table):
+        """(state, record) of a standard name for reads and for a writer's start. A NEW record storage does not bear out
+        (its head gone, or the old head moved past the copied version: judged by the head's version, I22) raises
+        STORED_TABLE_UNAVAILABLE."""
+        mark, rec = self._record(table)
+        if rec is not None and rec["state"] == NEW:
+            n = rec["old_head_version"]
+            if not self.storage.exist(self.key(table)):
+                raise _unavailable(table, "记录说已首存，标准名下没有头版")
+            if self._old_moved(old_name(table), n):
+                raise _unavailable(
+                    table, "首存之后旧名 %s 又存过第 %d 版" % (old_name(table), n + 1)
+                )
+        return mark[0], rec
+
+    def _old_moved(self, old, n):
+        """I22: the old head moved past version n. A version key above the head (a save that died before its head) is an
+        orphan, not a move."""
+        if not self.storage.exist(self.key(old, n + 1)):
+            return False
+        head = self._read(self.key(old))
+        return isinstance(head, dict) and type(head.get("version")) is int and head["version"] > n
+
+    def old_orphans(self, table):
+        """I22: the old name's version keys above its head (left by a save that died before its head), probed up to
+        MAX_HISTORY above it, as standard_keys (plugin storage cannot list keys)."""
+        old = old_name(storage_name(table))
+        head = self._read(self.key(old))
+        h = head["version"] if isinstance(head, dict) and type(head.get("version")) is int else 0
+        keys = [self.key(old, k) for k in range(h + 1, h + MAX_HISTORY + 1)]
+        return [k for k in keys if self.storage.exist(k)]
+
+    def _standard_reads(self, table, st, rec):
+        """Whether reads of this standard name's table go to its own storage: NEW; UNDOING while its head is there."""
+        if st == NEW:
+            return True
+        # undoing a completed copy: its own storage until its head is deleted (an unfinished one never held the table)
+        return (
+            st == UNDOING
+            and rec.get("undo_head_version") is not None
+            and self.storage.exist(self.key(table))
+        )
+
+    def where(self, table, version=None, pinned=False):
+        """0.5.20: the name whose storage a read of table reads (version: a version pin; pinned: history).
+        - An old name: pinned or a version pin, its own history, frozen at the first store (I3); otherwise the standard
+          name's table once that is read from its own storage (I9).
+        - A standard name: before its first store and while copying, its old name's (0.5.19's alias read, with its
+          collision check when there is no record); after it its own, but for versions below the first stored one,
+          which stay the old name's (I1, I2).
+        - Any other name: itself."""
+        std = alias_of(table)
+        if std is not None:
+            if pinned or version is not None:
+                return table
+            st, rec = self.state(std)
+            return std if self._standard_reads(std, st, rec) else table
+        old = old_name(table)
+        if old is None:
+            return table
+        st, rec = self.state(table)
+        if self._standard_reads(table, st, rec):
+            return old if version is not None and version < rec["old_head_version"] else table
+        if rec is None:
+            self._alias_collision_check(table, version)
+        return old
+
+    def _alias_collision_check(self, table, version=None):
+        # 0.5.13: with no first record, a table of its own under a standard name is not one this plugin wrote
+        # (0.5.19's refusal, unchanged)
+        physical = "route-table:" + table
+        _need(
+            not self.storage.exist(physical)
+            and (version is None or not self.storage.exist(physical + ":v%d" % version)),
+            "STORED_TABLE_ALIAS_COLLISION",
+            "只读别名与已有独立表冲突，请先检查存储；未读取或修改任何表内容",
+            "table",
+        )
+
+    def _pair(self, table):
+        return alias_of(table) is not None or old_name(table) is not None
+
+    def load(self, table, pinned=False):
+        """The table's current document (pinned: the head of the history a version pin on this name refers to). A read
+        that lost its document to an undo deleting the standard name's head asks again (I23: never neither name)."""
+        self.key(table)
+        name = self.where(table, pinned=pinned)
+        doc = self._read(self.key(name))
+        if doc is None and self._pair(table):
+            again = self.where(table, pinned=pinned)
+            if again != name:
+                doc = self._read(self.key(again))
+        return doc
 
     def version(self, table, n):
         _need(type(n) is int and n >= 1, "ROUTE_TABLE_INVALID", "版本号必须是正整数", "version")
-        key = self.key(table, n)
-        self._alias_collision_check(table, n)
-        return self._read(key)
+        self.key(table, n)
+        name = self.where(table, version=n)
+        if name == table and old_name(table) is not None:
+            # R2: the standard name's own history ends at its head; a version key above it is an orphan, never read
+            head = self._read(self.key(table))
+            if isinstance(head, dict) and type(head.get("version")) is int and n > head["version"]:
+                return None
+        doc = self._read(self.key(name, n))
+        if doc is None and self._pair(table):
+            again = self.where(table, version=n)
+            if again != name:
+                doc = self._read(self.key(again, n))
+        return doc
+
+    def find_content(self, table, sha):
+        """0.5.20 (I4, I27): the version whose content_sha256 is sha. Once a standard name is read from its own storage,
+        both names search its own last MAX_HISTORY versions, then the old name's last MAX_HISTORY; before, the name's own
+        chain as 0.5.19. None when it is not there."""
+        std = alias_of(table) or (table if old_name(table) is not None else None)
+        if std is not None:
+            st, rec = self.state(std)
+            if self._standard_reads(std, st, rec):
+                n = rec["old_head_version"]
+                windows = [(std, self._read(self.key(std)), max(n - 1, 0))]
+                windows.append((old_name(std), self._read(self.key(old_name(std))), 0))
+                for name, head, floor in windows:
+                    if head is None or type(head.get("version")) is not int:
+                        continue
+                    top = head["version"]
+                    for k in range(top, max(floor, top - MAX_HISTORY), -1):
+                        doc = head if k == top else self._read(self.key(name, k))
+                        if doc is not None and doc.get("content_sha256") == sha:
+                            return doc
+                return None
+        head = self.load(table)
+        if head is None or type(head.get("version")) is not int:
+            return None
+        for n in range(head["version"], max(0, head["version"] - MAX_HISTORY), -1):
+            doc = head if n == head["version"] else self.version(table, n)
+            if doc is not None and doc.get("content_sha256") == sha:
+                return doc
+        return None
 
     def history(self, table):
-        cur = self.load(table)
+        """The history a version pin on this name refers to: a standard name's one chain (I5), an old name's own."""
+        cur = self.load(table, pinned=True)
         if cur is None:
             return []
         out = []
@@ -1304,6 +1554,12 @@ class StorageTables:
                             if "schema_transition" in doc
                             else {}
                         ),
+                        # 0.5.20: the first stored version of a standard name says which version it copied
+                        **(
+                            {"supersedes": copy.deepcopy(doc["supersedes"])}
+                            if "supersedes" in doc
+                            else {}
+                        ),
                     }
                 )
         return out
@@ -1316,12 +1572,17 @@ class StorageTables:
             if type(listed) is list
             else []
         )
-        return list(dict.fromkeys([DEFAULT_ROUTE_TABLE, *names]))
+        # 0.5.20: one entry per table, under the name it is read from now (an old name and its standard name are one
+        # table; after the first store the index holds both names, the listing one)
+        out = {}
+        for name in [DEFAULT_ROUTE_TABLE, *names]:
+            out.setdefault(storage_name(name), self.where(name))
+        return list(out.values())
 
     def _one_state(self, clean):
         """one state."""
         for name in self.route_tables():
-            if name == clean["table"]:
+            if storage_name(name) == storage_name(clean["table"]):
                 continue
             other = self.load(name)
             if not other or other.get("schema") not in ROUTE_SCHEMAS:
@@ -1362,7 +1623,9 @@ class StorageTables:
             )
             validate_doc(dict(clean), resources=validate_doc(raw)["targets"])
             _need(
-                clean["table"] in raw.get("route_tables", []),
+                # 0.5.20: an old name and its standard name are one table
+                storage_name(clean["table"])
+                in [storage_name(n) for n in raw.get("route_tables", [])],
                 "ROUTE_TABLE_RESOURCE_TABLE",
                 "资源目标表 "
                 + clean["resource_table"]
@@ -1377,12 +1640,18 @@ class StorageTables:
                 if old.get("schema") == stored_tables.SCHEMA_RESOURCE
                 else []
             )
-            for name in dict.fromkeys([*clean["route_tables"], *listed]):
+            mine = [storage_name(n) for n in clean["route_tables"]]
+            names = {}  # 0.5.20: one check per table (an old name and its standard name are one)
+            for name in [*clean["route_tables"], *listed]:
+                names.setdefault(storage_name(name), name)
+            for name in names.values():
                 route = self.load(name)
-                if not route or storage_name(route.get("resource_table")) != clean["table"]:
+                if not route or storage_name(route.get("resource_table")) != storage_name(
+                    clean["table"]
+                ):
                     continue
                 _need(
-                    name in clean["route_tables"],
+                    storage_name(name) in mine,
                     "RESOURCE_TABLE_ROUTE_DROPPED",
                     "路由表 %s 还引用本资源表，不能从 route_tables 去掉（先改路由表）" % name,
                     "route_tables",
@@ -1415,16 +1684,49 @@ class StorageTables:
         gate=None,
         schema_transition=None,
     ):
-        """Save."""
-        _need(
-            not (isinstance(doc, dict) and alias_of(doc.get("table"))),
-            "STORED_TABLE_ALIAS_READ_ONLY",
-            "这个表名现在只读（指向 %s），存表请用现名"
-            % (alias_of(doc.get("table")) if isinstance(doc, dict) else ""),
-            "table",
-        )
-        # Aliases are read interfaces, never persisted relationship identifiers.
+        """Save. 0.5.20 (存表名即标准名, 迁移不变式): an old name saves as in 0.5.19 while its standard name is OLD, and is
+        read-only from COPYING on (I9); a save under a standard name before its first store is the first store
+        (_first_store); after it, an ordinary save that numbers on from the copied version (I1). Every save of the five
+        re-reads the first record before writing its head and after (I19, I20)."""
         raw = doc if isinstance(doc, dict) else {}
+        name = raw.get("table")
+        std = alias_of(name)
+        if std is not None:
+            st, rec = self.state(
+                std
+            )  # I13 / I14: asked of storage now; a failure raises, never "OLD"
+            _need(
+                st == OLD, "STORED_TABLE_ALIAS_READ_ONLY", _read_only(name, std, st, rec), "table"
+            )
+            guard = (std, _mark(rec), "old")
+            return self._save(
+                doc, expected_version, new_id, gate_report, gate, schema_transition, guard
+            )
+        if old_name(name) is not None:
+            st, rec = self.state(name)
+            if st in (OLD, COPYING):
+                return self._first_store(
+                    doc, expected_version, rec, new_id, gate_report, gate, schema_transition
+                )
+            _need(
+                st == NEW,
+                "STORED_TABLE_UNDO_IN_PROGRESS",
+                "表 %s 正在撤销首存：撤销做完前不收存表（重发撤销请求可以接着做）" % name,
+                "table",
+            )
+            replay = self._replay(doc, expected_version, rec, gate_report, schema_transition)
+            if replay is not None:  # I10: the same first store sent again after it completed
+                return replay
+            guard = (name, _mark(rec), "standard")
+            return self._save(
+                doc, expected_version, new_id, gate_report, gate, schema_transition, guard
+            )
+        return self._save(doc, expected_version, new_id, gate_report, gate, schema_transition)
+
+    def _references(self, raw):
+        """Aliases are read interfaces, never persisted relationship identifiers: a reference names the name its table
+        is stored under now (I15): the old name until that table's first store (0.5.19's refusal of the standard name,
+        unchanged), the standard name after it."""
         references = [("resource_table", raw.get("resource_table"))]
         references.extend(
             ("route_tables[%d]" % i, name)
@@ -1433,12 +1735,71 @@ class StorageTables:
             )
         )
         for path, name in references:
-            _need(
-                not alias_of(name),
-                "STORED_TABLE_ALIAS_READ_ONLY",
-                "关联表名请用现名，不可保存只读别名",
-                path,
+            if old_name(name) is not None:
+                _need(
+                    self.state(name)[0] == NEW,
+                    "STORED_TABLE_ALIAS_READ_ONLY",
+                    "关联表名请用现名，不可保存只读别名",
+                    path,
+                )
+            std = alias_of(name)
+            if std is not None:
+                _need(
+                    self.state(std)[0] != NEW,
+                    "STORED_TABLE_ALIAS_READ_ONLY",
+                    "关联表名请用标准名 %s（%s 是过渡期只读别名）" % (std, name),
+                    path,
+                )
+
+    def _before_head(self, guard, table, n):
+        """I19: the first record is still what this save started from, read before the save's version check and first
+        write (0.5.19's calls from that check to the head, under both names); otherwise the save writes nothing."""
+        std, mark, kind = guard
+        now, _ = self._record(std)
+        if now == mark:
+            return
+        if kind == "old":
+            raise RouteTableError(
+                "STORED_TABLE_COPY_RACE",
+                "旧名 %s 这次存表没有生效（第 %d 版没写头版）：存表期间标准名 %s 的首存状态变了（%s）"
+                % (table, n, std, _change(mark, now)),
+                "table",
             )
+        raise RouteTableError(
+            "STORED_TABLE_IN_PROGRESS",
+            "%s 这次存表没有生效（第 %d 版没写头版）：存表期间表的首存状态变了（%s）"
+            % (table, n, _change(mark, now)),
+            "table",
+        )
+
+    def _after_head(self, guard, table, n):
+        """I20: no success unless the first record is still what this save started from after its head is written."""
+        std, mark, _ = guard
+        try:
+            now, _ = self._record(std)
+        except RouteTableError:
+            raise
+        except Exception as exc:
+            raise RouteTableError(
+                "STORED_TABLE_UNAVAILABLE",
+                "%s 第 %d 版已写入，但写入后读不出 %s 的首存状态：这一版可能被另一个操作覆盖，读回头版核对"
+                % (table, n, std),
+                "table",
+            ) from exc
+        _need(
+            now == mark,
+            "STORED_TABLE_COPY_RACE",
+            "%s 第 %d 版已写入，但同时 %s 的首存状态变了（%s）：这一版可能被另一个操作覆盖或撤销，读回核对"
+            % (table, n, std, _change(mark, now)),
+            "table",
+        )
+
+    def _save(
+        self, doc, expected_version, new_id, gate_report, gate, schema_transition, guard=None
+    ):
+        """An ordinary save (0.5.19's), with the first-record checks before its head and after it for the five
+        (guard)."""
+        self._references(doc if isinstance(doc, dict) else {})
         clean = validate_doc(doc)
         table = clean["table"]
         self._cross_check(clean)
@@ -1468,6 +1829,12 @@ class StorageTables:
         transition = supplement_transition_of(cur, clean, schema_transition)
         _need(clean["note"].strip() != "", "ROUTE_TABLE_NOTE_REQUIRED", "写一句改动说明", "note")
         n = have + 1
+        if guard is not None:
+            # I19 before the version check, under both names: from that check to its head a save makes 0.5.19's
+            # storage calls exactly, and a save it stops has written nothing. A state change after it is caught after
+            # the head (I20; a copy also by its own old-head checks, I11)
+            self._before_head(guard, table, n)
+        # T1: 0.5.19's guard under every name: a version key that exists is another save's (or a crash's orphan)
         _need(
             not self.storage.exist(self.key(table, n)),
             "ROUTE_TABLE_STALE",
@@ -1480,7 +1847,7 @@ class StorageTables:
             gate(clean, gate_report)
         clean.update(
             version=n,
-            saved_at=self.now().strftime("%Y-%m-%dT%H:%M:%SZ"),
+            saved_at=self.now().strftime(STAMP),
             content_sha256=content,
             save_id=new_id(),
             parent_save_id=(cur or {}).get("save_id"),
@@ -1498,13 +1865,801 @@ class StorageTables:
             self.key(table, n), raw
         )  # history before head: no head without its version
         self.storage.set(self.key(table), raw)
-        for key in (self.key(table, n), self.key(table)):
-            back = self._read(key)
+        try:
+            for key in (self.key(table, n), self.key(table)):
+                back = self._read(key)
+                _need(
+                    back is not None and back.get("save_id") == clean["save_id"],
+                    "ROUTE_TABLE_RACE",
+                    "同一时刻有人也存了第 %d 版，你这次没有生效（另存为 %s）：载入最新版、保留你的改动后再存"
+                    % (n, clean["save_id"][:12]),
+                    "expected_version",
+                )
+            if guard is not None:
+                self._after_head(guard, table, n)
+        except RouteTableError:
+            if guard is not None and guard[2] == "standard":
+                self._withdraw(guard[0], table, n, clean["save_id"])
+            raise
+        return clean
+
+    def _withdraw(self, std, table, n, save_id):
+        """R3: a standard-name head (and version) this save wrote after a whole undo is deleted again, so no physical
+        standard-name key is left for 0.5.19 to refuse. Only when the record is OLD (undone) and the key is this save's."""
+        _, rec = self._record(std)
+        if rec is None or rec["state"] != OLD:
+            return
+        for key in (self.key(table), self.key(table, n)):
+            self._delete_own(key, save_id)
+
+    def _delete_own(self, key, save_id):
+        """Delete key only if the document there carries save_id, read again just before the delete (no compare-and-
+        delete in plugin storage: the window is one round trip)."""
+        doc = self._read(key)
+        if isinstance(doc, dict) and doc.get("save_id") == save_id:
+            again = self._read(key)
+            if isinstance(again, dict) and again.get("save_id") == save_id:
+                self.storage.delete(key)
+
+    # ── 0.5.20: the first store ──────────────────────────────────────────────
+
+    def _copy_doc(self, doc, expected_version, prior, gate_report, schema_transition, identity):
+        """The document a first store writes: the old head's version n copied unchanged as the standard name's version n
+        (I1, I12, I25; a standard name whose old name holds nothing: version 1), with identity = (save_id, saved_at).
+        Returns (clean, stored, report)."""
+        clean = validate_doc(doc)
+        if prior is None:
             _need(
-                back is not None and back.get("save_id") == clean["save_id"],
-                "ROUTE_TABLE_RACE",
-                "同一时刻有人也存了第 %d 版，你这次没有生效（另存为 %s）：载入最新版、保留你的改动后再存"
-                % (n, clean["save_id"][:12]),
+                type(expected_version) is int and expected_version == 0,
+                "ROUTE_TABLE_STALE",
+                "路由表刚被改过（插件里是第 0 版，页面是第 %s 版）：载入最新版、保留你的改动后再存"
+                % (expected_version,),
                 "expected_version",
             )
-        return clean
+            supersedes = None
+        else:
+            supersedes = self._first_copy(prior, clean, expected_version)
+        supplement_transition_of(
+            None, clean, schema_transition
+        )  # a first store takes no downgrade marker
+        _need(clean["note"].strip() != "", "ROUTE_TABLE_NOTE_REQUIRED", "写一句改动说明", "note")
+        content = content_sha256(clean)
+        report = gate_report_of(gate_report, content)
+        stored = dict(
+            clean,
+            version=prior["version"] if prior is not None else 1,
+            saved_at=identity[1],
+            content_sha256=content,
+            save_id=identity[0],
+            # the copy takes the old version's place in the one chain (I5)
+            parent_save_id=(prior or {}).get("parent_save_id"),
+        )
+        if supersedes is not None:
+            stored["supersedes"] = supersedes
+        if report is not None:
+            stored["gate_report_sha256"] = digest(report)
+        elif prior is not None and "gate_report_sha256" in prior:
+            # R6: same content, same gate: the copy keeps the old version's report digest (the report stays at the old
+            # name's gate key, route-table:<old>:g:<its save id>)
+            stored["gate_report_sha256"] = prior["gate_report_sha256"]
+        if prior is not None:
+            self._same_fields(prior, stored)
+        return clean, stored, report
+
+    def _same_fields(self, prior, stored):
+        """I25: every field of the copy but its own (COPY_OWN_FIELDS) equals the old version's, not only the digest."""
+        table, n = stored["table"], prior.get("version")
+        for k in sorted(set(prior) | set(stored), key=str):
+            if k in COPY_OWN_FIELDS:
+                continue
+            _need(
+                canon(prior.get(k)) == canon(stored.get(k)),
+                "STORED_TABLE_MIGRATE_FIRST",
+                "首存要把旧名 %s 第 %s 版原样存成 %s 第 %s 版：字段 %s 和旧版不同（只有表名、说明、版本号、保存时间、"
+                "save id 可以不同）" % (old_name(table), n, table, n, k),
+                k,
+            )
+
+    def _first_store(
+        self, doc, expected_version, rec, new_id, gate_report, gate, schema_transition
+    ):
+        """I9–I12, I19–I21: OLD → COPYING → NEW. COPYING is written (conditionally) before anything else and NEW last;
+        the old head is read again before the version and before NEW (moved: back to OLD, STORED_TABLE_COPY_ABORTED); the
+        record is read again before each standard-name key. The same request sent again at any point (COPYING keeps its
+        save id and time) writes the same bytes and ends the same way; a twin that already finished it is taken as
+        done."""
+        raw = doc if isinstance(doc, dict) else {}
+        table = raw["table"]
+        old = old_name(table)
+        mark = _mark(rec)
+        retry = rec is not None and rec["state"] == COPYING
+        if not retry:
+            # I22 (Codex review of 0.5.20): a version key above the old head is a crashed save's leftover that a pin
+            # S@k reads through the alias before the copy; the copy would give (S, k) a second content: refused, nothing
+            # written. A retry of a copy already under way is not checked again (it converges, I10)
+            orphans = self.old_orphans(table)
+            _need(
+                not orphans,
+                "STORED_TABLE_ORPHAN_VERSION",
+                "首存没有动手（一个键都没写）：旧名 %s 头版之上有版本键 %s，是一次存表在版本键和头版之间中断留下的残留。"
+                "首存后标准名的同一版本号会指向另一份内容，所以不首存：先核对这些键（0.5.19 照样读得到它们的版本号），"
+                "在插件存储里手工删掉，再首存" % (old, "、".join(orphans)),
+                "table",
+            )
+        prior = self._read(self.key(old))
+        if rec is None:  # 0.5.13: a table of its own there, not one this plugin wrote
+            self._alias_collision_check(table, prior["version"] if prior is not None else 1)
+        if prior is None:
+            self._references(raw)
+        # a copy keeps its old table's references as they are: they are part of its content (I15)
+        identity = (
+            (rec["save_id"], rec["saved_at"]) if retry else (new_id(), self.now().strftime(STAMP))
+        )
+        clean, stored, report = self._copy_doc(
+            doc, expected_version, prior, gate_report, schema_transition, identity
+        )
+        n = prior["version"] if prior is not None else 0
+        record = {
+            "table": table,
+            "old_table": old,
+            "old_head_version": n,
+            "old_head_save_id": (prior or {}).get("save_id"),
+            "supersedes": stored.get("supersedes"),
+            "save_id": identity[0],
+            "saved_at": identity[1],
+            "doc_sha256": digest(stored),
+        }
+        if retry:
+            if (rec["old_head_version"], rec.get("old_head_save_id")) != (
+                n,
+                record["old_head_save_id"],
+            ):
+                self._put_record(table, mark, dict(rec, state=OLD), rec["owner"])
+                raise _aborted(old, rec["old_head_version"], n)
+            _need(
+                record["doc_sha256"] == rec["doc_sha256"],
+                "STORED_TABLE_COPY_IN_PROGRESS",
+                "标准名 %s 正在首存（第 %d 版）：只收同一份首存请求的重试（内容、说明、声明、闸报告都相同）"
+                % (table, stored["version"]),
+                "table",
+            )
+        self._cross_check(clean)
+        if gate is not None:
+            gate(clean, gate_report)
+        v, x = stored["version"], identity[0]
+        keys = [self.save_key(table, x), self.key(table, v)]
+        if report is not None:
+            keys.append(self.gate_key(table, x))
+        index = clean["schema"] in ROUTE_SCHEMAS
+        listed = self._read(ROUTE_INDEX_KEY) if index else None
+        record["keys"] = sorted(set((rec or {}).get("keys", [])) | set(keys))
+        record["index_added"] = bool((rec or {}).get("index_added")) or (
+            index and table not in (listed if type(listed) is list else [])
+        )
+        record["state"] = COPYING
+        mine = mark if retry else self._put_record(table, mark, record, x)  # COPYING first (I21)
+        self._overtaken(table, mine, record, stored["version"], new_id)
+        if report is not None:
+            self.storage.set(self.gate_key(table, x), canon(report).encode("utf-8"))
+        if index:
+            self._index(table)
+        self._unmoved(table, mine, record, old, prior)
+        if self._copying(table, mine, v):
+            return self._read(self.key(table, v))
+        body = canon(stored).encode("utf-8")
+        self.storage.set(self.key(table, v), body)  # an orphan until the head: no reader reads it
+        self.storage.set(self.save_key(table, x), body)
+        if self._copying(table, mine, v):  # I19
+            return self._read(self.key(table, v))
+        self.storage.set(self.key(table), body)
+        for key in (self.key(table, v), self.key(table)):
+            back = self._read(key)
+            _need(
+                back is not None and back.get("save_id") == x,
+                "ROUTE_TABLE_RACE",
+                "同一时刻有人也写了 %s 第 %d 版，这次首存没有完成：重发同一个首存请求" % (table, v),
+                "expected_version",
+            )
+        self._unmoved(table, mine, record, old, prior)
+        # NEW last (I21); readers switch here
+        done = self._put_record(table, mine, dict(record, state=NEW), x)
+        for key in (self.key(table, v), self.key(table)):  # I20: what NEW points at is still there
+            back = self._read(key)
+            if back is None or back.get("save_id") != x:
+                self._put_record(table, done, dict(record, state=OLD), x)
+                raise RouteTableError(
+                    "STORED_TABLE_IN_PROGRESS",
+                    "%s 的首存同时被撤销了：这次首存没有生效，表回到旧名；读最新状态后再定" % table,
+                    "table",
+                )
+        return stored
+
+    def _overtaken(self, table, mine, record, v, new_id):
+        """I21 / I14 without a transaction: a conditional write can still land over a record another operation wrote
+        between this one's read and write. A standard-name head whose save id this record does not know, over a twin
+        copy at version v (the same supersedes: another first store of the same old version), means a NEW this record
+        overwrote (R1): that NEW is put back under a fresh owner (R2: a restore never repeats an earlier mark), and this
+        copy fails. Any other unknown head or version key is a leftover (T2): overwritten below, never restored."""
+        known = {record["save_id"]} | {
+            k.split(":s:", 1)[1] for k in record.get("keys", []) if ":s:" in k
+        }
+        head = self._read(self.key(table))
+        if not isinstance(head, dict) or head.get("save_id") in known:
+            return
+        base = self._read(self.key(table, v))
+        twin = (
+            isinstance(base, dict)
+            and base.get("save_id") not in known
+            and record.get("supersedes") is not None
+            and base.get("supersedes") == record["supersedes"]
+        )
+        if not twin:
+            return  # T2: a leftover (a save cut by an undo, an aborted copy): overwritten below, never restored
+        theirs = dict(
+            record,
+            state=NEW,
+            save_id=base["save_id"],
+            saved_at=base.get("saved_at"),
+            doc_sha256=digest(base),
+            supersedes=base.get("supersedes"),
+            keys=sorted(set(record["keys"]) | {self.save_key(table, base["save_id"])}),
+        )
+        self._put_record(table, mine, theirs, new_id())
+        raise RouteTableError(
+            "STORED_TABLE_COPY_IN_PROGRESS",
+            "%s 已由另一个操作存过（头版第 %s 版，save id %s…）：这次首存没有生效，状态已恢复为 NEW"
+            % (table, head.get("version"), str(head.get("save_id"))[:12]),
+            "table",
+        )
+
+    def _copying(self, table, mine, v):
+        """I19 for a first store: the record is still this copy's COPYING (False: go on), or this copy's NEW written by
+        a twin request (True: done, write nothing more); anything else: another operation took over, stop."""
+        now, _ = self._record(table)
+        if now == mine:
+            return False
+        if now == (NEW, mine[1] + 1, mine[2]):
+            return True
+        raise RouteTableError(
+            "STORED_TABLE_IN_PROGRESS",
+            "%s 的首存没有完成：首存期间另一个操作改了表的首存状态（%s → %s），第 %d 版没写头版；读最新状态后再定"
+            % (table, mine[0], now[0], v),
+            "table",
+        )
+
+    def _unmoved(self, table, mine, record, old, prior):
+        """I11 / I22: the old head is still the one being copied (its version and save id); otherwise back to OLD and say
+        so."""
+        head = self._read(self.key(old))
+        was = (prior or {}).get("save_id"), (prior or {}).get("version")
+        if ((head or {}).get("save_id"), (head or {}).get("version")) != was:
+            self._put_record(table, mine, dict(record, state=OLD), mine[2])
+            # no standard-name key left under OLD: the aborted copy takes back its own head and version, while its own
+            for key in (self.key(table), self.key(table, max(record["old_head_version"], 1))):
+                self._delete_own(key, record["save_id"])
+            raise _aborted(old, record["old_head_version"], (head or {}).get("version") or 0)
+
+    def _replay(self, doc, expected_version, rec, gate_report, schema_transition):
+        """I10: after NEW, the same first-store request again is answered with the stored copy (no second version), as
+        long as nothing was saved under the standard name since. None for any other save."""
+        table = rec["table"]
+        head = self._read(self.key(table))
+        if head is None or head.get("save_id") != rec["save_id"]:
+            return None
+        prior = self._read(self.key(old_name(table)))
+        try:
+            _, stored, _ = self._copy_doc(
+                doc,
+                expected_version,
+                prior,
+                gate_report,
+                schema_transition,
+                (rec["save_id"], rec["saved_at"]),
+            )
+        except RouteTableError:
+            return None
+        return head if digest(stored) == rec["doc_sha256"] else None
+
+    def _first_copy(self, prior, clean, expected_version):
+        """0.5.20 (I12): a first store under a standard name whose old name holds a table copies that table's current
+        version unchanged: same schema, same content_sha256 (as readers compute it), expected_version = that version's
+        number n (the standard name read it as its version n). Returns supersedes {table, version, content_sha256}."""
+        old = old_name(clean["table"])
+        n = prior.get("version")
+        try:
+            had = content_sha256(validate_doc(prior, validate_declaration=False))
+        except RouteTableError:
+            had = None  # the old table does not read: nothing to copy unchanged
+        message = (
+            "标准名 %s 还没有存过，旧名 %s 下有第 %s 版（内容摘要 %s…）：先把旧名当前内容原样存成 %s 第 %s 版"
+            "（schema、内容摘要不变，expected_version %s），再在标准名下改"
+            % (clean["table"], old, n, (had or "")[:12], clean["table"], n, n)
+        )
+        _need(
+            type(expected_version) is int and expected_version == n,
+            "STORED_TABLE_MIGRATE_FIRST",
+            message,
+            "expected_version",
+        )
+        _need(
+            clean["schema"] == prior.get("schema", SCHEMA),
+            "STORED_TABLE_MIGRATE_FIRST",
+            message,
+            "schema",
+        )
+        _need(
+            had is not None and content_sha256(clean) == had,
+            "STORED_TABLE_MIGRATE_FIRST",
+            message,
+            "",
+        )
+        return {"table": old, "version": n, "content_sha256": had}
+
+    # ── 0.5.20: undoing a first store (I17, I23, I24) ─────────────────────────
+
+    def undo(self, table, expected_version, new_id=lambda: uuid.uuid4().hex):
+        """Undo a standard name's first store, back to storage 0.5.19 reads as it read it before. It reads the first
+        record as it is (not through state(): any state can be undone) and checks everything before it writes (I23):
+        expected_version (the standard name's head version; an unfinished or aborted first store: the old head's), every
+        standard-name version above the copy there, the old head not moved when there is something to move back. Then
+        UNDOING (conditional, I21); the standard name's head read again (a save landed meanwhile: back to NEW,
+        ROUTE_TABLE_STALE); heads elsewhere that list the standard route name in route_tables saved again with the old
+        name (I24); versions saved under the standard name after the copy moved to the old name under the same numbers
+        (a resource table's route_tables with old names); the standard name's head deleted (reads go to the old name),
+        its other keys, an old-name version key above the head (an orphan) and the index entry it added; last the record
+        as OLD (kept: its epoch keeps growing, I18). The same request again at any point finishes it."""
+        std = storage_name(table)
+        old = old_name(std)
+        _need(old is not None, "ROUTE_TABLE_INVALID", "只有五张策略表有首存可撤销", "table")
+        try:
+            mark, rec = self._record(std)
+        except RouteTableError as exc:
+            if exc.code != "STORED_TABLE_UNAVAILABLE":
+                raise
+            mark, rec = self._inventory(
+                std
+            )  # R5: the record does not read; storage says what was done
+        head = self._read(self.key(std))
+        left = self.standard_keys(std) if rec is not None and rec["state"] == OLD else []
+        _need(
+            rec is not None
+            and (rec["state"] != OLD or head is not None or self._leftovers(std, rec) or left),
+            "STORED_TABLE_NOT_COPIED",
+            "表 %s 没有首存，没有可撤销的" % std,
+            "table",
+        )
+        n = rec["old_head_version"]
+        if rec["state"] == UNDOING:
+            m = rec.get("undo_head_version")
+        else:
+            m = head["version"] if rec["state"] == NEW and head is not None else None
+        want = m if m is not None else n
+        _need(
+            type(expected_version) is int and expected_version == want,
+            "ROUTE_TABLE_STALE",
+            "表 %s 刚被改过（插件里是第 %s 版，撤销请求是第 %s 版）：读最新版再撤销"
+            % (std, want, expected_version),
+            "expected_version",
+        )
+        moving = m is not None and m > n and (rec["state"] != UNDOING or head is not None)
+        owner = (
+            mark[2] if rec["state"] == UNDOING else None
+        )  # a retry: its fixes carry this undo's ids
+        plan = self._undo_plan(std, n, m if moving else None, rec.get("undo_head_save_id"), owner)
+        if rec["state"] != UNDOING:
+            undoing = dict(
+                rec,
+                # an OLD record (aborted, or an earlier undo's) has no copy identity: an UNDOING one always does
+                save_id=rec.get("save_id", ""),
+                saved_at=rec.get("saved_at", ""),
+                doc_sha256=rec.get("doc_sha256", ""),
+                state=UNDOING,
+                undo_head_version=m,
+                undo_head_save_id=(head or {}).get("save_id") if m is not None else None,
+            )
+            mine = self._put_record(std, mark, undoing, new_id())
+            now = self._read(self.key(std))
+            finished = (now or {}).get("save_id") == rec.get("save_id")
+            if m is None and head is None and rec["state"] == COPYING and finished:
+                # the first store being undone finished between this undo's read and its record write (no
+                # transaction): its NEW is put back and the undo does not take effect
+                self._put_record(std, mine, dict(rec, state=NEW), rec["save_id"])
+                raise RouteTableError(
+                    "STORED_TABLE_IN_PROGRESS",
+                    "撤销时 %s 的首存刚好完成（第 %s 版）：撤销没有生效，读最新版再撤销"
+                    % (std, now.get("version")),
+                    "table",
+                )
+            if m is not None and now is None:
+                # another undo finished between this one's read and its record write (no transaction): the head it
+                # planned to move is gone and the old name holds it; finish the same way (nothing left to move)
+                moving = False
+            elif (
+                m is not None and now.get("save_id") != head["save_id"]
+            ):  # I19: a save landed meanwhile
+                self._put_record(std, mine, dict(rec), mine[2])
+                raise RouteTableError(
+                    "ROUTE_TABLE_STALE",
+                    "撤销期间 %s 又存了一版（第 %s 版）：撤销已退回，读最新版再撤销"
+                    % (std, (now or {}).get("version")),
+                    "expected_version",
+                )
+            rec = undoing
+        else:
+            mine = mark
+        fixed = [self._fix_reference(std, name, doc, mine[2]) for name, doc in plan["fix"]]
+        moved = self._move_back(std, old, n, m, mine) if moving else []
+        while m is not None:
+            # I20: a save that landed under the standard name after UNDOING was told it may be undone; it is moved too
+            # rather than deleted
+            self._still(std, mine)
+            now = self._read(self.key(std))
+            top = moved[-1] if moved else m
+            if now is None or type(now.get("version")) is not int or now["version"] <= top:
+                break
+            moved += self._move_back(std, old, top, now["version"], mine)
+        self._still(std, mine)
+        if self.storage.exist(self.key(std)):
+            self.storage.delete(self.key(std))  # from here on reads are the old name's
+        doomed = []
+        top = max(m or n, n) + 1  # one above: the version key a save that died before its head left
+        for k in range(max(n, 1), top + 1):
+            d = self._read(self.key(std, k))
+            if d is not None:
+                doomed += [
+                    self.save_key(std, d.get("save_id", "")),
+                    self.gate_key(std, d.get("save_id", "")),
+                ]
+                doomed.append(self.key(std, k))
+        # T5: an OLD record's undo also clears exactly what check reports
+        doomed += rec.get("keys", []) + left
+        for key in dict.fromkeys(doomed):
+            if self.storage.exist(key):
+                self.storage.delete(key)
+        if rec.get("index_added"):
+            listed = self._read(ROUTE_INDEX_KEY)
+            if type(listed) is list and std in listed:
+                rest = [x for x in listed if x != std]
+                self.storage.set(ROUTE_INDEX_KEY, canon(sorted(rest)).encode("utf-8"))
+        orphans = self.old_orphans(std)
+        for key in orphans:
+            self.storage.delete(key)
+        final = self._read(self.key(old))
+        h = final["version"] if isinstance(final, dict) else 0
+        tomb = {
+            "table": std,
+            "old_table": old,
+            "old_head_version": h,
+            "keys": [],
+            "undone": {"from_state": rec.get("state"), "versions_moved": moved},
+        }
+        self._put_record(std, mine, dict(tomb, state=OLD), mine[2])
+        return {
+            "table": std,
+            "old_table": old,
+            "version": h,
+            "moved_versions": moved,
+            "references_fixed": fixed,
+            "orphans_removed": orphans,
+        }
+
+    def _inventory(self, std):
+        """R5: the record of a first store whose first record does not read, rebuilt from storage: the standard name's
+        head and versions (the copy is the version that carries supersedes), the old head, the route index. Returns a
+        RAW mark, so that the undo replaces the unreadable record only if it is still the same bytes. T3: refused when
+        the standard name has a head that is not over a copy of the old name's version (supersedes missing or not
+        matching the old version's content)."""
+        old = old_name(std)
+        raw = self.storage.get(self.first_key(std))
+        head = self._read(self.key(std))
+        o_head = self._read(self.key(old))
+        h = o_head["version"] if isinstance(o_head, dict) else 0
+        top = max(h, head["version"] if isinstance(head, dict) else 0)
+        keys = [self.key(std, k) for k in range(1, top + 2) if self.storage.exist(self.key(std, k))]
+        copy_doc, n = None, h
+        for k in range(top, 0, -1):
+            d = self._read(self.key(std, k)) if self.key(std, k) in keys else None
+            if isinstance(d, dict) and isinstance(d.get("supersedes"), dict):
+                copy_doc, n = d, d["supersedes"].get("version", k)
+                break
+        if copy_doc is None and isinstance(head, dict) and o_head is None:
+            n = 0  # a standard name whose old name held nothing
+        sup = (copy_doc or {}).get("supersedes") or {}
+        o_n = self._read(self.key(old, n)) if copy_doc is not None and type(n) is int else None
+        try:
+            o_sha = content_sha256(validate_doc(o_n, validate_declaration=False)) if o_n else None
+        except RouteTableError:
+            o_sha = None
+        # T3: a standard-name table that is not a copy of the old name's (the 0.5.13 collision) is never moved into it
+        _need(
+            o_head is None
+            or not isinstance(head, dict)
+            or (
+                sup.get("table") == old and o_sha is not None and o_sha == sup.get("content_sha256")
+            ),
+            "STORED_TABLE_ALIAS_COLLISION",
+            "标准名 %s 下有一张不是旧名 %s 副本的表（0.5.13 的冲突），首存记录又读不出来：不撤销，先查插件存储"
+            % (std, old),
+            "table",
+        )
+        listed = self._read(ROUTE_INDEX_KEY)
+        ident = copy_doc or head or {}
+        rec = {
+            "state": NEW if isinstance(head, dict) else COPYING,
+            "table": std,
+            "old_table": old,
+            "epoch": 1,
+            "owner": "inventory",
+            "old_head_version": n,
+            "old_head_save_id": (o_head or {}).get("save_id"),
+            "supersedes": (copy_doc or {}).get("supersedes"),
+            "save_id": ident.get("save_id", "inventory"),
+            "saved_at": ident.get("saved_at", ""),
+            "doc_sha256": digest(ident),
+            "keys": keys,
+            "index_added": type(listed) is list and std in listed,
+        }
+        return (RAW, 0, hashlib.sha256(raw).hexdigest()), rec
+
+    def standard_keys(self, table):
+        """R3: the physical keys under a standard name that 0.5.19's collision check would see (its head and version
+        keys; the first record, save records and gate reports it never reads). [] after a clean undo."""
+        std = storage_name(table)
+        old = old_name(std)
+        _need(old is not None, "ROUTE_TABLE_INVALID", "只有五张策略表有标准名", "table")
+        o_head = self._read(self.key(old))
+        head = self._read(self.key(std))
+        top = max(
+            o_head["version"] if isinstance(o_head, dict) else 0,
+            head["version"] if isinstance(head, dict) else 0,
+        )
+        # T4: plugin storage cannot list keys: every version key from 1 to MAX_HISTORY above the highest version
+        # either name holds is probed
+        keys = [self.key(std)] + [self.key(std, k) for k in range(1, top + MAX_HISTORY + 1)]
+        return [k for k in keys if self.storage.exist(k)]
+
+    def _leftovers(self, std, rec):
+        return any(self.storage.exist(k) for k in rec.get("keys", []))
+
+    def _still(self, std, mine):
+        now, _ = self._record(std)
+        _need(
+            now == mine,
+            "STORED_TABLE_IN_PROGRESS",
+            "撤销 %s 时首存状态被另一个操作改了（%s → %s）：这次停在这里，读最新状态后再来"
+            % (std, mine[0], now[0]),
+            "table",
+        )
+
+    def _undo_plan(self, std, n, m, moved_id=None, owner=None):
+        """I23: every check of an undo, before it writes anything. Returns {"fix": [(name, head)]}. moved_id: the save id
+        of the version the undo moves last (a retry finds the old head already at it); owner: a retried undo's (the
+        reference fixes it may have left carry ids derived from it)."""
+        old = old_name(std)
+        if m is not None:
+            for k in range(
+                max(n, 1), m + 1
+            ):  # the copied version n and every one after it (a fresh table: from 1)
+                _need(
+                    self.storage.exist(self.key(std, k)),
+                    "STORED_TABLE_UNAVAILABLE",
+                    "标准名 %s 缺第 %d 版：不撤销（一个键都没写）" % (std, k),
+                    "table",
+                )
+            head = self._read(self.key(old))
+            h = head["version"] if isinstance(head, dict) else 0
+            done = h == m and moved_id is not None and head.get("save_id") == moved_id
+            _need(
+                h == n or done,
+                "STORED_TABLE_UNAVAILABLE",
+                "旧名 %s 在首存后也存了第 %d 版，标准名 %s 下也有第 %d 版起的新版本：两边都有新版本，不自动撤销"
+                % (old, h, std, n + 1),
+                "table",
+            )
+        fix = self._references_to(std)
+        for name, head in fix:
+            # I23: a reference fix saves version h+1 of the partner; a version key there that is not this undo's own fix
+            # is a crashed save's leftover, which 0.5.19's rule refuses: say so now, before anything is written
+            key = self.key(name, head["version"] + 1)
+            if not self.storage.exist(key):
+                continue
+            try:
+                left = self._read(key)
+            except RouteTableError:
+                left = None
+            _need(
+                owner is not None
+                and isinstance(left, dict)
+                and left.get("save_id") == _fix_id(owner, name),
+                "ROUTE_TABLE_STALE",
+                "撤销没有动手（一个键都没写）：%s 头版第 %d 版之上有 %s，是一次存表在版本键和头版之间中断留下的残留，"
+                "不是这次撤销的。撤销要给 %s 存一版把引用改回旧名，会被它挡住；这张表现在和 0.5.19 一样，下一次存表也是 "
+                "ROUTE_TABLE_STALE。先在插件存储里删掉这个键（见 v0.5.20 发布说明「回滚」），再撤销"
+                % (name, head["version"], key, name),
+                "table",
+            )
+        return {"fix": fix}
+
+    def _references_to(self, std):
+        """I24: heads that would keep naming the standard name std after its undo, where 0.5.19 refuses it: resource
+        tables listing the standard route name in route_tables (0.5.19 cannot read them), route tables naming the
+        standard resource name as resource_table (0.5.19 reads them but refuses their next save). The table being undone
+        is read as storage holds it (its state may be the very lock the undo clears, I23)."""
+        if std not in STANDARD_ROUTE_NAMES and std not in RESOURCE_PAIR[:1]:
+            return []
+        routes = [self.key(n) for n in (std, old_name(std))] if std in STANDARD_ROUTE_NAMES else []
+        listed = self._read(ROUTE_INDEX_KEY)
+        names = [
+            n
+            for n in (listed if type(listed) is list else [])
+            if type(n) is str and TABLE_RE.match(n)
+        ]
+        heads = []
+        for key in routes:
+            head = self._read(key)
+            if isinstance(head, dict):
+                heads.append(head)
+        for name in names:
+            if storage_name(name) != std:
+                head = self.load(name)
+                if isinstance(head, dict):
+                    heads.append(head)
+        out, seen = [], set()
+        if std in STANDARD_ROUTE_NAMES:
+            candidates = list(RESOURCE_PAIR) + [
+                h["resource_table"] for h in heads if h.get("resource_table")
+            ]
+            for name in candidates:
+                if storage_name(name) in seen:
+                    continue
+                seen.add(storage_name(name))
+                head = self.load(name)
+                if isinstance(head, dict) and std in (head.get("route_tables") or []):
+                    out.append((head["table"], head))
+            return out
+        for head in heads:
+            if head.get("resource_table") == std and storage_name(head["table"]) not in seen:
+                seen.add(storage_name(head["table"]))
+                out.append((head["table"], self.load(head["table"])))
+        return out
+
+    def _fix_reference(self, std, name, head, owner):
+        """I24: save the head again (a new version, through the ordinary save of that table) naming the old name: in
+        route_tables (not part of a resource table's content_sha256), or as resource_table (part of a route table's: a
+        new content, a new version; the versions before keep theirs). Its save id is derived from the undo (owner, the
+        table), so that the same undo again recognises a version key it left by crashing before the head."""
+        drop = (
+            "version",
+            "saved_at",
+            "content_sha256",
+            "save_id",
+            "parent_save_id",
+            "gate_report_sha256",
+            "schema_transition",
+            "supersedes",
+        )
+        body = {k: v for k, v in head.items() if k not in drop}
+        if isinstance(body.get("route_tables"), list):
+            body["route_tables"] = [old_name(x) or x for x in body["route_tables"]]
+        if body.get("resource_table") == std:
+            body["resource_table"] = old_name(std)
+        body["note"] = "撤销 %s 的首存：引用改回旧名 %s（0.5.19 读得出、存得进）" % (
+            std,
+            old_name(std),
+        )
+        x = _fix_id(owner, head["table"])
+        v = head["version"] + 1
+        left = self._read(self.key(head["table"], v))
+        if isinstance(left, dict) and left.get("save_id") == x:
+            # 0.5.20 (存表名即标准名): this undo's own fix, left without its head by a crash: its head is written when it
+            # is the intended fix field by field (route_tables is outside content_sha256), else it is taken back and
+            # saved again; any other version key stays 0.5.19's STALE
+            if {k: w for k, w in left.items() if k not in drop} == body:
+                self.storage.set(
+                    self.key(head["table"]), self.storage.get(self.key(head["table"], v))
+                )
+                return {"table": head["table"], "version": v}
+            self._delete_own(self.key(head["table"], v), x)
+        saved = self.save(body, head["version"], new_id=lambda: x)
+        return {"table": saved["table"], "version": saved["version"]}
+
+    def _move_back(self, std, old, n, m, mine):
+        """Versions n+1..m of the standard name to the old name, same numbers, content and save ids; the old head last.
+        The old head must be version n (or already this move's last version, a retry)."""
+        head = self._read(self.key(old)) or {}
+        _need(
+            head.get("version", 0) in (n, m),
+            "STORED_TABLE_UNAVAILABLE",
+            "旧名 %s 的头版是第 %s 版，不是第 %d 版：两边都有新版本，撤销停在这里（标准名照常读）"
+            % (old, head.get("version"), n),
+            "table",
+        )
+        parent = (self._read(self.key(old, n)) if n else None) or {}
+        parent = parent.get("save_id")
+        moved, last = [], None
+        for k in range(n + 1, m + 1):
+            d = self._read(self.key(std, k))
+            _need(
+                d is not None,
+                "STORED_TABLE_UNAVAILABLE",
+                "标准名 %s 缺第 %d 版：不撤销" % (std, k),
+                "table",
+            )
+            d = dict(d, table=old, parent_save_id=parent if k == n + 1 else d.get("parent_save_id"))
+            if isinstance(d.get("route_tables"), list):
+                # 0.5.19 refuses a standard name there; not part of a resource table's content_sha256 (I24)
+                d["route_tables"] = [old_name(x) or x for x in d["route_tables"]]
+            body = canon(d).encode("utf-8")
+            gate = self._read(self.gate_key(std, d["save_id"]))
+            if gate is not None:
+                self.storage.set(self.gate_key(old, d["save_id"]), canon(gate).encode("utf-8"))
+            self.storage.set(self.save_key(old, d["save_id"]), body)
+            self.storage.set(self.key(old, k), body)
+            moved.append(k)
+            last = body
+        self._still(std, mine)  # I19 before the old head
+        self.storage.set(self.key(old), last)
+        return moved
+
+    def old_name_references(self):
+        """I15: stored heads that still name an old name whose standard name has its first store (a later version can
+        drop the aliases only when this is empty). [] while no table of the five is NEW. Storage failures raise (I26)."""
+        from dmn_client.table_names import STANDARD  # noqa
+
+        done = {std for std in STANDARD if self.state(std)[0] == NEW}
+        if not done:
+            return []
+        out, seen = [], set()
+        for name in self.route_tables():
+            head = self.load(name)
+            if not isinstance(head, dict):
+                continue
+            refs = [("resource_table", head.get("resource_table"))]
+            res = self.load(head["resource_table"]) if head.get("resource_table") else None
+            for who, path, ref in [(head, p, r) for p, r in refs] + [
+                (res, "route_tables[%d]" % i, r)
+                for i, r in enumerate((res or {}).get("route_tables") or [])
+            ]:
+                if who is None or alias_of(ref) not in done:
+                    continue
+                item = (who.get("table"), path, ref)
+                if item not in seen:
+                    seen.add(item)
+                    out.append(
+                        {
+                            "code": "OLD_NAME_REFERENCE",
+                            "table": who.get("table"),
+                            "version": who.get("version"),
+                            "path": path,
+                            "name": ref,
+                            "standard": alias_of(ref),
+                            "message": "%s 第 %s 版的 %s 还写旧名 %s，下次存表改成 %s；全部改完才能去掉别名"
+                            % (who.get("table"), who.get("version"), path, ref, alias_of(ref)),
+                        }
+                    )
+        return out
+
+
+STANDARD_ROUTE_NAMES = ("triage.dispatch.route",)
+RESOURCE_PAIR = ("triage.dispatch.resource", "dispatch.resource")
+
+
+def _aborted(old, n, now):
+    return RouteTableError(
+        "STORED_TABLE_COPY_ABORTED",
+        "首存中止：旧名 %s 在首存期间从第 %d 版变成第 %d 版，表回到旧名（没有漏掉这次写入）："
+        "按 %s 当前头版重新首存" % (old, n, now, old),
+        "expected_version",
+    )
+
+
+def _read_only(name, std, st, rec):
+    if st == COPYING:
+        return "旧表名 %s 只读：标准名 %s 正在首存（第 %d 版），首存完成后用标准名存表" % (
+            name,
+            std,
+            rec["old_head_version"],
+        )
+    if st == UNDOING:
+        return "旧表名 %s 暂不收存表：标准名 %s 正在撤销首存" % (name, std)
+    return "旧表名 %s 只读（过渡期别名），存表请用标准名 %s" % (name, std)

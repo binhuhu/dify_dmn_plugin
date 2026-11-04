@@ -4,13 +4,13 @@ import json
 
 from dify_plugin import Tool
 
-from dmn_client.route_store import OPS, error, run_op
+from dmn_client.route_store import CHECK, OPS, UNDO, error, run_op
 
 
 class RouteTableStoreTool(Tool):
     def _invoke(self, tool_parameters):
         op = (tool_parameters.get("op") or "").strip()
-        if op not in OPS:
+        if op not in OPS and op not in (UNDO, CHECK):
             status, body = error(400, "ROUTE_STORE_OP_INVALID", "op 只能是 " + " / ".join(OPS))
         else:
             status, body = run_op(

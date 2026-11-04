@@ -29,7 +29,7 @@ from dmn_client.route_table import (
 from dmn_client.scene_id import by_scene, identity_key, is_scene
 from dmn_client.scene_spelling import scene_state
 from dmn_client.supplement_associations import validate_associations
-from dmn_client.table_names import alias_of, storage_name
+from dmn_client.table_names import alias_of, format_name, read_names, storage_name
 
 SCHEMA_DECISION = "dmn-json.decision-table/v1"
 SCHEMA_DECISION_SET = "dmn-json.decision-set/v1"
@@ -122,6 +122,8 @@ MODEL_REF_RE = re.compile(r"^[A-Za-z0-9_.:-]{1,96}@[A-Za-z0-9_.:-]{1,32}$")
 
 def reserved_name(table):
     """Names bound to a stored-table schema; a route table may not take them."""
+    # 0.5.20: a standard name follows its old name (triage.dispatch.route is a route table)
+    table = format_name(table)
     return (
         table.startswith(TABLE_P2_PREFIX)
         or table.startswith(TABLE_SUPPLEMENT_PREFIX)
@@ -133,6 +135,8 @@ def reserved_name(table):
 
 def decision_table_name(table, app_id):
     """Decision table name."""
+    # 0.5.20: target.scene.entity / triage.scene.acceptance take their old names' rule
+    table = format_name(table)
     if table == TABLE_P2_PREFIX + app_id:
         return True
     if table.startswith(TABLE_SOLUTION_PREFIX):
@@ -456,7 +460,9 @@ def _validate_decision_set(doc):
 def _validate_supplement(doc):
     v2 = doc.get("schema") == SCHEMA_SUPPLEMENT_V2
     table = _table(
-        doc, lambda t: t.startswith(TABLE_SUPPLEMENT_PREFIX), "补充要求表的表名以 supplement. 开头"
+        doc,
+        lambda t: format_name(t).startswith(TABLE_SUPPLEMENT_PREFIX),  # 0.5.20: or standard
+        "补充要求表的表名以 supplement. 开头",
     )
     raw = doc.get("scenes")
     _need(
@@ -611,7 +617,9 @@ def _entry(e, kind, path):
 
 def _validate_resource(doc):
     table = _table(
-        doc, lambda t: t.endswith(TABLE_RESOURCE_SUFFIX), "资源目标表的表名以 .resource 结尾"
+        doc,
+        lambda t: format_name(t).endswith(TABLE_RESOURCE_SUFFIX),
+        "资源目标表的表名以 .resource 结尾",
     )
     raw = doc.get("targets")
     _need(
@@ -1318,8 +1326,9 @@ def _read(fn, table, *args):
         raise RouteTableError("STORED_TABLE_UNAVAILABLE", "插件存储读不出来", table) from exc
 
 
-def _pinned(table, pin, load, load_version):
-    """The stored version a pin names; never the latest instead (STORED_TABLE_VERSION_MISSING)."""
+def _pinned(table, pin, load, load_version, find_content=None):
+    """The stored version a pin names; never the latest instead (STORED_TABLE_VERSION_MISSING). find_content (0.5.20,
+    StorageTables.find_content): the content search along the table's one chain."""
     from dmn_client.route_table import MAX_HISTORY  # noqa
 
     if load_version is None:
@@ -1333,12 +1342,17 @@ def _pinned(table, pin, load, load_version):
             "version",
         )
         return doc
-    head = _read(load, table)
-    if head is not None and type(head.get("version")) is int:
-        for n in range(head["version"], max(0, head["version"] - MAX_HISTORY), -1):
-            doc = head if n == head["version"] else _read(load_version, table, n)
-            if doc is not None and doc.get("content_sha256") == pin["content_sha256"]:
-                return doc
+    if find_content is not None:
+        doc = _read(find_content, table, pin["content_sha256"])
+        if doc is not None:
+            return doc
+    else:
+        head = _read(load, table)
+        if head is not None and type(head.get("version")) is int:
+            for n in range(head["version"], max(0, head["version"] - MAX_HISTORY), -1):
+                doc = head if n == head["version"] else _read(load_version, table, n)
+                if doc is not None and doc.get("content_sha256") == pin["content_sha256"]:
+                    return doc
     raise RouteTableError(
         "STORED_TABLE_VERSION_MISSING",
         "表 %s 最近 %d 版里没有内容摘要 %s… 的版本：钉的版本不在，不回退最新版"
@@ -1358,9 +1372,19 @@ def _echo(value):
     return value
 
 
-def evaluate_stored(table, fmt, inputs, load, version=None, content_sha256=None, load_version=None):
+def evaluate_stored(
+    table,
+    fmt,
+    inputs,
+    load,
+    version=None,
+    content_sha256=None,
+    load_version=None,
+    find_content=None,
+):
     """The evaluate_stored_table tool. load(table) -> stored doc or None; load_version(table, n) -> that stored version
-    or None (needed for a pin). Never raises: errors are in the envelope."""
+    or None (needed for a pin); find_content(table, sha) (0.5.20) -> the version a content pin finds or None (default:
+    the last versions of load's head). Never raises: errors are in the envelope."""
     out = {
         "schema_version": RESULT_SCHEMA,
         "status": "FAILED",
@@ -1385,7 +1409,7 @@ def evaluate_stored(table, fmt, inputs, load, version=None, content_sha256=None,
         if isinstance(inputs, str) and not inputs.strip():
             inputs = {}
         inputs = _input_object(inputs, "inputs_json", strict=False)
-        doc = _pinned(table, pin, load, load_version) if pin else _read(load, table)
+        doc = _pinned(table, pin, load, load_version, find_content) if pin else _read(load, table)
         if doc is None:
             out.update(
                 status="NOT_FOUND",
@@ -1411,8 +1435,9 @@ def evaluate_stored(table, fmt, inputs, load, version=None, content_sha256=None,
             "saved_at": doc.get("saved_at"),
             "content_sha256": _content_sha256(clean),
         }
-        if alias_of(table):
-            out["source"]["alias_of"] = alias_of(table)
+        # 0.5.20: a standard name before its first store says alias_of (as 0.5.19); an old name read after it gets the
+        # standard name's table: source.table is the standard name, read_as the old name
+        out["source"].update(read_names(table, doc.get("table")))
         if pin:
             out["source"]["pin"] = dict(pin)
             got = out["source"]["content_sha256"]

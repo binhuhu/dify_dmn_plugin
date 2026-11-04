@@ -10,6 +10,7 @@ from dmn_client.route_table import (
     solution_entry,
     validate_doc,
 )
+from dmn_client.table_names import read_as
 
 MAX_INPUTS_BYTES = 1024 * 1024
 MAX_MESSAGE = 300
@@ -89,6 +90,8 @@ def invoke_solution(app_id, inputs_json, table, load, invoke):
         "table": table,
         "table_version": doc.get("version"),
         "table_content_sha256": content_sha256(clean),
+        # 0.5.20: an old name read after the first store: the standard name's table and version, plus read_as
+        **read_as(table, doc.get("table")),
     }
     if clean["schema"] not in ROUTE_SCHEMAS:
         return _receipt(
