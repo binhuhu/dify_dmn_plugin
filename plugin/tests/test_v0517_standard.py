@@ -154,7 +154,11 @@ FEATURE_OUT = {
 def test_solution_names_save_load_and_evaluate(table):
     m = feature_model()
     st = FakeStorage()
-    status, body = save(st, doc(table, m, declare(m, "FACT_FEATURE", FEATURE_OUT)))
+    # 0.5.19: the name segment fixes the role, so only fact.feature names carry this feature declaration
+    feature = table.startswith("solution.fact.feature.")
+    status, body = save(
+        st, doc(table, m, declare(m, "FACT_FEATURE", FEATURE_OUT) if feature else None)
+    )
     assert status == 200, body
     assert StorageTables(st).load(table)["table"] == table
     out = evaluate_stored(
@@ -221,13 +225,13 @@ def status_model(**over):
         "ready": tpl(
             "PASS", {"actions": [], "outcome": "DONE", "reason_code": "DISPOSITION_READY"}
         ),
+        # 0.5.19: a disposal status table does not write gap (upstream gaps are summed as they are)
         "wait": tpl(
             "PENDING",
             {
                 "actions": [],
                 "outcome": "NEED_INPUT",
                 "reason_code": "MAIN_PATH_FACT_UNKNOWN",
-                "gap": {"code": "MAIN_PATH_FACT_UNKNOWN", "owner": "SYSTEM", "kind": "FACT"},
             },
         ),
         "no_match": tpl("NO_MATCH", {"actions": []}),
@@ -329,7 +333,12 @@ def disposal_model(customer_result=None, agent_result=None):
     )
 
 
+SLOTS = {"抵扣金额": {"source": "fact:bill.coupon_deducted_amount", "format": "元，两位小数"}}
+
+
 def disposal_doc(m, **extra):
+    # 0.5.19: SEGMENTS has the slot {抵扣金额}, so the declaration lists it unless a test gives its own texts
+    extra.setdefault("texts", {"slots": copy.deepcopy(SLOTS)})
     return doc(
         "solution.disposal.strategy.M_P_02_04_01", m, declare(m, "DISPOSAL", DISPOSAL_OUT, **extra)
     )
@@ -445,12 +454,14 @@ def test_disposal_text_refusals(which, result, needle):
 
 def test_declared_slots_and_forbidden_words():
     m = disposal_model()
-    slots = {"抵扣金额": {"source": "fact:bill.coupon_deducted_amount", "format": "元，两位小数"}}
+    slots = SLOTS
     assert validate(disposal_doc(m, texts={"slots": slots, "words": {"forbid": ["作废"]}}))
     refused(
         disposal_doc(m, texts={"slots": {"订单时间": {"source": "fact:order.time"}}})
     )  # {抵扣金额} undeclared
-    refused(disposal_doc(m, texts={"words": {"forbid": ["核实"]}}))  # in texts.agent
+    refused(
+        disposal_doc(m, texts={"slots": slots, "words": {"forbid": ["核实"]}})
+    )  # in texts.agent (0.5.19: with the slot declared, so the forbidden word is what refuses it)
     refused(disposal_doc(m, texts={"slots": {"x": {"source": "nowhere"}}}))
     refused(disposal_doc(m, texts={"words": {"forbid": []}}))
 
@@ -464,6 +475,7 @@ def test_acceptance_still_refuses_a_null_customer():
                 {
                     "actions": [],
                     "decision": "NOT_ACCEPTED",
+                    "reason_code": "NOT_OK",  # 0.5.19: both acceptance business keys
                     "texts": {"customer": None, "agent": "x"},
                 },
             ),
@@ -471,7 +483,10 @@ def test_acceptance_still_refuses_a_null_customer():
         },
         {"a": param()},
     )
-    out = {"decision": {"type": "string", "name": "受理结论"}}
+    out = {
+        "decision": {"type": "string", "name": "受理结论"},
+        "reason_code": {"type": "string", "name": "原因码"},
+    }
     d = doc(
         "triage.sample",
         m,
@@ -480,7 +495,13 @@ def test_acceptance_still_refuses_a_null_customer():
     )
     assert "customer" in refused(d).path
     m["result_templates"]["fail"] = tpl(
-        "FAIL", {"actions": [], "decision": "NOT_ACCEPTED", "texts": {"customer": dict(SEGMENTS)}}
+        "FAIL",
+        {
+            "actions": [],
+            "decision": "NOT_ACCEPTED",
+            "reason_code": "NOT_OK",
+            "texts": {"customer": dict(SEGMENTS)},
+        },
     )
     d = doc(
         "triage.sample",
@@ -488,6 +509,7 @@ def test_acceptance_still_refuses_a_null_customer():
         declare(m, "ACCEPTANCE", out),
         owner={"app_id": APP_TRIAGE, "team": "分诊", "name": "样例"},
     )
+    d["declare"]["texts"] = {"slots": copy.deepcopy(SLOTS)}  # 0.5.19: SEGMENTS has {抵扣金额}
     assert validate(d), "segments are fine for acceptance too"
 
 

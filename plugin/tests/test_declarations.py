@@ -175,13 +175,15 @@ def standard_doc(**templates):
     def tpl(state, result, note="原因"):
         return {"state": state, "actions": [], "data": {"result": lit(result), "note": lit(note)}}
 
+    # 0.5.19: acceptance templates write both business keys (decision + reason_code)
     base = {
-        "PASS_T": tpl("PASS", {"actions": [], "decision": "ACCEPTED"}),
+        "PASS_T": tpl("PASS", {"actions": [], "decision": "ACCEPTED", "reason_code": "OK"}),
         "FAIL_T": tpl(
             "FAIL",
             {
                 "actions": [],
                 "decision": "NOT_ACCEPTED",
+                "reason_code": "DUPLICATE",
                 "texts": {"customer": "这笔订单暂时无法处理。"},
             },
         ),
@@ -228,7 +230,8 @@ def standard_doc(**templates):
                     "name": "受理结论",
                     "values": ["ACCEPTED", "NOT_ACCEPTED", "PENDING_ENTITY", "UNDETERMINED"],
                     "names": {"ACCEPTED": "受理成立"},
-                }
+                },
+                "reason_code": {"type": "string", "name": "原因码"},
             },
             "states": {"PASS": "受理成立", "FAIL": "不受理", "NO_MATCH": "表里没写"},
             "rows": {"P2_DUPLICATE": {"why": "同一问题已有工单"}, "P2_ACCEPT": {"why": "非重复"}},
@@ -250,6 +253,7 @@ def test_a_standard_acceptance_table_saves():
                 {
                     "actions": [],
                     "decision": "NOT_ACCEPTED",
+                    "reason_code": "DUPLICATE",
                     "texts": {"customer": "疑似作弊，不予处理"},
                 },
             ),
@@ -261,6 +265,7 @@ def test_a_standard_acceptance_table_saves():
                 {
                     "actions": [],
                     "decision": "NOT_ACCEPTED",
+                    "reason_code": "DUPLICATE",
                     "texts": {"customer": "命中 P2_DUPLICATE"},
                 },
             ),
@@ -272,19 +277,37 @@ def test_a_standard_acceptance_table_saves():
                 {
                     "actions": [],
                     "decision": "NOT_ACCEPTED",
+                    "reason_code": "DUPLICATE",
                     "texts": {"customer": "订单 12345678901 无法处理"},
                 },
             ),
             "长串数字",
         ),
-        (("FAIL", {"actions": [], "decision": "NOT_ACCEPTED"}), "texts.customer"),
         (
-            ("FAIL", {"actions": [], "decision": "ACCEPTED", "texts": {"customer": "无法处理"}}),
+            ("FAIL", {"actions": [], "decision": "NOT_ACCEPTED", "reason_code": "DUPLICATE"}),
+            "texts.customer",
+        ),
+        (
+            (
+                "FAIL",
+                {
+                    "actions": [],
+                    "decision": "ACCEPTED",
+                    "reason_code": "DUPLICATE",
+                    "texts": {"customer": "无法处理"},
+                },
+            ),
             "decision",
         ),
-        (("PASS", {"actions": [], "decision": "ACCEPTED", "rule_id": "X"}), "rule_id"),
-        (("PASS", {"decision": "ACCEPTED"}), "actions"),
-        (("PASS", {"actions": [], "decision": "ACCEPTED", "colour": "red"}), "没声明"),
+        (
+            ("PASS", {"actions": [], "decision": "ACCEPTED", "reason_code": "OK", "rule_id": "X"}),
+            "rule_id",
+        ),
+        (("PASS", {"decision": "ACCEPTED", "reason_code": "OK"}), "actions"),
+        (
+            ("PASS", {"actions": [], "decision": "ACCEPTED", "reason_code": "OK", "colour": "red"}),
+            "没声明",
+        ),
         (("UNKNOWN", {"actions": [], "decision": "UNDETERMINED"}), "没声明的 state"),
     ],
 )
@@ -384,8 +407,11 @@ def test_malformed_disposal_outcome_is_a_validation_error(bad):
     doc = standard_doc()
     doc["declare"]["role"] = "DISPOSAL"
     doc["declare"]["outputs"]["outcome"] = {"type": kind(bad), "name": "Outcome"}
+    doc["declare"]["outputs"]["disposal_id"] = {"type": "string", "name": "处置编号"}
     for template in doc["model"]["result_templates"].values():
         template["data"]["result"]["literal"]["outcome"] = bad
+        # 0.5.19: a disposal template writes its business key disposal_id
+        template["data"]["result"]["literal"]["disposal_id"] = "D1"
     status, body = save(FakeStorage(), doc)
     assert status == 400 and body["error"]["code"] == "TABLE_DECLARATION_INVALID"
     assert body["error"]["path"].endswith(".result.outcome")

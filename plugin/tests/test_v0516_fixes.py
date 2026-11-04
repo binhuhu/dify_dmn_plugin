@@ -101,13 +101,24 @@ def disposal_doc(none_result=None):
             rule("D_REFUSED", "REFUSED_T", cond("ok", "eq", False)),
         ],
         {
+            # 0.5.19: a disposal template writes its business key disposal_id
             "DONE_T": std(
                 "PASS",
-                {"actions": [], "outcome": "DONE", "texts": {"customer": "已为您处理。"}},
+                {
+                    "actions": [],
+                    "disposal_id": "D_DONE",
+                    "outcome": "DONE",
+                    "texts": {"customer": "已为您处理。"},
+                },
             ),
             "REFUSED_T": std(
                 "FAIL",
-                {"actions": [], "outcome": "REFUSED", "texts": {"customer": "暂时无法处理。"}},
+                {
+                    "actions": [],
+                    "disposal_id": "D_REFUSED",
+                    "outcome": "REFUSED",
+                    "texts": {"customer": "暂时无法处理。"},
+                },
             ),
             "NONE_T": std("NO_MATCH", none_result if none_result is not None else {"actions": []}),
         },
@@ -121,11 +132,12 @@ def disposal_doc(none_result=None):
         "row_order_sha256": declarations.row_order_sha256(m),
         "parameters": {"ok": {"name": "可处理", "source": "fact:ok"}},
         "outputs": {
+            "disposal_id": {"type": "string", "name": "处置编号"},
             "outcome": {
                 "type": "string",
                 "name": "处置结论",
                 "values": ["DONE", "NEED_INPUT", "NEED_REVIEW", "REFUSED"],
-            }
+            },
         },
         "states": ["FAIL", "PASS"],
         "rows": {"D_DONE": {"why": "可处理"}, "D_REFUSED": {"why": "不可处理"}},
@@ -208,17 +220,26 @@ def feature_doc(states, extra_template=True):
             "data": {"result": {"literal": result}, "note": {"literal": "原因"}},
         }
 
+    # 0.5.19: a feature never FAILs (the second used state is NOT_APPLICABLE), and an UNKNOWN template carries a gap
     templates = {
         "PASS_T": std("PASS", {"actions": [], "feature_id": "F1", "value": True}),
-        "FAIL_T": std("FAIL", {"actions": [], "feature_id": "F1", "value": False}),
+        "NA_T": std("NOT_APPLICABLE", {"actions": [], "feature_id": "F1", "value": None}),
         "NONE_T": std("NO_MATCH", {"actions": []}),
     }
     if extra_template:
-        templates["SPARE_T"] = std("UNKNOWN", {"actions": [], "feature_id": "F1", "value": None})
+        templates["SPARE_T"] = std(
+            "UNKNOWN",
+            {
+                "actions": [],
+                "feature_id": "F1",
+                "value": None,
+                "gap": {"code": "X_UNKNOWN", "owner": "SYSTEM", "kind": "FACT"},
+            },
+        )
     m = model(
         [
             rule("F_TRUE", "PASS_T", cond("x", "eq", True)),
-            rule("F_FALSE", "FAIL_T", cond("x", "eq", False)),
+            rule("F_FALSE", "NA_T", cond("x", "eq", False)),
         ],
         templates,
         {"x": param()},
@@ -232,6 +253,7 @@ def feature_doc(states, extra_template=True):
         "outputs": {
             "feature_id": {"type": "string", "name": "特征"},
             "value": {"type": "boolean", "name": "取值"},
+            "gap": {"type": "object", "name": "缺口"},
         },
         "states": states,
         "rows": {"F_TRUE": {"why": "真"}, "F_FALSE": {"why": "假"}},
@@ -240,12 +262,13 @@ def feature_doc(states, extra_template=True):
 
 
 def test_an_unreferenced_template_does_not_count_as_a_used_state():
-    assert validate(feature_doc(["FAIL", "PASS"]))["declare"]["states"] == ["FAIL", "PASS"]
+    states = ["NOT_APPLICABLE", "PASS"]
+    assert validate(feature_doc(states))["declare"]["states"] == states
 
 
 def test_a_listed_state_no_rule_uses_is_refused():
     with pytest.raises(RouteTableError) as e:
-        validate(feature_doc(["FAIL", "PASS", "PENDING"], extra_template=False))
+        validate(feature_doc(["NOT_APPLICABLE", "PASS", "PENDING"], extra_template=False))
     assert e.value.code == "TABLE_DECLARATION_INVALID" and "states" in e.value.path
 
 

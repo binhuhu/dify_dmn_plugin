@@ -971,6 +971,17 @@
           },
           "minItems": 0
         },
+        "when_any": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/condition"
+            },
+            "minItems": 1
+          },
+          "minItems": 1
+        },
         "output_template_ref": {
           "type": "string",
           "minLength": 1
@@ -978,8 +989,19 @@
       },
       "required": [
         "rule_id",
-        "when",
         "output_template_ref"
+      ],
+      "oneOf": [
+        {
+          "required": [
+            "when"
+          ]
+        },
+        {
+          "required": [
+            "when_any"
+          ]
+        }
       ],
       "additionalProperties": false
     },

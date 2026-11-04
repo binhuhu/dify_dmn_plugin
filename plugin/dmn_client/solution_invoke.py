@@ -81,7 +81,7 @@ def invoke_solution(app_id, inputs_json, table, load, invoke):
             table=table,
         )
     try:
-        clean = validate_doc(doc)
+        clean = validate_doc(doc, validate_declaration=False)
     except RouteTableError as exc:
         return _receipt("REJECTED", exc.code, exc.message, app_id=app_id, table=table)
     ident = {

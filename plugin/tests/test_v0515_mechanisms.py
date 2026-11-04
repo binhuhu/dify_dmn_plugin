@@ -1020,6 +1020,9 @@ def test_a_set_model_carries_its_own_fingerprint():
 def std_list_doc():
     d = standard_upstream("triage.std")
     m = d["model"]
+    # 0.5.19: an acceptance template writes both business keys (decision + reason_code)
+    for ref, code in (("FAIL_T", "DUPLICATE"), ("PASS_T", "ACCEPTED")):
+        m["result_templates"][ref]["data"]["result"]["literal"]["reason_code"] = code
     d["declare"] = {
         "stage": "STANDARD",
         "role": "ACCEPTANCE",
@@ -1032,7 +1035,8 @@ def std_list_doc():
                 "name": "受理结论",
                 "values": ["ACCEPTED", "NOT_ACCEPTED", "PENDING_ENTITY", "UNDETERMINED"],
                 "names": {"ACCEPTED": "受理成立", "NOT_ACCEPTED": "不受理"},
-            }
+            },
+            "reason_code": {"type": "string", "name": "原因码"},
         },
         "states": ["FAIL", "PASS"],
         "rows": {"UP_DUP": {"why": "重复工单"}, "UP_OK": {"why": "非重复"}},

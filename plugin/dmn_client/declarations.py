@@ -1,8 +1,8 @@
 """Table declarations: what a stored table means, checked against its content when it is saved.
 
-A declaration is optional and never read when a table is evaluated; it is not part of content_sha256. It names the
-table's role, its parameters (business name, source), its outputs, what each state means here, and why each rule
-exists. Two stages:
+A declaration is optional and never read during evaluation; it is not part of content_sha256. It names the table's
+role, parameters (business name, source), outputs, state meanings and rule explanations. Runtime source constraints
+live in the hashed model's from_table fields. Two stages:
 
     TRANSITION  describes the table as it is (any states, any data keys, each declared).
     STANDARD    decision tables only: state is one of STATES, data = {result, note}; result is an object with
@@ -12,11 +12,18 @@ exists. Two stages:
 0.5.15 (DMN 2.0 draft.10): `states` may be a list of the states the table uses (STANDARD: row states only, NO_MATCH is
 the table's own); FIRST tables record a row-order fingerprint (`row_order_sha256`); a decision set declares each model.
 
+0.5.19: STANDARD templates carry a complete gap when PENDING / UNKNOWN,
+exact action items and the role's business keys; parameters may give a unit; slots in texts are declared; features never
+FAIL; a FIRST table may split one conclusion only with split_of; solution.* names fix the role; a reality table may
+register the realities that can hold together (coexist).
+
 check(declare, clean, schema) -> clean declaration (raises RouteTableError on a mismatch).
 warnings(clean, previous) -> declaration warnings of a stored document (a rule changed after its explanation was written;
-rows of a FIRST table moved, with the shadowing changes against the previous version).
+rows of a FIRST table moved, with the shadowing changes against the previous version; 0.5.19: on a COLLECT reality
+table, an exit rule and a reality rule, or two realities not registered in coexist, that may hold together).
 """
 
+import itertools
 import json
 import re
 
@@ -24,6 +31,7 @@ from dmn_client import scene_id
 from dmn_client.json_table import MISSING, condition, equal
 from dmn_client.route_table import DATA_V4, RouteTableError, digest
 from dmn_client.scene_spelling import scene_state
+from dmn_client.table_names import storage_name
 
 DECISION_ROLES = (
     "SCENE_ENTITY",
@@ -71,6 +79,7 @@ KEYS = {
     "rows",
     "row_order_sha256",
     "texts",
+    "coexist",  # 0.5.19 (意见第 3 条): FEATURE_REALITY only
 }
 SET_KEYS = {"stage", "role", "models"}
 MAX_SHADOWING = 100
@@ -120,6 +129,26 @@ CONCLUSION_KEYS = {
     "DISPOSAL": ("disposal_id",),
     "DISPOSAL_STATUS": ("outcome", "reason_code"),
 }
+# 0.5.19 (意见第 5、12 条): a gap says what is missing, who supplies it and what kind it is. AUTHOR and RULE are new (the
+# input is complete but no rule covers it: the table's author owes a row). A list is one item per association group.
+GAP_OWNERS = ("OPERATOR", "CUSTOMER", "SYSTEM", "AUTHOR")
+GAP_KINDS = ("FACT", "ENTITY", "CONFIRM", "RULE")
+GAP_KEYS = {"code", "owner", "kind", "field_id"}
+GAP_LIST_KEYS = GAP_KEYS | {"any_of", "min_satisfied", "blocking", "assoc_id"}
+MAX_GAPS = 64
+GAP_STATES = ("PENDING", "UNKNOWN")
+# 0.5.19 (意见第 12 条): one suggested action; executing is never the table's
+ACTION_KEYS = {"code", "capability_id", "executor", "money"}
+EXECUTORS = ("SYSTEM", "AGENT")
+UNIT_MAX = 32
+# 0.5.19 (意见第 11 条): a solution-layer table name fixes the role of its declaration
+ROLE_BY_NAME = (
+    ("solution.fact.feature.", "FACT_FEATURE"),
+    ("solution.feature.reality.", "FEATURE_REALITY"),
+    ("solution.disposal.strategy.", "DISPOSAL"),
+    ("solution.disposal.status.", "DISPOSAL_STATUS"),
+)
+MAX_COEXIST = 256
 
 
 def _need(ok, message, path):
@@ -149,10 +178,12 @@ def _named_map(value, path, label, entry):
     return out
 
 
-def _parameter(v, path):
+def _parameter(v, path, stage="TRANSITION"):
+    # 0.5.19 (意见第 13 条): a STANDARD parameter may give its stored unit
+    unit = stage == "STANDARD"
     _need(
-        type(v) is dict and set(v) <= {"name", "source", "domain"},
-        "参数 = name + source（+ domain）",
+        type(v) is dict and set(v) <= {"name", "source", "domain"} | ({"unit"} if unit else set()),
+        "参数 = name + source（+ domain" + (" / unit" if unit else "") + "）",
         path,
     )
     out = {"name": _text(v.get("name"), 40, "参数中文名", path + ".name")}
@@ -175,6 +206,8 @@ def _parameter(v, path):
             path + ".domain",
         )
         out["domain"] = d
+    if "unit" in v:
+        out["unit"] = _text(v["unit"], UNIT_MAX, "参数的存储单位（unit）", path + ".unit")
     return out
 
 
@@ -215,10 +248,13 @@ def _output(v, path):
     return out
 
 
-def _row(v, path):
+def _row(v, path, stage="TRANSITION"):
+    # 0.5.19 (意见第 8 条): split_of + split_reason, the FIRST-table exception
+    split = stage == "STANDARD"
     _need(
-        type(v) is dict and set(v) <= {"why", "rule_sha256"},
-        "规则说明 = why（+ rule_sha256）",
+        type(v) is dict
+        and set(v) <= {"why", "rule_sha256"} | ({"split_of", "split_reason"} if split else set()),
+        "规则说明 = why（+ rule_sha256" + (" / split_of + split_reason" if split else "") + "）",
         path,
     )
     out = {"why": _text(v.get("why"), 300, "规则依据", path + ".why")}
@@ -229,6 +265,19 @@ def _row(v, path):
             path + ".rule_sha256",
         )
         out["rule_sha256"] = v["rule_sha256"]
+    if "split_of" in v or "split_reason" in v:
+        _need(
+            type(v.get("split_of")) is str and v["split_of"].strip(),
+            "split_of = 同一结论第一条规则的 rule_id（和 split_reason 一起写）",
+            path + ".split_of",
+        )
+        out["split_of"] = v["split_of"]
+        out["split_reason"] = _text(
+            v.get("split_reason"),
+            300,
+            "同一结论分两条的理由（split_reason）",
+            path + ".split_reason",
+        )
     return out
 
 
@@ -306,13 +355,19 @@ def check(declare, clean, schema):
             "STANDARD 的 state 只能是 " + " / ".join(STATES) + "；多了 " + ", ".join(bad),
             ".states",
         )
+    if "table" in clean:
+        _role_of_name(out["role"], clean["table"])
     out["outputs"] = _named_map(declare.get("outputs"), ".outputs", "outputs", _output)
+    stage = out["stage"]
     if "parameters" in declare:
         out["parameters"] = _named_map(
-            declare["parameters"], ".parameters", "parameters", _parameter
+            declare["parameters"],
+            ".parameters",
+            "parameters",
+            lambda v, p: _parameter(v, p, stage),
         )
     if "rows" in declare:
-        out["rows"] = _named_map(declare["rows"], ".rows", "rows", _row)
+        out["rows"] = _named_map(declare["rows"], ".rows", "rows", lambda v, p: _row(v, p, stage))
     if "priority" in declare:
         _need(declare["priority"] == "ROW_ORDER", "priority 只能是 ROW_ORDER", ".priority")
         out["priority"] = "ROW_ORDER"
@@ -325,6 +380,8 @@ def check(declare, clean, schema):
             ".row_order_sha256",
         )
         out["row_order_sha256"] = declare["row_order_sha256"]
+    if "coexist" in declare:
+        out["coexist"] = _coexist(declare["coexist"], out)
     if schema == DECISION:
         _decision(out, clean["model"])
     elif out["role"] == "SUPPLEMENT":
@@ -393,6 +450,58 @@ def _texts_declare(v):
     return out
 
 
+def _role_of_name(role, table):
+    """0.5.19 (意见第 11 条): a solution-layer table name fixes the role of its declaration."""
+    for prefix, want in ROLE_BY_NAME:
+        if type(table) is str and table.startswith(prefix):
+            _need(
+                role == want,
+                "表名 %s 是 %s 段的表，role 要写 %s（写的是 %s）"
+                % (table, prefix[:-1], want, role),
+                ".role",
+            )
+
+
+def _coexist(value, out):
+    """0.5.19 (意见第 3 条): the realities a reality table lets hold together, as groups of reality_id; every id is one
+    of outputs.reality_id.values."""
+    _need(
+        out["stage"] == "STANDARD" and out["role"] == "FEATURE_REALITY",
+        "coexist 只写在 STANDARD 的现实表（FEATURE_REALITY）上",
+        ".coexist",
+    )
+    known = (out["outputs"].get("reality_id") or {}).get("values")
+    _need(
+        type(known) is list,
+        "写 coexist 要先在 outputs.reality_id.values 列全本表的现实编号",
+        ".outputs.reality_id.values",
+    )
+    _need(
+        type(value) is list and 0 < len(value) <= MAX_COEXIST,
+        "coexist = 可并存的现实组列表（每组是 reality_id 列表），1–%d 组" % MAX_COEXIST,
+        ".coexist",
+    )
+    groups = []
+    for i, group in enumerate(value):
+        p = ".coexist[%d]" % i
+        _need(
+            type(group) is list
+            and 2 <= len(group) <= 64
+            and all(type(x) is str for x in group)
+            and len(set(group)) == len(group),
+            "每组可并存的现实是 2–64 个不重复的 reality_id",
+            p,
+        )
+        unknown = [x for x in group if x not in known]
+        _need(
+            not unknown,
+            "coexist 里的现实编号不在 outputs.reality_id.values：" + ", ".join(unknown[:5]),
+            p,
+        )
+        groups.append(list(group))
+    return groups
+
+
 def _inputs(out, names):
     if "parameters" in out:
         _need(
@@ -406,6 +515,7 @@ def _decision(out, model):
     rules, templates = model["rules"], model["result_templates"]
     _need("parameters" in out, "决策表要声明每个参数", ".parameters")
     _inputs(out, model["parameters"])
+    _sources_agree(out, model)
     first = model["hit_policy"] == "FIRST"
     _need(first == ("priority" in out), "FIRST 表要写 priority: ROW_ORDER，其他表不写", ".priority")
     listed = type(out["states"]) is list
@@ -434,7 +544,16 @@ def _decision(out, model):
         undeclared = sorted(used - set(out["states"]))
         _need(not undeclared, "模板用到但没声明的 state：" + ", ".join(undeclared), ".states")
     if out["stage"] == "STANDARD":
-        _one_rule_per_conclusion(out["role"], model)
+        split = [rid for rid, row in out["rows"].items() if "split_of" in row]
+        _need(
+            first or not split,
+            "split_of 只用于 FIRST 表的保序例外；这张表是 %s：%s 和前面的同结论规则合成一条（when_any）"
+            % (model["hit_policy"], ", ".join(split[:5])),
+            ".rows." + (split[0][:64] if split else ""),
+        )
+        # 0.5.19 (意见第 12 条): the role's business keys first, then one rule per conclusion
+        _business_keys(out["role"], model)
+        _one_rule_per_conclusion(out["role"], model, out["rows"], first)
     for ref, t in templates.items():
         p = ".templates." + str(ref)[:64]
         if out["stage"] == "TRANSITION":
@@ -457,6 +576,32 @@ def _conclusion_numbers(value):
     return value
 
 
+def _sources_agree(out, model):
+    """0.5.19: evaluation checks a table parameter's receipt against the model's
+    from_table only. The declared source table:<name> says the same table (read aliases count as their stored name),
+    and a STANDARD declaration that names a source table needs it in the model."""
+    for name, c in model["parameters"].items():
+        if c["type"] != "table":
+            continue
+        src = (out["parameters"].get(name) or {}).get("source") or ""
+        declared = src[len("table:") :] if src.startswith("table:") else None
+        mine = c.get("from_table")
+        p = ".parameters." + str(name)[:64] + ".source"
+        if mine is not None:
+            _need(
+                declared is not None and storage_name(declared) == storage_name(mine),
+                "模型的 from_table 是 %s，声明的来源要写 table:%s" % (mine, mine),
+                p,
+            )
+        else:
+            _need(
+                declared is None or out["stage"] != "STANDARD",
+                "标准写法：声明的来源是 table:%s，模型的这个 table 参数要写 from_table（求值只看模型）"
+                % declared,
+                p,
+            )
+
+
 def conclusion_of(role, template):
     """The conclusion a template gives: (state, business keys…, gap codes) as canonical JSON (DMN 2.0 §五)."""
     result = (template.get("data", {}).get("result") or {}).get("literal")
@@ -471,20 +616,70 @@ def conclusion_of(role, template):
     )
 
 
-def _one_rule_per_conclusion(role, model):
-    """0.5.18: two rules giving the same conclusion are one rule with when_any combinations."""
+def _business_keys(role, model):
+    """0.5.19 (意见第 12 条): every template but the no-match one writes the role's business keys (null when it has no
+    value), so a conclusion is never told apart by a key left out."""
+    keys = CONCLUSION_KEYS.get(role, ())
+    for ref, t in model["result_templates"].items():
+        if ref == model["empty_template_ref"]:
+            continue
+        result = (t["data"].get("result") or {}).get("literal")
+        if type(result) is not dict:
+            continue  # _standard says what is wrong with it
+        missing = [k for k in keys if k not in result]
+        _need(
+            not missing,
+            "模板 %s 的 result 缺 %s 的业务键：%s（没有值也写上，填 null）"
+            % (str(ref)[:64], role, ", ".join(missing)),
+            ".templates.%s.result.%s" % (str(ref)[:64], missing[0] if missing else ""),
+        )
+
+
+def _one_rule_per_conclusion(role, model, rows=None, first=False):
+    """0.5.18: two rules giving the same conclusion are one rule with when_any combinations. 0.5.19 (意见第 8 条): a FIRST
+    table may give a conclusion again when merging would move combinations past another conclusion's rule: the later
+    rule's row names the conclusion's first rule in split_of with a split_reason, and between it and the previous rule
+    of that conclusion stands a rule of another conclusion that may hold together with it."""
     if role not in CONCLUSION_KEYS:
         return
-    seen = {}
-    for r in model["rules"]:
+    rules, rows = model["rules"], rows or {}
+    seen, head, last = {}, {}, {}
+    for i, r in enumerate(rules):
         key = conclusion_of(role, model["result_templates"][r["output_template_ref"]])
+        path = ".rules." + str(r["rule_id"])[:64]
+        split = (rows.get(r["rule_id"]) or {}).get("split_of")
+        if key not in seen:
+            _need(
+                split is None,
+                "split_of 只写在重复前面同一结论的规则上：%s 是这个结论的第一条" % r["rule_id"],
+                path + ".split_of",
+            )
+            seen[key], head[key], last[key] = r["rule_id"], r["rule_id"], i
+            continue
         _need(
-            key not in seen,
+            first and split is not None,
             "同一结论只写一条规则：%s 和 %s 给出同一个结论（%s）；把它们的条件写成一条规则的 when_any"
-            % (seen.get(key), r["rule_id"], key[:120]),
-            ".rules." + str(r["rule_id"])[:64],
+            % (seen.get(key), r["rule_id"], key[:120])
+            + (
+                "（FIRST 表合并补否定超上限时，第二条在 rows 里写 split_of + split_reason）"
+                if first
+                else ""
+            ),
+            path,
         )
-        seen[key] = r["rule_id"]
+        _need(
+            split == head[key],
+            "split_of 要指向同一结论的第一条规则 %s（写的是 %s）" % (head[key], split),
+            path + ".split_of",
+        )
+        between = rules[last[key] + 1 : i]
+        _need(
+            any(may_overlap(b, r) for b in between),
+            "%s 和 %s 之间没有可能同时成立的别的结论规则：相邻或不重叠的同结论规则合成一条（when_any），不分两条"
+            % (seen[key], r["rule_id"]),
+            path + ".split_of",
+        )
+        seen[key], last[key] = r["rule_id"], i
 
 
 def _row_states(listed, model):
@@ -537,6 +732,7 @@ def _set(declare, clean, roles):
     out = {"stage": declare.get("stage"), "role": declare.get("role")}
     _need(out["stage"] in STAGES, "stage 只能是 TRANSITION / STANDARD", ".stage")
     _need(out["role"] in roles, "这种表的 role 只能是 " + " / ".join(roles), ".role")
+    _role_of_name(out["role"], clean["table"])
     models = declare.get("models")
     _need(type(models) is dict, "models = 模型键 → 这个模型的声明", ".models")
     have = set(clean["models"])
@@ -605,6 +801,31 @@ def _standard(out, t, p):
         "result.actions 要写（没有就 []）",
         p + ".result.actions",
     )
+    for i, a in enumerate(result["actions"]):
+        _action(a, p + ".result.actions[%d]" % i)
+    role, state = out["role"], t["state"]
+    # 0.5.19 (意见第 23 条): a feature is a value
+    _need(
+        role != "FACT_FEATURE" or state != "FAIL",
+        "特征表不用 FAIL：特征是值，布尔否写 PASS + value=false",
+        p + ".state",
+    )
+    if role == "DISPOSAL_STATUS":
+        # 0.5.19: upstream gaps are summed by the shared node as they are
+        _need(
+            "gap" not in result,
+            "处置状态表不写 gap：它只出 outcome + reason_code，不复写上游缺口（缺口由共用节点按各表回执原样汇总）",
+            p + ".result.gap",
+        )
+    else:
+        # 0.5.19 (意见第 12 条): PENDING / UNKNOWN say what is missing and who supplies it
+        _need(
+            state not in GAP_STATES or result.get("gap") is not None,
+            "%s 的模板要写 result.gap（code + owner + kind）：缺什么、归谁补" % state,
+            p + ".result.gap",
+        )
+        if "gap" in result:
+            _gap(result["gap"], p + ".result.gap")
     for k, v in result.items():
         if k in ("actions", "texts"):
             continue
@@ -637,7 +858,6 @@ def _standard(out, t, p):
         bad = customer_problems(line)
         _need(not bad, "对乘客的话不能有：" + "、".join(bad), p + ".result.texts")
     _texts_against_declare(out, told + ([texts["agent"]] if texts.get("agent") else []), p)
-    role, state = out["role"], t["state"]
     if role in ("ACCEPTANCE", "SUPPLEMENT", "DISPOSAL"):
         _need(
             role == "DISPOSAL" or texts.get("customer") is not None or "customer" not in texts,
@@ -671,6 +891,75 @@ def _standard(out, t, p):
             )
     else:
         _need(not texts, "这种表不对乘客说话，不写 texts", p + ".result.texts")
+
+
+def _gap_item(g, p, keys):
+    _need(
+        type(g) is dict and {"code", "owner", "kind"} <= set(g) and set(g) <= keys,
+        "gap = code + owner + kind（+ field_id%s）"
+        % (" / any_of / min_satisfied / blocking / assoc_id" if keys is GAP_LIST_KEYS else ""),
+        p,
+    )
+    _need(type(g["code"]) is str and g["code"].strip(), "gap.code 要写", p + ".code")
+    _need(g["owner"] in GAP_OWNERS, "gap.owner 只能是 " + " / ".join(GAP_OWNERS), p + ".owner")
+    _need(g["kind"] in GAP_KINDS, "gap.kind 只能是 " + " / ".join(GAP_KINDS), p + ".kind")
+    if "field_id" in g:
+        _need(
+            type(g["field_id"]) is str and g["field_id"].strip(),
+            "gap.field_id 是字段编号",
+            p + ".field_id",
+        )
+    if "any_of" in g:
+        _need(type(g["any_of"]) is list and g["any_of"], "gap.any_of 是非空列表", p + ".any_of")
+    if "min_satisfied" in g:
+        m = g["min_satisfied"]
+        _need(type(m) is int and m >= 1, "gap.min_satisfied 是正整数", p + ".min_satisfied")
+    if "blocking" in g:
+        _need(type(g["blocking"]) is bool, "gap.blocking 是布尔", p + ".blocking")
+    if "assoc_id" in g:
+        _need(
+            type(g["assoc_id"]) is str and g["assoc_id"].strip(),
+            "gap.assoc_id 是关联组编号",
+            p + ".assoc_id",
+        )
+
+
+def _gap(gap, p):
+    """0.5.19 (意见第 5、12 条): one gap {code, owner, kind, field_id?}, or (supplement style) a list of them, one per
+    association group, each may add any_of, min_satisfied, blocking, assoc_id."""
+    if type(gap) is list:
+        _need(0 < len(gap) <= MAX_GAPS, "gap 列表 1–%d 项" % MAX_GAPS, p)
+        for i, g in enumerate(gap):
+            _gap_item(g, "%s[%d]" % (p, i), GAP_LIST_KEYS)
+        return
+    _gap_item(gap, p, GAP_KEYS)
+
+
+def _action(a, p):
+    """0.5.19 (意见第 12 条): an action is exactly {code, capability_id, executor, money}; money is null or the rule that
+    computes the amount."""
+    _need(
+        type(a) is dict and set(a) == ACTION_KEYS,
+        "动作 = code + capability_id + executor + money（恰好这四个键）",
+        p,
+    )
+    _need(type(a["code"]) is str and a["code"].strip(), "动作要写 code", p + ".code")
+    _need(
+        type(a["capability_id"]) is str and a["capability_id"].strip(),
+        "动作要写 capability_id（由哪个能力执行）",
+        p + ".capability_id",
+    )
+    _need(a["executor"] in EXECUTORS, "executor 只能是 SYSTEM / AGENT", p + ".executor")
+    money = a["money"]
+    _need(
+        money is None
+        or type(money) is dict
+        and set(money) == {"amount_rule_id"}
+        and type(money["amount_rule_id"]) is str
+        and money["amount_rule_id"].strip(),
+        "money 是 null，或 {amount_rule_id: 算金额的规则编号}",
+        p + ".money",
+    )
 
 
 def _outcome(result, state, p, required):
@@ -746,16 +1035,16 @@ def _disposal(result, texts, state, p):
 
 
 def _texts_against_declare(out, lines, p):
-    """0.5.17 (R7): every {槽位} is declared when the table declares slots; no declared forbidden word appears."""
+    """0.5.17 (R7): every {槽位} is declared when the table declares slots; no declared forbidden word appears.
+    0.5.19 (意见第 13 条): a text with a {槽位} needs texts.slots whether or not the table declared any."""
     decl = out.get("texts") or {}
-    if "slots" in decl:
-        for line in lines:
-            for name in SLOT_RE.findall(line):
-                _need(
-                    name in decl["slots"],
-                    "话术里的槽位 {%s} 没在 texts.slots 声明" % name,
-                    p + ".result.texts",
-                )
+    for line in lines:
+        for name in SLOT_RE.findall(line):
+            _need(
+                name in decl.get("slots", {}),
+                "话术里的槽位 {%s} 没在 texts.slots 声明" % name,
+                p + ".result.texts",
+            )
     for word in (decl.get("words") or {}).get("forbid", []):
         for line in lines:
             _need(word not in line, "话术里有本表的禁用词：" + word, p + ".result.texts")
@@ -806,7 +1095,7 @@ def warnings(clean, previous=None):
         return []
     if clean.get("schema") == DECISION:
         before = previous.get("model") if _same(previous, DECISION) else None
-        return _model_warnings(d, clean["model"], before)
+        return _model_warnings(d, clean["model"], before, d)
     if clean.get("schema") == DECISION_SET:
         out, before = [], previous.get("models") if _same(previous, DECISION_SET) else {}
         for key in sorted(clean["models"]):
@@ -816,7 +1105,7 @@ def warnings(clean, previous=None):
             old = (before.get(key) or {}).get("model") if type(before) is dict else None
             out += [
                 dict(w, model=key)
-                for w in _model_warnings(mine, clean["models"][key]["model"], old)
+                for w in _model_warnings(mine, clean["models"][key]["model"], old, d)
             ]
         return out
     return []
@@ -826,7 +1115,8 @@ def _same(doc, schema):
     return type(doc) is dict and doc.get("schema") == schema
 
 
-def _model_warnings(d, model, before):
+def _model_warnings(d, model, before, table=None):
+    """table: the declaration that holds stage and role (a decision set's models share the table's)."""
     out = []
     for rule in model["rules"]:
         sha = d.get("rows", {}).get(rule["rule_id"], {}).get("rule_sha256")
@@ -849,6 +1139,89 @@ def _model_warnings(d, model, before):
                 w["shadowing_truncated"] = True
             if analysis.get("limited"):
                 w["shadowing_analysis_limited"] = True
+        out.append(w)
+    table = table or d
+    if (
+        table.get("stage") == "STANDARD"
+        and table.get("role") == "FEATURE_REALITY"
+        and model["hit_policy"] == "COLLECT"
+    ):
+        out += _coexist_warnings(model, d.get("coexist") or [])
+    return out
+
+
+def _kind_rules(model):
+    """(rule, result) of every rule whose template is standard-shaped, in order."""
+    out = []
+    for r in model["rules"]:
+        data = model["result_templates"][r["output_template_ref"]]["data"]
+        result = (data.get("result") or {}).get("literal")
+        if type(result) is dict:
+            out.append((r, result))
+    return out
+
+
+def _coexist_warnings(model, coexist):
+    """0.5.19 (意见第 3 条), yellow only: on a COLLECT reality table an exit rule (kind EXIT) and a reality rule (kind
+    REALITY) that may hold together (the exit wins over every reality), and two realities that may hold together without
+    a coexist group listing both (they are treated as the exit)."""
+    rules = _kind_rules(model)
+    exits = [r for r, res in rules if res.get("kind") == "EXIT"]
+    real = [(r, res.get("reality_id")) for r, res in rules if res.get("kind") == "REALITY"]
+    domains = {r["rule_id"]: _finite_domains(r) for r, _ in rules}
+    budget = {"remaining": MAX_OVERLAP_CHECKS, "limited": False}
+
+    def overlap(a, b):
+        return may_overlap(
+            a, b, domains=(domains[a["rule_id"]], domains[b["rule_id"]]), budget=budget
+        )
+
+    out = []
+    pairs = list(
+        itertools.islice(
+            (
+                {"rules": [e["rule_id"], r["rule_id"]]}
+                for e in exits
+                for r, _ in real
+                if overlap(e, r)
+            ),
+            MAX_SHADOWING + 1,
+        )
+    )
+    if pairs:
+        w = {
+            "code": "EXIT_REALITY_MAY_COEXIST",
+            "level": "TABLE",
+            "message": "出口规则和现实规则可能同时成立：同时命中时只走出口，这个现实不求处置",
+            "pairs": pairs[:MAX_SHADOWING],
+        }
+        if len(pairs) > MAX_SHADOWING:
+            w["pairs_truncated"] = True
+        if budget["limited"]:
+            w["overlap_analysis_limited"] = True
+        out.append(w)
+    loose = list(
+        itertools.islice(
+            (
+                {"rules": [a["rule_id"], b["rule_id"]], "reality_ids": [ra, rb]}
+                for i, (a, ra) in enumerate(real)
+                for b, rb in real[i + 1 :]
+                if ra != rb and not any(ra in g and rb in g for g in coexist) and overlap(a, b)
+            ),
+            MAX_SHADOWING + 1,
+        )
+    )
+    if loose:
+        w = {
+            "code": "REALITIES_MAY_COEXIST_UNDECLARED",
+            "level": "TABLE",
+            "message": "两个现实可能同时成立，但没在 coexist 里登记为可并存：同时成立时按冲突出口处理",
+            "pairs": loose[:MAX_SHADOWING],
+        }
+        if len(loose) > MAX_SHADOWING:
+            w["pairs_truncated"] = True
+        if budget["limited"]:
+            w["overlap_analysis_limited"] = True
         out.append(w)
     return out
 

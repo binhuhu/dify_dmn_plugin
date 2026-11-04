@@ -82,7 +82,8 @@ MODEL_KEY_RE = re.compile(r"^[a-z][a-z0-9_]{0,47}$")
 MAX_PARAMETERS = 32
 MAX_RULES = 512
 MAX_CONDITIONS = 32
-MAX_COMBINATIONS = 32  # 0.5.18: condition combinations in one rule (when_any)
+# 0.5.18: condition combinations in one rule (when_any); 0.5.19 (DMN 2.0 意见第 10 条): 32 → 128, each still ≤ 32 conditions
+MAX_COMBINATIONS = 128
 MAX_TEMPLATES = 128
 MAX_SUPPLEMENT_SCENES = 1024
 MAX_ITEMS = 16
@@ -108,6 +109,7 @@ DECISION_NAME_RULE = (
     "target.<名称>（owner.app_id = 定位 TARGET " + APP_TARGET + "）、"
     "triage.<名称>（owner.app_id = 分诊 TRIAGE " + APP_TRIAGE + "）、"
     "solution.<fact.feature|feature.reality|disposal.strategy|disposal.status>.<场景号>[.<分片>]"
+    "或多场景共用的 solution.disposal.status.shared"
     "（owner.app_id = 该方案应用；场景号如 M_P_02_04_01；分片小写字母开头，只含小写字母、数字、_，最多 24 个字符）；"
     "<名称> 小写字母或数字开头，只含小写字母、数字、_、-，最多 48 个字符"
 )
@@ -224,7 +226,8 @@ def _model(m, path):
         _need(type(name) is str and PARAM_RE.match(name), "DECISION_TABLE_INVALID", "参数名不对", p)
         _need(
             type(c) is dict
-            and set(c) == {"type", "record_required", "nullable", "allowed_quality"}
+            and set(c) - {"from_table"}
+            == {"type", "record_required", "nullable", "allowed_quality"}
             and (c["type"] in TYPES or c["type"] == TABLE_TYPE)
             and type(c["record_required"]) is bool
             and type(c["nullable"]) is bool
@@ -233,8 +236,20 @@ def _model(m, path):
             and all(q in QUALITIES for q in c["allowed_quality"])
             and len(set(c["allowed_quality"])) == len(c["allowed_quality"]),
             "DECISION_TABLE_INVALID",
-            "参数 = type / record_required / nullable / allowed_quality",
+            "参数 = type / record_required / nullable / allowed_quality（table 参数可加 from_table）",
             p,
+        )
+        # 0.5.19: a table parameter may name the one table whose receipt it takes.
+        # It is part of the model, so of content_sha256: one content digest, one execution rule.
+        _need(
+            "from_table" not in c
+            or c["type"] == TABLE_TYPE
+            and type(c["from_table"]) is str
+            and not any(ch.isspace() for ch in c["from_table"])
+            and bool(table_name(c["from_table"]) or alias_of(c["from_table"])),
+            "DECISION_TABLE_INVALID",
+            "from_table 只写在 table 参数上，是一张表的表名：这个参数只收那张表的回执",
+            p + ".from_table",
         )
         _need(
             c["type"] != TABLE_TYPE or c["nullable"] is False,
@@ -697,7 +712,8 @@ def validate(doc, *, validate_declaration=True):
 
 def declared(doc, clean):
     """0.5.14: the table's declaration (dmn_client.declarations), checked against the clean content. Not part of
-    content_sha256 and never read at evaluation; a document without one is stored exactly as before."""
+    content_sha256 and never read at evaluation (0.5.19: a table parameter's receipt source is the model's from_table); a
+    document without one is stored exactly as before."""
     if doc.get("declare") is None:
         return clean
     clean["declare"] = declarations.check(doc["declare"], clean, doc["schema"])
@@ -820,13 +836,16 @@ def _chain(envelope, model_key, name, hit=None):
         "读决策集要写 model（模型键）；决策表的回执不写 model",
         name,
     )
-    table = env.get("table") if type(env.get("table")) is str else None
+    table = source.get("table") if type(source) is dict else None
+    if type(table) is not str:
+        table = env.get("table") if type(env.get("table")) is str else None
     if env["status"] != "SUCCEEDED":
         return None, {"table": table, "upstream_status": env["status"], "missing": True}
     _need(
         type(source) is dict
         and type(source.get("table")) is str
         and type(source.get("version")) is int
+        and source["version"] >= 1
         and type(result) is dict,
         "INPUT_INVALID",
         "上一张表的回执缺 source / result",
@@ -855,8 +874,10 @@ def _chain(envelope, model_key, name, hit=None):
     rules = result.get("selected_rule_ids") if type(result) is dict else None
     _need(
         type(model) is str
+        and bool(model)
         and type(decision) is dict
         and type(decision.get("state")) is str
+        and 0 < len(decision["state"]) <= 64
         and type(decision.get("data")) is dict
         and type(rules) is list
         and all(type(r) is str for r in rules),
@@ -871,6 +892,7 @@ def _chain(envelope, model_key, name, hit=None):
             type(one) is dict
             and type(one.get("rule_id")) is str
             and type(one.get("state")) is str
+            and 0 < len(one["state"]) <= 64
             and type(one.get("data")) is dict,
             "INPUT_INVALID",
             "上一张表的回执没有第 %d 份输出（hit 只读 COLLECT 标准表回执的 decisions）" % hit,
@@ -918,11 +940,38 @@ def _absent(name, c, missing, params, filled):
     _need(not c["record_required"], "INPUT_REQUIRED_MISSING", "缺少必填参数", name)
 
 
-def _records(model, raw, missing, undeclared="REFUSE", chained=None):
+def model_sources(model):
+    """Table parameter → the table its receipt must come from,
+    as the model names it (from_table). Evaluation reads no declaration: the constraint is in content_sha256, so a pin
+    by content digest alone always means the same execution rule. A parameter without from_table is not checked."""
+    return {
+        name: c["from_table"]
+        for name, c in model["parameters"].items()
+        if c["type"] == TABLE_TYPE and "from_table" in c
+    }
+
+
+def _source_check(name, info, expected):
+    """0.5.19 (意见第 17 条): the receipt a table parameter reads comes from the table its model names (read aliases
+    count as their stored name). The table a receipt names: source.table, else (an upstream call that did not get that
+    far) its table. A receipt naming no table (an upstream table that was not requested) stays a missing parameter, as
+    before: only a succeeded receipt has a state to read, and it always names its table."""
+    got = info.get("table")
+    if expected is None or (got is None and info.get("missing")):
+        return
+    _need(
+        type(got) is str and storage_name(got) == storage_name(expected),
+        "INPUT_SOURCE_MISMATCH",
+        "参数 %s 接的回执来自表 %s，模型的 from_table 是 %s：接错了表" % (name, got, expected),
+        name,
+    )
+
+
+def _records(model, raw, missing, undeclared="REFUSE", chained=None, sources=None):
     """Parameter records checked against the model's contracts; absent ones filled UNKNOWN when missing == 'UNKNOWN';
     records the table does not declare refused, or dropped when undeclared == 'IGNORE' (a caller offering every fact it
     can source to tables it does not know). A table parameter takes {from_table, model?}; an upstream call that did not
-    succeed leaves it absent."""
+    succeed leaves it absent. sources (0.5.19): table parameter → the table its receipt must come from."""
     _need(type(raw) is dict, "INPUT_INVALID", "parameters 必须是对象", "parameters")
     extra = sorted(set(raw) - set(model["parameters"]))
     _need(
@@ -932,6 +981,7 @@ def _records(model, raw, missing, undeclared="REFUSE", chained=None):
         "parameters",
     )
     raw = {k: v for k, v in raw.items() if k in model["parameters"]}
+    sources = model_sources(model)  # The hashed model, never a caller map, owns source constraints.
     params, filled = {}, []
     for name, c in model["parameters"].items():
         if name not in raw:
@@ -946,6 +996,7 @@ def _records(model, raw, missing, undeclared="REFUSE", chained=None):
                 name,
             )
             record, info = _chain(r["from_table"], r.get("model"), name, r.get("hit"))
+            _source_check(name, info, (sources or {}).get(name))
             if chained is not None:
                 chained[name] = info
             if record is None:
@@ -1063,14 +1114,15 @@ def _standard_hit(model, rule):
     }
 
 
-def evaluate_decision_table(doc, inputs):
+def evaluate_decision_table(doc, inputs, sources=None):
+    """Evaluate using the hashed model's from_table constraints; legacy sources cannot override them."""
     model = doc["model"]
     missing, undeclared = _modes(
         inputs, {"parameters", "missing", "undeclared"}, "parameters + missing + undeclared"
     )
     given = inputs.get("parameters", {})
     chained = {}
-    params, filled = _records(model, given, missing, undeclared, chained)
+    params, filled = _records(model, given, missing, undeclared, chained, sources)
     trace, selected, unknown = [], [], False
     policy = model["hit_policy"]
     combinations = {}
@@ -1136,9 +1188,11 @@ def evaluate_decision_table(doc, inputs):
     return out
 
 
-def evaluate_decision_set(doc, inputs):
+def evaluate_decision_set(doc, inputs, sources=None):
     """0.5.15 决策集求值: each model asked for carries its own call status (SUCCEEDED with its result, or BLOCKED / FAILED
-    with an error and no state); only table- or input-level problems raise (the whole call fails)."""
+    with an error and no state); only table- or input-level problems raise (the whole call fails). sources (0.5.19):
+    model key → {table parameter → the table its receipt must come from}, from each model's hashed contract; a receipt from
+    another table fails the whole call."""
     missing, undeclared = _modes(
         inputs,
         {"models", "parameters", "missing", "undeclared"},
@@ -1191,7 +1245,9 @@ def evaluate_decision_set(doc, inputs):
                 "同组模型不得互读输出",
                 name,
             )
-            _chain(env, r.get("model"), name, r.get("hit"))
+            info = _chain(env, r.get("model"), name, r.get("hit"))[1]
+            for key in keys:
+                _source_check(name, info, model_sources(doc["models"][key]["model"]).get(name))
         else:
             _plain_shape(r, name)
     models = {}
@@ -1368,9 +1424,11 @@ def evaluate_stored(table, fmt, inputs, load, version=None, content_sha256=None,
                     "content_sha256",
                 )
         if fmt == FORMAT_DECISION:
-            out["result"] = evaluate_decision_table(clean, inputs)
+            # 0.5.19 (意见第 17 条): the receipt sources come from the model (from_table), never from the declaration
+            out["result"] = evaluate_decision_table(clean, inputs, model_sources(clean["model"]))
         elif fmt == FORMAT_DECISION_SET:
-            out["result"] = evaluate_decision_set(clean, inputs)
+            sources = {key: model_sources(m["model"]) for key, m in clean["models"].items()}
+            out["result"] = evaluate_decision_set(clean, inputs, sources)
         elif fmt in (FORMAT_SUPPLEMENT, FORMAT_SUPPLEMENT_V2):
             sid = inputs.get("scene_id")
             _need(

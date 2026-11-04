@@ -128,7 +128,7 @@ def test_a_when_any_table_saves_and_reads_back():
         (
             {
                 "rule_id": "R",
-                "when_any": [[cond("comp", "eq", True)]] * 33,
+                "when_any": [[cond("comp", "eq", True)]] * 129,  # 0.5.19: the limit is 128
                 "output_template_ref": "ok",
             },
             "rules[0]",
@@ -359,6 +359,15 @@ def test_a_different_gap_code_is_a_different_conclusion():
     assert validate(d)
 
 
+UNSET = {
+    "actions": [],
+    "instance_required": None,
+    "necessary_state": None,
+    "necessary_rule_ids": None,
+    "label": None,
+}
+
+
 def test_scene_entity_conclusions_use_all_keys():
     def entity(rid, scene, methods):
         return {"rule_id": rid, "when": [cond("scene_id", "eq", scene)], "output_template_ref": rid}
@@ -373,13 +382,9 @@ def test_scene_entity_conclusions_use_all_keys():
             entity("B", "M_P_05_01_06", ["VERIFIED_QUERY"]),
         ],
         "result_templates": {
-            "A": tpl(
-                "PASS", {"actions": [], "object_type": "ORDER", "confirm_methods": ["AGENT_PICK"]}
-            ),
-            "B": tpl(
-                "PASS",
-                {"actions": [], "object_type": "ORDER", "confirm_methods": ["VERIFIED_QUERY"]},
-            ),
+            # 0.5.19: every scene-entity business key is written (null when it has no value)
+            "A": tpl("PASS", dict(UNSET, object_type="ORDER", confirm_methods=["AGENT_PICK"])),
+            "B": tpl("PASS", dict(UNSET, object_type="ORDER", confirm_methods=["VERIFIED_QUERY"])),
             "no_match": tpl("NO_MATCH", {"actions": []}),
         },
         "on_no_match": "RESULT_TEMPLATE",
@@ -388,6 +393,10 @@ def test_scene_entity_conclusions_use_all_keys():
     out = {
         "object_type": {"type": "string", "name": "对象"},
         "confirm_methods": {"type": "array", "name": "确认方式"},
+        "instance_required": {"type": "boolean", "name": "要具体实例"},
+        "necessary_state": {"type": "string", "name": "必要状态"},
+        "necessary_rule_ids": {"type": "array", "name": "必要规则"},
+        "label": {"type": "string", "name": "名称"},
     }
     owner = {"app_id": "56d3c0c5-4d41-4454-99ab-e3a6db6aa66c", "team": "定位", "name": "样例"}
     assert validate(doc("target.sample-entity", m, declare(m, "SCENE_ENTITY", out), owner=owner)), (

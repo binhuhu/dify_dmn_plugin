@@ -117,9 +117,27 @@ def validate_snapshot(prepared):
     return model, params
 
 
+MAX_COMBINATIONS = 128  # 0.5.19: as stored tables (dmn_client.stored_tables.MAX_COMBINATIONS)
+MAX_CONDITIONS = 32
+
+
+def rule_combinations(rule):
+    """0.5.19 (DMN 2.0 意见第 15、22 条): the condition combinations of a rule — when_any (any one), or when."""
+    return rule["when_any"] if "when_any" in rule else [rule["when"]]
+
+
 def _rule(rule, params, scene_aware=False):
+    """TRUE / FALSE / UNKNOWN. 0.5.19 (意见第 15、22 条): when_any combinations are joined by the stored tables'
+    three-valued or — TRUE when any is TRUE, else UNKNOWN when any is UNKNOWN, else FALSE."""
+    if "when_any" not in rule:
+        return _combination(rule["when"], params, scene_aware)
+    states = [_combination(w, params, scene_aware) for w in rule["when_any"]]
+    return "TRUE" if "TRUE" in states else "UNKNOWN" if "UNKNOWN" in states else "FALSE"
+
+
+def _combination(when, params, scene_aware):
     states = []
-    for predicate in rule["when"]:
+    for predicate in when:
         path = predicate["path"]
         if (
             len(path) < 3
@@ -141,6 +159,19 @@ def _rule(rule, params, scene_aware=False):
     return "FALSE" if "FALSE" in states else "UNKNOWN" if "UNKNOWN" in states else "TRUE"
 
 
+def _within_budget(rule):
+    """when: ≤ 32 conditions; when_any (0.5.19): 1–128 combinations, each 1–32 conditions (the stored-table limits)."""
+    if "when_any" not in rule:
+        return len(rule["when"]) <= MAX_CONDITIONS
+    combos = rule["when_any"]
+    return (
+        "when" not in rule
+        and type(combos) is list
+        and 0 < len(combos) <= MAX_COMBINATIONS
+        and all(type(w) is list and 0 < len(w) <= MAX_CONDITIONS for w in combos)
+    )
+
+
 def _select(model, params, trace, scene_aware=False):
     policy = model["hit_policy"]
     if model["profile"] != PROFILE or policy not in ("UNIQUE", "FIRST", "COLLECT"):
@@ -150,10 +181,10 @@ def _select(model, params, trace, scene_aware=False):
     selected, unknown = [], False
     seen = set()
     for rule in model["rules"]:
-        if rule["rule_id"] in seen or len(rule["when"]) > 32:
+        if rule["rule_id"] in seen or not _within_budget(rule):
             fail("INVALID_MODEL", "Duplicate rule ID or condition budget exceeded.")
         seen.add(rule["rule_id"])
-        for predicate in rule["when"]:
+        for predicate in (c for w in rule_combinations(rule) for c in w):
             if len(predicate["path"]) < 3 or predicate["path"][1] not in model["parameters"]:
                 fail("UNREGISTERED_REFERENCE", "Rule references an undeclared parameter.")
             if predicate["op"] in ("exists", "is_null") and type(predicate["value"]) is not bool:
