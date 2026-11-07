@@ -16,6 +16,7 @@ from dmn_client.route_table import (
     SOLUTION_TABLE_RE,
     STABLE_RE,
     TABLE_RE,
+    TOPIC_RE,
     TRANSFER_TO,
     UUID_RE,
     RouteTableError,
@@ -26,7 +27,7 @@ from dmn_client.route_table import (
     digest,
     table_name,
 )
-from dmn_client.scene_id import by_scene, identity_key, is_scene
+from dmn_client.scene_id import CANONICAL, by_scene, identity_key, is_scene, spelling
 from dmn_client.scene_spelling import scene_state
 from dmn_client.supplement_associations import validate_associations
 from dmn_client.table_names import alias_of, format_name, read_names, storage_name
@@ -37,17 +38,22 @@ SCHEMA_SUPPLEMENT = "dmn-json.supplement-requirements/v1"
 SCHEMA_SUPPLEMENT_V2 = "dmn-json.supplement-requirements/v2"
 SUPPLEMENT_SCHEMAS = (SCHEMA_SUPPLEMENT, SCHEMA_SUPPLEMENT_V2)
 SCHEMA_RESOURCE = "dmn-json.resource-targets/v1"
+SCHEMA_SCENE_TOPIC = (
+    "dmn-json.scene-topic/v1"  # 0.5.21: the scene-topic catalog of the TARGET workflow
+)
 FORMAT_DECISION = "decision-table/v1"
 FORMAT_DECISION_SET = "decision-set/v1"
 FORMAT_SUPPLEMENT = "supplement-requirements/v1"
 FORMAT_SUPPLEMENT_V2 = "supplement-requirements/v2"
 FORMAT_RESOURCE = "resource-targets/v1"
+FORMAT_SCENE_TOPIC = "scene-topic/v1"
 FORMATS = {
     FORMAT_DECISION: SCHEMA_DECISION,
     FORMAT_SUPPLEMENT: SCHEMA_SUPPLEMENT,
     FORMAT_SUPPLEMENT_V2: SCHEMA_SUPPLEMENT_V2,
     FORMAT_RESOURCE: SCHEMA_RESOURCE,
     FORMAT_DECISION_SET: SCHEMA_DECISION_SET,
+    FORMAT_SCENE_TOPIC: SCHEMA_SCENE_TOPIC,
 }
 SCHEMAS = tuple(FORMATS.values())
 KEYS = {
@@ -56,6 +62,7 @@ KEYS = {
     SCHEMA_SUPPLEMENT: ("schema", "table", "scenes", "note", "declare"),
     SCHEMA_SUPPLEMENT_V2: ("schema", "table", "scenes", "note", "declare"),
     SCHEMA_RESOURCE: ("schema", "table", "targets", "route_tables", "note", "declare"),
+    SCHEMA_SCENE_TOPIC: ("schema", "table", "intent_types", "rows", "note", "declare"),
 }
 RESULT_SCHEMA = "dmn-json.stored-table-result/v1"
 CALL_STATUSES = ("SUCCEEDED", "NOT_REQUESTED", "NOT_FOUND", "BLOCKED", "FAILED")
@@ -88,6 +95,29 @@ MAX_TEMPLATES = 128
 MAX_SUPPLEMENT_SCENES = 1024
 MAX_ITEMS = 16
 MAX_TARGETS = 256
+# 0.5.21 (⓪ 场景与话题): one row per scene, keyed by its M_ scene id; the only name is target.scene.topic, owned by 定位
+TABLE_SCENE_TOPIC = "target.scene.topic"
+# 0.5.21: the issue types the TRIAGE workflow routes by; a new type is a plugin change, not a table edit
+ISSUE_TYPES = ("COMPLAINT", "CONSULT", "FEEDBACK")
+ISSUE_TYPE_KEYS = ("label", "panel", "marker", "weight", "associate_entity")
+SCENE_TOPIC_STATUSES = ("ACTIVE", "SAFETY_TRANSFER", "RETIRED", "DRAFT")
+SCENE_TOPIC_ROW_KEYS = (
+    "scene_id",
+    "name",
+    "domain",
+    "definition",
+    "definition_sha256",
+    "status",
+    "topics",
+    "note",
+)
+SCENE_TOPIC_DOMAIN_KEYS = ("l1", "l2", "business_mode", "role")
+INTENT_SEMANTICS_KEYS = ("intent", "meaning", "required_expression_evidence", "specificity")
+MAX_SCENE_TOPIC_ROWS = 1024
+MAX_ROW_TOPICS = 64
+MAX_INTENTS = 32
+MARKER_RE = re.compile(r"^[A-Z]{1,8}$")
+LANGUAGE_VERSION_RE = re.compile(r"^\S{1,128}$")
 SUPPLEMENT_STATES = ("NONE", "REQUIRED", "UNDECLARED")
 SUPPLEMENT_ITEM_KINDS = ("EXPRESSION", "MATERIAL", "AUTHORIZATION")
 SUPPLEMENT_DEFAULT_GAP = "SUPPLEMENT_UNDECLARED"
@@ -104,15 +134,21 @@ APP_TRIAGE = "0f34962a-e380-45e1-8b35-fc64b5651776"
 
 POLICY_OWNERS = {TABLE_TARGET_PREFIX: APP_TARGET, TABLE_TRIAGE_PREFIX: APP_TRIAGE}
 POLICY_NAME_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{0,47}$")
+# 0.5.21: a standard three-segment name <workflow>.<object>.<judgment> under target. / triage. is a decision table name
+# by its grammar alone (at most 64 characters in all, as every table name); which names exist is decided outside this
+# plugin. Names bound to another format keep it.
+POLICY_STANDARD_NAME_RE = re.compile(r"[a-z][a-z0-9_]{0,31}\.[a-z][a-z0-9_]{0,31}")
 DECISION_NAME_RULE = (
     "决策表的表名只能是四种之一：p2.<方案应用编号>（owner.app_id = 该方案应用）、"
-    "target.<名称>（owner.app_id = 定位 TARGET " + APP_TARGET + "）、"
-    "triage.<名称>（owner.app_id = 分诊 TRIAGE " + APP_TRIAGE + "）、"
+    "target.<名称> 或 target.<对象>.<判断>（owner.app_id = 定位 TARGET " + APP_TARGET + "）、"
+    "triage.<名称> 或 triage.<对象>.<判断>（owner.app_id = 分诊 TRIAGE " + APP_TRIAGE + "）、"
     "solution.<fact.feature|feature.reality|disposal.strategy|disposal.status>.<场景号>[.<分片>]"
     "或多场景共用的 solution.disposal.status.shared"
     "（owner.app_id = 该方案应用；场景号如 M_P_02_04_01；分片小写字母开头，只含小写字母、数字、_，最多 24 个字符）；"
-    "<名称> 小写字母或数字开头，只含小写字母、数字、_、-，最多 48 个字符"
-)
+    "<名称> 小写字母或数字开头，只含小写字母、数字、_、-，最多 48 个字符；"
+    "<对象>、<判断> 小写字母开头，只含小写字母、数字、_，各最多 32 个字符，全名最多 64 个字符；"
+    "三段名里 target.scene.topic（场景与话题表）和末段为 resource 的名字（资源去向表）不作决策表名"
+)  # 0.5.21's text, verbatim: every refusal 0.5.21 gave keeps its message (0.5.22 review round 1, F2 / 低-1)
 ITEM_RE = re.compile(r"^[a-z][a-z0-9_]{0,63}$")
 PROMPT_RE = re.compile(r"^[a-z][a-z0-9_.]{0,95}$")
 RESOURCE_RE = re.compile(r"^[a-z][a-z0-9_.-]{0,63}$")
@@ -144,8 +180,36 @@ def decision_table_name(table, app_id):
         return bool(SOLUTION_TABLE_RE.fullmatch(table)) and table_name(table)
     for prefix, owner in POLICY_OWNERS.items():
         if table.startswith(prefix):
-            return bool(POLICY_NAME_RE.match(table[len(prefix) :])) and app_id == owner
-    return False
+            rest = table[len(prefix) :]
+            named = bool(POLICY_NAME_RE.match(rest)) or (
+                POLICY_STANDARD_NAME_RE.fullmatch(rest) is not None
+                and table_name(table)
+                and table != TABLE_SCENE_TOPIC
+                and not table.endswith(TABLE_RESOURCE_SUFFIX)
+            )
+            if named and app_id == owner:
+                return True
+            break
+    # 0.5.22: a resource-targets name may hold the three-tier resource routing as a decision table, owned by TRIAGE
+    return resource_decision_name(table) and app_id == APP_TRIAGE
+
+
+def resource_decision_name(table):
+    """0.5.22: a name that may hold the resource routing as a decision table: a triage name ending in .resource, as DMN
+    2.0 §一 names the table (triage.dispatch.resource; its old name dispatch.resource maps to it). A triage. name belongs
+    to TRIAGE (0.5.21), and only TRIAGE routes to resources, so target.x.resource, p2.x.resource or a two-segment
+    x.resource is not one (they keep 0.5.21's rule). The single-segment triage.resource keeps 0.5.20's decision rule
+    (any role, owner by prefix); a solution-layer .resource shard keeps its own rule."""
+    if type(table) is not str:
+        return False
+    table = storage_name(table)
+    rest = table[len(TABLE_TRIAGE_PREFIX) :]
+    return (
+        table.startswith(TABLE_TRIAGE_PREFIX)
+        and table.endswith(TABLE_RESOURCE_SUFFIX)
+        and POLICY_STANDARD_NAME_RE.fullmatch(rest) is not None
+        and table_name(table)
+    )
 
 
 def _table(doc, ok, message):
@@ -374,7 +438,7 @@ def _conditions_at(rule, p):
     ]
 
 
-def _owner(doc, code):
+def _owner(doc, code, decision_set=False):
     owner = doc.get("owner")
     _need(
         type(owner) is dict
@@ -390,7 +454,28 @@ def _owner(doc, code):
         "team": _text(owner["team"], 40, "维护方", "owner.team"),
         "name": _text(owner["name"], 120, "方案名称", "owner.name"),
     }
-    table = _table(doc, lambda t: decision_table_name(t, owner["app_id"]), DECISION_NAME_RULE)
+    name = doc.get("table")
+    _need(
+        # 0.5.22 review round 2: on a resource name a decision table is TRIAGE's resource routing; another owner is
+        # told so (0.5.21 refused it with the name rule, whose last clause no longer holds for these names)
+        decision_set
+        or not (table_name(name) and resource_decision_name(name))
+        or owner["app_id"] == APP_TRIAGE,
+        "STORED_TABLE_NAME",
+        "%s 是资源去向名：这里的决策表是分诊的资源去向（role = RESOURCE），owner.app_id 写分诊 TRIAGE %s"
+        % (name, APP_TRIAGE),
+        "owner.app_id",
+    )
+    table = _table(
+        doc,
+        # 0.5.22: a resource name takes the resource routing as one decision table, never a decision set; the set is
+        # refused as in 0.5.21 (same code, message and path)
+        lambda t: (
+            decision_table_name(t, owner["app_id"])
+            and not (decision_set and resource_decision_name(t))
+        ),
+        DECISION_NAME_RULE,
+    )
     return clean_owner, table
 
 
@@ -421,7 +506,7 @@ def _validate_decision(doc):
 def _validate_decision_set(doc):
     """0.5.15 decision set (DMN 2.0 §九-3): one table, several models, each the decision-table model shape, evaluated by
     model key or as a group. Name and owner rules are the decision table's."""
-    clean_owner, table = _owner(doc, "DECISION_SET_INVALID")
+    clean_owner, table = _owner(doc, "DECISION_SET_INVALID", decision_set=True)
     raw = doc.get("models")
     _need(
         type(raw) is dict and 0 < len(raw) <= MAX_SET_MODELS,
@@ -698,6 +783,368 @@ def transfer_targets(resource_doc):
     }
 
 
+# --- scene-topic/v1 (0.5.21) -------------------------------------------------------------------------------------------
+
+
+def _st_need(ok, message, path):
+    _need(ok, "SCENE_TOPIC_TABLE_INVALID", message, path)
+
+
+def _st_text(value, limit, label, path):
+    _st_need(
+        type(value) is str and value.strip() != "" and len(value.strip()) <= limit,
+        label + "要写，最多 %d 个字" % limit,
+        path,
+    )
+    return value.strip()
+
+
+def _intent_types(raw):
+    """The intent → issue type map: exactly the three live types, each intent in exactly one, each type used."""
+    p = "intent_types"
+    _st_need(
+        type(raw) is dict and set(raw) == {"types", "intents"},
+        "intent_types = types（问题类型）+ intents（诉求 → 问题类型）",
+        p,
+    )
+    types = raw["types"]
+    _st_need(
+        type(types) is dict and set(types) == set(ISSUE_TYPES),
+        "types 恰好是 " + " / ".join(ISSUE_TYPES) + " 三类",
+        p + ".types",
+    )
+    out_types = {}
+    for code in ISSUE_TYPES:
+        t, q = types[code], p + ".types." + code
+        _st_need(
+            type(t) is dict and set(t) == set(ISSUE_TYPE_KEYS),
+            "问题类型 = " + " / ".join(ISSUE_TYPE_KEYS),
+            q,
+        )
+        _st_need(
+            type(t["marker"]) is str and MARKER_RE.fullmatch(t["marker"]),
+            "marker = 1–8 个大写字母",
+            q + ".marker",
+        )
+        _st_need(
+            type(t["weight"]) is int
+            and not isinstance(t["weight"], bool)
+            and 1 <= t["weight"] <= 9,
+            "weight = 1–9 的整数",
+            q + ".weight",
+        )
+        _st_need(
+            type(t["associate_entity"]) is bool,
+            "associate_entity = true / false",
+            q + ".associate_entity",
+        )
+        out_types[code] = {
+            "label": _st_text(t["label"], 16, "问题类型中文名", q + ".label"),
+            "panel": _st_text(t["panel"], 2, "面板字", q + ".panel"),
+            "marker": t["marker"],
+            "weight": t["weight"],
+            "associate_entity": t["associate_entity"],
+        }
+    for key in ("panel", "marker"):
+        seen = [out_types[c][key] for c in ISSUE_TYPES]
+        _st_need(len(set(seen)) == len(seen), "三类的 %s 不能重复" % key, p + ".types")
+    intents = raw["intents"]
+    _st_need(
+        type(intents) is dict and 0 < len(intents) <= MAX_INTENTS,
+        "intents = 诉求 → 问题类型，1–%d 个" % MAX_INTENTS,
+        p + ".intents",
+    )
+    out_intents = {}
+    for k in sorted(intents, key=str):
+        q = p + ".intents." + str(k)[:64]
+        _st_need(type(k) is str and CODE_RE.fullmatch(k), "诉求编码 = 大写字母和下划线", q)
+        _st_need(intents[k] in ISSUE_TYPES, "诉求要归到 " + " / ".join(ISSUE_TYPES) + " 之一", q)
+        out_intents[k] = intents[k]
+    unused = [c for c in ISSUE_TYPES if c not in out_intents.values()]
+    _st_need(not unused, "每类至少一个诉求；没有诉求的类：" + ", ".join(unused), p + ".intents")
+    return {"types": out_types, "intents": out_intents}
+
+
+def _intent_semantics(raw, allowed, path):
+    _st_need(
+        type(raw) is list and 0 < len(raw) <= len(allowed),
+        "intent_semantics = 本话题允许诉求的语义，每个诉求至多一条",
+        path,
+    )
+    out, prev = [], None
+    for i, s in enumerate(raw):
+        q = "%s[%d]" % (path, i)
+        _st_need(
+            type(s) is dict and set(s) == set(INTENT_SEMANTICS_KEYS),
+            "诉求语义 = " + " / ".join(INTENT_SEMANTICS_KEYS),
+            q,
+        )
+        _st_need(s["intent"] in allowed, "诉求语义只能写本话题允许的诉求", q + ".intent")
+        _st_need(
+            prev is None or s["intent"] > prev, "诉求语义按诉求编码升序、不重复", q + ".intent"
+        )
+        _st_need(
+            type(s["specificity"]) is str and CODE_RE.fullmatch(s["specificity"]),
+            "specificity = 大写字母和下划线",
+            q + ".specificity",
+        )
+        prev = s["intent"]
+        out.append(
+            {
+                "intent": s["intent"],
+                "meaning": _st_text(s["meaning"], 300, "诉求含义", q + ".meaning"),
+                "required_expression_evidence": _st_text(
+                    s["required_expression_evidence"],
+                    300,
+                    "原话证据要求",
+                    q + ".required_expression_evidence",
+                ),
+                "specificity": s["specificity"],
+            }
+        )
+    return out
+
+
+def _scene_topic_row(row, p, intents, topics, prev_scene):
+    _st_need(
+        type(row) is dict
+        and set(SCENE_TOPIC_ROW_KEYS)
+        <= set(row)
+        <= set(SCENE_TOPIC_ROW_KEYS) | {"language_semantics"},
+        "一行 = " + " / ".join(SCENE_TOPIC_ROW_KEYS) + "（+ language_semantics）",
+        p,
+    )
+    sid = row["scene_id"]
+    _st_need(
+        is_scene(sid) and spelling(sid) == CANONICAL,
+        "场景编号用 M_ 写法（如 M_P_01_01_01）",
+        p + ".scene_id",
+    )
+    _st_need(prev_scene is None or sid > prev_scene, "行按 scene_id 升序、不重复", p + ".scene_id")
+    d = row["domain"]
+    _st_need(
+        type(d) is dict and set(d) == set(SCENE_TOPIC_DOMAIN_KEYS),
+        "场景域 = " + " / ".join(SCENE_TOPIC_DOMAIN_KEYS),
+        p + ".domain",
+    )
+    domain = {
+        "l1": _st_text(d["l1"], 32, "一级域", p + ".domain.l1"),
+        "l2": _st_text(d["l2"], 32, "二级域", p + ".domain.l2"),
+        "business_mode": None
+        if d["business_mode"] is None
+        else _st_text(d["business_mode"], 32, "业务模式", p + ".domain.business_mode"),
+        "role": _st_text(d["role"], 32, "角色", p + ".domain.role"),
+    }
+    _st_need(
+        type(row["definition_sha256"]) is str and SHA256_RE.fullmatch(row["definition_sha256"]),
+        "definition_sha256 = 64 位小写十六进制（成立卡摘要）",
+        p + ".definition_sha256",
+    )
+    _st_need(
+        row["status"] in SCENE_TOPIC_STATUSES,
+        "状态只能是 " + " / ".join(SCENE_TOPIC_STATUSES),
+        p + ".status",
+    )
+    raw = row["topics"]
+    _st_need(
+        type(raw) is list and 0 < len(raw) <= MAX_ROW_TOPICS,
+        "子话题 1–%d 个" % MAX_ROW_TOPICS,
+        p + ".topics",
+    )
+    out_topics, prev = [], None
+    for i, t in enumerate(raw):
+        q = "%s.topics[%d]" % (p, i)
+        _st_need(
+            type(t) is dict
+            and {"topic", "allowed_intents"}
+            <= set(t)
+            <= {"topic", "allowed_intents", "intent_semantics"},
+            "子话题 = topic + allowed_intents（+ intent_semantics）",
+            q,
+        )
+        name = t["topic"]
+        _st_need(
+            type(name) is str and TOPIC_RE.fullmatch(name),
+            "话题 = 小写字母、数字、下划线",
+            q + ".topic",
+        )
+        _st_need(prev is None or name > prev, "每行的话题按名升序、不重复", q + ".topic")
+        _st_need(
+            name not in topics,
+            "话题全表唯一：%s 已在 %s" % (name, topics.get(name)),
+            q + ".topic",
+        )
+        prev, topics[name] = name, sid
+        allowed = t["allowed_intents"]
+        _st_need(
+            type(allowed) is list
+            and 0 < len(allowed) <= MAX_INTENTS
+            and all(type(x) is str for x in allowed)
+            and all(a < b for a, b in zip(allowed, allowed[1:])),
+            "允许诉求非空、按编码升序、不重复",
+            q + ".allowed_intents",
+        )
+        unknown = [x for x in allowed if x not in intents]
+        _st_need(
+            not unknown,
+            "intent_types 里没有这些诉求：" + ", ".join(unknown[:5]),
+            q + ".allowed_intents",
+        )
+        topic = {"topic": name, "allowed_intents": list(allowed)}
+        if "intent_semantics" in t:
+            topic["intent_semantics"] = _intent_semantics(
+                t["intent_semantics"], allowed, q + ".intent_semantics"
+            )
+        out_topics.append(topic)
+    out = {
+        "scene_id": sid,
+        "name": _st_text(row["name"], 64, "场景名称", p + ".name"),
+        "domain": domain,
+        "definition": _st_text(row["definition"], 600, "语义定义", p + ".definition"),
+        "definition_sha256": row["definition_sha256"],
+        "status": row["status"],
+        "topics": out_topics,
+        "note": _st_text(row["note"], 500, "说明", p + ".note"),
+    }
+    if "language_semantics" in row:
+        ls = row["language_semantics"]
+        _st_need(
+            type(ls) is dict
+            and set(ls) == {"version", "sha256"}
+            and type(ls["version"]) is str
+            and LANGUAGE_VERSION_RE.fullmatch(ls["version"])
+            and type(ls["sha256"]) is str
+            and SHA256_RE.fullmatch(ls["sha256"]),
+            "话题语义版本 = version + sha256",
+            p + ".language_semantics",
+        )
+        out["language_semantics"] = {"version": ls["version"], "sha256": ls["sha256"]}
+    return out
+
+
+def _validate_scene_topic(doc):
+    table = _table(
+        doc,
+        lambda t: t == TABLE_SCENE_TOPIC,
+        "场景与话题表的表名只能是 " + TABLE_SCENE_TOPIC,
+    )
+    intent_types = _intent_types(doc.get("intent_types"))
+    raw = doc.get("rows")
+    _st_need(
+        type(raw) is list and 0 < len(raw) <= MAX_SCENE_TOPIC_ROWS,
+        "rows = 一行一个场景，1–%d 行" % MAX_SCENE_TOPIC_ROWS,
+        "rows",
+    )
+    rows, topics, prev = [], {}, None
+    for i, row in enumerate(raw):
+        p = "rows[%d]" % i
+        clean = _scene_topic_row(row, p, intent_types["intents"], topics, prev)
+        prev = clean["scene_id"]
+        rows.append(clean)
+    return {
+        "schema": SCHEMA_SCENE_TOPIC,
+        "table": table,
+        "intent_types": intent_types,
+        "rows": rows,
+        "note": _note(doc),
+    }
+
+
+def scene_topic_lookup(doc, inputs):
+    """The four reads of a scene-topic table: by scene_id (the row), by topic (its scene and allowed intents), by
+    topic + intent (a legal pair, its issue type), by intent (its issue type). Registered → PASS, else NO_MATCH."""
+    types, intents = doc["intent_types"]["types"], doc["intent_types"]["intents"]
+    keys = set(inputs)
+    if keys == {"scene_id"}:
+        sid = inputs["scene_id"]
+        _need(
+            is_scene(sid) and spelling(sid) is not None,
+            "INPUT_INVALID",
+            "inputs = scene_id（场景编号）",
+            "scene_id",
+        )
+        row = by_scene({r["scene_id"]: r for r in doc["rows"]}).get(sid)
+        return {
+            "query": "SCENE",
+            "scene_id": row["scene_id"] if row else sid,
+            "state": "PASS" if row else "NO_MATCH",
+            "row": copy.deepcopy(row),
+        }
+    if keys in ({"topic"}, {"topic", "intent"}):
+        topic = inputs["topic"]
+        _need(
+            type(topic) is str and TOPIC_RE.fullmatch(topic),
+            "INPUT_INVALID",
+            "topic = 话题编码",
+            "topic",
+        )
+        found = next(
+            (
+                (r["scene_id"], t, r["status"])
+                for r in doc["rows"]
+                for t in r["topics"]
+                if t["topic"] == topic
+            ),
+            None,
+        )
+        if keys == {"topic"}:
+            allowed = found[1]["allowed_intents"] if found else []
+            return {
+                "query": "TOPIC",
+                "topic": topic,
+                "state": "PASS" if found else "NO_MATCH",
+                "scene_id": found[0] if found else None,
+                "status": found[2] if found else None,
+                "allowed_intents": list(allowed),
+                "issue_types": [c for c in ISSUE_TYPES if any(intents[i] == c for i in allowed)],
+            }
+        intent = inputs["intent"]
+        _need(
+            type(intent) is str and CODE_RE.fullmatch(intent),
+            "INPUT_INVALID",
+            "intent = 诉求编码",
+            "intent",
+        )
+        legal = found is not None and intent in found[1]["allowed_intents"]
+        return {
+            "query": "TOPIC_INTENT",
+            "topic": topic,
+            "intent": intent,
+            "state": "PASS" if legal else "NO_MATCH",
+            "scene_id": found[0] if found else None,
+            "status": found[2] if found else None,
+            "issue_type": intents[intent] if legal else None,
+            "associate_entity": types[intents[intent]]["associate_entity"] if legal else None,
+            "gap_code": None if legal else "TOPIC_INTENT_UNREGISTERED",
+        }
+    if keys == {"intent"}:
+        intent = inputs["intent"]
+        _need(
+            type(intent) is str and CODE_RE.fullmatch(intent),
+            "INPUT_INVALID",
+            "intent = 诉求编码",
+            "intent",
+        )
+        code = intents.get(intent)
+        return {
+            "query": "INTENT",
+            "intent": intent,
+            "state": "PASS" if code else "NO_MATCH",
+            "issue_type": code,
+            **(
+                {k: types[code][k] for k in ISSUE_TYPE_KEYS}
+                if code
+                else {k: None for k in ISSUE_TYPE_KEYS}
+            ),
+            "gap_code": None if code else "INTENT_TYPE_UNKNOWN",
+        }
+    _fail(
+        "INPUT_INVALID",
+        "inputs = scene_id、topic、topic + intent、intent 四种之一",
+        "inputs_json",
+    )
+
+
 # --- dispatch on schema ------------------------------------------------------------------------------------------------
 
 
@@ -715,6 +1162,9 @@ def validate(doc, *, validate_declaration=True):
     if schema == SCHEMA_RESOURCE:
         clean = _validate_resource(doc)
         return declared(doc, clean) if validate_declaration else clean
+    if schema == SCHEMA_SCENE_TOPIC:
+        clean = _validate_scene_topic(doc)
+        return declared(doc, clean) if validate_declaration else clean
     raise RouteTableError("ROUTE_TABLE_INVALID", "不认识的表格式：" + str(schema)[:64], "schema")
 
 
@@ -723,6 +1173,14 @@ def declared(doc, clean):
     content_sha256 and never read at evaluation (0.5.19: a table parameter's receipt source is the model's from_table); a
     document without one is stored exactly as before."""
     if doc.get("declare") is None:
+        # 0.5.22: a decision table under a resource name is the three-tier resource routing; its checks live in its
+        # declaration (role RESOURCE), so it cannot be saved without one
+        _need(
+            doc.get("schema") != SCHEMA_DECISION or not resource_decision_name(clean.get("table")),
+            "TABLE_DECLARATION_INVALID",
+            "资源去向的决策表要带声明（role = RESOURCE，stage = STANDARD）",
+            "declare",
+        )
         return clean
     clean["declare"] = declarations.check(doc["declare"], clean, doc["schema"])
     return clean
@@ -736,6 +1194,8 @@ def content_sha256(doc):
         return digest({"owner": doc["owner"], "models": doc["models"]})
     if schema in SUPPLEMENT_SCHEMAS:
         return digest({"scenes": doc["scenes"]})
+    if schema == SCHEMA_SCENE_TOPIC:
+        return digest({"intent_types": doc["intent_types"], "rows": doc["rows"]})
     return digest({"targets": doc["targets"]})
 
 
@@ -752,6 +1212,8 @@ def rows(doc):
         return len(doc.get("scenes", {}))
     if schema == SCHEMA_RESOURCE:
         return len(doc.get("targets", {}))
+    if schema == SCHEMA_SCENE_TOPIC:
+        return len(doc.get("rows", []))
     return len(doc.get("routes", []))
 
 
@@ -1405,6 +1867,12 @@ def evaluate_stored(
             out["status"] = "NOT_REQUESTED"
             return out
         _need(table_name(table), "ROUTE_TABLE_INVALID", "表名格式不对", "table")
+        _need(
+            fmt != FORMAT_SCENE_TOPIC or table == TABLE_SCENE_TOPIC,
+            "STORED_TABLE_NAME",
+            "场景与话题表的表名只能是 " + TABLE_SCENE_TOPIC,
+            "table",
+        )
         pin = _pin(version, content_sha256)
         if isinstance(inputs, str) and not inputs.strip():
             inputs = {}
@@ -1420,6 +1888,13 @@ def evaluate_stored(
                 },
             )
             return out
+        # 0.5.21: scoped to the new format; the others keep 0.5.20's path unchanged
+        _need(
+            fmt != FORMAT_SCENE_TOPIC or type(doc) is dict,
+            "ROUTE_TABLE_CORRUPT",
+            "插件里的表 %s 不是一个 JSON 对象" % table,
+            "table",
+        )
         _need(
             doc.get("schema") == FORMATS[fmt]
             or (fmt == FORMAT_SUPPLEMENT and doc.get("schema") == SCHEMA_SUPPLEMENT_V2),
@@ -1463,6 +1938,8 @@ def evaluate_stored(
                 "scene_id",
             )
             out["result"] = supplement_row(clean, sid)
+        elif fmt == FORMAT_SCENE_TOPIC:
+            out["result"] = scene_topic_lookup(clean, inputs)
         else:
             rid = inputs.get("resource_id")
             _need(

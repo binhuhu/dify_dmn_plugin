@@ -109,6 +109,9 @@ def test_the_two_policy_owners_are_the_workflow_apps():
         ("target.a", TARGET),
         ("target.0-x_y", TARGET),
         ("triage." + "a" * 48, TRIAGE),
+        # 0.5.21: standard three-segment names are decision table names by grammar
+        ("target.a.b", TARGET),
+        ("triage.resource.x", TRIAGE),
     ],
 )
 def test_allowed_decision_table_names(table, app_id):
@@ -125,7 +128,10 @@ def test_allowed_decision_table_names(table, app_id):
         ("triage.acceptance", COUPON),
         ("p2." + TARGET, COUPON),
         ("target." + "a" * 49, TARGET),
-        ("target.a.b", TARGET),
+        ("target.a.b", TRIAGE),  # 0.5.21: the prefix still names the owner of a three-segment name
+        ("target.a.b.c", TARGET),
+        # triage.x.resource with the TARGET owner: 0.5.22 refuses it at owner.app_id, saying the resource routing is
+        # TRIAGE's (test_v0522_resource_decision.py::test_low_a_resource_decision_table_with_another_owner_says_triage)
         ("target._x", TARGET),
         ("target.-x", TARGET),
         ("target.", TARGET),
@@ -134,7 +140,6 @@ def test_allowed_decision_table_names(table, app_id):
         ("policy.scene_entity", TARGET),
         ("dispatch.route", TRIAGE),
         ("supplement.acceptance", TRIAGE),
-        ("triage.resource.x", TRIAGE),
     ],
 )
 def test_every_other_decision_table_name_is_stored_table_name(table, app_id):

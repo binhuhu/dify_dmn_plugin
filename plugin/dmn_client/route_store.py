@@ -14,7 +14,7 @@ from dmn_client.route_table import (
     validate_doc,
 )
 from dmn_client.scene_spelling import respell
-from dmn_client.stored_tables import KEYS
+from dmn_client.stored_tables import KEYS, SCHEMA_DECISION, resource_decision_name
 from dmn_client.table_names import old_name, read_names
 
 OPS = ("table", "history", "version", "save")
@@ -161,7 +161,12 @@ def run_op(storage, op, table=DEFAULT_TABLE, version=None, body=None):
                 # Preserve request-validation precedence, but never save without its baseline.
                 validate_doc(respell(doc, None)[0])
                 raise
-            if "declare" in keys and "declare" not in body and isinstance(current, dict):
+            if (
+                "declare" in keys
+                and "declare" not in body
+                and isinstance(current, dict)
+                and not _back_from_resource_decision(name, current, doc)
+            ):
                 doc["declare"] = current.get(
                     "declare"
                 )  # 0.5.14: a save that leaves declare out keeps it
@@ -194,6 +199,17 @@ def run_op(storage, op, table=DEFAULT_TABLE, version=None, body=None):
         return error(status, exc.code, exc.message, exc.path)
     except Exception:  # storage backend failure: no detail, never echo content
         return error(503, "ROUTE_TABLE_UNAVAILABLE", "插件存储读写失败，稍后再试")
+
+
+def _back_from_resource_decision(name, current, doc):
+    """0.5.22: a save that would turn a decision-format resource table back into another format does not inherit its
+    declaration (role RESOURCE, stage STANDARD), so the refusal is the schema change (STORED_TABLE_SCHEMA_CHANGED), as
+    with declare: null, and not a declaration error. No 0.5.21 table can be in this state."""
+    return (
+        current.get("schema") == SCHEMA_DECISION
+        and doc.get("schema") != SCHEMA_DECISION
+        and resource_decision_name(name)
+    )
 
 
 def _after_save(tables, saved):

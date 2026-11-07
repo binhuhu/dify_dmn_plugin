@@ -57,6 +57,16 @@ v2 的 `solutions` 只有 `{name, inputs}`：方案能不能调，实际由分�
 
 校验：`CURRENT` 必有 `request_contract` 与非空 `topics` / `intents`（`ROUTE_TABLE_SOLUTION_INCOMPLETE`）；`GATED` 必有 `gate_code`（`ROUTE_TABLE_GATE_REQUIRED`）；同一个应用在两张路由表里状态（`status` + `gate_code`）不能不同（`ROUTE_TABLE_SOLUTION_STATUS_CONFLICT`，存储键 `route-table-index` 记 0.5.6 起存过的路由表，`dispatch.route` 总在比；v2 表按全部 CURRENT 算）；v3 表不能再存回 v1 / v2（`STORED_TABLE_SCHEMA_CHANGED`：旧格式把每个方案都当 CURRENT，会放开 GATED 的方案）。存的时候每一项补齐全部键（没写的是 `null` / `[]`）。`content_sha256` 包含每一项的登记字段，不含说明。
 
+0.5.23（第三轮路由评审 D13，Brian 11-06 19:0x「As recommended」）：v3 表存表时和它要替换的那一版比，存完不能比原来更调不到，否则整次拒存、什么都不写：
+
+- 方案行新指向（或它指着的应用被改成）非 `CURRENT` 的应用 → `ROUTE_TABLE_SOLUTION_NOT_CALLABLE`（路径指到发来的那一行 `routes[i].target.app_id`）。要换方案：同一次存表把新应用转成 `CURRENT`（请求合同、话题、诉求补齐）；要挂起：改成转接或资源去向。
+- 原来能调的方案行被删了、没给别的去向 → `ROUTE_TABLE_SOLUTION_LOST`。改成转接或资源去向就是显式的兜底，照收。
+- 原来有方案行指向的 `CURRENT` 应用，存完没有任何方案行指向它 → `ROUTE_TABLE_CURRENT_UNROUTED`（路径 `solutions.<app>.status`）。要换下它，同一次存表把它转成 `CANDIDATE` 或 `RETIRED`。原来就没有行指向的（新登记的、先转在用再补行的）不挡。
+
+这道闸排在 0.5.22 的各项拒存之后（说明、版本号、闸报告等照旧先报）。紧急处置要注意：给有行指向的应用重新关闸（`CURRENT` → `GATED`），或载入开闸前的旧版再存回去，都要同一次把它的行改成转接或资源去向；一个应用同时在两张路由表里时，在本表把它的最后一行改成兜底会报未指向，改它的状态又会和另一张表冲突，做法是把它从本表登记里删掉。新键直接指向非 `CURRENT` 应用也拒（哪怕那个应用别处已挂着），新键要挂起就用转接或资源去向。话题、诉求、请求合同不在这道闸里查。
+
+原来就有的不动：已经挂着的 `GATED` / `SHADOW` 行、原来就没有行指向的 `CURRENT` 应用，都不挡别的改动，所以修复的那一次存表照收。行按场景号的旧写法比，只把 `P_xx` 改写成 `M_P_xx` 的存表不算改了行。第一次存成 v3（从 v2 或空表）和标准名首存（原样复制旧名头版，I12）不比。现网回放：第 7 版 → 第 9 版（11-06 那次，把券投诉指向候选应用）拒存；第 9 版 → 第 10 版（指回在用应用）照收。
+
 v2 表照旧可读：每个方案按 `CURRENT`、无闸读（`dmn_client.route_table.solution_entry`），所以 v2 表上能调的应用 0.5.6 照样能调。
 
 求值存根多一种格式 `routing-table/v4`：与 `routing-table/v3` 同一组规则与字段，再多一个决策字段 `solution`——方案行是 `{app_id, status, gate_code, request_contract, topics, intents, table_content_sha256}`，其余行（转接、资源、无方案）是 `null`；`trace.model_source.format = "routing-table/v4"`。`routing-table/v2` / `v3` 的编译结果与 0.5.5 逐字节相同，表升 v3 也不变（登记字段不进这两种模型）。回执合同从 `routing-table/v3` 升名为 `routing-table/v4`，下游申报见 `docs/releases/v0.5.6.md`。

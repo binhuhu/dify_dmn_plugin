@@ -617,6 +617,143 @@ def solution_block(clean, app_id, table_content_sha256):
     }
 
 
+def _scene_shown(scene):
+    """0.5.23: people read scene ids with the business-mode prefix (M_P_02_04_01); the stored id stays as it is."""
+    return (
+        "M_" + scene if isinstance(scene, str) and re.match(r"^[PDH]_\d{2}", scene) else str(scene)
+    )
+
+
+ID_WHITESPACE = (
+    "ID_WHITESPACE"  # 0.5.23: the status reported for a row whose app id has surrounding whitespace
+)
+
+
+def _scene_key(scene):
+    """0.5.23: rows compare on the legacy spelling, so a save that only respells P_xx as M_P_xx (the M_ migration,
+    which stores what it is sent) changes no row; the identity digests do the same (scene-id grammar, identity_key)."""
+    if isinstance(scene, str) and re.match(r"^M_[PDH]_\d{2}", scene):
+        return scene[2:]
+    return scene
+
+
+def _row_shown(key):
+    return "%s · %s · %s" % (_scene_shown(key[0]), key[1], key[2])
+
+
+def route_callability(doc):
+    """0.5.23 (D13, Brian 11-06 19:0x「As recommended」): what a route table leaves callable. invoke_solution calls only
+    CURRENT, so a SOLUTION_APP row is callable iff its app is CURRENT in the registry (a v2 table reads every app as
+    CURRENT, solution_entry). An app id with surrounding whitespace is never callable (review rounds 1–2): the routing
+    result reads the entry under the exact id while invoke_solution strips it and reads another, so such a "twin"
+    could stand in either way. Returns (callable_keys, not_callable {key: (app_id, status)}, unrouted CURRENT apps); a
+    key is (scene_id in its legacy spelling, issue_type, phase)."""
+    callable_keys, not_callable, named = set(), {}, set()
+    for r in doc.get("routes") or []:
+        target = r.get("target") or {}
+        if target.get("kind") != "SOLUTION_APP":
+            continue
+        key = (_scene_key(r.get("scene_id")), r.get("issue_type"), r.get("phase"))
+        app = target.get("app_id")
+        named.add(app)
+        if not (isinstance(app, str) and app == app.strip()):
+            not_callable[key] = (app, ID_WHITESPACE)
+            continue
+        entry = solution_entry(doc, app)
+        status = entry["status"] if entry else None
+        if status == CALLABLE:
+            callable_keys.add(key)
+        else:
+            not_callable[key] = (app, status)
+    unrouted = {
+        app
+        for app in (doc.get("solutions") or {})
+        if (solution_entry(doc, app) or {}).get("status") == CALLABLE and app not in named
+    }
+    return callable_keys, not_callable, unrouted
+
+
+def callability_gate(prev, clean, sent=None):
+    """0.5.23 (D13): a v3 save may not leave the route table less callable than the v3 version it replaces. Refused,
+    in this order: a solution row that newly points at an app that is not CURRENT, or whose app is no longer CURRENT
+    (ROUTE_TABLE_SOLUTION_NOT_CALLABLE); a row whose solution was callable removed with nothing in its place
+    (ROUTE_TABLE_SOLUTION_LOST; a transfer or resource target in its place is an explicit fallback and passes); a
+    CURRENT app that some row named and no row names any more (ROUTE_TABLE_CURRENT_UNROUTED; an app no row named
+    before, such as a new registration, is left alone). What the replaced version already had is
+    left alone (a parked GATED / SHADOW app, an app already unrouted), so only a save that makes things worse is
+    refused and one that repairs them passes. The first v3 store (from v2 or nothing) is not compared, and a first
+    store under a standard name is not either: it copies the old head unchanged (I12), so it cannot change callability. Paths index the
+    rows as sent (sent), which validate_doc may reorder: the editor maps routes[i] back onto its own draft."""
+    if clean.get("schema") != SCHEMA_V3 or not prev or prev.get("schema") != SCHEMA_V3:
+        return
+    was_ok, was_bad, _ = route_callability(prev)
+    was_named = {
+        (r.get("target") or {}).get("app_id")
+        for r in prev.get("routes") or []
+        if (r.get("target") or {}).get("kind") == "SOLUTION_APP"
+    }
+    _, bad, unrouted = route_callability(clean)
+    index = {
+        (_scene_key(r["scene_id"]), r["issue_type"], r["phase"]): i
+        for i, r in enumerate(clean["routes"])
+    }
+    rows = (
+        sent.get("routes")
+        if isinstance(sent, dict) and isinstance(sent.get("routes"), list)
+        else None
+    )
+    if rows is not None and len(rows) == len(clean["routes"]):
+        as_sent = {
+            (_scene_key(r.get("scene_id")), r.get("issue_type"), r.get("phase")): i
+            for i, r in enumerate(rows)
+            if isinstance(r, dict)
+        }
+        if set(as_sent) == set(index):
+            index = as_sent
+    worse = sorted(
+        (k for k in bad if was_bad.get(k, (None,))[0] != bad[k][0]), key=lambda k: index[k]
+    )
+    if worse:
+        key = worse[0]
+        app, status = bad[key]
+        more = "（另有 %d 行同样调不到）" % (len(worse) - 1) if len(worse) > 1 else ""
+        raise RouteTableError(
+            "ROUTE_TABLE_SOLUTION_NOT_CALLABLE",
+            "%s 的方案行指向应用 %s，它在方案登记里是 %s，invoke_solution 调不到%s：要换方案，就在同一次存表里把新应用"
+            "转成 CURRENT（补齐请求合同、话题、诉求）；要挂起，就改成转接或资源去向；原来有能调的方案就仍指向它"
+            % (
+                _row_shown(key),
+                str(app).strip()[:8],
+                "编号前后带空白（路由结果和调用会读到不同的登记）"
+                if status == ID_WHITESPACE
+                else status or "未登记",
+                more,
+            ),
+            "routes[%d].target.app_id" % index[key],
+        )
+    lost = sorted((k for k in was_ok if k not in index), key=str)
+    _need(
+        not lost,
+        "ROUTE_TABLE_SOLUTION_LOST",
+        "%s 原来有能调的方案，这次存表把这一行删了、也没给别的去向%s：要挂起就改成转接或资源去向，要换方案就改指新的 CURRENT 应用"
+        % (
+            _row_shown(lost[0]) if lost else "",
+            "（另有 %d 行）" % (len(lost) - 1) if len(lost) > 1 else "",
+        ),
+        "routes",
+    )
+    newly = sorted(
+        unrouted & was_named
+    )  # named before, named by no row now; a new or unrouted app is left alone
+    _need(
+        not newly,
+        "ROUTE_TABLE_CURRENT_UNROUTED",
+        "应用 %s 在方案登记里是 CURRENT，这次存完没有任何方案行指向它：要换下它，就在同一次存表里把它转成 CANDIDATE 或 "
+        "RETIRED；不然留一行指向它" % (newly[0][:8] if newly else ""),
+        "solutions.%s.status" % (newly[0] if newly else ""),
+    )
+
+
 def _validate_v2(doc, resources=None):
     """validate v2."""
     table = _route_table_name(doc)
@@ -1148,6 +1285,17 @@ def _family(schema):
     return "route-table" if schema in (SCHEMA, SCHEMA_V2, SCHEMA_V3) else schema
 
 
+def _resource_switch(cur, clean):
+    """0.5.22: under a resource name, a resource-targets list may be replaced by a decision-format version (one way)."""
+    from dmn_client import stored_tables  # noqa
+
+    return (
+        cur.get("schema") == stored_tables.SCHEMA_RESOURCE
+        and clean["schema"] == stored_tables.SCHEMA_DECISION
+        and stored_tables.resource_decision_name(clean["table"])
+    )
+
+
 SUPPLEMENT_DOWNGRADE = "SUPPLEMENT_V2_TO_V1_NO_ASSOCIATIONS"
 
 
@@ -1616,6 +1764,19 @@ class StorageTables:
         if clean["schema"] in ROUTE_SCHEMAS and clean.get("resource_table"):
             raw = self.load(clean["resource_table"])
             _need(
+                # 0.5.22 review round 2: the table is there, in decision format; route compiling reads only the list
+                not (
+                    isinstance(raw, dict)
+                    and raw.get("schema") == stored_tables.SCHEMA_DECISION
+                    and stored_tables.resource_decision_name(clean["resource_table"])
+                ),
+                "ROUTE_TABLE_RESOURCE_TABLE_MISSING",
+                "资源去向 "
+                + clean["resource_table"]
+                + " 已存成决策表：路由表只按目标清单编译，切换版之前不能引用它",
+                "resource_table",
+            )
+            _need(
                 raw is not None and raw.get("schema") == stored_tables.SCHEMA_RESOURCE,
                 "ROUTE_TABLE_RESOURCE_TABLE_MISSING",
                 "先存资源目标表 " + clean["resource_table"] + "，再存引用它的路由表",
@@ -1633,6 +1794,26 @@ class StorageTables:
                 + clean["table"],
                 "resource_table",
             )
+        if clean[
+            "schema"
+        ] == stored_tables.SCHEMA_DECISION and stored_tables.resource_decision_name(clean["table"]):
+            # 0.5.22: a route table that names this table as its resource_table compiles against its resource-targets
+            # list (ids, entries, transfers); a decision-format version there would fail every route evaluation
+            for name in self.route_tables():
+                route = self.load(name)
+                if (
+                    isinstance(route, dict)
+                    and route.get("schema") in ROUTE_SCHEMAS
+                    and route.get("resource_table") is not None
+                    and storage_name(route.get("resource_table")) == storage_name(clean["table"])
+                ):
+                    _need(
+                        False,
+                        "RESOURCE_TABLE_ROUTE_COMPILED",
+                        "路由表 %s 还按目标清单编译本表（resource_table）：路由表不再引用它之前，资源去向不能存成决策表"
+                        % name,
+                        "table",
+                    )
         if clean["schema"] == stored_tables.SCHEMA_RESOURCE:
             old = self.load(clean["table"]) or {}
             listed = (
@@ -1806,7 +1987,9 @@ class StorageTables:
         cur = self.load(table)
         have = cur["version"] if cur else 0
         _need(
-            cur is None or _family(cur.get("schema", SCHEMA)) == _family(clean["schema"]),
+            cur is None
+            or _family(cur.get("schema", SCHEMA)) == _family(clean["schema"])
+            or _resource_switch(cur, clean),
             "STORED_TABLE_SCHEMA_CHANGED",
             "表 %s 存的是 %s，不能存成 %s"
             % (table, cur.get("schema", SCHEMA) if cur else "", clean["schema"]),
@@ -1843,6 +2026,9 @@ class StorageTables:
         )
         content = content_sha256(clean)
         report = gate_report_of(gate_report, content)
+        # 0.5.23 (D13): after every refusal v0.5.22 gives (they keep their order and codes), before the caller's gate;
+        # reads only cur, so I19 / I20 are unaffected
+        callability_gate(cur, clean, doc)
         if gate is not None:
             gate(clean, gate_report)
         clean.update(

@@ -26,10 +26,11 @@ table, an exit rule and a reality rule, or two realities not registered in coexi
 import itertools
 import json
 import re
+import unicodedata
 
 from dmn_client import scene_id
 from dmn_client.json_table import MISSING, condition, equal
-from dmn_client.route_table import DATA_V4, RouteTableError, digest
+from dmn_client.route_table import DATA_V4, UUID_RE, RouteTableError, digest
 from dmn_client.scene_spelling import scene_state
 from dmn_client.table_names import storage_name
 
@@ -41,12 +42,15 @@ DECISION_ROLES = (
     "DISPOSAL",
     "DISPOSAL_STATUS",  # 0.5.17 (DMN 2.0 R9): once per run, outcome + reason_code
 )
+# 0.5.22: the three-tier resource routing is a decision table (role RESOURCE), only under a resource-targets name
+RESOURCE = "RESOURCE"
 ROLES_BY_SCHEMA = {
     "dmn-json.decision-table/v1": DECISION_ROLES,
     "dmn-json.decision-set/v1": DECISION_ROLES,
     "dmn-json.supplement-requirements/v1": ("SUPPLEMENT",),
     "dmn-json.supplement-requirements/v2": ("SUPPLEMENT",),
     "dmn-json.resource-targets/v1": ("RESOURCE",),
+    "dmn-json.scene-topic/v1": ("SCENE_TOPIC",),  # 0.5.21: ⓪ 场景与话题
     "dmn-json.route-table/v2": ("ROUTE",),
     "dmn-json.route-table/v3": ("ROUTE",),
 }
@@ -67,6 +71,7 @@ TYPES = {
 FIXED_INPUTS = {
     "SUPPLEMENT": ("scene_id",),
     "RESOURCE": ("resource_id",),
+    "SCENE_TOPIC": ("scene_id",),
     "ROUTE": ("scene_id", "issue_type", "phase"),
 }
 KEYS = {
@@ -128,7 +133,21 @@ CONCLUSION_KEYS = {
     "FEATURE_REALITY": ("reality_id",),
     "DISPOSAL": ("disposal_id",),
     "DISPOSAL_STATUS": ("outcome", "reason_code"),
+    # 0.5.22: a dotted key is a path into the result object
+    "RESOURCE": ("tier1.pool", "tier2.skill_group", "tier2.priority", "tier3.pick"),
 }
+# 0.5.22: the three-tier resource routing result
+RESOURCE_RESULT_KEYS = ("tier1", "tier2", "tier3", "gap", "actions")
+RESOURCE_STATES = ("PASS", "UNKNOWN")
+RESOURCE_EXECUTORS = ("HUMAN", "AI")
+RESOURCE_PICKS = ("QUEUE", "LAST_AGENT", "AGENT_APP")
+RESOURCE_GAP = {"code": "RESOURCE_TO_CONFIRM", "owner": "SYSTEM", "kind": "CONFIRM"}
+# a person's id never goes into a routing table: tier3 says how to pick, not whom
+PERSON_ID_RE = re.compile(
+    r"(agent|staff|employee|worker|operator|seat|user)_?(id|no|num|number|code)", re.I
+)
+# 0.5.22 review round 2: a number written as a string ("1", "１", "1.5") is not a priority code; it goes as an integer
+NUMERIC_RE = re.compile(r"[+-]?\d+(\.\d+)?")
 # 0.5.19 (意见第 5、12 条): a gap says what is missing, who supplies it and what kind it is. AUTHOR and RULE are new (the
 # input is complete but no rule covers it: the table's author owes a row). A list is one item per association group.
 GAP_OWNERS = ("OPERATOR", "CUSTOMER", "SYSTEM", "AUTHOR")
@@ -154,6 +173,12 @@ MAX_COEXIST = 256
 def _need(ok, message, path):
     if not ok:
         raise RouteTableError("TABLE_DECLARATION_INVALID", message, "declare" + path)
+
+
+def _need_model(ok, message, path):
+    """A declaration rule on a field of the model (0.5.22): the path is the model's, not the declaration's."""
+    if not ok:
+        raise RouteTableError("TABLE_DECLARATION_INVALID", message, path)
 
 
 def _text(value, limit, label, path):
@@ -211,10 +236,13 @@ def _parameter(v, path, stage="TRANSITION"):
     return out
 
 
-def _output(v, path):
+def _output(v, path, fields=False):
+    """fields (0.5.22): only the resource routing's declaration may name an object output's fields; every other table
+    refuses the key exactly as 0.5.21 did (DMN 2.0 §六 outputs = type + name + values? + names?)."""
     _need(
-        type(v) is dict and set(v) <= {"type", "name", "values", "names"},
-        "输出 = type + name（+ values / names）",
+        type(v) is dict
+        and set(v) <= {"type", "name", "values", "names"} | ({"fields"} if fields else set()),
+        "输出 = type + name（+ values / names" + (" / fields" if fields else "") + "）",
         path,
     )
     _need(
@@ -232,6 +260,20 @@ def _output(v, path):
             path + ".values",
         )
         out["values"] = v["values"]
+    if "fields" in v:
+        # 0.5.22: the display names of an object output's fields; never read at evaluation
+        _need(
+            v["type"] == "object"
+            and type(v["fields"]) is dict
+            and 0 < len(v["fields"]) <= 32
+            and all(
+                type(k) is str and KEY_RE.fullmatch(k) and type(x) is str and 0 < len(x) <= 60
+                for k, x in v["fields"].items()
+            ),
+            "fields 只给对象输出写：{字段: 中文名}，1–32 个",
+            path + ".fields",
+        )
+        out["fields"] = dict(v["fields"])
     if "names" in v:
         _need(
             type(v["names"]) is dict
@@ -332,6 +374,10 @@ def check(declare, clean, schema):
     """The declaration of a valid table document (clean), itself cleaned."""
     roles = ROLES_BY_SCHEMA.get(schema)
     _need(roles is not None, "这种表还不能写声明", "")
+    # 0.5.22: a decision table under a resource name is the resource routing, and only it
+    resource = schema == DECISION and _resource_name(clean.get("table"))
+    if resource:
+        roles = (RESOURCE,)
     if schema == DECISION_SET:
         return _set(declare, clean, roles)
     _need(
@@ -343,8 +389,14 @@ def check(declare, clean, schema):
     _need(out["stage"] in STAGES, "stage 只能是 TRANSITION / STANDARD", ".stage")
     _need(out["role"] in roles, "这种表的 role 只能是 " + " / ".join(roles), ".role")
     _need(
-        out["stage"] == "TRANSITION" or schema == DECISION,
+        out["stage"] == "TRANSITION" or schema == DECISION or out["role"] == "SCENE_TOPIC",
         "补充、资源去向、路由的标准输出由插件产出，声明先写 TRANSITION",
+        ".stage",
+    )
+    # 0.5.21: its own message, so the refusal of the other three stays as in 0.5.20
+    _need(
+        out["stage"] == "TRANSITION" or out["role"] != "SCENE_TOPIC",
+        "场景与话题由插件按键查一行，声明先写 TRANSITION",
         ".stage",
     )
     out["states"] = _states(declare.get("states"))
@@ -357,7 +409,34 @@ def check(declare, clean, schema):
         )
     if "table" in clean:
         _role_of_name(out["role"], clean["table"])
-    out["outputs"] = _named_map(declare.get("outputs"), ".outputs", "outputs", _output)
+    if out["role"] == RESOURCE and schema == DECISION:
+        # 0.5.22 (DMN 2.0 §五 RESOURCE, K1 / K2 / K5)
+        model = clean["model"]
+        rid = model["parameters"].get("resource_id")
+        _need(out["stage"] == "STANDARD", "资源去向的决策表写 stage = STANDARD", ".stage")
+        # these two are the model's: the refusal names the model's field
+        _need_model(
+            model["hit_policy"] == "FIRST",
+            "资源去向的决策表命中 FIRST（具体在前、兜底在后）",
+            "model.hit_policy",
+        )
+        _need_model(
+            type(rid) is dict
+            and rid.get("type") == "string"
+            and rid.get("record_required") is True
+            and rid.get("nullable") is False
+            and rid.get("allowed_quality") == ["KNOWN"],
+            "资源去向的决策表要有参数 resource_id（string，必有，不可空，只收 KNOWN）",
+            "model.parameters.resource_id",
+        )
+        _need(
+            type(declare.get("states")) is list,
+            "资源去向的 states 写成列表（这张表用到的 state）",
+            ".states",
+        )
+    out["outputs"] = _named_map(
+        declare.get("outputs"), ".outputs", "outputs", lambda v, p: _output(v, p, resource)
+    )
     stage = out["stage"]
     if "parameters" in declare:
         out["parameters"] = _named_map(
@@ -395,6 +474,12 @@ def check(declare, clean, schema):
         _keyed(
             out, clean["targets"], {t.get("status") for t in clean["targets"].values()}, "status"
         )
+    elif out["role"] == "SCENE_TOPIC":
+        # 0.5.21: one row per scene, keyed by scene_id; the row status is the declared state
+        rows = {
+            r["scene_id"]: {k: v for k, v in r.items() if k != "scene_id"} for r in clean["rows"]
+        }
+        _keyed(out, rows, {r["status"] for r in clean["rows"]}, "status")
     else:
         _route(out)
     return out
@@ -448,6 +533,13 @@ def _texts_declare(v):
         )
         out["words"] = {"forbid": [w.strip() for w in forbid]}
     return out
+
+
+def _resource_name(table):
+    # stored_tables imports this module: imported here, not at the top
+    from dmn_client.stored_tables import resource_decision_name
+
+    return resource_decision_name(table)
 
 
 def _role_of_name(role, table):
@@ -563,6 +655,8 @@ def _decision(out, model):
                 _need(_typed(v["literal"], spec), "模板的数据键 %s 和声明的类型或取值对不上" % k, p)
         else:
             _standard(out, t, p)
+    if out["role"] == RESOURCE and out["stage"] == "STANDARD":
+        _resource_codes(model)
 
 
 def _conclusion_numbers(value):
@@ -610,10 +704,22 @@ def conclusion_of(role, template):
     codes = [g.get("code") for g in (gap if type(gap) is list else [gap]) if type(g) is dict]
     keys = CONCLUSION_KEYS.get(role, ())
     return json.dumps(
-        _conclusion_numbers([template.get("state")] + [result.get(k) for k in keys] + [codes]),
+        _conclusion_numbers(
+            [template.get("state")] + [_key_at(result, k)[1] for k in keys] + [codes]
+        ),
         ensure_ascii=False,
         sort_keys=True,
     )
+
+
+def _key_at(result, key):
+    """(present, value) of a business key; a dotted key is a path into nested objects (0.5.22)."""
+    node = result
+    for part in key.split("."):
+        if type(node) is not dict or part not in node:
+            return False, None
+        node = node[part]
+    return True, node
 
 
 def _business_keys(role, model):
@@ -626,7 +732,7 @@ def _business_keys(role, model):
         result = (t["data"].get("result") or {}).get("literal")
         if type(result) is not dict:
             continue  # _standard says what is wrong with it
-        missing = [k for k in keys if k not in result]
+        missing = [k for k in keys if not _key_at(result, k)[0]]
         _need(
             not missing,
             "模板 %s 的 result 缺 %s 的业务键：%s（没有值也写上，填 null）"
@@ -880,6 +986,9 @@ def _standard(out, t, p):
             "这个结论会告诉乘客，要写 texts.customer",
             p + ".result.texts.customer",
         )
+    elif role == RESOURCE:
+        _need(not texts, "资源去向不对乘客说话，不写 texts", p + ".result.texts")
+        _resource_result(result, state, p)
     elif role == "DISPOSAL_STATUS":
         _need(not texts, "处置状态不对乘客说话，不写 texts", p + ".result.texts")
         _outcome(result, state, p, required=True)
@@ -891,6 +1000,216 @@ def _standard(out, t, p):
             )
     else:
         _need(not texts, "这种表不对乘客说话，不写 texts", p + ".result.texts")
+
+
+def _person_ids(value, path):
+    """Paths of keys that name a person (an agent, a staff member): the table says how to pick, not whom."""
+    if type(value) is dict:
+        out = []
+        for k, v in value.items():
+            if type(k) is str and PERSON_ID_RE.fullmatch(k):
+                out.append(path + "." + k)
+            out += _person_ids(v, path + "." + str(k))
+        return out
+    if type(value) is list:
+        return [x for i, v in enumerate(value) for x in _person_ids(v, "%s[%d]" % (path, i))]
+    return []
+
+
+def _resource_result(result, state, p):
+    """0.5.22: the three-tier, human-and-AI resource routing result (DMN 2.0 §五 RESOURCE)."""
+    q = p + ".result"
+    people = _person_ids(result, q)
+    _need(
+        not people,
+        "资源去向不写具体的人（坐席工号一类）：三级只写挑人方式",
+        people[0] if people else q,
+    )
+    extra = sorted(set(result) - set(RESOURCE_RESULT_KEYS))
+    _need(
+        not extra,
+        "资源去向的 result 只能有 "
+        + " / ".join(RESOURCE_RESULT_KEYS)
+        + "；多了 "
+        + ", ".join(extra),
+        q,
+    )
+    if state == "NO_MATCH":
+        _need(
+            set(result) == {"actions"},
+            "资源去向一行没中（NO_MATCH）不分配：result 只写 actions",
+            q,
+        )
+        return
+    _need(
+        state in RESOURCE_STATES,
+        "资源去向的规则 state 只用 PASS（编码齐）或 UNKNOWN（缺编码）",
+        p + ".state",
+    )
+    t1, t2, t3 = result.get("tier1"), result.get("tier2"), result.get("tier3")
+    _need(
+        type(t1) is dict and {"pool", "executor"} <= set(t1) <= {"pool", "executor", "split"},
+        "tier1 = pool + executor（+ split）",
+        q + ".tier1",
+    )
+    _code(t1["pool"], "tier1.pool", q + ".tier1.pool")
+    _need(
+        t1["executor"] in RESOURCE_EXECUTORS,
+        "tier1.executor 只能是 HUMAN / AI",
+        q + ".tier1.executor",
+    )
+    if "split" in t1:
+        split = t1["split"]
+        _need(
+            type(split) is list and 0 < len(split) <= 32,
+            "tier1.split = [{pool, weight}]，1–32 项",
+            q + ".tier1.split",
+        )
+        pools = []
+        for i, s in enumerate(split):
+            r = "%s.tier1.split[%d]" % (q, i)
+            _need(type(s) is dict and set(s) == {"pool", "weight"}, "split 每项 = pool + weight", r)
+            _code(s["pool"], "split.pool", r + ".pool")
+            _need(
+                type(s["weight"]) is int and s["weight"] > 0,
+                "split.weight 是正整数",
+                r + ".weight",
+            )
+            pools.append(s["pool"])
+        _need(len(set(pools)) == len(pools), "split 的 pool 不重复", q + ".tier1.split")
+        _need(
+            sum(s["weight"] for s in split) == 100, "split 的 weight 合计 100", q + ".tier1.split"
+        )
+    _need(
+        type(t2) is dict and set(t2) == {"skill_group", "priority", "executor"},
+        "tier2 = skill_group + priority + executor（没有值写 null）",
+        q + ".tier2",
+    )
+    if t2["skill_group"] is not None:
+        _code(t2["skill_group"], "tier2.skill_group", q + ".tier2.skill_group")
+    if type(t2["priority"]) is str:
+        _code(t2["priority"], "tier2.priority", q + ".tier2.priority")
+    _need(
+        t2["priority"] is None
+        or type(t2["priority"]) is int
+        or type(t2["priority"]) is str
+        and not NUMERIC_RE.fullmatch(t2["priority"]),
+        "tier2.priority 是编码、整数或 null：数字写成整数，不写成字符串",
+        q + ".tier2.priority",
+    )
+    _need(
+        t2["executor"] in RESOURCE_EXECUTORS,
+        "tier2.executor 只能是 HUMAN / AI",
+        q + ".tier2.executor",
+    )
+    _need(
+        type(t3) is dict and "pick" in t3 and set(t3) <= {"pick", "agent_app_id"},
+        "tier3 = pick（+ agent_app_id）",
+        q + ".tier3",
+    )
+    _need(
+        t3["pick"] in RESOURCE_PICKS,
+        "tier3.pick 只能是 " + " / ".join(RESOURCE_PICKS),
+        q + ".tier3.pick",
+    )
+    _need(
+        (t3["pick"] == "AGENT_APP") == ("agent_app_id" in t3),
+        "tier3.pick = AGENT_APP 要写 agent_app_id，别的挑法不写",
+        q + ".tier3.agent_app_id",
+    )
+    if "agent_app_id" in t3:
+        _need(
+            type(t3["agent_app_id"]) is str and UUID_RE.fullmatch(t3["agent_app_id"]) is not None,
+            "agent_app_id 是 AgentHub 应用编号",
+            q + ".tier3.agent_app_id",
+        )
+    # K5 / §五 RESOURCE: codes complete → PASS, no gap; codes missing → UNKNOWN with the one fixed gap. The gap is part
+    # of the conclusion (conclusion_of), so it follows from the state and never tells two rules' conclusions apart.
+    if state == "PASS":
+        _need(
+            "gap" not in result,
+            "PASS（编码齐）不写 gap：缺口只跟 UNKNOWN（缺编码）",
+            q + ".gap",
+        )
+        _need(
+            t2["skill_group"] is not None,
+            "PASS（编码齐）要写 tier2.skill_group",
+            q + ".tier2.skill_group",
+        )
+    else:
+        _need(
+            result.get("gap") == RESOURCE_GAP,
+            "UNKNOWN（缺编码）的缺口写 gap = {code: RESOURCE_TO_CONFIRM, owner: SYSTEM, kind: CONFIRM}",
+            q + ".gap",
+        )
+        # review round 2 (K1): the other half of K5. UNKNOWN means a code is missing, so at least one of the four is
+        # null; a rule whose four codes are all given is PASS
+        _need(
+            any(_key_at(result, k)[1] is None for k in CONCLUSION_KEYS[RESOURCE]),
+            "UNKNOWN（缺编码）至少有一个编码没给（写 null）；"
+            + " / ".join(CONCLUSION_KEYS[RESOURCE])
+            + " 都给了就写 PASS",
+            q,
+        )
+
+
+def _code(value, label, path):
+    """A code (pool, skill group, priority) as the platform writes it: not blank, no whitespace, no invisible or control
+    characters (review round 2: a spelling must never make a second conclusion)."""
+    _need(
+        type(value) is str
+        and 0 < len(value) <= 64
+        and not any(unicodedata.category(c)[0] in "ZC" for c in value),
+        label
+        + " 是编码（没有就写 null）：照平台编码原样写，不带空格、空白和不可见字符，最多 64 个字符",
+        path,
+    )
+
+
+def _resource_codes(model):
+    """0.5.22 review round 2, across the rule templates of a RESOURCE table, in rule order:
+    - K1: a PASS and an UNKNOWN never carry the same four codes (codes complete → PASS, missing → UNKNOWN);
+    - one spelling per code: two codes that differ only in case are one code, written two ways (the later is refused)."""
+    keys = CONCLUSION_KEYS[RESOURCE]
+    refs = list(dict.fromkeys(r["output_template_ref"] for r in model["rules"]))
+    refs += sorted(set(model["result_templates"]) - set(refs))
+    templates = {ref: model["result_templates"][ref] for ref in refs}
+    passed = {}
+    for ref, t in templates.items():
+        result = t["data"]["result"]["literal"]
+        codes = json.dumps(
+            _conclusion_numbers([_key_at(result, k)[1] for k in keys]), sort_keys=True
+        )
+        if t["state"] == "PASS":
+            passed.setdefault(codes, ref)
+    for ref, t in templates.items():
+        result = t["data"]["result"]["literal"]
+        codes = json.dumps(
+            _conclusion_numbers([_key_at(result, k)[1] for k in keys]), sort_keys=True
+        )
+        _need(
+            t["state"] != "UNKNOWN" or codes not in passed,
+            "UNKNOWN 模板 %s 和 PASS 模板 %s 的四个编码相同：编码齐写 PASS；UNKNOWN（缺编码）至少空一个"
+            % (ref, passed.get(codes)),
+            ".templates." + str(ref)[:64] + ".result",
+        )
+    seen = {}
+    for ref, t in templates.items():
+        if t["state"] not in RESOURCE_STATES:
+            continue
+        result = t["data"]["result"]["literal"]
+        t1, t2 = result["tier1"], result["tier2"]
+        spelled = [("pool", t1["pool"])] + [("pool", x["pool"]) for x in t1.get("split") or []]
+        spelled += [("skill_group", t2["skill_group"]), ("priority", t2["priority"])]
+        for kind, code in spelled:
+            if type(code) is not str:
+                continue
+            first = seen.setdefault((kind, code.casefold()), code)
+            _need(
+                first == code,
+                "编码 %s 和 %s 只差大小写：同一个编码只写一种写法（模板 %s）" % (first, code, ref),
+                ".templates." + str(ref)[:64] + ".result",
+            )
 
 
 def _gap_item(g, p, keys):
