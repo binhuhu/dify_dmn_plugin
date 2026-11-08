@@ -1,4 +1,4 @@
-# JSON 决策工具 0.5.24（候选版）
+# JSON 决策工具 0.5.24（单人串行维护）
 
 这是同一仓库的独立免凭据安装包 `hu8627/dmn_json`。原有 `hu8627/dmn` 外部 XML 插件和其他已安装插件保留，不卸载、不替换。新建“内置 JSON 决策表 / evaluate_json_table”节点无需 Key、引擎地址或外部服务。现有外部工具仍通过原插件配置 Node 服务，未配置时返回 INVALID_CONFIGURATION。两个包的模型格式和语义不能互换。
 
@@ -42,10 +42,12 @@ AND 中 FALSE 优先于 UNKNOWN。FIRST 的已选规则之前存在 UNKNOWN 或 
 
 ## 场景、方案和路由配置
 
-受理路由表在插件里改，存插件存储（打开 `storage` 权限），改了不用重发受理路由流程。evaluate_decision 遇到 `PLUGIN_STORAGE` 存储引用时，运行时取表编译，回执外形不变；端点组「路由表编辑」要配编辑口令。
+受理路由表在插件里改，存插件存储（打开 `storage` 权限），改了不用重发受理路由流程。evaluate_decision 遇到 `PLUGIN_STORAGE` 存储引用时，运行时取表编译，回执外形不变。0.5.24 的路由编辑端点须配置维护应用 `store_app_id`；共享编辑口令已停用，未配置维护应用时写入失败关闭。
 
-v2 表（`dmn-json.route-table/v2`）自带场景目录和方案登记，编辑页按场景列出全部场景，每行选方案应用 / 转安全 / 知识库 / 无方案；加方案、换方案只在编辑页保存，不发受理路由或交付流程。工具 `invoke_solution`（调用方案）按 app_id 调本工作空间里已登记的方案应用，需要「调用应用」权限（`app`）。合同、约束、实测步骤和上线顺序见 [route-table-editing.md](https://github.com/binhuhu/dify_dmn_plugin/blob/v0.5.24/docs/route-table-editing.md)。还没在目标宿主上安装验收。
+v2 表（`dmn-json.route-table/v2`）自带场景目录和方案登记，支持方案应用、转接或无方案；知识库路由由外部配置管理，不写入 v2 表。交付链五张表（`target.scene.entity`、`triage.scene.acceptance`、`triage.supplement.requirements`、`triage.dispatch.route`、`triage.dispatch.resource` 及其旧名）通过钉定维护应用签名，先保存草稿，再按协议提交 gate report 与 release reference 发布；不再直接保存生效。每张表只有一份服务端共享草稿，所有作者及旧名、标准名共用，不提供每位作者独立草稿。工具 `invoke_solution`（调用方案）按 app_id 调本工作空间里已登记的方案应用，需要「调用应用」权限（`app`）。合同、约束、实测步骤和上线顺序见 [route-table-editing.md](https://github.com/binhuhu/dify_dmn_plugin/blob/v0.5.24/docs/route-table-editing.md)。目标宿主安装、升级、真实业务 API 与生产验收仍为 **NOT_RUN**。
+
+本版限定单人按工作空间串行维护，覆盖所有写入、草稿删除、发布和撤销；等待前次结果明确后再执行下一次，不并行使用多个标签页、脚本或自动写入任务。签名、有效期与普通顺序重放保护保留，但跨进程并发重放与并发写入仍可能成功并覆盖状态。单人维护不能消除恶意或意外并发重放；插件不强制串行操作，不提供 CAS、事务或跨进程协调。结果不明时停止自动重试，先核验权威新鲜状态。降级 v0.5.23 会恢复共享编辑口令及直接保存，不保留本版签名治理和重放保护，见 [0.5.24 安装与回滚限制](https://github.com/binhuhu/dify_dmn_plugin/blob/v0.5.24/docs/releases/v0.5.24.md#installation-and-rollback)。
 
 ## 只读结构展示（RC2）
 
-附带定位／解决 Phase → Step → Node 只读结构页，通过插件 Endpoint 打开；本地 JSON 仅在浏览器内存读取。无工作台、编辑、服务端存储或规则执行。真实 API、目标宿主安装及浏览器视觉验收尚未完成。
+附带定位／解决 Phase → Step → Node 只读结构页，通过插件 Endpoint 打开；本地 JSON 仅在浏览器内存读取。无工作台、编辑、服务端存储或规则执行。离线真实浏览器验证已完成；这不等于目标宿主 Endpoint 验收。真实业务 API、目标宿主安装及生产验收仍为 **NOT_RUN**。
