@@ -170,7 +170,7 @@ test("D14 publish validates report/reference, rejects a wrong digest, and retrie
   assert.equal(writes(api, "publish").length, 0);
   input(w, "#re-gate", JSON.stringify({ gate_status: "PASS", content_sha256: "a".repeat(64) }));
   await click(w, '[data-act="publish"]');
-  assert.match(status(w), /发布窗/);
+  assert.match(status(w), /发布批次或变更编号/);
   assert.equal(writes(api, "publish").length, 0);
   input(w, "#re-release", "Synthetic release window 1");
   await click(w, '[data-act="publish"]');

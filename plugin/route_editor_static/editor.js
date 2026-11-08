@@ -3,7 +3,7 @@
   // 按场景列出现网定位的全部场景，每行选一个去向（方案应用 / 转安全 / 无方案）；方案应用先在「方案登记」里登记。
   // 只经本端点的 /api/* 读写插件存储，不执行规则、不连别的地址。DOM API + textContent 出字，不拼 HTML。
   // 0.5.24（D14）：没有共用编辑口令。每个请求用你自己的口令签名（HMAC-SHA256，口令不发出去），请求头 X-Route-Writer
-  // 带名字、时间、签名；「路由表维护」应用核签名。交付链五张表先存草稿、再带闸报告和发布窗那一行发布。口令只放本标签页的 sessionStorage。
+  // 带名字、时间、签名；「路由表维护」应用核签名。交付链五张表先存草稿、再带闸报告和发布批次或变更编号发布。口令只放本标签页的 sessionStorage。
 
 
   // 同一场景两种写法一起导入就拒；存后插件若换了写法，提示里说换了几处。
@@ -190,7 +190,7 @@
         // 交付链五张表：只存草稿，不生效
         const r = await api(q('draft'), { ...sent, expected_version: state.version, expected_draft: state.serverDraft?.draft_id || '' });
         state.serverDraft = r.draft; state.conflict = false;
-        state.msg = { cls: 'ok', text: '已存草稿（基于第 ' + r.draft.base_version + ' 版，改了 ' + n + ' 条去向，内容摘要 ' + r.draft.content_sha256.slice(0, 12) + '），还没生效。按这个摘要跑存前闸，把报告贴到下面、写发布窗那一行，再发布。' };
+        state.msg = { cls: 'ok', text: '已存草稿（基于第 ' + r.draft.base_version + ' 版，改了 ' + n + ' 条去向，内容摘要 ' + r.draft.content_sha256.slice(0, 12) + '），还没生效。按这个摘要跑存前闸，把报告贴到下面、填写发布批次或变更编号，再发布。' };
         state.busy = false; paint(); return;
       }
       const r = await api(q('table'), { ...sent, expected_version: state.version, ...(gate ? { gate_report: gate } : {}) });
@@ -209,19 +209,19 @@
     }
     state.busy = false; paint();
   }
-  // 0.5.24：发布草稿。要存前闸报告（核的是草稿的内容摘要）和发布窗那一行。
+  // 0.5.24：发布草稿。要存前闸报告（核的是草稿的内容摘要）和发布批次或变更编号。
   async function publish() {
     const dr = state.serverDraft, gate = gateReport();
     if (!dr) return;
-    if (!gate.ok || !gate.value) { state.msg = { cls: 'bad', text: '发布要贴存前闸报告（JSON 对象，content_sha256 等于草稿的内容摘要，gate_status 写 PASS 或 FAIL）。' }; paint(); return; }
-    if (!state.releaseRef.trim()) { state.msg = { cls: 'bad', text: '写发布窗那一行（发布窗清单行号或 bus 事件名）再发布。' }; paint(); return; }
+    if (!gate.ok || !gate.value) { state.msg = { cls: 'bad', text: '发布要贴存前闸报告（JSON 对象，content_sha256 等于草稿的内容摘要，gate_status 写 PASS 或 FAIL；FAIL 须附 approval_ref）。' }; paint(); return; }
+    if (!state.releaseRef.trim()) { state.msg = { cls: 'bad', text: '填写发布批次或变更编号再发布。' }; paint(); return; }
     state.busy = true; state.msg = null; paint();
     try {
       const r = await api(q('publish'), { draft_id: dr.draft_id, expected_version: dr.base_version, gate_report: gate.value, release_ref: state.releaseRef.trim() });
       state.doc = r.doc; state.baseDoc = r.doc; state.version = r.version; state.draft = toDraft(r.doc); state.basedOn = r.version; state.serverDraft = null; state.gateText = ''; state.releaseRef = '';
       state.history = (await api(q('history'))).versions;
       const inv = r.published?.invariants_after;
-      state.msg = { cls: 'ok', text: '已发布第 ' + r.version + ' 版，现网流程下一次运行就读这一版。发布人 ' + r.published.publisher.id + '，发布窗 ' + r.published.release_ref + '。'
+      state.msg = { cls: 'ok', text: '已发布第 ' + r.version + ' 版，现网流程下一次运行就读这一版。发布人 ' + r.published.publisher.id + '，发布批次或变更编号 ' + r.published.release_ref + '。'
         + (inv ? ' 能不能调：' + inv.broken.length + ' 行调不到、' + inv.parked.length + ' 行挂起、' + inv.current_not_routed.length + ' 个在用方案没有路由行。' : '') };
     } catch (e) { state.msg = { cls: 'bad', text: e.message + (e.path ? '（' + e.path + '）' : '') }; }
     state.busy = false; paint();
@@ -268,7 +268,7 @@
       if (!routeDoc(r.doc)) throw Error('第 ' + v + ' 版是旧格式，本页不能载入');
       if (!isV3(r.doc) && isV3(state.doc || {})) throw Error('第 ' + v + ' 版是 v2，现存的是 v3：v2 把每个方案都当 CURRENT，插件不收 v3 存回 v2，这里不载入。要回到那版的路由：导出那版、导入后升为 v3、逐个写状态再存。');
       state.draft = toDraft(r.doc); state.basedOn = v; state.baseDoc = routeDoc(state.doc); state.confirming = false;
-      state.msg = { cls: 'warn', text: '已载入第 ' + v + ' 版到编辑区；写说明后保存，就成为第 ' + (state.version + 1) + ' 版（回滚）。' };
+      state.msg = { cls: 'warn', text: '已载入第 ' + v + ' 版到编辑区；写明回滚说明后按本表流程保存：受保护表须先存草稿再发布，其他表确认保存后生效。' };
     } catch (e) { state.msg = { cls: 'bad', text: e.message }; }
     paint();
   }
@@ -353,7 +353,7 @@
     return out.length ? out.join('；') : '其余登记字段有改动';
   }
   function view() {
-    const out = [el('h1', { text: '受理路由表' }), el('p', { cls: 're-lead', text: '每个场景选一个去向：方案应用、转安全，或无方案。方案应用先在「方案登记」里登记；知识库路由不在这里，留在侧栏配置。保存后现网流程下一次运行就读新表，不用重发受理路由或交付流程；每次保存都留一版，可以载入旧版再存回去。' })];
+    const out = [el('h1', { text: '受理路由表' }), el('p', { cls: 're-lead', text: '每个场景选一个去向：方案应用、转安全，或无方案。方案应用先在「方案登记」里登记；知识库路由不在这里，留在侧栏配置。受保护的交付链表先存草稿，发布后后续运行才读新版本；其他表确认保存后生效。每个生效版本都保留历史，可载入旧版并按同样流程保存或发布完成回滚。' })];
     out.push(el('div', { cls: 're-card' }, el('div', { cls: 're-row' },
       el('label', { cls: 're-field' }, el('span', { text: '写手' }), el('input', { id: 're-writer', value: state.writer, autocomplete: 'off', placeholder: '你的名字（写手登记里的）' })),
       el('label', { cls: 're-field' }, el('span', { text: '我的口令' }), el('input', { type: 'password', id: 're-key', value: state.key, autocomplete: 'off' })),
@@ -395,7 +395,7 @@
     const info = s => [['调用范围', s.invocation_scope], ['优先级', s.priority], ['方案包', s.package_id], ['交接', s.target_handoff]].filter(([, x]) => x != null).map(([k, x]) => k + ' ' + x).join(' · ') || '其余登记字段没写';
     const text = (id, f, value, labelText, extra) => el('input', { 'data-app': id, 'data-f': f, value: value == null ? '' : Array.isArray(value) ? value.join(' ') : value, 'aria-label': labelText, ...(extra || {}) });
     out.push(el('section', { cls: 're-card' }, el('h2', { text: '方案登记（' + Object.keys(d.solutions).length + ' 个应用 · ' + (v3 ? 'v3' : 'v2') + '）' }),
-      el('p', { cls: 're-muted', text: '只有登记过的应用能被路由；「调用方案」工具只调状态 CURRENT 的应用（GATED 拒绝并报闸编码）。开始变量要和应用开始节点一致（统一入口是 call_id request_json）。CURRENT 要写请求合同、话题、诉求；GATED 要写挡住它的闸。新方案、翻闸都是在这里存一版。' }),
+      el('p', { cls: 're-muted', text: '只有登记过的应用能被路由；「调用方案」工具只调状态 CURRENT 的应用（GATED 拒绝并报闸编码）。开始变量要和应用开始节点一致（统一入口是 call_id request_json）。CURRENT 要写请求合同、话题、诉求；GATED 要写挡住它的闸。新方案、状态和闸的改动都随本表按相同流程保存或发布。' }),
       v3 ? null : el('p', { cls: 're-warn' }, '本表是 v2：方案登记只有名称和开始变量，调用时每个方案都当 CURRENT。 ',
         el('button', { type: 'button', 'data-act': 'upgrade', text: '升为 v3（逐个写状态、闸、请求合同、话题、诉求）' })),
       el('div', { cls: 're-scroll' }, el('table', {}, el('thead', {}, el('tr', {}, head.map(t => el('th', { text: t })))),
@@ -451,13 +451,13 @@
   // 0.5.24：草稿与发布
   function draftCard() {
     const dr = state.serverDraft;
-    if (!dr) return el('section', { cls: 're-card' }, el('h2', { text: '草稿与发布' }), el('p', { cls: 're-muted', text: '没有未发布的草稿。改完先存草稿，再带存前闸报告和发布窗那一行发布；发布前现网照读生效版。' }));
+    if (!dr) return el('section', { cls: 're-card' }, el('h2', { text: '草稿与发布' }), el('p', { cls: 're-muted', text: '没有未发布的草稿。改完先存草稿，再带存前闸报告和发布批次或变更编号发布；发布前现网照读生效版。' }));
     const stale = dr.base_version !== state.version;
     return el('section', { cls: 're-card re-confirm' }, el('h2', { text: '未发布的草稿' }),
       el('p', { text: '草稿 ' + dr.draft_id.slice(0, 12) + ' · ' + (dr.writer?.id || '?') + ' 存于 ' + dr.saved_at + ' · 基于第 ' + dr.base_version + ' 版 · 内容摘要 ' + dr.content_sha256 + ' · 说明：' + (dr.doc?.note ?? dr.body?.note ?? '') }),
       stale ? el('p', { cls: 're-warn', text: '生效版已是第 ' + state.version + ' 版，这份草稿发不了：在新版上重做草稿。' }) : null,
       el('label', { cls: 're-field' }, el('span', { text: '存前闸报告（必填，核的是上面的内容摘要）' }), el('textarea', { id: 're-gate', rows: '3', 'aria-label': '存前闸报告 JSON', placeholder: '{"content_sha256": "…", "gate_status": "PASS", …}', text: state.gateText })),
-      el('label', { cls: 're-field' }, el('span', { text: '发布窗那一行（必填）' }), el('input', { id: 're-release', value: state.releaseRef, placeholder: '发布窗清单行号或 bus 事件名' })),
+      el('label', { cls: 're-field' }, el('span', { text: '发布批次或变更编号（必填）' }), el('input', { id: 're-release', value: state.releaseRef, placeholder: '发布批次或变更编号' })),
       el('div', { cls: 're-row' }, el('button', { type: 'button', cls: 'primary', 'data-act': 'publish', disabled: state.busy || stale, text: '发布为第 ' + (dr.would_be_version ?? dr.base_version + 1) + ' 版' }),
         el('button', { type: 'button', 'data-act': 'discard', disabled: state.busy, text: '删草稿' })));
   }
