@@ -2,7 +2,7 @@
 
 这是 `hu8627/dmn_json` 基于 RC5 的 0.4.1 候选源码（发布资产以 GitHub Release 为准），保留 0.3.0 三工具及其合同，新增 `execute_query`、`evaluate_decision`。不是正式 0.4 发布，也不是目标 Dify/业务接口生产验收。逐条范围、产品证据与外部缺口见 [67项验收记录](dsl-v0.4-acceptance.md)。原外部 `hu8627/dmn` XML/Node 插件保持独立。
 
-依据是最终架构 v2.0 原 ZIP（SHA256 `db08451e4c763e4e621082c69f0b9adad8c92a7a291c58b0069c415c63b01c97`）。43 个文本文件逐项 SHA 校验一致；可移植正本位于 [specs](../specs/service-decision-dsl-v2/README.md)，来源清单见 SOURCE.json。原包 70 项文档静态检查不是产品测试。
+依据是最终架构 v2.0 原 ZIP（SHA256 `db08451e4c763e4e621082c69f0b9adad8c92a7a291c58b0069c415c63b01c97`）。该摘要仅标识历史来源包；当前保留规范位于 [specs](../specs/service-decision-dsl-v2/README.md)。来源说明经过文档隐私清理，不再声称整个目录与原 ZIP 字节一致；SOURCE.json 分别记录当前文件摘要与已清理文档的历史来源摘要。原包 70 项文档静态检查不是产品测试。
 
 ## 工具调用
 
@@ -52,7 +52,6 @@ manifest 保持 author/name，created_at 是带引号的 RFC3339 字符串。sta
 
 独立审查区分本地实现缺口与外部环境缺口，见 [逐项审查表](dsl-v0.4-independent-review.md)。SDK 纯决策默认仍是 CONTENT_ONLY，不认证来源/最大年龄/旧快照复用；Python trusted_policy 与参考宿主绑定一致性校验已实现，但生产SDK策略接线尚缺。默认 SDK 查询现仅提供 loopback SYNTHETIC 协议测试通道；生产读取因缺在线宿主接线而拒绝。有 `reused_from` 的快照必须经可信 policy 验证，否则 `BLOCKED/SNAPSHOT_REUSE_UNVERIFIED`；普通免 Key 内容重放不因此取得执行权。
 
-需求传输记录澄清：Library 官方 helper 的正常 materialization 请求先前失败；随后平台 `download_file` 使用用户已给定的 file_id 成功将授权附件下载到本环境。没有猜测下载 URL、替换凭据或读取令牌。核验的是原 ZIP 哈希及43个文本逐项哈希；未解码 Base64 tar，也未声称验证该 tar 的独立哈希。
 
 RC1 后续范围、本地可补项及外部输入见 [后续候选说明](dsl-v0.4-followup.md)，离线结构比对见 [影子比对](dsl-v0.4-shadow.md)。原 RC1 安装包不随 feature 提交更新。
 
@@ -60,4 +59,4 @@ RC1 后续范围、本地可补项及外部输入见 [后续候选说明](dsl-v0
 
 Dify 两个节点工具现在仅保留四项参数：固定 `definition_bundle_json`、`node_ref`，动态 `inputs_json`、`execution_context_json`。升级工作流时删除旧 `expected_definition_sha256` 配置；SDK 直接调用残留该项不会获得校验。Python 调用者必须从五个位置参数迁移到四个；旧位置参数/关键字调用不兼容，应同步升级宿主。查询 `QueryDeployment.definition_sha256` 和授权回调不变，不得删除部署侧校验。
 
-离线 shadow-input.v1 档案仍保留其定义摘要字段，比较脚本在调用四参数执行器前自行核验，以保持历史档案完整性合同。规格原文与旧验收记录保持历史原貌；0.4.1 包和测试必须单独核验。
+离线 shadow-input.v1 档案仍保留其定义摘要字段，比较脚本在调用四参数执行器前自行核验，以保持历史档案完整性合同。规范、Schema 与示例合同未因文档隐私清理而改变；来源说明与旧验收记录不再保留内部过程叙事，0.4.1 包和测试仍须单独核验。

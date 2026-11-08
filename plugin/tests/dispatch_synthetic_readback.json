@@ -1,0 +1,77 @@
+{
+  "_source": "Independently authored two-scene routing fixture, no captured workflow. Expected model authored without calling compiler.",
+  "expected_table": {
+    "table": "dispatch.route",
+    "issue_types": [
+      "COMPLAINT",
+      "CONSULT",
+      "FEEDBACK"
+    ],
+    "phases": [
+      "STAGE_1",
+      "STAGE_2",
+      "STAGE_3"
+    ],
+    "note": "",
+    "registry": {
+      "P_99_01_01": [
+        {
+          "app_id": "00000000-0000-4000-8000-000000000201",
+          "solution_id": "synthetic.alpha"
+        }
+      ],
+      "P_99_01_02": [
+        {
+          "app_id": "00000000-0000-4000-8000-000000000202",
+          "solution_id": "synthetic.beta"
+        }
+      ]
+    },
+    "routes": [
+      {
+        "scene_id": "P_99_01_01",
+        "issue_type": "CONSULT",
+        "phase": "STAGE_2",
+        "target": {
+          "kind": "SOLUTION_APP",
+          "app_id": "00000000-0000-4000-8000-000000000201",
+          "solution_id": "synthetic.alpha"
+        }
+      },
+      {
+        "scene_id": "P_99_01_02",
+        "issue_type": "FEEDBACK",
+        "phase": "STAGE_3",
+        "target": {
+          "kind": "SOLUTION_APP",
+          "app_id": "00000000-0000-4000-8000-000000000202",
+          "solution_id": "synthetic.beta"
+        }
+      }
+    ]
+  },
+  "published": {
+    "id": "00000000-0000-4000-8000-000000000200",
+    "graph": {
+      "nodes": [
+        {
+          "id": "admission-dmn",
+          "data": {
+            "tool_configurations": {
+              "definition_bundle_json": {
+                "type": "constant",
+                "value": "{\"models\": {\"dispatch.route@4.0.0\": {\"profile\": \"service-decision-table-v1\", \"version\": \"4.0.0\", \"hit_policy\": \"FIRST\", \"on_no_match\": \"RESULT_TEMPLATE\", \"empty_template_ref\": \"unregistered\", \"parameters\": {\"scene_id\": {\"allowed_quality\": [\"KNOWN\"], \"nullable\": false, \"record_required\": true, \"type\": \"string\"}, \"issue_type\": {\"allowed_quality\": [\"KNOWN\"], \"nullable\": false, \"record_required\": true, \"type\": \"string\"}, \"phase\": {\"allowed_quality\": [\"KNOWN\"], \"nullable\": false, \"record_required\": true, \"type\": \"string\"}}, \"result_templates\": {\"unregistered\": {\"actions\": [{\"intent_id\": \"control\", \"kind\": \"CONTROL\", \"route_ref\": \"unregistered\"}], \"data\": {\"route_state\": {\"literal\": \"unregistered\"}, \"route_kind\": {\"literal\": null}, \"app_id\": {\"literal\": null}, \"solution_id\": {\"literal\": null}, \"kb_refs_json\": {\"literal\": null}, \"topics_json\": {\"literal\": null}, \"intents_json\": {\"literal\": null}}, \"state\": \"UNREGISTERED\"}, \"solution-app:00000000-0000-4000-8000-000000000201\": {\"actions\": [{\"intent_id\": \"control\", \"kind\": \"CONTROL\", \"route_ref\": \"routed\"}], \"data\": {\"route_state\": {\"literal\": \"routed\"}, \"route_kind\": {\"literal\": \"SOLUTION_APP\"}, \"app_id\": {\"literal\": \"00000000-0000-4000-8000-000000000201\"}, \"solution_id\": {\"literal\": \"synthetic.alpha\"}, \"kb_refs_json\": {\"literal\": null}, \"topics_json\": {\"literal\": null}, \"intents_json\": {\"literal\": null}}, \"state\": \"ROUTED\"}, \"solution-app:00000000-0000-4000-8000-000000000202\": {\"actions\": [{\"intent_id\": \"control\", \"kind\": \"CONTROL\", \"route_ref\": \"routed\"}], \"data\": {\"route_state\": {\"literal\": \"routed\"}, \"route_kind\": {\"literal\": \"SOLUTION_APP\"}, \"app_id\": {\"literal\": \"00000000-0000-4000-8000-000000000202\"}, \"solution_id\": {\"literal\": \"synthetic.beta\"}, \"kb_refs_json\": {\"literal\": null}, \"topics_json\": {\"literal\": null}, \"intents_json\": {\"literal\": null}}, \"state\": \"ROUTED\"}}, \"rules\": [{\"rule_id\": \"P_99_01_01·CONSULT·STAGE_2\", \"output_template_ref\": \"solution-app:00000000-0000-4000-8000-000000000201\", \"when\": [{\"op\": \"eq\", \"path\": [\"parameters\", \"scene_id\", \"value\"], \"value\": \"P_99_01_01\"}, {\"op\": \"eq\", \"path\": [\"parameters\", \"issue_type\", \"value\"], \"value\": \"CONSULT\"}, {\"op\": \"eq\", \"path\": [\"parameters\", \"phase\", \"value\"], \"value\": \"STAGE_2\"}]}, {\"rule_id\": \"P_99_01_02·FEEDBACK·STAGE_3\", \"output_template_ref\": \"solution-app:00000000-0000-4000-8000-000000000202\", \"when\": [{\"op\": \"eq\", \"path\": [\"parameters\", \"scene_id\", \"value\"], \"value\": \"P_99_01_02\"}, {\"op\": \"eq\", \"path\": [\"parameters\", \"issue_type\", \"value\"], \"value\": \"FEEDBACK\"}, {\"op\": \"eq\", \"path\": [\"parameters\", \"phase\", \"value\"], \"value\": \"STAGE_3\"}]}]}}}"
+              }
+            }
+          }
+        },
+        {
+          "id": "admission-input",
+          "data": {
+            "code": "REGISTRY={'scenes': {'P_99_01_01': {'solutions': [{'app_id': '00000000-0000-4000-8000-000000000201', 'solution_id': 'synthetic.alpha', 'status': 'CURRENT'}]}, 'P_99_01_02': {'solutions': [{'app_id': '00000000-0000-4000-8000-000000000202', 'solution_id': 'synthetic.beta', 'status': 'CURRENT'}]}}}"
+          }
+        }
+      ]
+    }
+  }
+}

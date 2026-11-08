@@ -3,8 +3,8 @@
  "table": "triage.acceptance",
  "owner": {
   "app_id": "0f34962a-e380-45e1-8b35-fc64b5651776",
-  "team": "分诊 TRIAGE",
-  "name": "受理策略"
+  "team": "TRIAGE",
+  "name": "Synthetic token classifier"
  },
  "model_ref": "triage.acceptance@0.1.0",
  "model": {
@@ -20,7 +20,7 @@
      "KNOWN"
     ]
    },
-   "facts.ORDER__trip__END_TO_COMPLAINT_DAYS.天数": {
+   "synthetic.token_count": {
     "type": "integer",
     "record_required": false,
     "nullable": false,
@@ -32,7 +32,7 @@
   },
   "rules": [
    {
-    "rule_id": "P_02_04_01-IN",
+    "rule_id": "toy-low",
     "when": [
      {
       "path": [
@@ -41,22 +41,22 @@
        "value"
       ],
       "op": "eq",
-      "value": "P_02_04_01"
+      "value": "P_99_81_01"
      },
      {
       "path": [
        "parameters",
-       "facts.ORDER__trip__END_TO_COMPLAINT_DAYS.天数",
+       "synthetic.token_count",
        "value"
       ],
-      "op": "lte",
-      "value": 30
+      "op": "lt",
+      "value": 4
      }
     ],
     "output_template_ref": "ACCEPT"
    },
    {
-    "rule_id": "P_02_04_01-LATE",
+    "rule_id": "toy-high",
     "when": [
      {
       "path": [
@@ -65,22 +65,22 @@
        "value"
       ],
       "op": "eq",
-      "value": "P_02_04_01"
+      "value": "P_99_81_01"
      },
      {
       "path": [
        "parameters",
-       "facts.ORDER__trip__END_TO_COMPLAINT_DAYS.天数",
+       "synthetic.token_count",
        "value"
       ],
-      "op": "gt",
-      "value": 30
+      "op": "gte",
+      "value": 4
      }
     ],
     "output_template_ref": "REJECT"
    },
    {
-    "rule_id": "P_04_04_01-IN",
+    "rule_id": "toy-exact",
     "when": [
      {
       "path": [
@@ -89,22 +89,22 @@
        "value"
       ],
       "op": "eq",
-      "value": "P_04_04_01"
+      "value": "P_99_81_02"
      },
      {
       "path": [
        "parameters",
-       "facts.ORDER__trip__END_TO_COMPLAINT_DAYS.天数",
+       "synthetic.token_count",
        "value"
       ],
-      "op": "lte",
-      "value": 7
+      "op": "eq",
+      "value": 9
      }
     ],
     "output_template_ref": "ACCEPT"
    },
    {
-    "rule_id": "P_04_04_01-LATE",
+    "rule_id": "toy-other",
     "when": [
      {
       "path": [
@@ -113,16 +113,16 @@
        "value"
       ],
       "op": "eq",
-      "value": "P_04_04_01"
+      "value": "P_99_81_02"
      },
      {
       "path": [
        "parameters",
-       "facts.ORDER__trip__END_TO_COMPLAINT_DAYS.天数",
+       "synthetic.token_count",
        "value"
       ],
-      "op": "gt",
-      "value": 7
+      "op": "ne",
+      "value": 9
      }
     ],
     "output_template_ref": "REJECT"
@@ -136,7 +136,7 @@
       "literal": "ACCEPTED"
      },
      "basis": {
-      "literal": "IN_WINDOW"
+      "literal": "TOY_MATCH"
      }
     },
     "actions": []
@@ -148,7 +148,7 @@
       "literal": "NOT_ACCEPTED"
      },
      "basis": {
-      "literal": "OUT_OF_WINDOW"
+      "literal": "TOY_OTHER"
      }
     },
     "actions": []
@@ -160,7 +160,7 @@
       "literal": "ACCEPTED"
      },
      "basis": {
-      "literal": "DEFAULT_NO_ROW"
+      "literal": "TOY_DEFAULT"
      }
     },
     "actions": []
@@ -169,5 +169,5 @@
   "on_no_match": "RESULT_TEMPLATE",
   "empty_template_ref": "NO_ROW"
  },
- "note": "合成样例（WO-72）"
+ "note": "Independently authored token-count toy: low-count and exact-count classification, not a business policy or captured evaluation."
 }

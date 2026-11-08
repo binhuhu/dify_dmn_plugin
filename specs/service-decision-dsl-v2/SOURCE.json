@@ -1,13 +1,12 @@
 {
   "source": "服务决策DSL_最终架构与插件需求_v2.0_20261001.zip",
   "source_zip_sha256": "db08451e4c763e4e621082c69f0b9adad8c92a7a291c58b0069c415c63b01c97",
-  "acquired_via": "authorized platform file download; Library helper previously failed",
-  "message_text_checks": "43 files, 301882 bytes, all supplied SHA256 matched",
   "status": "NORMATIVE_REQUIREMENTS_NOT_PRODUCT_EVIDENCE",
   "files": [
     {
       "path": "README.md",
-      "sha256": "26fd667e348bf399a7fdad9bfb90461b1f11c6e1d36c96e22b22502175ac5083"
+      "sha256": "c839ef341d12e2f62829bf84ba62ff3874041fd8e64a3b84592250ff84f1fee9",
+      "source_sha256": "26fd667e348bf399a7fdad9bfb90461b1f11c6e1d36c96e22b22502175ac5083"
     },
     {
       "path": "acceptance/acceptance_cases.json",
@@ -31,7 +30,8 @@
     },
     {
       "path": "docs/04_sources.md",
-      "sha256": "3e69752ba7b17b74d1309df449bceb1fbea4877f66f0b5d7ef05456e3b0148e5"
+      "sha256": "703749c3426905ffe65739567cd92ace4c24287412b4f5203b88528e60ecdd23",
+      "source_sha256": "3e69752ba7b17b74d1309df449bceb1fbea4877f66f0b5d7ef05456e3b0148e5"
     },
     {
       "path": "examples/architecture_bundle.json",
@@ -129,5 +129,6 @@
       "path": "schemas/query-plan.schema.json",
       "sha256": "3465de2fbb28e7311277b59f37d93a6b43aaa0f70b230067e377533ac3aef71b"
     }
-  ]
+  ],
+  "digest_scope": "source_zip_sha256 identifies the historical source archive, not the current directory. files[].sha256 verifies current retained files; source_sha256, where present, records the pre-cleanup source bytes. Documentation cleanup does not change schemas, examples or normative requirements."
 }

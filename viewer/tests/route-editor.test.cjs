@@ -7,29 +7,39 @@ const fs = require("node:fs");
 const path = require("node:path");
 const { JSDOM } = require("jsdom");
 const vm = require("node:vm");
+const { webcrypto, createHash, createHmac, timingSafeEqual } = require("node:crypto");
 
 const SCRIPT = fs.readFileSync(path.resolve("plugin/route_editor_static/editor.js"), "utf8");
-const COUPON = "00000000-0000-4000-8000-000000000001";
-const LOST = "00000000-0000-4000-8000-000000000002";
+const APP_A = "00000000-0000-4000-8000-000000000001";
+const APP_B = "00000000-0000-4000-8000-000000000002";
 const KEY = "k".repeat(32);
+const WRITER = "synthetic-editor";
+const TABLE = "synthetic.editor.route"; // Non-delivery tables retain D14's signed single-save path.
+const canonical = (value) => JSON.stringify(value, function (_key, item) {
+  return item && typeof item === "object" && !Array.isArray(item)
+    ? Object.fromEntries(Object.keys(item).sort().map((key) => [key, item[key]])) : item;
+});
 
+// Independent minimal UI fixture: three arbitrary 99-series cells, two toy apps,
+// one application route, one transfer route, and one unassigned cell. These are
+// selected to exercise editor states, not to mirror a business scene catalog.
 const first = () => ({
   schema: "dmn-json.route-table/v2",
-  table: "dispatch.route",
+  table: TABLE,
   issue_types: ["COMPLAINT", "CONSULT", "FEEDBACK"],
   phases: ["STAGE_1", "STAGE_2", "STAGE_3"],
   scenes: {
-    P_02_04_01: { name: "Synthetic scene A", domain: "Synthetic domain A" },
-    P_04_04_01: { name: "Synthetic scene B", domain: "Synthetic domain B" },
-    P_07_02_01: { name: "安全事件", domain: "安全" },
+    P_99_31_01: { name: "Synthetic scene A", domain: "Synthetic domain A" },
+    P_99_31_02: { name: "Synthetic scene B", domain: "Synthetic domain B" },
+    P_99_31_03: { name: "Synthetic scene C", domain: "Synthetic domain C" },
   },
   solutions: {
-    [COUPON]: { name: "Synthetic application B", inputs: ["call_id", "request_json"] },
-    [LOST]: { name: "遗失 B", inputs: ["call_id", "request_json"] },
+    [APP_A]: { name: "Synthetic application A", inputs: ["call_id", "request_json"] },
+    [APP_B]: { name: "Synthetic application B", inputs: ["call_id", "request_json"] },
   },
   routes: [
-    { scene_id: "P_02_04_01", issue_type: "COMPLAINT", phase: "STAGE_1", target: { kind: "SOLUTION_APP", app_id: COUPON } },
-    { scene_id: "P_07_02_01", issue_type: "COMPLAINT", phase: "STAGE_1", target: { kind: "TRANSFER", to: "SAFETY" } },
+    { scene_id: "P_99_31_01", issue_type: "COMPLAINT", phase: "STAGE_1", target: { kind: "SOLUTION_APP", app_id: APP_A } },
+    { scene_id: "P_99_31_03", issue_type: "COMPLAINT", phase: "STAGE_1", target: { kind: "TRANSFER", to: "SAFETY" } },
   ],
   note: "第一版",
 });
@@ -46,9 +56,19 @@ function fakeApi() {
     const u = new URL(url, "http://127.0.0.1");
     const name = u.pathname.split("/api/")[1];
     const json = (status, body) => ({ ok: status < 400, status, json: async () => structuredClone(body) });
-    assert.equal(init.headers["X-Route-Edit-Key"], KEY);
+    assert.equal(init.headers["X-Route-Edit-Key"], undefined, "the retired shared key is never sent");
+    const [writer, at, signature] = init.headers["X-Route-Writer"].split(";");
+    assert.equal(writer, WRITER);
+    assert.ok(Math.abs(Date.now() - Date.parse(at)) < 600000);
+    const operation = (init.method || "GET") === "GET" ? name : { table: "save" }[name];
+    const digest = createHash("sha256").update(canonical(init.body ? JSON.parse(init.body) : {})).digest("hex");
+    const message = ["dmn-store-sig/1", operation, u.searchParams.get("table"), name === "version" ? u.searchParams.get("v") : "", digest, writer, at].join("\n");
+    const expected = createHmac("sha256", KEY).update(message).digest();
+    assert.ok(timingSafeEqual(Buffer.from(signature, "hex"), expected), "verify the full signed operation, table, version and body");
+    assert.ok(!JSON.stringify(init).includes(KEY), "the writer key never leaves the page");
     if ((init.method || "GET") === "GET") {
-      if (name === "table") return json(200, { table: "dispatch.route", version: head()?.version || 0, doc: head() });
+      if (name === "draft") return json(400, { error: { code: "STORED_TABLE_DRAFT_NOT_SUPPORTED", message: "Only delivery-chain tables have drafts" } });
+      if (name === "table") return json(200, { table: TABLE, version: head()?.version || 0, doc: head() });
       if (name === "history") return json(200, { versions: [...s.versions].reverse().map((v) => ({ version: v.version, saved_at: v.saved_at, note: v.note, routes: v.routes.length })) });
       if (name === "version") return json(200, { doc: s.versions[Number(u.searchParams.get("v")) - 1] });
     }
@@ -68,8 +88,13 @@ async function page(api) {
   const w = dom.window;
   w.fetch = api.fetch;
   w.structuredClone = structuredClone;
-  w.sessionStorage.setItem("route-edit-key", KEY);
+  w.TextEncoder = TextEncoder;
+  Object.defineProperty(w, "crypto", { value: webcrypto });
   new vm.Script(SCRIPT).runInContext(dom.getInternalVMContext());
+  $(w, "#re-writer").value = WRITER;
+  $(w, "#re-key").value = KEY;
+  $(w, "#re-table").value = TABLE;
+  $(w, '[data-act="load"]').click();
   await settle();
   return w;
 }
@@ -93,8 +118,8 @@ test("lists every catalogued scene with its route", async () => {
   api.saveAs(first());
   const w = await page(api);
   assert.equal(w.document.querySelectorAll(".re-tall tbody tr").length, 3);
-  assert.equal($(w, 'select[data-k="P_02_04_01|COMPLAINT|STAGE_1"]').value, "APP:" + COUPON);
-  assert.equal($(w, 'select[data-k="P_04_04_01|COMPLAINT|STAGE_1"]').value, "NONE");
+  assert.equal($(w, 'select[data-k="P_99_31_01|COMPLAINT|STAGE_1"]').value, "APP:" + APP_A);
+  assert.equal($(w, 'select[data-k="P_99_31_02|COMPLAINT|STAGE_1"]').value, "NONE");
   assert.ok(![...w.document.querySelectorAll("option")].some((o) => o.value === "KNOWLEDGE"), "D8: no knowledge target in this table");
 });
 
@@ -102,12 +127,12 @@ test("save shows the change list and writes only after confirm", async () => {
   const api = fakeApi();
   api.saveAs(first());
   const w = await page(api);
-  await pick(w, "P_04_04_01", "APP:" + LOST);
-  await note(w, "遗失挂 B");
+  await pick(w, "P_99_31_02", "APP:" + APP_B);
+  await note(w, "Synthetic scene B assigned application B");
   await click(w, '[data-act="save"]');
   assert.equal(api.posts.length, 0, "nothing is written before confirm");
   assert.ok($(w, ".re-confirm"));
-  assert.match($(w, ".re-confirm").textContent, /P_04_04_01.*无方案 → 遗失 B/);
+  assert.match($(w, ".re-confirm").textContent, /P_99_31_02.*无方案 → Synthetic application B/);
   await click(w, '[data-act="cancel"]');
   assert.equal(api.posts.length, 0);
   await click(w, '[data-act="save"]');
@@ -121,23 +146,23 @@ test("a conflict keeps the draft and replays it on the newest version", async ()
   const api = fakeApi();
   api.saveAs(first());
   const w = await page(api);
-  await pick(w, "P_04_04_01", "APP:" + LOST);
+  await pick(w, "P_99_31_02", "APP:" + APP_B);
   await note(w, "我的改动");
   const other = first();
-  other.routes.push({ scene_id: "P_07_02_01", issue_type: "COMPLAINT", phase: "STAGE_2", target: { kind: "TRANSFER", to: "SAFETY" } });
+  other.routes.push({ scene_id: "P_99_31_03", issue_type: "COMPLAINT", phase: "STAGE_2", target: { kind: "TRANSFER", to: "SAFETY" } });
   other.note = "别人的改动";
   api.saveAs(other); // someone else saves version 2 meanwhile
   await click(w, '[data-act="save"]');
   await click(w, '[data-act="confirm"]');
   assert.match($(w, ".re-status").textContent, /刚被改过/);
-  assert.equal($(w, 'select[data-k="P_04_04_01|COMPLAINT|STAGE_1"]').value, "APP:" + LOST, "draft kept after 409");
+  assert.equal($(w, 'select[data-k="P_99_31_02|COMPLAINT|STAGE_1"]').value, "APP:" + APP_B, "draft kept after 409");
   await click(w, '[data-act="rebase"]');
   assert.match($(w, ".re-status").textContent, /已载入第 2 版.*1 条去向改动重放/);
   await click(w, '[data-act="save"]');
   await click(w, '[data-act="confirm"]');
   const saved = api.versions[2];
   assert.equal(saved.version, 3);
-  assert.ok(saved.routes.some((r) => r.scene_id === "P_04_04_01" && r.target.app_id === LOST), "my change survived");
+  assert.ok(saved.routes.some((r) => r.scene_id === "P_99_31_02" && r.target.app_id === APP_B), "my change survived");
   assert.ok(saved.routes.some((r) => r.phase === "STAGE_2"), "their change survived");
 });
 
@@ -145,15 +170,15 @@ test("a server error path is mapped to its row", async () => {
   const api = fakeApi();
   api.saveAs(first());
   const w = await page(api);
-  await pick(w, "P_04_04_01", "APP:" + LOST);
+  await pick(w, "P_99_31_02", "APP:" + APP_B);
   await note(w, "x");
   await click(w, '[data-act="save"]');
-  // routes go out in draft order: P_02_04_01, P_07_02_01, then the new P_04_04_01 at index 2
+  // routes go out in draft order: P_99_31_01, P_99_31_03, then the new P_99_31_02 at index 2
   api.failNext = { status: 400, error: { code: "ROUTE_TABLE_UNREGISTERED_APP", message: "没登记", path: "routes[2].target.app_id" } };
   await click(w, '[data-act="confirm"]');
   const row = $(w, "tr.re-error");
   assert.ok(row, "the failing row is highlighted");
-  assert.equal(row.getAttribute("data-row"), "P_04_04_01|COMPLAINT|STAGE_1");
+  assert.equal(row.getAttribute("data-row"), "P_99_31_02|COMPLAINT|STAGE_1");
 });
 
 test("routes to scenes outside the catalog are stopped before confirm", async () => {
@@ -161,7 +186,7 @@ test("routes to scenes outside the catalog are stopped before confirm", async ()
   api.saveAs(first());
   const w = await page(api);
   const box = $(w, "#re-scenes");
-  box.value = JSON.stringify({ P_04_04_01: { name: "Synthetic scene B", domain: "Synthetic domain B" } });
+  box.value = JSON.stringify({ P_99_31_02: { name: "Synthetic scene B", domain: "Synthetic domain B" } });
   await click(w, '[data-act="scenes"]');
   await note(w, "换目录");
   await click(w, '[data-act="save"]');
@@ -174,10 +199,10 @@ test("export can take the unsaved draft", async () => {
   const api = fakeApi();
   api.saveAs(first());
   const w = await page(api);
-  await pick(w, "P_04_04_01", "TRANSFER");
+  await pick(w, "P_99_31_02", "TRANSFER");
   await click(w, '[data-act="export-draft"]');
   const out = JSON.parse($(w, 'textarea[readonly]').value);
-  assert.ok(out.routes.some((r) => r.scene_id === "P_04_04_01" && r.target.kind === "TRANSFER"));
+  assert.ok(out.routes.some((r) => r.scene_id === "P_99_31_02" && r.target.kind === "TRANSFER"));
 });
 
 
@@ -185,8 +210,8 @@ test("export can take the unsaved draft", async () => {
 const withResources = () => {
   const d = first();
   d.resource_table = "dispatch.resource";
-  d.routes.push({ scene_id: "P_02_04_01", issue_type: "CONSULT", phase: "STAGE_1", target: { kind: "RESOURCE", resource_id: "self_service.knowledge" } });
-  d.generated_from = { path: "orchestration/dispatch-routes/x.json", sha256: "a".repeat(64) };
+  d.routes.push({ scene_id: "P_99_31_01", issue_type: "CONSULT", phase: "STAGE_1", target: { kind: "RESOURCE", resource_id: "self_service.knowledge" } });
+  d.generated_from = { path: "fixtures/synthetic/editor-route.json", sha256: "a".repeat(64) };
   return d;
 };
 
@@ -194,16 +219,16 @@ test("a save changes only the edited cell and keeps every key it did not edit", 
   const api = fakeApi();
   const loaded = structuredClone(api.saveAs(withResources()));
   const w = await page(api);
-  await pick(w, "P_02_04_01", "APP:" + LOST); // one cell: Synthetic application B -> 遗失 B
-  await note(w, "Synthetic application场景改挂遗失 B");
+  await pick(w, "P_99_31_01", "APP:" + APP_B); // one cell: Synthetic application A -> Synthetic application B
+  await note(w, "Synthetic scene A assigned application B");
   await click(w, '[data-act="save"]');
   await click(w, '[data-act="confirm"]');
   assert.equal(api.posts.length, 1);
   const { expected_version, ...sent } = api.posts[0];
   assert.equal(expected_version, 1);
   const want = structuredClone(loaded);
-  want.routes[0].target = { kind: "SOLUTION_APP", app_id: LOST };
-  want.note = "Synthetic application场景改挂遗失 B"; // every save needs its own note (ROUTE_TABLE_NOTE_REQUIRED)
+  want.routes[0].target = { kind: "SOLUTION_APP", app_id: APP_B };
+  want.note = "Synthetic scene A assigned application B"; // every save needs its own note (ROUTE_TABLE_NOTE_REQUIRED)
   assert.deepEqual(sent, want, "deep-equal to the loaded document except the edited cell");
   assert.equal(api.versions[1].resource_table, "dispatch.resource");
 });
@@ -212,14 +237,14 @@ test("an added and a removed route touch only their own rows", async () => {
   const api = fakeApi();
   const loaded = structuredClone(api.saveAs(withResources()));
   const w = await page(api);
-  await pick(w, "P_07_02_01", "NONE");
-  await pick(w, "P_04_04_01", "TRANSFER");
+  await pick(w, "P_99_31_03", "NONE");
+  await pick(w, "P_99_31_02", "TRANSFER");
   await note(w, "删一条加一条");
   await click(w, '[data-act="save"]');
   await click(w, '[data-act="confirm"]');
   const { expected_version, ...sent } = api.posts[0];
   const want = structuredClone(loaded);
-  want.routes = [loaded.routes[0], loaded.routes[2], { scene_id: "P_04_04_01", issue_type: "COMPLAINT", phase: "STAGE_1", target: { kind: "TRANSFER", to: "SAFETY" } }];
+  want.routes = [loaded.routes[0], loaded.routes[2], { scene_id: "P_99_31_02", issue_type: "COMPLAINT", phase: "STAGE_1", target: { kind: "TRANSFER", to: "SAFETY" } }];
   want.note = "删一条加一条";
   assert.deepEqual(sent, want);
 });
@@ -232,7 +257,7 @@ test("a resource route shows as its target and survives a search", async () => {
   type.value = "CONSULT";
   type.dispatchEvent(new w.Event("change", { bubbles: true }));
   await settle();
-  assert.equal($(w, 'select[data-k="P_02_04_01|CONSULT|STAGE_1"]').value, "RESOURCE:self_service.knowledge", "not shown as 无方案");
+  assert.equal($(w, 'select[data-k="P_99_31_01|CONSULT|STAGE_1"]').value, "RESOURCE:self_service.knowledge", "not shown as 无方案");
   const box = $(w, "#re-q");
   box.value = "资源目标";
   box.dispatchEvent(new w.Event("input", { bubbles: true }));
@@ -244,7 +269,7 @@ test("replaying on the newest version keeps that version's keys", async () => {
   const api = fakeApi();
   api.saveAs(first());
   const w = await page(api);
-  await pick(w, "P_04_04_01", "APP:" + LOST);
+  await pick(w, "P_99_31_02", "APP:" + APP_B);
   await note(w, "我的改动");
   api.saveAs(withResources()); // meanwhile version 2 adds a resource table and a RESOURCE row
   await click(w, '[data-act="save"]');
@@ -256,7 +281,7 @@ test("replaying on the newest version keeps that version's keys", async () => {
   assert.equal(saved.version, 3);
   assert.equal(saved.resource_table, "dispatch.resource");
   assert.ok(saved.routes.some((r) => r.target.kind === "RESOURCE"), "their RESOURCE row survived");
-  assert.ok(saved.routes.some((r) => r.scene_id === "P_04_04_01" && r.target.app_id === LOST), "my change survived");
+  assert.ok(saved.routes.some((r) => r.scene_id === "P_99_31_02" && r.target.app_id === APP_B), "my change survived");
 });
 
 
@@ -272,10 +297,10 @@ const v3doc = () => {
   const d = first();
   d.schema = V3;
   d.solutions = {
-    [COUPON]: entry({ name: "Synthetic application B", topics: ["synthetic_topic_a", "synthetic_topic_b"], package_id: "synthetic-app-a" }),
-    [LOST]: entry({ name: "遗失 B", status: "GATED", gate_code: GATE, topics: ["synthetic_topic_d"], package_id: "lost-property" }),
+    [APP_A]: entry({ name: "Synthetic application A", topics: ["synthetic_topic_a", "synthetic_topic_b"], package_id: "synthetic-app-a" }),
+    [APP_B]: entry({ name: "Synthetic application B", status: "GATED", gate_code: GATE, topics: ["synthetic_topic_d"], package_id: "synthetic-package-b" }),
   };
-  d.generated_from = { path: "orchestration/service-agents/solution-registry.release-d.json", sha256: "b".repeat(64) };
+  d.generated_from = { path: "fixtures/synthetic/editor-registry.json", sha256: "b".repeat(64) };
   return d;
 };
 const field = (w, app, f) => $(w, `[data-app="${app}"][data-f="${f}"]`);
@@ -292,16 +317,16 @@ test("a v3 table shows each solution's registry state; lifting a gate changes on
   const api = fakeApi();
   const loaded = structuredClone(api.saveAs(v3doc()));
   const w = await page(api);
-  assert.equal(field(w, LOST, "status").value, "GATED");
-  assert.equal(field(w, LOST, "gate_code").value, GATE);
-  assert.equal(field(w, COUPON, "gate_code").disabled, true, "only a GATED app takes a gate code");
-  assert.equal(field(w, COUPON, "topics").value, "synthetic_topic_a synthetic_topic_b");
-  assert.match($(w, `[data-app-info="${COUPON}"]`).textContent, /ISSUE_TARGET.*synthetic-app-a.*SUPPORTED/);
-  await type(w, LOST, "status", "SHADOW");
-  assert.equal(field(w, LOST, "gate_code").disabled, false, "a SHADOW app may keep its gate");
-  assert.equal(field(w, LOST, "gate_code").value, GATE);
-  await type(w, LOST, "status", "CURRENT");
-  assert.equal(field(w, LOST, "gate_code").disabled, true);
+  assert.equal(field(w, APP_B, "status").value, "GATED");
+  assert.equal(field(w, APP_B, "gate_code").value, GATE);
+  assert.equal(field(w, APP_A, "gate_code").disabled, true, "only a GATED app takes a gate code");
+  assert.equal(field(w, APP_A, "topics").value, "synthetic_topic_a synthetic_topic_b");
+  assert.match($(w, `[data-app-info="${APP_A}"]`).textContent, /ISSUE_TARGET.*synthetic-app-a.*SUPPORTED/);
+  await type(w, APP_B, "status", "SHADOW");
+  assert.equal(field(w, APP_B, "gate_code").disabled, false, "a SHADOW app may keep its gate");
+  assert.equal(field(w, APP_B, "gate_code").value, GATE);
+  await type(w, APP_B, "status", "CURRENT");
+  assert.equal(field(w, APP_B, "gate_code").disabled, true);
   await note(w, "Synthetic gate opened");
   await click(w, '[data-act="save"]');
   assert.match($(w, ".re-confirm").textContent, /状态 GATED → CURRENT/);
@@ -309,8 +334,8 @@ test("a v3 table shows each solution's registry state; lifting a gate changes on
   assert.equal(api.posts.length, 1);
   const { expected_version, ...sent } = api.posts[0];
   const want = structuredClone(loaded);
-  want.solutions[LOST].status = "CURRENT";
-  want.solutions[LOST].gate_code = null;
+  want.solutions[APP_B].status = "CURRENT";
+  want.solutions[APP_B].gate_code = null;
   want.note = "Synthetic gate opened";
   assert.deepEqual(sent, want, "every other key, entry and field as loaded");
 });
@@ -319,18 +344,18 @@ test("contract, topics and intents are edited in place; empty text is null / []"
   const api = fakeApi();
   const loaded = structuredClone(api.saveAs(v3doc()));
   const w = await page(api);
-  await type(w, COUPON, "request_contract", "场景方案调用/v4.1");
-  await type(w, COUPON, "topics", "synthetic_topic_a，coupon_submit_failed");
-  await type(w, COUPON, "intents", "REPORT_PROBLEM APPEAL");
-  await type(w, LOST, "status", "CANDIDATE");
-  await type(w, LOST, "request_contract", "");
+  await type(w, APP_A, "request_contract", "场景方案调用/v4.1");
+  await type(w, APP_A, "topics", "synthetic_topic_a，synthetic_topic_c");
+  await type(w, APP_A, "intents", "REPORT_PROBLEM APPEAL");
+  await type(w, APP_B, "status", "CANDIDATE");
+  await type(w, APP_B, "request_contract", "");
   await note(w, "改登记");
   await click(w, '[data-act="save"]');
   await click(w, '[data-act="confirm"]');
   const { expected_version, ...sent } = api.posts[0];
   const want = structuredClone(loaded);
-  Object.assign(want.solutions[COUPON], { request_contract: "场景方案调用/v4.1", topics: ["synthetic_topic_a", "coupon_submit_failed"], intents: ["REPORT_PROBLEM", "APPEAL"] });
-  Object.assign(want.solutions[LOST], { status: "CANDIDATE", gate_code: null, request_contract: null });
+  Object.assign(want.solutions[APP_A], { request_contract: "场景方案调用/v4.1", topics: ["synthetic_topic_a", "synthetic_topic_c"], intents: ["REPORT_PROBLEM", "APPEAL"] });
+  Object.assign(want.solutions[APP_B], { status: "CANDIDATE", gate_code: null, request_contract: null });
   want.note = "改登记";
   assert.deepEqual(sent, want);
 });
@@ -339,16 +364,16 @@ test("what the plugin would refuse is stopped before confirm (GATED without a ga
   const api = fakeApi();
   api.saveAs(v3doc());
   const w = await page(api);
-  await type(w, COUPON, "status", "GATED");
-  assert.equal(field(w, COUPON, "gate_code").disabled, false);
+  await type(w, APP_A, "status", "GATED");
+  assert.equal(field(w, APP_A, "gate_code").disabled, false);
   await note(w, "x");
   await click(w, '[data-act="save"]');
   assert.ok(!$(w, ".re-confirm"));
   assert.match($(w, ".re-status").textContent, /GATED 要写闸编码/);
   assert.ok($(w, "tr.re-error"), "the entry is marked");
-  await type(w, COUPON, "gate_code", "SYNTHETIC_OTHER");
-  await type(w, LOST, "status", "CURRENT");
-  await type(w, LOST, "topics", "");
+  await type(w, APP_A, "gate_code", "SYNTHETIC_OTHER");
+  await type(w, APP_B, "status", "CURRENT");
+  await type(w, APP_B, "topics", "");
   await click(w, '[data-act="save"]');
   assert.ok(!$(w, ".re-confirm"));
   assert.match($(w, ".re-status").textContent, /CURRENT 要写请求合同、话题、诉求/);
@@ -359,20 +384,20 @@ test("a v2 table is upgraded to v3 on request: every app CURRENT, then filled be
   const api = fakeApi();
   const loaded = structuredClone(api.saveAs(first()));
   const w = await page(api);
-  assert.equal(field(w, COUPON, "status"), null, "a v2 table has no registry columns");
+  assert.equal(field(w, APP_A, "status"), null, "a v2 table has no registry columns");
   assert.match($(w, '[data-act="upgrade"]').closest("section").textContent, /v2.*CURRENT/);
   await click(w, '[data-act="upgrade"]');
-  assert.equal(field(w, COUPON, "status").value, "CURRENT");
+  assert.equal(field(w, APP_A, "status").value, "CURRENT");
   await note(w, "升 v3");
   await click(w, '[data-act="save"]');
   assert.ok(!$(w, ".re-confirm"), "CURRENT apps need contract / topics / intents first");
-  for (const app of [COUPON, LOST]) {
+  for (const app of [APP_A, APP_B]) {
     await type(w, app, "request_contract", "场景方案调用/v4");
-    await type(w, app, "topics", app === COUPON ? "synthetic_topic_a" : "synthetic_topic_d");
+    await type(w, app, "topics", app === APP_A ? "synthetic_topic_a" : "synthetic_topic_d");
     await type(w, app, "intents", "REPORT_PROBLEM");
   }
-  await type(w, LOST, "status", "GATED");
-  await type(w, LOST, "gate_code", GATE);
+  await type(w, APP_B, "status", "GATED");
+  await type(w, APP_B, "gate_code", GATE);
   await click(w, '[data-act="save"]');
   assert.match($(w, ".re-confirm").textContent, /升为 v3/);
   await click(w, '[data-act="confirm"]');
@@ -380,7 +405,7 @@ test("a v2 table is upgraded to v3 on request: every app CURRENT, then filled be
   assert.equal(sent.schema, V3);
   assert.deepEqual(sent.routes, loaded.routes);
   assert.deepEqual(sent.scenes, loaded.scenes);
-  assert.deepEqual(sent.solutions[LOST], { name: "遗失 B", inputs: ["call_id", "request_json"], status: "GATED", gate_code: GATE,
+  assert.deepEqual(sent.solutions[APP_B], { name: "Synthetic application B", inputs: ["call_id", "request_json"], status: "GATED", gate_code: GATE,
     request_contract: "场景方案调用/v4", topics: ["synthetic_topic_d"], intents: ["REPORT_PROBLEM"],
     invocation_scope: null, priority: null, package_id: null, target_handoff: null });
 });
@@ -390,7 +415,7 @@ test("a new registration on a v3 table starts as CANDIDATE", async () => {
   api.saveAs(v3doc());
   const w = await page(api);
   const id = "00000000-0000-4000-8000-000000000005";
-  for (const [sel, v] of [["#re-new-id", id], ["#re-new-name", "司机接驾迟到 · synthetic"]]) {
+  for (const [sel, v] of [["#re-new-id", id], ["#re-new-name", "Synthetic application C"]]) {
     const n = $(w, sel);
     n.value = v;
     n.dispatchEvent(new w.Event("input", { bubbles: true }));
@@ -406,7 +431,7 @@ test("a v2 version is not loaded over a v3 head (v2 reads every app CURRENT)", a
   const w = await page(api);
   await click(w, '[data-act="version"][data-v="1"]');
   assert.match($(w, ".re-status").textContent, /第 1 版是 v2/);
-  assert.equal(field(w, LOST, "status").value, "GATED", "the draft is unchanged");
+  assert.equal(field(w, APP_B, "status").value, "GATED", "the draft is unchanged");
 });
 
 test("regression hook: a pasted gate report goes out with the save, once", async () => {
@@ -417,12 +442,12 @@ test("regression hook: a pasted gate report goes out with the save, once", async
   const box = $(w, "#re-gate");
   box.value = JSON.stringify(report);
   box.dispatchEvent(new w.Event("input", { bubbles: true }));
-  await type(w, LOST, "status", "CANDIDATE");
+  await type(w, APP_B, "status", "CANDIDATE");
   await note(w, "带闸报告");
   await click(w, '[data-act="save"]');
   await click(w, '[data-act="confirm"]');
   assert.deepEqual(api.posts[0].gate_report, report);
-  await type(w, COUPON, "request_contract", "场景方案调用/v4.1");
+  await type(w, APP_A, "request_contract", "场景方案调用/v4.1");
   await note(w, "第二次");
   await click(w, '[data-act="save"]');
   await click(w, '[data-act="confirm"]');
@@ -437,7 +462,7 @@ test("regression hook: a pasted gate report goes out with the save, once", async
 const stored = (doc) => Object.assign(doc, { save_id: "s".repeat(32), parent_save_id: "p".repeat(32) }); // what StorageTables.save adds besides version / saved_at / content_sha256
 const withResourceTable = (d) => {
   d.resource_table = "dispatch.resource";
-  d.routes.push({ scene_id: "P_02_04_01", issue_type: "CONSULT", phase: "STAGE_1", target: { kind: "RESOURCE", resource_id: "self_service.knowledge" } });
+  d.routes.push({ scene_id: "P_99_31_01", issue_type: "CONSULT", phase: "STAGE_1", target: { kind: "RESOURCE", resource_id: "self_service.knowledge" } });
   return stored(d);
 };
 async function saveOneEdit(doc, edit, text) {
@@ -462,11 +487,11 @@ function assertOnlyEdited(loaded, sent, want) {
 
 for (const [name, make] of [["v2", () => withResourceTable(first())], ["v3", () => withResourceTable(v3doc())]]) {
   test(`regression: a ${name} table with resource_table - one route cell edited, everything else saved byte for byte`, async () => {
-    const { api, loaded, sent } = await saveOneEdit(make(), (w) => pick(w, "P_02_04_01", "APP:" + LOST), "Synthetic application场景改挂遗失 B");
+    const { api, loaded, sent } = await saveOneEdit(make(), (w) => pick(w, "P_99_31_01", "APP:" + APP_B), "Synthetic scene A assigned application B");
     assert.equal(loaded.schema, name === "v2" ? "dmn-json.route-table/v2" : V3);
     const want = structuredClone(loaded);
-    want.routes[0].target = { kind: "SOLUTION_APP", app_id: LOST };
-    want.note = "Synthetic application场景改挂遗失 B";
+    want.routes[0].target = { kind: "SOLUTION_APP", app_id: APP_B };
+    want.note = "Synthetic scene A assigned application B";
     assertOnlyEdited(loaded, sent, want);
     assert.equal(api.versions[1].resource_table, "dispatch.resource");
     assert.ok(api.versions[1].routes.some((r) => r.target.kind === "RESOURCE"), "the RESOURCE row is still there");
@@ -474,11 +499,11 @@ for (const [name, make] of [["v2", () => withResourceTable(first())], ["v3", () 
 }
 
 test("regression: a v3 table with resource_table - one registry cell edited, everything else saved byte for byte", async () => {
-  const { loaded, sent } = await saveOneEdit(withResourceTable(v3doc()), (w) => type(w, LOST, "status", "CANDIDATE"), "遗失改候选");
+  const { loaded, sent } = await saveOneEdit(withResourceTable(v3doc()), (w) => type(w, APP_B, "status", "CANDIDATE"), "Synthetic application B made candidate");
   const want = structuredClone(loaded);
-  want.solutions[LOST].status = "CANDIDATE";
-  want.solutions[LOST].gate_code = null; // a non-gate status carries no gate (plugin rule; the page clears it with the status)
-  want.note = "遗失改候选";
+  want.solutions[APP_B].status = "CANDIDATE";
+  want.solutions[APP_B].gate_code = null; // a non-gate status carries no gate (plugin rule; the page clears it with the status)
+  want.note = "Synthetic application B made candidate";
   assertOnlyEdited(loaded, sent, want);
 });
 
@@ -487,7 +512,7 @@ test("regression: a v2 table with resource_table upgraded to v3 keeps resource_t
   const loaded = structuredClone(api.saveAs(withResourceTable(first())));
   const w = await page(api);
   await click(w, '[data-act="upgrade"]');
-  for (const app of [COUPON, LOST]) {
+  for (const app of [APP_A, APP_B]) {
     await type(w, app, "request_contract", "场景方案调用/v4");
     await type(w, app, "topics", "t_" + app.slice(0, 4));
     await type(w, app, "intents", "REPORT_PROBLEM");
@@ -511,15 +536,15 @@ test("an M_ catalog imported into a legacy table is rewritten into the table's s
   const w = await page(api);
   const box = $(w, "#re-scenes");
   box.value = JSON.stringify([
-    { scene_id: "M_P_02_04_01", name: "Synthetic scene A", domain: "Synthetic domain A" },
-    { scene_id: "M_P_04_04_01", name: "Synthetic scene B", domain: "Synthetic domain B" },
-    { scene_id: "M_P_07_02_01", name: "安全事件", domain: "安全" },
+    { scene_id: "M_P_99_31_01", name: "Synthetic scene A", domain: "Synthetic domain A" },
+    { scene_id: "M_P_99_31_02", name: "Synthetic scene B", domain: "Synthetic domain B" },
+    { scene_id: "M_P_99_31_03", name: "Synthetic scene C", domain: "Synthetic domain C" },
   ]);
   await click(w, '[data-act="scenes"]');
   assert.doesNotMatch($(w, ".re-status").textContent, /目录里没有的场景/);
   assert.match($(w, ".re-status").textContent, /按本表写法换了 3 个场景编号/);
   assert.equal(w.document.querySelectorAll(".re-tall tbody tr").length, 3);
-  assert.ok($(w, 'select[data-k="P_02_04_01|COMPLAINT|STAGE_1"]'));
+  assert.ok($(w, 'select[data-k="P_99_31_01|COMPLAINT|STAGE_1"]'));
 });
 
 test("an M_ catalog imported into an M_ table is kept, a legacy one rewritten", async () => {
@@ -530,10 +555,10 @@ test("an M_ catalog imported into an M_ table is kept, a legacy one rewritten", 
   api.saveAs(d);
   const w = await page(api);
   const box = $(w, "#re-scenes");
-  box.value = JSON.stringify({ P_02_04_01: { name: "Synthetic scene A", domain: "Synthetic domain A" }, M_P_07_02_01: { name: "安全事件", domain: "安全" } });
+  box.value = JSON.stringify({ P_99_31_01: { name: "Synthetic scene A", domain: "Synthetic domain A" }, M_P_99_31_03: { name: "Synthetic scene C", domain: "Synthetic domain C" } });
   await click(w, '[data-act="scenes"]');
   assert.match($(w, ".re-status").textContent, /按本表写法换了 1 个场景编号/);
-  assert.ok($(w, 'select[data-k="M_P_02_04_01|COMPLAINT|STAGE_1"]'));
+  assert.ok($(w, 'select[data-k="M_P_99_31_01|COMPLAINT|STAGE_1"]'));
 });
 
 test("a catalog with both spellings of one scene is refused", async () => {
@@ -541,7 +566,7 @@ test("a catalog with both spellings of one scene is refused", async () => {
   api.saveAs(first());
   const w = await page(api);
   const box = $(w, "#re-scenes");
-  box.value = JSON.stringify({ P_02_04_01: { name: "Synthetic application", domain: "Synthetic domain A" }, M_P_02_04_01: { name: "Synthetic application", domain: "Synthetic domain A" } });
+  box.value = JSON.stringify({ P_99_31_01: { name: "Synthetic application", domain: "Synthetic domain A" }, M_P_99_31_01: { name: "Synthetic application", domain: "Synthetic domain A" } });
   await click(w, '[data-act="scenes"]');
   assert.match($(w, ".re-status").textContent, /两种写法/);
   assert.equal(w.document.querySelectorAll(".re-tall tbody tr").length, 3, "the draft catalog did not change");
@@ -558,8 +583,8 @@ test("the save message says when the plugin rewrote scene ids", async () => {
     return { ok: true, status: 200, json: async () => ({ ...body, respelled_count: 2, scene_spelling: "LEGACY" }) };
   };
   const w = await page(api);
-  await pick(w, "P_04_04_01", "APP:" + LOST);
-  await note(w, "遗失挂 B");
+  await pick(w, "P_99_31_02", "APP:" + APP_B);
+  await note(w, "Synthetic scene B assigned application B");
   await click(w, '[data-act="save"]');
   await click(w, '[data-act="confirm"]');
   assert.match($(w, ".re-status").textContent, /已保存第 2 版/);
@@ -571,7 +596,7 @@ test("a catalog row whose scene_id is a one-element array imports as in 0.5.8", 
   api.saveAs(first());
   const w = await page(api);
   const box = $(w, "#re-scenes");
-  box.value = JSON.stringify([{ scene_id: ["P_02_04_01"], name: "Synthetic scene A", domain: "Synthetic domain A" }, { scene_id: "P_04_04_01", name: "遗失", domain: "Synthetic domain B" }, { scene_id: "P_07_02_01", name: "安全", domain: "安全" }]);
+  box.value = JSON.stringify([{ scene_id: ["P_99_31_01"], name: "Synthetic scene A", domain: "Synthetic domain A" }, { scene_id: "P_99_31_02", name: "Synthetic scene B", domain: "Synthetic domain B" }, { scene_id: "P_99_31_03", name: "Synthetic scene C", domain: "Synthetic domain C" }]);
   await click(w, '[data-act="scenes"]');
   assert.match($(w, ".re-status").textContent, /场景目录换成 3 个场景/);
 });
@@ -580,8 +605,8 @@ test("a conflict with a re-keyed table replays my edits in the table's new spell
   const api = fakeApi();
   api.saveAs(first());
   const w = await page(api);
-  await pick(w, "P_04_04_01", "APP:" + LOST);
-  await note(w, "遗失挂 B");
+  await pick(w, "P_99_31_02", "APP:" + APP_B);
+  await note(w, "Synthetic scene B assigned application B");
   const d = first();
   d.scenes = Object.fromEntries(Object.entries(d.scenes).map(([k, v]) => ["M_" + k, v]));
   d.routes = d.routes.map((r) => ({ ...r, scene_id: "M_" + r.scene_id }));
@@ -591,11 +616,11 @@ test("a conflict with a re-keyed table replays my edits in the table's new spell
   await click(w, '[data-act="confirm"]');
   assert.ok($(w, '[data-act="rebase"]'), "conflict offers the replay");
   await click(w, '[data-act="rebase"]');
-  assert.equal($(w, 'select[data-k="M_P_04_04_01|COMPLAINT|STAGE_1"]').value, "APP:" + LOST);
+  assert.equal($(w, 'select[data-k="M_P_99_31_02|COMPLAINT|STAGE_1"]').value, "APP:" + APP_B);
   assert.doesNotMatch($(w, ".re-status").textContent, /别人也改了/, "a re-key alone is not a clash");
   await click(w, '[data-act="save"]');
   await click(w, '[data-act="confirm"]');
   const sent = api.posts[api.posts.length - 1];
   assert.ok(sent.routes.every((r) => r.scene_id.startsWith("M_")), "nothing goes out in the old spelling");
-  assert.ok(sent.routes.some((r) => r.scene_id === "M_P_04_04_01" && r.target.app_id === LOST));
+  assert.ok(sent.routes.some((r) => r.scene_id === "M_P_99_31_02" && r.target.app_id === APP_B));
 });

@@ -10,7 +10,6 @@ import json
 
 import pytest
 from test_route_table import FakeStorage
-from test_stored_tables import KB_APP, resource_doc, store, with_resources
 
 from dmn_client import declarations
 from dmn_client.route_store import run_op
@@ -26,7 +25,172 @@ from dmn_client.stored_tables import (
 )
 
 GAP = {"code": "RESOURCE_TO_CONFIRM", "owner": "SYSTEM", "kind": "CONFIRM"}
-HUMANS = ["human.consult", "human.feedback", "human.second_line", "specialist.group"]
+PENDING_STATIONS = ["workshop.paint", "workshop.polish", "workshop.pack", "workshop.inspect"]
+
+
+ROBOT_APP = "00000000-0000-4000-8000-000000000821"
+
+
+def resource_doc(**over):
+    """Independent legacy list for migration and route-reference tests."""
+    targets = {
+        "workshop.bench": {
+            "kind": "SAFETY",
+            "name": "Toy stop",
+            "entry": {"kind": "TRANSFER", "to": "SAFETY"},
+            "status": "CONFIRMED",
+            "basis": "Protocol transfer example",
+        },
+        "workshop.robot": {
+            "kind": "SELF_SERVICE",
+            "name": "Toy robot",
+            "entry": {"kind": "AGENTHUB_APP", "app_id": ROBOT_APP},
+            "status": "CONFIRMED",
+            "basis": "Toy app entry",
+        },
+        "workshop.pending": {
+            "kind": "HUMAN",
+            "name": "Unassigned toy station",
+            "entry": None,
+            "status": "TO_CONFIRM",
+            "basis": "No fixture queue assigned",
+        },
+    }
+    base = {
+        "schema": "dmn-json.resource-targets/v1",
+        "table": "dispatch.resource",
+        "targets": targets,
+        "route_tables": ["dispatch.route"],
+        "note": "Independent toy legacy list",
+    }
+    base.update(over)
+    return base
+
+
+def route_doc():
+    """Minimal fresh route graph, with no borrowed scene catalog or applications."""
+    return {
+        "schema": "dmn-json.route-table/v2",
+        "table": "dispatch.route",
+        "issue_types": ["CONSULT", "FEEDBACK"],
+        "phases": ["STAGE_1", "STAGE_3"],
+        "scenes": {
+            "P_99_82_01": {"name": "Toy workbench", "domain": "Workshop"},
+            "P_99_82_02": {"name": "Toy robot", "domain": "Workshop"},
+        },
+        "solutions": {},
+        "routes": [
+            {
+                "scene_id": "P_99_82_01",
+                "issue_type": "FEEDBACK",
+                "phase": "STAGE_3",
+                "target": {"kind": "TRANSFER", "to": "SAFETY"},
+            }
+        ],
+        "note": "Independent minimal route-reference fixture",
+    }
+
+
+def with_resources(d=None):
+    body = copy.deepcopy(d if d is not None else route_doc())
+    body["resource_table"] = "dispatch.resource"
+    body["routes"].append(
+        {
+            "scene_id": "P_99_82_02",
+            "issue_type": "CONSULT",
+            "phase": "STAGE_1",
+            "target": {"kind": "RESOURCE", "resource_id": "workshop.robot"},
+        }
+    )
+    return body
+
+
+def store(*docs):
+    tables = StorageTables(FakeStorage())
+    for body in docs:
+        head = tables.load(body["table"])
+        tables.save(body, head["version"] if head else 0)
+    return tables
+
+
+def p2_doc(**over):
+    """Small independent boolean table for non-resource declaration refusals."""
+    base = {
+        "schema": "dmn-json.decision-table/v1",
+        "table": "p2." + ROBOT_APP,
+        "owner": {"app_id": ROBOT_APP, "team": "TEST", "name": "Toy switch"},
+        "model_ref": "toy.switch@1.0.0",
+        "model": {
+            "profile": "service-decision-table-v1",
+            "version": "1.0.0",
+            "hit_policy": "UNIQUE",
+            "parameters": {
+                "enabled": {
+                    "type": "boolean",
+                    "record_required": True,
+                    "nullable": False,
+                    "allowed_quality": ["KNOWN"],
+                }
+            },
+            "rules": [
+                {
+                    "rule_id": "TOY.ON",
+                    "when": [
+                        {"path": ["parameters", "enabled", "value"], "op": "eq", "value": True}
+                    ],
+                    "output_template_ref": "on",
+                }
+            ],
+            "result_templates": {
+                "on": {"state": "PASS", "data": {"x": {"literal": "on"}}, "actions": []},
+                "empty": {"state": "NO_MATCH", "data": {}, "actions": []},
+            },
+            "on_no_match": "RESULT_TEMPLATE",
+            "empty_template_ref": "empty",
+        },
+        "note": "Independent boolean declaration fixture",
+    }
+    base.update(over)
+    return base
+
+
+def decision(table, app_id):
+    return p2_doc(table=table, owner={"app_id": app_id, "team": "TEST", "name": "Toy"})
+
+
+def decision_set(table, app_id):
+    one = decision(table, app_id)
+    return {
+        "schema": "dmn-json.decision-set/v1",
+        "table": table,
+        "owner": one["owner"],
+        "models": {"toy": {"model_ref": one["model_ref"], "model": one["model"]}},
+        "note": "Toy decision set",
+    }
+
+
+def accept_doc():
+    from test_v0517_standard import declare
+
+    body = decision("triage.workshop", APP_TRIAGE)
+    m = body["model"]
+    m["result_templates"] = {
+        "on": template(
+            "PASS",
+            {"actions": [], "decision": "ACCEPTED", "reason_code": "TOY_ENABLED"},
+            "Toy switch enabled",
+        ),
+        "empty": template("NO_MATCH", {"actions": [], "decision": "UNDETERMINED"}, "No toy match"),
+    }
+    body["declare"] = declare(
+        m,
+        "ACCEPTANCE",
+        {
+            "decision": {"type": "string", "name": "Decision"},
+            "reason_code": {"type": "string", "name": "Reason"},
+        },
+    )
+    return body
 
 
 def P(required=True):
@@ -51,110 +215,82 @@ def template(state, result, note):
 
 
 def doc(table="triage.dispatch.resource", **over):
-    rules = [
-        {
-            "rule_id": "RES.SAFETY.TRANSFER",
-            "when": eq("safety.transfer"),
-            "output_template_ref": "RES.SAFETY.TRANSFER",
-        },
-        {
-            "rule_id": "RES.KNOWLEDGE.AI",
-            "when": eq("self_service.knowledge"),
-            "output_template_ref": "RES.KNOWLEDGE.AI",
-        },
-        {
-            "rule_id": "RES.HUMAN.TO_CONFIRM",
-            "when_any": [eq(h) for h in HUMANS],
-            "output_template_ref": "RES.HUMAN.TO_CONFIRM",
-        },
+    """Independent workshop routing specification, not a captured resource table.
+
+    One staffed bench is ready, one robot lacks its group code, and four
+    unfinished stations share a pending-queue conclusion. These three distinct
+    outcomes exercise resource contracts rather than any customer workflow.
+    """
+    recipes = [
+        ("TOY.ROBOT", ["workshop.robot"], "UNKNOWN", "ROBOT_POOL", "AI", None, "AGENT_APP"),
+        ("TOY.BENCH.TRANSFER", ["workshop.bench"], "PASS", "SELF", "HUMAN", "BENCH", "QUEUE"),
+        ("TOY.PENDING", PENDING_STATIONS, "UNKNOWN", "SELF", "HUMAN", None, "QUEUE"),
     ]
-    templates = {
-        "RES.SAFETY.TRANSFER": template(
-            "PASS",
-            {
-                "actions": [],
-                "tier1": {"pool": "SELF", "executor": "HUMAN"},
-                "tier2": {"skill_group": "SAFETY", "priority": None, "executor": "HUMAN"},
-                "tier3": {"pick": "QUEUE"},
-            },
-            "安全直接转接",
-        ),
-        "RES.KNOWLEDGE.AI": template(
-            "UNKNOWN",
-            {
-                "actions": [],
-                "tier1": {"pool": "AI_PLATFORM", "executor": "AI"},
-                "tier2": {"skill_group": None, "priority": None, "executor": "AI"},
-                "tier3": {"pick": "AGENT_APP", "agent_app_id": KB_APP},
-                "gap": dict(GAP),
-            },
-            "咨询先走知识自助；AI 技能组编码待给",
-        ),
-        "RES.HUMAN.TO_CONFIRM": template(
-            "UNKNOWN",
-            {
-                "actions": [],
-                "tier1": {"pool": "SELF", "executor": "HUMAN"},
-                "tier2": {"skill_group": None, "priority": None, "executor": "HUMAN"},
-                "tier3": {"pick": "QUEUE"},
-                "gap": dict(GAP),
-            },
-            "人工去向；技能组编码待给",
-        ),
-        "no_match": template("NO_MATCH", {"actions": []}, "这个去向还没登记：不分配"),
+    rules, templates = [], {}
+    for rid, resources, state, pool, executor, group, pick in recipes:
+        condition = (
+            {"when": eq(resources[0])}
+            if len(resources) == 1
+            else {"when_any": [eq(resource) for resource in resources]}
+        )
+        rules.append({"rule_id": rid, **condition, "output_template_ref": rid})
+        result = {
+            "actions": [],
+            "tier1": {"pool": pool, "executor": executor},
+            "tier2": {"skill_group": group, "priority": None, "executor": executor},
+            "tier3": {"pick": pick},
+        }
+        if pick == "AGENT_APP":
+            result["tier3"]["agent_app_id"] = ROBOT_APP
+        if state == "UNKNOWN":
+            result["gap"] = dict(GAP)
+        templates[rid] = template(state, result, "Toy workshop outcome " + rid)
+    templates["no_match"] = template("NO_MATCH", {"actions": []}, "No toy station")
+    parameters = {
+        name: P(name == "resource_id")
+        for name in ("resource_id", "scene_id", "issue_type", "phase", "channel")
     }
     model = {
         "profile": "service-decision-table-v1",
         "version": "1.0.0",
         "hit_policy": "FIRST",
-        "parameters": {
-            "resource_id": P(),
-            "scene_id": P(False),
-            "issue_type": P(False),
-            "phase": P(False),
-            "channel": P(False),
-        },
+        "parameters": parameters,
         "rules": rules,
         "result_templates": templates,
         "on_no_match": "RESULT_TEMPLATE",
         "empty_template_ref": "no_match",
     }
-    declare = {
+    declaration = {
         "stage": "STANDARD",
         "role": "RESOURCE",
         "priority": "ROW_ORDER",
-        "parameters": {
-            "resource_id": {"name": "资源编号", "source": "request:resource_id"},
-            "scene_id": {"name": "场景编号", "source": "request:scene_id"},
-            "issue_type": {"name": "问题类型", "source": "request:issue_type"},
-            "phase": {"name": "处理阶段", "source": "request:phase"},
-            "channel": {"name": "进线渠道", "source": "request:channel"},
-        },
+        "parameters": {name: {"name": name, "source": "request:" + name} for name in parameters},
         "outputs": {
-            "tier1": {
-                "type": "object",
-                "name": "一级 · 流量分配",
-                "fields": {"pool": "池", "executor": "人 / AI", "split": "比例"},
-            },
-            "tier2": {"type": "object", "name": "二级 · 技能组"},
-            "tier3": {"type": "object", "name": "三级 · 挑执行者"},
-            "gap": {"type": "object", "name": "缺口"},
+            name: {"type": "object", "name": name} for name in ("tier1", "tier2", "tier3", "gap")
         },
         "states": ["PASS", "UNKNOWN"],
         "rows": {
-            r["rule_id"]: {"why": "现网目标转写", "rule_sha256": declarations.rule_sha256(r)}
-            for r in rules
+            row["rule_id"]: {
+                "why": "Independent workshop predicate",
+                "rule_sha256": declarations.rule_sha256(row),
+            }
+            for row in rules
         },
+        "row_order_sha256": declarations.row_order_sha256(model),
     }
-    declare["row_order_sha256"] = declarations.row_order_sha256(model)
+    declaration["outputs"]["tier1"]["fields"] = {
+        "pool": "Pool",
+        "executor": "Executor",
+        "split": "Weights",
+    }
     base = {
         "schema": "dmn-json.decision-table/v1",
         "table": table,
-        "owner": {"app_id": APP_TRIAGE, "team": "交付链", "name": "分诊 · 资源去向"},
-        "model_ref": "triage.dispatch.resource@1.0.0",
+        "owner": {"app_id": APP_TRIAGE, "team": "TEST", "name": "Toy workshop"},
+        "model_ref": "toy.workshop@1.0.0",
         "model": model,
-        "declare": declare,
-        "note": "资源去向三级决策表",
+        "declare": declaration,
+        "note": "Independent resource contract fixture",
     }
     base.update(over)
     return base
@@ -288,129 +424,129 @@ def _set_res(ref, fn):
 MUTATIONS = [
     (
         "extra result key",
-        _set_res("RES.SAFETY.TRANSFER", lambda r: r.update(queue="Q1")),
-        "declare.templates.RES.SAFETY.TRANSFER.result",
+        _set_res("TOY.BENCH.TRANSFER", lambda r: r.update(queue="Q1")),
+        "declare.templates.TOY.BENCH.TRANSFER.result",
     ),
     (
         "texts",
-        _set_res("RES.SAFETY.TRANSFER", lambda r: r.update(texts={"agent": "x"})),
-        "declare.templates.RES.SAFETY.TRANSFER.result.texts",
+        _set_res("TOY.BENCH.TRANSFER", lambda r: r.update(texts={"agent": "x"})),
+        "declare.templates.TOY.BENCH.TRANSFER.result.texts",
     ),
     (
         "tier1 executor",
-        _set_res("RES.SAFETY.TRANSFER", lambda r: r["tier1"].update(executor="BOT")),
-        "declare.templates.RES.SAFETY.TRANSFER.result.tier1.executor",
+        _set_res("TOY.BENCH.TRANSFER", lambda r: r["tier1"].update(executor="BOT")),
+        "declare.templates.TOY.BENCH.TRANSFER.result.tier1.executor",
     ),
     (
         "tier1 pool missing",
-        _set_res("RES.SAFETY.TRANSFER", lambda r: r["tier1"].pop("pool")),
-        "declare.templates.RES.SAFETY.TRANSFER.result.tier1.pool",
+        _set_res("TOY.BENCH.TRANSFER", lambda r: r["tier1"].pop("pool")),
+        "declare.templates.TOY.BENCH.TRANSFER.result.tier1.pool",
     ),
     (
         "tier2 executor",
-        _set_res("RES.SAFETY.TRANSFER", lambda r: r["tier2"].update(executor="")),
-        "declare.templates.RES.SAFETY.TRANSFER.result.tier2.executor",
+        _set_res("TOY.BENCH.TRANSFER", lambda r: r["tier2"].update(executor="")),
+        "declare.templates.TOY.BENCH.TRANSFER.result.tier2.executor",
     ),
     (
         "tier2 priority missing",
-        _set_res("RES.SAFETY.TRANSFER", lambda r: r["tier2"].pop("priority")),
-        "declare.templates.RES.SAFETY.TRANSFER.result.tier2.priority",
+        _set_res("TOY.BENCH.TRANSFER", lambda r: r["tier2"].pop("priority")),
+        "declare.templates.TOY.BENCH.TRANSFER.result.tier2.priority",
     ),
     (
         "tier3 pick",
-        _set_res("RES.SAFETY.TRANSFER", lambda r: r["tier3"].update(pick="RANDOM")),
-        "declare.templates.RES.SAFETY.TRANSFER.result.tier3.pick",
+        _set_res("TOY.BENCH.TRANSFER", lambda r: r["tier3"].update(pick="RANDOM")),
+        "declare.templates.TOY.BENCH.TRANSFER.result.tier3.pick",
     ),
     (
         "AGENT_APP without app",
-        _set_res("RES.KNOWLEDGE.AI", lambda r: r["tier3"].pop("agent_app_id")),
-        "declare.templates.RES.KNOWLEDGE.AI.result.tier3.agent_app_id",
+        _set_res("TOY.ROBOT", lambda r: r["tier3"].pop("agent_app_id")),
+        "declare.templates.TOY.ROBOT.result.tier3.agent_app_id",
     ),
     (
         "app with QUEUE",
-        _set_res("RES.SAFETY.TRANSFER", lambda r: r["tier3"].update(agent_app_id=KB_APP)),
-        "declare.templates.RES.SAFETY.TRANSFER.result.tier3.agent_app_id",
+        _set_res("TOY.BENCH.TRANSFER", lambda r: r["tier3"].update(agent_app_id=ROBOT_APP)),
+        "declare.templates.TOY.BENCH.TRANSFER.result.tier3.agent_app_id",
     ),
     (
         "app not a uuid",
-        _set_res("RES.KNOWLEDGE.AI", lambda r: r["tier3"].update(agent_app_id="kb-app")),
-        "declare.templates.RES.KNOWLEDGE.AI.result.tier3.agent_app_id",
+        _set_res("TOY.ROBOT", lambda r: r["tier3"].update(agent_app_id="kb-app")),
+        "declare.templates.TOY.ROBOT.result.tier3.agent_app_id",
     ),
     (
         "split not a list",
-        _set_res("RES.SAFETY.TRANSFER", lambda r: r["tier1"].update(split={"SELF": 100})),
-        "declare.templates.RES.SAFETY.TRANSFER.result.tier1.split",
+        _set_res("TOY.BENCH.TRANSFER", lambda r: r["tier1"].update(split={"SELF": 100})),
+        "declare.templates.TOY.BENCH.TRANSFER.result.tier1.split",
     ),
     (
         "split pool twice",
         _set_res(
-            "RES.SAFETY.TRANSFER",
+            "TOY.BENCH.TRANSFER",
             lambda r: r["tier1"].update(
                 split=[{"pool": "SELF", "weight": 50}, {"pool": "SELF", "weight": 50}]
             ),
         ),
-        "declare.templates.RES.SAFETY.TRANSFER.result.tier1.split",
+        "declare.templates.TOY.BENCH.TRANSFER.result.tier1.split",
     ),
     (
         "split weight zero",
         _set_res(
-            "RES.SAFETY.TRANSFER",
+            "TOY.BENCH.TRANSFER",
             lambda r: r["tier1"].update(
                 split=[{"pool": "SELF", "weight": 100}, {"pool": "BPO_A", "weight": 0}]
             ),
         ),
-        "declare.templates.RES.SAFETY.TRANSFER.result.tier1.split[1].weight",
+        "declare.templates.TOY.BENCH.TRANSFER.result.tier1.split[1].weight",
     ),
     (
         "split weight bool",
         _set_res(
-            "RES.SAFETY.TRANSFER",
+            "TOY.BENCH.TRANSFER",
             lambda r: r["tier1"].update(split=[{"pool": "SELF", "weight": True}]),
         ),
-        "declare.templates.RES.SAFETY.TRANSFER.result.tier1.split[0].weight",
+        "declare.templates.TOY.BENCH.TRANSFER.result.tier1.split[0].weight",
     ),
     (
         "split sum 90",
         _set_res(
-            "RES.SAFETY.TRANSFER",
+            "TOY.BENCH.TRANSFER",
             lambda r: r["tier1"].update(
                 split=[{"pool": "SELF", "weight": 60}, {"pool": "BPO_A", "weight": 30}]
             ),
         ),
-        "declare.templates.RES.SAFETY.TRANSFER.result.tier1.split",
+        "declare.templates.TOY.BENCH.TRANSFER.result.tier1.split",
     ),
     (
         "split item key",
         _set_res(
-            "RES.SAFETY.TRANSFER",
+            "TOY.BENCH.TRANSFER",
             lambda r: r["tier1"].update(split=[{"pool": "SELF", "weight": 100, "agent": "a"}]),
         ),
-        "declare.templates.RES.SAFETY.TRANSFER.result.tier1.split[0]",
+        "declare.templates.TOY.BENCH.TRANSFER.result.tier1.split[0]",
     ),
     (
         "PASS without skill group",
-        _set_res("RES.SAFETY.TRANSFER", lambda r: r["tier2"].update(skill_group=None)),
-        "declare.templates.RES.SAFETY.TRANSFER.result.tier2.skill_group",
+        _set_res("TOY.BENCH.TRANSFER", lambda r: r["tier2"].update(skill_group=None)),
+        "declare.templates.TOY.BENCH.TRANSFER.result.tier2.skill_group",
     ),
     (
         "UNKNOWN gap code",
-        _set_res("RES.HUMAN.TO_CONFIRM", lambda r: r["gap"].update(code="SKILL_GROUP_MISSING")),
-        "declare.templates.RES.HUMAN.TO_CONFIRM.result.gap",
+        _set_res("TOY.PENDING", lambda r: r["gap"].update(code="SKILL_GROUP_MISSING")),
+        "declare.templates.TOY.PENDING.result.gap",
     ),
     (
         "agent id",
-        _set_res("RES.SAFETY.TRANSFER", lambda r: r["tier3"].update(agent_id="10086")),
-        "declare.templates.RES.SAFETY.TRANSFER.result.tier3.agent_id",
+        _set_res("TOY.BENCH.TRANSFER", lambda r: r["tier3"].update(agent_id="10086")),
+        "declare.templates.TOY.BENCH.TRANSFER.result.tier3.agent_id",
     ),
     (
         "staff id nested",
-        _set_res("RES.SAFETY.TRANSFER", lambda r: r["tier2"].update(staff_id="A1")),
-        "declare.templates.RES.SAFETY.TRANSFER.result.tier2.staff_id",
+        _set_res("TOY.BENCH.TRANSFER", lambda r: r["tier2"].update(staff_id="A1")),
+        "declare.templates.TOY.BENCH.TRANSFER.result.tier2.staff_id",
     ),
     (
         "agentId camel",
-        _set_res("RES.SAFETY.TRANSFER", lambda r: r["tier1"].update(agentId="7")),
-        "declare.templates.RES.SAFETY.TRANSFER.result.tier1.agentId",
+        _set_res("TOY.BENCH.TRANSFER", lambda r: r["tier1"].update(agentId="7")),
+        "declare.templates.TOY.BENCH.TRANSFER.result.tier1.agentId",
     ),
 ]
 
@@ -429,7 +565,7 @@ def test_each_result_check_refuses_its_mutation(label, mutate, path):
 
 def test_a_rule_state_other_than_pass_or_unknown_is_refused():
     d = doc()
-    d["model"]["result_templates"]["RES.SAFETY.TRANSFER"]["state"] = "FAIL"
+    d["model"]["result_templates"]["TOY.BENCH.TRANSFER"]["state"] = "FAIL"
     with pytest.raises(RouteTableError) as e:
         validate_doc(d)
     assert e.value.code == "TABLE_DECLARATION_INVALID"
@@ -437,7 +573,7 @@ def test_a_rule_state_other_than_pass_or_unknown_is_refused():
 
 def test_a_valid_split_and_priority_save():
     d = doc()
-    r = _res(d, "RES.SAFETY.TRANSFER")
+    r = _res(d, "TOY.BENCH.TRANSFER")
     r["tier1"]["split"] = [{"pool": "SELF", "weight": 70}, {"pool": "BPO_A", "weight": 30}]
     r["tier2"]["priority"] = 3
     assert save(FakeStorage(), d)[0] == 200
@@ -447,13 +583,13 @@ def test_one_rule_per_conclusion_merges_targets_whose_codes_are_pending():
     """Four targets with no skill group yet give one conclusion (UNKNOWN, SELF, null, null, QUEUE): one rule."""
     d = doc()
     m = d["model"]
-    m["rules"] = [r for r in m["rules"] if r["rule_id"] != "RES.HUMAN.TO_CONFIRM"]
-    for h in HUMANS:
+    m["rules"] = [r for r in m["rules"] if r["rule_id"] != "TOY.PENDING"]
+    for h in PENDING_STATIONS:
         rid = "RES." + h.upper().replace(".", "_")
         m["rules"].append({"rule_id": rid, "when": eq(h), "output_template_ref": rid})
-        m["result_templates"][rid] = copy.deepcopy(m["result_templates"]["RES.HUMAN.TO_CONFIRM"])
-    del m["result_templates"]["RES.HUMAN.TO_CONFIRM"]
-    del d["declare"]["rows"]["RES.HUMAN.TO_CONFIRM"]
+        m["result_templates"][rid] = copy.deepcopy(m["result_templates"]["TOY.PENDING"])
+    del m["result_templates"]["TOY.PENDING"]
+    del d["declare"]["rows"]["TOY.PENDING"]
     resign(d)
     with pytest.raises(RouteTableError) as e:
         validate_doc(d)
@@ -461,7 +597,7 @@ def test_one_rule_per_conclusion_merges_targets_whose_codes_are_pending():
 
 
 def test_object_outputs_of_the_resource_routing_may_name_their_fields():
-    """Other tables refuse fields as 0.5.21 did: see the review round 2 tests below."""
+    """Other tables refuse fields as 0.5.21 did: see the field validation tests below."""
     d = doc()
     d["declare"]["outputs"]["gap"]["fields"] = {"code": "缺口码"}
     validate_doc(d)
@@ -475,12 +611,12 @@ def test_object_outputs_of_the_resource_routing_may_name_their_fields():
 
 
 EXPECTED = {
-    "safety.transfer": ("PASS", "RES.SAFETY.TRANSFER", "SAFETY", "QUEUE"),
-    "self_service.knowledge": ("UNKNOWN", "RES.KNOWLEDGE.AI", None, "AGENT_APP"),
-    "human.consult": ("UNKNOWN", "RES.HUMAN.TO_CONFIRM", None, "QUEUE"),
-    "human.feedback": ("UNKNOWN", "RES.HUMAN.TO_CONFIRM", None, "QUEUE"),
-    "human.second_line": ("UNKNOWN", "RES.HUMAN.TO_CONFIRM", None, "QUEUE"),
-    "specialist.group": ("UNKNOWN", "RES.HUMAN.TO_CONFIRM", None, "QUEUE"),
+    "workshop.bench": ("PASS", "TOY.BENCH.TRANSFER", "BENCH", "QUEUE"),
+    "workshop.robot": ("UNKNOWN", "TOY.ROBOT", None, "AGENT_APP"),
+    "workshop.paint": ("UNKNOWN", "TOY.PENDING", None, "QUEUE"),
+    "workshop.polish": ("UNKNOWN", "TOY.PENDING", None, "QUEUE"),
+    "workshop.pack": ("UNKNOWN", "TOY.PENDING", None, "QUEUE"),
+    "workshop.inspect": ("UNKNOWN", "TOY.PENDING", None, "QUEUE"),
     "unknown.target": ("NO_MATCH", None, None, None),
 }
 
@@ -495,7 +631,7 @@ def test_seven_evaluations(table, full):
         values = {"resource_id": rid}
         if full:
             values.update(
-                scene_id="M_P_02_04_01",
+                scene_id="M_P_99_82_01",
                 issue_type="COMPLAINT",
                 phase="STAGE_2",
                 channel="AGENT_CHAT",
@@ -530,7 +666,7 @@ def test_the_list_format_read_does_not_take_a_decision_table():
     assert save(s, doc())[0] == 200
     t = StorageTables(s)
     r = evaluate_stored(
-        "triage.dispatch.resource", FORMAT_RESOURCE, {"resource_id": "safety.transfer"}, t.load
+        "triage.dispatch.resource", FORMAT_RESOURCE, {"resource_id": "workshop.bench"}, t.load
     )
     assert r["status"] == "FAILED" and r["error"]["code"] == "STORED_TABLE_FORMAT_MISMATCH"
 
@@ -541,7 +677,7 @@ def test_the_list_format_read_does_not_take_a_decision_table():
 def test_the_old_list_table_reads_unchanged():
     st = store(resource_doc())
     r = evaluate_stored(
-        "dispatch.resource", FORMAT_RESOURCE, {"resource_id": "safety.transfer"}, st.load
+        "dispatch.resource", FORMAT_RESOURCE, {"resource_id": "workshop.bench"}, st.load
     )
     assert r["status"] == "SUCCEEDED" and r["result"]["entry"] == {
         "kind": "TRANSFER",
@@ -580,17 +716,17 @@ def test_a_route_table_that_compiles_against_the_list_blocks_the_switch():
 def test_list_saves_keep_working_next_to_a_route_table():
     st = store(resource_doc(), with_resources())
     changed = resource_doc()
-    changed["targets"]["human.queue"]["status"] = "CONFIRMED"
-    changed["targets"]["human.queue"]["entry"] = {"kind": "AGENTHUB_APP", "app_id": KB_APP}
+    changed["targets"]["workshop.pending"]["status"] = "CONFIRMED"
+    changed["targets"]["workshop.pending"]["entry"] = {"kind": "AGENTHUB_APP", "app_id": ROBOT_APP}
     out = st.save(changed, 1)
     assert out["version"] == 2 and out["schema"] == "dmn-json.resource-targets/v1"
 
 
-# --- review round 1 regressions -----------------------------------------------------------------------------------------
+# --- resource declaration regressions -----------------------------------------------------------------------------------------
 
 
 def test_a_solution_table_with_a_resource_shard_keeps_its_own_rule():
-    name = "solution.fact.feature.M_P_02_04_01.resource"
+    name = "solution.fact.feature.M_P_99_82_01.resource"
     assert not resource_decision_name(name)
 
 
@@ -645,10 +781,10 @@ def test_states_are_a_list_so_no_rule_can_answer_no_match():
 )
 def test_the_unknown_gap_is_exact(gap):
     d = doc()
-    _res(d, "RES.HUMAN.TO_CONFIRM")["gap"] = gap
+    _res(d, "TOY.PENDING")["gap"] = gap
     with pytest.raises(RouteTableError) as e:
         validate_doc(d)
-    assert e.value.path == "declare.templates.RES.HUMAN.TO_CONFIRM.result.gap"
+    assert e.value.path == "declare.templates.TOY.PENDING.result.gap"
 
 
 def test_resource_id_is_a_required_parameter():
@@ -656,7 +792,7 @@ def test_resource_id_is_a_required_parameter():
     d["model"]["parameters"]["resource_id"] = P(False)
     with pytest.raises(RouteTableError) as e:
         validate_doc(d)
-    # review round 2 (低): the refusal names the model's parameter, not the declaration's
+    # the refusal names the model's parameter, not the declaration's
     assert (e.value.code, e.value.path) == (
         "TABLE_DECLARATION_INVALID",
         "model.parameters.resource_id",
@@ -671,21 +807,20 @@ def test_the_hit_policy_is_first(hit):
     d["declare"].pop("row_order_sha256", None)
     with pytest.raises(RouteTableError) as e:
         validate_doc(d)
-    # review round 2 (低-3 / F6a): the refusal names the model's hit policy, not declare.role
+    # the refusal names the model's hit policy, not declare.role
     assert (e.value.code, e.value.path) == ("TABLE_DECLARATION_INVALID", "model.hit_policy")
 
 
 @pytest.mark.parametrize("priority", ["", "   "])
 def test_a_blank_priority_is_refused(priority):
     d = doc()
-    _res(d, "RES.SAFETY.TRANSFER")["tier2"]["priority"] = priority
+    _res(d, "TOY.BENCH.TRANSFER")["tier2"]["priority"] = priority
     with pytest.raises(RouteTableError) as e:
         validate_doc(d)
-    assert e.value.path == "declare.templates.RES.SAFETY.TRANSFER.result.tier2.priority"
+    assert e.value.path == "declare.templates.TOY.BENCH.TRANSFER.result.tier2.priority"
 
 
 def test_the_role_list_refusal_of_other_decision_tables_is_unchanged():
-    from test_stored_tables import p2_doc
 
     roles = (
         "SCENE_ENTITY / ACCEPTANCE / FACT_FEATURE / FEATURE_REALITY / DISPOSAL / DISPOSAL_STATUS"
@@ -703,7 +838,7 @@ def test_the_role_list_refusal_of_other_decision_tables_is_unchanged():
         assert (e.value.path, e.value.message) == ("declare.role", "这种表的 role 只能是 " + roles)
 
 
-# --- review round 2 (11-06): B1, B2 and the low items -----------------------------------------------------------------
+# --- resource result validation -----------------------------------------------------------------
 #
 # Refusals that v0.5.21 gave stay byte-identical (code, message, path): the texts below are v0.5.21's, verbatim.
 
@@ -732,7 +867,6 @@ def _refusal(body, storage=None, expected=0):
 
 
 def test_b1_an_acceptance_table_refuses_fields_as_in_0521():
-    from test_v0518_when_any import accept_doc
 
     d = accept_doc()
     d["declare"]["outputs"]["extra_obj"] = {"type": "object", "name": "扩展"}
@@ -795,7 +929,7 @@ def test_b1_a_solution_fact_feature_table_refuses_fields_as_in_0521():
         "value": {"type": "string", "name": "特征值", "values": ["YES", "NO"]},
         "detail": {"type": "object", "name": "明细"},
     }
-    t = "solution.fact.feature.M_P_02_04_01"
+    t = "solution.fact.feature.M_P_99_82_01"
     assert save(FakeStorage(), sdoc(t, m, declare(m, "FACT_FEATURE", outputs)))[0] == 200
     outputs = copy.deepcopy(outputs)
     outputs["detail"]["fields"] = {"k": "键"}
@@ -807,8 +941,6 @@ def test_b1_a_solution_fact_feature_table_refuses_fields_as_in_0521():
 
 
 def test_b1_a_p2_table_and_a_route_table_refuse_fields_as_in_0521():
-    from test_route_table_v2 import doc as route_doc
-    from test_stored_tables import p2_doc
 
     body = p2_doc(
         declare={
@@ -842,7 +974,6 @@ def test_b1_a_p2_table_and_a_route_table_refuse_fields_as_in_0521():
 
 
 def test_b1_an_unknown_output_key_keeps_0521s_text():
-    from test_v0518_when_any import accept_doc
 
     d = accept_doc()
     d["declare"]["outputs"]["decision"]["unit"] = "元"
@@ -863,7 +994,7 @@ def test_b1_the_resource_routing_keeps_its_fields():
 
 # B2: PASS carries no gap; UNKNOWN carries exactly the fixed one, so a gap never tells two conclusions apart
 
-PASS_GAP = "declare.templates.RES.SAFETY.TRANSFER.result.gap"
+PASS_GAP = "declare.templates.TOY.BENCH.TRANSFER.result.gap"
 
 
 @pytest.mark.parametrize(
@@ -878,7 +1009,7 @@ PASS_GAP = "declare.templates.RES.SAFETY.TRANSFER.result.gap"
 )
 def test_b2_a_pass_rule_carries_no_gap(gap):
     d = doc()
-    _res(d, "RES.SAFETY.TRANSFER")["gap"] = gap
+    _res(d, "TOY.BENCH.TRANSFER")["gap"] = gap
     with pytest.raises(RouteTableError) as e:
         validate_doc(d)
     assert (e.value.code, e.value.path) == ("TABLE_DECLARATION_INVALID", PASS_GAP), e.value.message
@@ -890,37 +1021,37 @@ def test_b2_a_pass_rule_carries_no_gap(gap):
 )
 def test_b2_an_unknown_rule_carries_exactly_the_fixed_gap(gap):
     d = doc()
-    _res(d, "RES.HUMAN.TO_CONFIRM")["gap"] = gap
+    _res(d, "TOY.PENDING")["gap"] = gap
     with pytest.raises(RouteTableError) as e:
         validate_doc(d)
-    assert e.value.path == "declare.templates.RES.HUMAN.TO_CONFIRM.result.gap"
+    assert e.value.path == "declare.templates.TOY.PENDING.result.gap"
     d = doc()
-    del _res(d, "RES.HUMAN.TO_CONFIRM")["gap"]
+    del _res(d, "TOY.PENDING")["gap"]
     with pytest.raises(RouteTableError) as e:
         validate_doc(d)
-    assert e.value.path == "declare.templates.RES.HUMAN.TO_CONFIRM.result.gap"
+    assert e.value.path == "declare.templates.TOY.PENDING.result.gap"
 
 
 def test_b2_a_gap_cannot_split_one_conclusion_into_two_rules():
-    """The round-1 attack (a3b): a second PASS rule with RES.SAFETY.TRANSFER's tiers and a junk gap was stored, and its
-    evaluation answered PASS with that gap. Now nothing is written, and without the gap it is one conclusion."""
+    """A duplicate PASS conclusion with a junk gap is rejected without a write.
+    Removing the gap still leaves one conclusion, not two distinct routing rules."""
     d = doc()
     m = d["model"]
     m["rules"].insert(
         1,
         {
-            "rule_id": "RES.SAFETY.DUP",
-            "when": eq("safety.dup"),
-            "output_template_ref": "RES.SAFETY.DUP",
+            "rule_id": "TOY.BENCH.DUP",
+            "when": eq("workshop.duplicate"),
+            "output_template_ref": "TOY.BENCH.DUP",
         },
     )
-    dup = copy.deepcopy(m["result_templates"]["RES.SAFETY.TRANSFER"])
+    dup = copy.deepcopy(m["result_templates"]["TOY.BENCH.TRANSFER"])
     dup["data"]["result"]["literal"]["gap"] = {
         "code": "ANYTHING_GOES",
         "owner": "CUSTOMER",
         "kind": "FACT",
     }
-    m["result_templates"]["RES.SAFETY.DUP"] = dup
+    m["result_templates"]["TOY.BENCH.DUP"] = dup
     resign(d)
     s = FakeStorage()
     status, out = save(s, d)
@@ -979,7 +1110,6 @@ def test_low_the_name_rule_text_is_0521s():
     ],
 )
 def test_low_a_decision_set_on_a_resource_name_keeps_0521s_refusal(table, app_id):
-    from test_v0521_standard_names import decision_set
 
     assert _refusal(decision_set(table, app_id)) == (
         "STORED_TABLE_NAME",
@@ -988,7 +1118,7 @@ def test_low_a_decision_set_on_a_resource_name_keeps_0521s_refusal(table, app_id
     )
 
 
-# low: the switch back to a list is a schema change (the hit policy and resource_id paths: in the round 1 tests above)
+# low: the switch back to a list is a schema change (the hit policy and resource_id paths: covered by the validation tests above)
 
 
 @pytest.mark.parametrize("leave_out", [True, False])
@@ -1008,7 +1138,7 @@ def test_low_back_to_a_list_is_a_schema_change_even_with_declare_left_out(leave_
 
 
 # known limit (R1, not fixed in this release): the route guard checks, then writes; the plugin storage has no
-# compare-and-set. Saves of the two tables must go one at a time (D6: the 81 serial store entry). Pinned here.
+# compare-and-set. Saves of the two tables must be serialized.
 
 
 class _HookStorage(FakeStorage):
@@ -1024,7 +1154,6 @@ class _HookStorage(FakeStorage):
 
 
 def test_known_limit_a_route_save_inside_the_guard_window_is_not_caught():
-    from test_route_table_v2 import doc as route_doc
 
     s = _HookStorage()
     lst = resource_doc()
@@ -1049,9 +1178,9 @@ def test_known_limit_a_route_save_inside_the_guard_window_is_not_caught():
     )
 
 
-# --- review round 2 (11-06): K1 and the low items ----------------------------------------------------------------------
+# --- resource code completeness and normalization ----------------------------------------------------------------------
 
-HUMAN_REF = "RES.HUMAN.TO_CONFIRM"
+HUMAN_REF = "TOY.PENDING"
 
 
 def _refused_at(d, path):
@@ -1070,9 +1199,9 @@ def _refused_at(d, path):
 @pytest.mark.parametrize(
     "ref,tier2",
     [
-        (HUMAN_REF, {"skill_group": "HUMAN_CONSULT", "priority": 1}),
-        (HUMAN_REF, {"skill_group": "HUMAN_CONSULT", "priority": "P1"}),
-        ("RES.KNOWLEDGE.AI", {"skill_group": "AI_KB", "priority": 2}),
+        (HUMAN_REF, {"skill_group": "CRAFT_QUEUE", "priority": 1}),
+        (HUMAN_REF, {"skill_group": "CRAFT_QUEUE", "priority": "P1"}),
+        ("TOY.ROBOT", {"skill_group": "ROBOT_QUEUE", "priority": 2}),
     ],
 )
 def test_k1_an_unknown_rule_with_every_code_is_refused(ref, tier2):
@@ -1085,29 +1214,29 @@ def test_k1_an_unknown_rule_with_every_code_is_refused(ref, tier2):
 def test_k1_an_unknown_rule_missing_one_code_still_saves():
     """The skill group is known, the priority not yet: codes missing, UNKNOWN with the fixed gap."""
     d = doc()
-    _res(d, HUMAN_REF)["tier2"]["skill_group"] = "HUMAN_CONSULT"
+    _res(d, HUMAN_REF)["tier2"]["skill_group"] = "CRAFT_QUEUE"
     assert save(FakeStorage(), d)[0] == 200
 
 
 def test_k1_a_pass_and_an_unknown_with_the_same_codes_cannot_coexist():
-    """The round 2 attack (r2_k5_unknown_codes): PASS(SELF, SAFETY, null, QUEUE) and an UNKNOWN twin both stored."""
+    """PASS(SELF, BENCH, null, QUEUE) and an UNKNOWN twin must not both be stored."""
     d = doc()
     m = d["model"]
-    twin = copy.deepcopy(m["result_templates"]["RES.SAFETY.TRANSFER"])
+    twin = copy.deepcopy(m["result_templates"]["TOY.BENCH.TRANSFER"])
     twin["state"] = "UNKNOWN"
     twin["data"]["result"]["literal"]["gap"] = dict(GAP)
-    m["result_templates"]["RES.SAFETY.UNKNOWN"] = twin
+    m["result_templates"]["TOY.BENCH.UNKNOWN"] = twin
     m["rules"].insert(
         0,
         {
-            "rule_id": "RES.SAFETY.UNKNOWN",
-            "when": eq("safety.other"),
-            "output_template_ref": "RES.SAFETY.UNKNOWN",
+            "rule_id": "TOY.BENCH.UNKNOWN",
+            "when": eq("workshop.other"),
+            "output_template_ref": "TOY.BENCH.UNKNOWN",
         },
     )
     resign(d)
-    message = _refused_at(d, "declare.templates.RES.SAFETY.UNKNOWN.result")
-    assert "RES.SAFETY.TRANSFER" in message
+    message = _refused_at(d, "declare.templates.TOY.BENCH.UNKNOWN.result")
+    assert "TOY.BENCH.TRANSFER" in message
 
 
 # low: a code is written one way (no blank or invisible characters, a numeric priority as an integer, no two spellings
@@ -1123,9 +1252,9 @@ def test_k1_a_pass_and_an_unknown_with_the_same_codes_cannot_coexist():
         ("tier1.pool", "SELF\u200b"),
         ("tier1.pool", "\u200b"),
         ("tier1.pool", "SELF\u00a0"),
-        ("tier2.skill_group", "SAFETY "),
-        ("tier2.skill_group", "SAFETY\u00a0"),
-        ("tier2.skill_group", "SAF\tETY"),
+        ("tier2.skill_group", "BENCH "),
+        ("tier2.skill_group", "BENCH\u00a0"),
+        ("tier2.skill_group", "BEN\tCH"),
         ("tier2.priority", "1"),
         ("tier2.priority", "P1 "),
         ("tier2.priority", "１"),
@@ -1134,52 +1263,52 @@ def test_k1_a_pass_and_an_unknown_with_the_same_codes_cannot_coexist():
 def test_low_a_code_is_written_one_way(where, value):
     d = doc()
     tier, key = where.split(".")
-    _res(d, "RES.SAFETY.TRANSFER")[tier][key] = value
-    _refused_at(d, "declare.templates.RES.SAFETY.TRANSFER.result." + where)
+    _res(d, "TOY.BENCH.TRANSFER")[tier][key] = value
+    _refused_at(d, "declare.templates.TOY.BENCH.TRANSFER.result." + where)
 
 
 def test_low_a_split_pool_is_a_code_too():
     d = doc()
-    _res(d, "RES.SAFETY.TRANSFER")["tier1"]["split"] = [
+    _res(d, "TOY.BENCH.TRANSFER")["tier1"]["split"] = [
         {"pool": "SELF", "weight": 60},
         {"pool": "BPO_A ", "weight": 40},
     ]
-    _refused_at(d, "declare.templates.RES.SAFETY.TRANSFER.result.tier1.split[1].pool")
+    _refused_at(d, "declare.templates.TOY.BENCH.TRANSFER.result.tier1.split[1].pool")
 
 
-@pytest.mark.parametrize("over", [{"pool": "self"}, {"skill_group": "Safety"}])
+@pytest.mark.parametrize("over", [{"pool": "self"}, {"skill_group": "Bench"}])
 def test_low_two_spellings_of_one_code_are_refused(over):
-    """A second PASS rule whose codes differ from RES.SAFETY.TRANSFER only in case is the same conclusion."""
+    """A second PASS rule whose codes differ from TOY.BENCH.TRANSFER only in case is the same conclusion."""
     d = doc()
     m = d["model"]
-    dup = copy.deepcopy(m["result_templates"]["RES.SAFETY.TRANSFER"])
+    dup = copy.deepcopy(m["result_templates"]["TOY.BENCH.TRANSFER"])
     r = dup["data"]["result"]["literal"]
     r["tier1" if "pool" in over else "tier2"].update(over)
-    m["result_templates"]["RES.SAFETY.LOWER"] = dup
+    m["result_templates"]["TOY.BENCH.LOWER"] = dup
     m["rules"].insert(
-        1,
+        next(i for i, row in enumerate(m["rules"]) if row["rule_id"] == "TOY.BENCH.TRANSFER") + 1,
         {
-            "rule_id": "RES.SAFETY.LOWER",
-            "when": eq("safety.lower"),
-            "output_template_ref": "RES.SAFETY.LOWER",
+            "rule_id": "TOY.BENCH.LOWER",
+            "when": eq("workshop.lower"),
+            "output_template_ref": "TOY.BENCH.LOWER",
         },
     )
     resign(d)
-    message = _refused_at(d, "declare.templates.RES.SAFETY.LOWER.result")
+    message = _refused_at(d, "declare.templates.TOY.BENCH.LOWER.result")
     assert "大小写" in message
 
 
 def test_low_codes_that_are_fine_still_save():
     d = doc()
-    r = _res(d, "RES.SAFETY.TRANSFER")
+    r = _res(d, "TOY.BENCH.TRANSFER")
     r["tier1"]["split"] = [{"pool": "SELF", "weight": 60}, {"pool": "BPO_A", "weight": 40}]
     r["tier2"]["priority"] = 10
     _res(d, HUMAN_REF)["tier2"]["priority"] = "P1"  # a code; the skill group still missing
-    _res(d, "RES.KNOWLEDGE.AI")["tier1"]["pool"] = "自营 AI"[:2]  # a non-Latin code
+    _res(d, "TOY.ROBOT")["tier1"]["pool"] = "自营 AI"[:2]  # a non-Latin code
     assert save(FakeStorage(), d)[0] == 200
 
 
-# low (round 1 低-7): resource_id is a known value
+# resource_id is a known value
 
 
 def test_low_resource_id_admits_only_known_quality():
@@ -1200,7 +1329,6 @@ def test_low_resource_id_admits_only_known_quality():
     "table", ["triage.dispatch.resource", "dispatch.resource", "triage.x.resource"]
 )
 def test_low_a_resource_decision_table_with_another_owner_says_triage(table):
-    from test_v0521_standard_names import decision
 
     code, path, message = _refusal(decision(table, APP_TARGET))
     assert (code, path) == ("STORED_TABLE_NAME", "owner.app_id")
@@ -1208,7 +1336,6 @@ def test_low_a_resource_decision_table_with_another_owner_says_triage(table):
 
 
 def test_low_a_route_table_cannot_name_a_decision_format_resource_table_and_says_why():
-    from test_route_table_v2 import doc as route_doc
 
     s = FakeStorage()
     assert save(s, resource_doc())[0] == 200
@@ -1226,8 +1353,6 @@ def test_low_a_route_table_cannot_name_a_decision_format_resource_table_and_says
 
 
 def test_low_a_route_table_naming_a_single_segment_decision_table_keeps_0521s_text():
-    from test_route_table_v2 import doc as route_doc
-    from test_v0521_standard_names import decision
 
     s = FakeStorage()
     assert (
@@ -1243,23 +1368,23 @@ def test_low_a_route_table_naming_a_single_segment_decision_table_keeps_0521s_te
     )
 
 
-# tests the reviews asked for: a candidate-shaped table, and v0.5.21 reading what v0.5.22 wrote
+# candidate-shaped table and public 0.5.20 rollback baseline
 
-LEVEL = "account.flow_center_passenger_level_product"
+LEVEL = "workshop.batch"
 
 
 def candidate_shaped(table):
-    """The shape of the production-built candidate (data not in this repository): six parameters with the passenger
-    level, the five human targets in one UNKNOWN rule first, then safety (PASS), then knowledge (AI, UNKNOWN)."""
+    """An independent expanded toy: six parameters with a workshop
+    batch, five pending stations in one UNKNOWN rule, plus bench and robot outcomes."""
     d = doc(table)
     m = d["model"]
     m["parameters"][LEVEL] = P(False)
     d["declare"]["parameters"][LEVEL] = {
-        "name": "账号_用户特征_流量中心乘客等级",
+        "name": "合成账号分类",
         "source": "fact:" + LEVEL,
     }
     human = next(r for r in m["rules"] if r["rule_id"] == HUMAN_REF)
-    human["when_any"].append(eq("human.first_line"))
+    human["when_any"].append(eq("workshop.label"))
     m["rules"] = [human] + [r for r in m["rules"] if r["rule_id"] != HUMAN_REF]
     return resign(d)
 
@@ -1270,10 +1395,10 @@ def test_a_candidate_shaped_table_saves_and_answers_its_eight_cases(table):
     status, out = save(s, candidate_shaped(table))
     assert (status, out.get("version")) == (200, 1), out
     t = StorageTables(s)
-    want = dict(EXPECTED, **{"human.first_line": EXPECTED["human.consult"]})
+    want = dict(EXPECTED, **{"workshop.label": EXPECTED["workshop.paint"]})
     assert len(want) == 8
     for rid, (state, rule, group, pick) in want.items():
-        for extra in ({}, {LEVEL: "VIP", "scene_id": "M_P_02_04_01", "issue_type": "CONSULT"}):
+        for extra in ({}, {LEVEL: "BATCH_A", "scene_id": "M_P_99_82_01", "issue_type": "CONSULT"}):
             r = evaluate_stored(table, FORMAT_DECISION, params(resource_id=rid, **extra), t.load)
             assert r["status"] == "SUCCEEDED", r["error"]
             dec = r["result"]["decision"]
@@ -1290,10 +1415,13 @@ def test_a_candidate_shaped_table_saves_and_answers_its_eight_cases(table):
             assert set(result) <= {"actions", "rule_id", "tier1", "tier2", "tier3", "gap"}
 
 
-V0521 = "9534bd29e64659b05270403f04b72a8321c2a463"  # the v0.5.21 prerelease commit this release is built on
+PUBLIC_V0520 = "4b0e7d302f0cf2060e24d09cda8f285eb7b36c05"  # published v0.5.20 rollback target
 ROOT = __import__("pathlib").Path(__file__).resolve().parents[2]
 OLD_PROBE = r"""
 import json, sys
+from pathlib import Path
+import dmn_client
+assert Path(dmn_client.__file__).resolve().parent == Path.cwd() / "dmn_client"
 from dmn_client.route_store import run_op
 from dmn_client.route_table import StorageTables
 from dmn_client.stored_tables import evaluate_stored
@@ -1314,31 +1442,44 @@ for label, case in x.items():
     s = Storage(case["storage"])
     t = StorageTables(s)
     name = case["table"]
+    before_read = dict(s.data)
     st, read = run_op(s, "table", name)
     a = evaluate_stored(name, "decision-table/v1", case["inputs"], t.load)
-    b = evaluate_stored(name, "resource-targets/v1", {"resource_id": "safety.transfer"}, t.load)
+    b = evaluate_stored(name, "resource-targets/v1", {"resource_id": "workshop.bench"}, t.load)
+    assert s.data == before_read, "Rollback reads/evaluations must not modify storage"
     one = {
         "read": [st, (read.get("doc") or {}).get("schema")],
         "eval_decision": [a["status"], (a.get("error") or {}).get("code")],
         "eval_list": [b["status"], (b.get("error") or {}).get("code")],
     }
     for k, body in case["saves"].items():
+        before_save = dict(s.data)
         st, r = run_op(s, "save", name, None, json.dumps(body, ensure_ascii=False))
         one[k] = [st, (r.get("error") or {}).get("code")]
+        if st != 200:
+            assert s.data == before_save, "A rejected rollback save must be atomic"
     out[label] = one
 print(json.dumps(out))
 """
 
 
-def test_v0521_reads_the_storage_v0522_wrote(tmp_path):
-    """Rollback (both rounds measured it): the live shape is untouched; a name stored in decision format is locked."""
+def test_public_v0520_reads_the_storage_v0522_wrote(tmp_path):
+    """Public 0.5.20 rollback preserves legacy lists and refuses migrated resource decisions."""
     import io
     import os
     import subprocess
     import sys
     import tarfile
 
-    archive = subprocess.check_output(["git", "archive", V0521, "plugin"], cwd=ROOT)
+    result = subprocess.run(
+        ["git", "archive", PUBLIC_V0520, "plugin"], cwd=ROOT, capture_output=True
+    )
+    assert result.returncode == 0, (
+        "Public v0.5.20 rollback source is unavailable. Fetch repository history including "
+        f"{PUBLIC_V0520}; this regression must not be skipped. "
+        + result.stderr.decode(errors="replace")
+    )
+    archive = result.stdout
     with tarfile.open(fileobj=io.BytesIO(archive)) as tar:
         tar.extractall(tmp_path, filter="data")
 
@@ -1362,13 +1503,13 @@ def test_v0521_reads_the_storage_v0522_wrote(tmp_path):
         "live": {
             "storage": {k: v.decode() for k, v in live.data.items()},
             "table": "dispatch.resource",
-            "inputs": params(resource_id="safety.transfer"),
-            "saves": {"list_again": dict(resource_doc(), note="0.5.21 重存", expected_version=1)},
+            "inputs": params(resource_id="workshop.bench"),
+            "saves": {"list_again": dict(resource_doc(), note="0.5.20 重存", expected_version=1)},
         },
         "switched": {
             "storage": {k: v.decode() for k, v in switched.data.items()},
             "table": "dispatch.resource",
-            "inputs": params(resource_id="safety.transfer"),
+            "inputs": params(resource_id="workshop.bench"),
             "saves": {
                 "decision_again": dict(again, expected_version=2),
                 "list_back": dict(resource_doc(), declare=None, expected_version=2),

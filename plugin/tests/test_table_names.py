@@ -102,10 +102,10 @@ def test_a_save_under_a_new_name_is_refused_and_writes_nothing(new):
 def test_evaluate_through_the_alias_names_both():
     st = store(supplement_doc())
     old = evaluate_stored(
-        "supplement.requirements", FORMAT_SUPPLEMENT, {"scene_id": "P_04_04_01"}, st.load
+        "supplement.requirements", FORMAT_SUPPLEMENT, {"scene_id": "P_99_83_02"}, st.load
     )
     new = evaluate_stored(
-        "triage.supplement.requirements", FORMAT_SUPPLEMENT, {"scene_id": "P_04_04_01"}, st.load
+        "triage.supplement.requirements", FORMAT_SUPPLEMENT, {"scene_id": "P_99_83_02"}, st.load
     )
     assert new["status"] == old["status"] == "SUCCEEDED" and new["result"] == old["result"]
     assert (
@@ -167,7 +167,7 @@ def test_preexisting_alias_reference_keeps_resource_deletion_guards(drop_route):
     storage.data[key] = json.dumps(raw).encode()
     before = dict(storage.data)
     smaller = resource_doc()
-    del smaller["targets"]["human.queue"]
+    del smaller["targets"]["workshop.queue"]
     if drop_route:
         smaller["route_tables"] = ["other.route"]
     with pytest.raises(RouteTableError) as exc:

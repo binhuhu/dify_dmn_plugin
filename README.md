@@ -1,130 +1,74 @@
-# Dify DMN 插件：显式查询 + 显式决策
+# Dify DMN 插件：结构化查询与规则决策
 
-当前候选版本为 **0.4.1**，基于 RC5 选择性移植上传附件：两个节点工具移除 `expected_definition_sha256`，保留部署侧定义锁、授权与 RC5 安全修复、只读查看器。Python 宿主调用需迁移到四个参数，见[调用迁移](docs/dsl-v0.4.md#041-调用迁移)。本轮验证和安装包身份见 [0.4.1 准备记录](docs/releases/v0.4.1-preparation.md)。安装包以 [v0.4.1 GitHub Release](https://github.com/binhuhu/dify_dmn_plugin/releases/tag/v0.4.1) 的实际资产为准，旧 [RC5](docs/releases/v0.4.0-rc5.md) 保留；目标生产安装与真实业务 API 尚未验收。
+本项目为 Dify 提供结构化查询、规则决策和有限的多步骤执行能力。通过明确的输入输出、参数映射和步骤依赖，将数据获取与规则判断组织成可测试、可追踪的流程。
 
-查看器始于 [v0.4.0-rc3](https://github.com/binhuhu/dify_dmn_plugin/releases/tag/v0.4.0-rc3)：只读 Phase → 实际 Step → Node 查看器，支持目录搜索、分组决策表、定位诊断及本地JSON来源提示。参见[查看器说明](docs/structure-viewer.md)及[RC3发布记录](docs/releases/v0.4.0-rc3.md)。查看器随Endpoint同包提供；本地导入不上传，不执行规则，不注入宿主画布。
+查询与决策可以独立使用，也可以在 Dify Workflow 中组合。规则返回结构化结论、数据或动作建议，由工作流依据结果选择后续步骤。
 
-此前新增免 Key 的 [内置 JSON 三工具 0.3.0](builtin/README.md)：决策、SYNTHETIC 查询、JSON 阶段计划均在 Python 插件进程内执行，无需外部决策服务。完整合同和转换边界见 [0.3.0 文档](docs/builtin-0.3.0.md)。为兼容 Dify 1.11.1 的提供商授权限制，使用独立身份 `hu8627/dmn_json`，保留已安装的原外部插件和其他插件。原路径如下。
+## 主要能力
 
-Java-free 候选原型。Dify Python 插件薄封装 → Node.js 执行服务 → 已注册只读查询能力 / DMN 决策。无 Java，不手写 FEEL 解释器，不执行赔付、改票或工单写操作。
+- **结构化查询**：`execute_query` 执行一个固定的查询节点，通过可信宿主配置的只读适配器获取数据。缺少连接或授权时明确阻断，不回退为模拟成功。
+- **规则决策**：`evaluate_decision` 执行类型化 JSON 决策，支持 UNIQUE、FIRST、COLLECT；`evaluate_json_table` 提供较简单的 FIRST、COLLECT 决策表。结果包含状态、输出和对应的诊断或规则轨迹。
+- **步骤组合**：在 Dify 中显式连接查询与决策，绑定输入输出并处理业务分支；`execute_json_plan` 另提供固定合同内的小型计划执行，仅使用合成查询，不替代通用工作流或长任务引擎。
+- **结构查看**：只读展示 Phase → Step → Node、支持格式中的决策表及诊断，辅助理解和检查流程。本地导入不上传、不执行规则、不注入宿主画布。
+- **存储表维护**：通过工具与编辑端点维护支持格式的路由表、策略表和资源表，使用 `evaluate_stored_table` 读取或求值，并按版本或内容摘要绑定规则。
+- **已登记应用调用**：`invoke_solution` 按登记的输入合同调用本工作空间中允许调用的应用，返回输出和运行标识。调用依赖宿主权限与登记状态，不是任意应用执行入口。
 
-## 原外部插件历史交付（2026-09-30）
+## 运行方式
 
-修正版候选安装包已在原授权打包工作区用官方 Dify CLI **0.6.10** 生成，对应源码 [`d04f51c`](https://github.com/hu8627/dify_dmn_plugin/commit/d04f51ccdb67cb8c375f0c2900984c3a8bd7386c)，20 个包内文件已逐字节核对。后续文档提交不改变该安装包的源码归属。
+### 内置 JSON 插件
 
-- 文件：`hu8627-dmn-0.1.0-d04f51c.difypkg`，**53,718 bytes**
-- SHA-256：`122e68ef2627d9371eb6cae1d7ee9cfb51b50bcedab59c7e6afa58c3b1776fbf`
-- Dify checksum：`d720592666104edb8c86951dbeabf7233a41e8412b17a8e71d0bbd51f25028be`
-- 源码测试：**99 Node + 230 Python**，包含 26 次真实 SDK → 本地 HTTP → 隔离 Node 集成测试。
-- Dify 1.11.1 原始模型解析、真实 SDK stdio、全新 Python 3.12 依赖安装已通过；daemon Go 包解码和目标 DMN 调用尚未验证；旧包 UI 安装由用户后续确认成功。详见[兼容性证据](docs/compatibility-1.11.1.md)。
+插件身份为 **`hu8627/dmn_json`**。JSON 决策在 Python 插件进程内执行，无需模型 Key、Java、Node 决策服务或 Engine URL。首次安装仍需正常解析 Python 依赖，不承诺离线安装。
 
-**用户已发布公开 [v0.1.0 Release](https://github.com/hu8627/dify_dmn_plugin/releases/tag/v0.1.0)**（2026-09-30 11:23:49 UTC，非草稿、非预发布）；授权 GitHub 连接器已核验资产名称、53,718 字节及 SHA-256 与上述候选一致。[安装包链接](https://github.com/hu8627/dify_dmn_plugin/releases/download/v0.1.0/hu8627-dmn-0.1.0-d04f51c.difypkg)。用户已确认经旧版插件管理页面上传安装成功；新版工具页选择器不再排查。此安装反馈不代表目标真实 DMN 调用验收。安装包未签名、未经 Marketplace 审核；本地安装需符合工作区策略，若企业策略禁用则需管理员提供批准的安装渠道，不能关闭安全校验。安装后仍需独立、可达且配置鉴权的 Node 服务；目标服务尚未部署，目标 DMN 调用尚未验证。见[发布核对清单](docs/release-checklist.md)。
+不同入口使用各自的模型合同，不能仅凭工具名称互换规则。`json-table-v1` 与类型化节点决策都不等同于完整 DMN XML/FEEL 实现。
 
-## 0.2.0 历史内置候选交付
+真实查询需要可信宿主提供连接与授权校验；默认 SDK 查询通道只支持受限的本地合成协议测试。`query_local` 和 `execute_json_plan` 的查询也是 SYNTHETIC 数据，不代表已连接真实业务系统。见[节点合同与查询接入边界](docs/dsl-v0.4.md)。
 
-- 0.2.0 当时仅注册 `evaluate_json_table`；当前 `builtin/manifest.yaml` 为 0.4.1 五工具及只读 Endpoint 候选。旧 XML/FEEL 三工具及其授权保持兼容。
-- 0.2.0 当时只准备了 staging 目录；后续 RC 的打包与发布状态以对应发布记录为准。旧 v0.1.0 Release 保持不动。
-- 免凭据 SDK 注册/校验/调用已验证；新包的目标 UI 安装和真实业务调用未验证。见 [0.2.0 验收记录](docs/builtin-0.2.0.md)。
+### 外部 XML/FEEL 插件
 
-## 结构
+仓库保留独立身份 **`hu8627/dmn`** 的旧版外部运行路径：Dify Python 插件调用单独部署的 Node.js 服务，提供 `query_capability`、`evaluate_dmn` 和 `execute_plan`。该路径需要 Engine URL 与 API Token，仅支持文档规定的 DMN/FEEL 子集。
 
-- **定位问题**：一个 Phase，里面可以有多个查询 Step、多个 DMN 决策 Step
-- **解决问题**：当前 P1–P5 即可，在 P5 输出处置建议；P6/P7 可暂缓，原 P1–P7 完整示例仍兼容
-- 查询和决策可交错，例如 查询工单 → DMN 定位 → 查询关联订单 → DMN 确认
-- 查询 Step 引用 capability_id、输入/输出合同和参数映射；决策 Step 引用模型、decision_id、Hit Policy
-- Step 显式依赖、按确定性顺序运行；无需把所有查询放在所有决策之前
-- L0 取数、L1 经审定的 ESM 事实计算器、真实写动作仍在 DMN 之外；P6/P7 在这里仅输出建议
-- 当前查询注册表只有 SYNTHETIC mock；没有连接真实客服数据、身份闸、底层能力库或千帆宿主
+两种插件的身份、模型格式、安装依赖和能力边界不同，不会自动迁移。外部服务的安装、启动与鉴权见[旧版插件说明](plugin/README.md)、[计划合同](docs/plan-contract.md)和[支持矩阵](docs/support-matrix.md)。
 
-这是可测试的运行基础，不是现有生产方案迁移或 scene-result.v2 接入验收。实际身份/绑定/结果合同、生产模型和独立历史案例尚未提供；候选格式名称明确带 candidate，不能冒充已冻结合同。
+## 当前源码状态
 
-定位与解决是两个独立可调用的流程能力，可按需要组合，不要求先定位再解决。`examples/solve-p1-p5-request.json` 演示当前解决范围，无需伪造 P6/P7 节点或接受其动作验收。
+**0.5.24 当前为仅供审查的源码，不是已批准发布或部署的版本。** 它引入签名写入、草稿与发布协议，改变写入行为及治理方式；不能视为仅整理文档、运行时行为不变的更新。
 
-## 目录
+**跨进程并发下的签名请求重放仍未解决，属于发布阻断。** 目标宿主安装、升级、真实业务 API 与生产兼容性也仍需验收。具体协议、已知限制和验证范围见 [0.5.24 审查说明](docs/releases/v0.5.24.md)。
 
-- `plugin/`：Dify 工具插件，官方 Python SDK；发布包不内置 Node
-- `engine/`：Node 原生 HTTP 服务、隔离执行进程、DMN/查询/计划执行
-- `examples/`：仅合成数据和合成模型，非真实业务裁定
-- `docs/`：合同、支持边界、稳定性与验收说明
-- `compose.yaml`：可选 Docker 部署（不是必须）
+## 安装与使用
 
-## 原生 Node 启动
+### 安装入口
 
-需 Node.js 22 或 24（开发验证使用 24.19.0）、npm。
+1. 在 [GitHub Releases](https://github.com/binhuhu/dify_dmn_plugin/releases) 选择实际已发布、且经过目标环境评估的版本和 `.difypkg` 资产。不要把当前审查源码或 staging 目录当作已发布安装包。
+2. 在 Dify 插件管理的 **From GitHub** 中填写 `https://github.com/binhuhu/dify_dmn_plugin`，选择相应版本与资产。安装 JSON 插件时核对 `hu8627/dmn_json` 身份、版本、SHA-256 和发布页的 Dify checksum，不要误选旧版 `hu8627/dmn` 包。
+3. 按工作空间批准流程审查 endpoint、storage、app 权限。自建包未签名、未经 Marketplace 审核；遵循平台签名和安装策略，不绕过安全校验。源码构建入口见[内置包构建说明](builtin/README.md#构建与验收)，构建成功不代表获准发布或部署。
+4. 先在隔离测试工作流验证参数传递、结果消费、失败分支和所用端点。升级与数据格式迁移分别验收，并保留原包、工作流和经核验的数据备份。
 
-```bash
-cd engine
-npm ci --ignore-scripts
-npm test
-# 在受控终端设置你自己的随机长令牌；不要提交到仓库
-export DMN_API_TOKEN='替换为至少32字符的随机私密令牌'
-npm start
-```
+### 使用入口
 
-服务默认仅监听 `127.0.0.1:8787`。示例令牌不是可用的生产密钥。`GET /health` 和全部 POST 接口均需 `Authorization: Bearer <token>`；请求 Content-Type 为 application/json。无鉴权请求返回 401。
+- **简单 JSON 决策**：选择 `evaluate_json_table`，固定配置经审核的 `table_json`，将上游数据绑定到 `inputs_json`；两者接受原生对象或严格 JSON 对象字符串，可用 `expected_sha256` 绑定模型内容。根据 `results.status` 和 `results.outcome` 处理成功、无命中与缺失输入。模型示例与有限语义见[调用说明](builtin/README.md#调用)。
+- **类型化节点查询或决策**：选择 `execute_query` 或 `evaluate_decision`，固定 `definition_bundle_json` 和 `node_ref`，绑定 `inputs_json` 与 `execution_context_json`。按 `execution_status`、`output_port`、`outputs` 和诊断配置下游分支。上下文由可信宿主提供，调用者自报字段不构成授权。见[节点工具合同](docs/dsl-v0.4.md#工具调用)。
+- **读取存储表**：使用 `evaluate_stored_table`，选择合同规定的表名、格式及输入；需要可复现读取时固定 `version` 或 `content_sha256`，并检查该格式对应的结果状态。见[存储表与路由配置](docs/route-table-editing.md)。
+- **查看结构**：打开结构查看器 Endpoint，或在本地打开 `plugin/viewer_static/index.html`，导入支持的 JSON 格式。见[查看器格式与限制](docs/structure-viewer.md)。
+- **维护规则表**：编辑页位于路由编辑 Endpoint 地址加 `/routes/`。当前审查源码要求配置维护应用的 `store_app_id`；受签名治理的表通过草稿与发布协议写入。相关写入只能在解决发布阻断后，按[当前协议与部署前置条件](docs/releases/v0.5.24.md)进行独立验收。
 
-接口：
-- `/evaluate`：`{dmn_xml, inputs, decision_id, include_trace}`
-- `/query`：`{capability_id, parameters}`
-- `/execute_plan`：`{plan, models, inputs, include_trace}`
+## 能力与安全边界
 
-完整计划与合成运行方式见 `docs/plan-contract.md`（交付时以该文件为准）。单表运行可直接导入 `engine/src/evaluate.js` 的 `evaluateRequest`；对外服务始终在受限子进程执行。
+- 技术执行成功不等于业务许可。缺失输入、无命中、阻断与失败应分别处理，不能统一替换为 `false` 或空值后继续执行。
+- 规则输出中的动作只是结构化建议，不会由决策工具直接执行。真实业务写入、交易等副作用由获授权的外部系统或下游应用承担；使用 `invoke_solution` 前也必须审核被调用应用可能产生的副作用。
+- 定义、规则和流程配置应来自受控来源。内容摘要用于绑定和核对，不代表可信来源、外部审批或生产安全证明；`gate_report` 也不代替调用方的身份与授权校验。
+- 插件存储没有原子 compare-and-set 或事务回滚。并发保存可能双方成功，跨表检查存在竞争窗口；进程内锁和重放标记不能提供跨进程互斥。生产写入必须验证工作空间范围内的外部串行化，当前源码不验证或强制这一前置条件，不能宣称已具备并发安全。
+- 回滚到 0.5.23 后，编辑会恢复为共享口令和直接保存机制，不保留 0.5.24 的签名写入及重放保护。读取兼容不代表治理能力兼容，详见[回滚限制](docs/releases/v0.5.24.md#installation-and-rollback)。
+- 实际使用前应验证接口连接、参数映射、业务规则、异常处理和历史案例。示例数据、自动化测试和历史验收记录不能替代目标生产环境验收。
 
-## Docker 可选部署
+## 文档与仓库结构
 
-```bash
-# 先通过终端设置 DMN_API_TOKEN，不写入仓库
-# 在项目根目录
-docker compose up --build -d
-```
+- [内置 JSON 工具与构建](builtin/README.md)：`builtin/` 保存 JSON 插件的 manifest 与打包入口。
+- [节点 DSL 合同](docs/dsl-v0.4.md)及[运行时 schema 扩展](docs/runtime-schema-v0.5.19.md)：`plugin/` 保存 Python 工具、存储和端点实现。
+- [存储表、路由与维护应用](docs/route-table-editing.md)：配置合同及版本相关限制。
+- [PSN 结构与离线检查](docs/psn-structure.md)：`psn/` 保存结构检查与编号工具。
+- [只读结构查看器](docs/structure-viewer.md)：页面在 `plugin/viewer_static/`，前端测试在 `viewer/`。
+- `examples/`：合成模型与示例，不是生产规则或真实业务验收数据。
+- `engine/`、`compose.yaml`：旧版外部 XML/FEEL 插件的服务与可选部署入口，不是 JSON 插件的安装依赖。
 
-镜像固定官方 Node 24.19.0 及 digest；容器只读、非 root、capabilities 全禁，512 MiB、1 CPU、64 pid，默认仅映射宿主 loopback。并发默认 2，单请求子进程默认 5 秒后硬终止。当前环境没有 Docker，Docker 启动步骤尚未实测。
-
-Dify 运行在容器时，它的 `127.0.0.1` 不是宿主机。需由部署人员把插件 daemon 与服务置于受控共同网络，或配置可达的 HTTPS 地址。不要开放未加密的公网端口。Dify Cloud 也无法访问你的本机 loopback。
-
-## Dify 安装
-
-1. 在插件管理中选择 **From GitHub**，填写 `https://github.com/hu8627/dify_dmn_plugin`，选择 `v0.1.0` 及 `hu8627-dmn-0.1.0-d04f51c.difypkg`，按工作区批准流程安装。若本地导入被策略禁用，不绕过该策略。自行打包见 `plugin/README.md`
-2. 配置 Engine URL 和相同 API Token。公网使用 HTTPS。仅受控内网调试可显式启用 insecure HTTP
-3. 工具 `query_capability` 展示查询，`evaluate_dmn` 展示一个决策，`execute_plan` 执行一条显式多 Step 计划
-4. 输入和输出均为结构化 JSON。技术成功仍须检查业务结论，NOT_FOUND 不代表可继续；状态不是成功就不能继续执行实际业务动作；`WAITING_INPUT` 进入补证或人工分支
-5. 客服 UI 按实际结果合同渲染，不能把工具返回的业务数据直接展示给客户。默认关闭 trace；trace 只含规则/决策元数据，不含原始查询参数
-
-目前完成的是 SDK/工具单测、服务本地集成和打包验证；没有在你的真实 Dify 实例导入执行，也没有 Marketplace 发布。
-
-## 重要边界
-
-- 执行器为 `dmn-elements 0.3.0`、`feelin 8.2.0`、`dmn-moddle 12.0.1`，精确依赖见 lockfile；dmn-elements 较新，需要试点回归，不宣称生产成熟度
-- 配置 `dmn13-safe-v1` 只接受 DMN 1.3 单文件 DRG、决策表和 literal expressions，白名单 UNIQUE / FIRST / COLLECT
-- UNKNOWN 业务状态可作为显式值参与 DMN；缺失输入/属性产生技术 `UNKNOWN_INPUT`，不会自动变成 false 或 DMN null
-- JavaScript 使用 IEEE-754；`0.1 + 0.2 = 0.3` 在所钉版本中为 false。金额用整数最小单位并验证中间结果上界；不宣称 DECIMAL128 一致性
-- 上游提供 matched rules，没有提供最终 selected/contributing rules。`selected_rule_ids=null`、`selection_trace_available=false`，绝不把所有条件命中冒称最终执行规则
-- 已知 FEEL 语义中的 `1/0` 可返回无警告 null；本插件保留该语义，与缺失输入区分。需要业务拒绝 null 时，在 DMN 中显式建模
-- 新包发布、真实取数、生产规则切换、稳定性/质量达标均需独立验收，不能用合成测试代替历史业务回归
-
-详见 `docs/stability.md`、`docs/support-matrix.md`。
-
-## 来源
-
-- [Dify 官方工具插件指南](https://docs.dify.ai/en/develop-plugin/dev-guides-and-walkthroughs/tool-plugin)
-- [Dify Python SDK](https://github.com/langgenius/dify-plugin-sdks)
-- [dmn-elements API / trace](https://github.com/zerodep/dmn-elements)
-- [feelin](https://github.com/nikku/feelin)
-- [dmn-moddle](https://github.com/bpmn-io/dmn-moddle)
-
-使用这些依赖不表示本项目获得了上游 DMN 全规范或生产认证。
-
-## 合成端到端验证
-
-服务启动后，在项目根目录运行（沿用相同 DMN_API_TOKEN）：
-
-```bash
-node scripts/smoke.mjs examples/locate-request.json
-node scripts/smoke.mjs examples/solve-request.json
-```
-
-第一条包含 query → decision → query → decision；第二条包含 P1–P7、P3 显式跳过、DMN-A/DMN-B/优先关系、处置建议和工单建议。示例金额不会自动补填，缺口不会自动宣称 LINKED。`examples/fact-calculator.mjs` 是外部 L1 ESM 计算器示意，不会被模型动态加载。真实阶段包含慢查询时，应由 Dify 逐 Step 编排、分别显示状态；`execute_plan` 当前只适合总时限内的小型候选计划，不是长流程编排平台。
-
-## 只读结构展示
-
-直接打开 `plugin/viewer_static/index.html`，查看定位／解决的真实 Phase → Step → Node 归属并导入本地 JSON。无工作台、编辑、执行或服务端存储。[格式、入口及验证限制](docs/structure-viewer.md)。
+`docs/` 中带版本号的说明和验收记录只适用于各自标记的源码与配置。使用时以所选版本的合同、实际发布资产和验证范围为准。

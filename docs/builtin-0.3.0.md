@@ -69,7 +69,7 @@ plugin/.venv/bin/python scripts/compatibility/builtin_stdio.py /tmp/dmn-json-0.3
 dify plugin package /tmp/dmn-json-0.3.0 -o hu8627-dmn_json-0.3.0.difypkg
 ```
 
-staging 目标必须不存在，不会覆盖现有目录。manifest created_at 保留引号 RFC3339 字符串。官方打包、解包核对、GitHub Release 上传及目标 UI 升级验收由后续发布步骤完成；staging 不是安装包，测试也不代表业务或 AgentHub 验收。
+staging 目标必须不存在，不会覆盖现有目录。manifest created_at 保留引号 RFC3339 字符串。官方打包、解包核对、GitHub Release 上传及目标 UI 升级验收由后续发布步骤完成；staging 不是安装包，测试也不代表业务或 Dify 宿主 验收。
 
 ## 本次源码验证记录（2026-09-30）
 

@@ -389,7 +389,7 @@ def test_an_unencodable_save_body_is_a_request_error_not_a_storage_fault():
     assert (status, body["error"]["code"]) == (400, "INVALID_JSON")
 
 
-# ── names and selectors are echoed in receipts: they must be encodable (Codex re-review of 0.5.16) ──────────────────
+# ── names and selectors are echoed in receipts: they must be encodable ──────────────────
 
 
 def encodable(envelope):

@@ -32,10 +32,10 @@ W1–W9 是 10-16 的合并修订，散在各节里：
 - W8：只增不改的分配；
 - W9：迁移可以跨 workflow。
 
-2026-10-23 起照 AgentHub 方案构建标准 solution-app/v1 改了两处：
-- 方案应用（SOLUTION）的标题带编号族、全长不超过 60 字，即 N2，见 stamp 一节；其余编号族保留旧写法（Brian 2026-10-23：「标题族前缀只改 SOLUTION；其余族保留旧写法，check 对它们照旧认旧写法。」）；
-- `psn check` 带上 ESE 五级结构检查的放错层规则 F06–F09 与失败处理 L5（标准第 3 节：两条线都跑 psn check），再加标准 N4（取数失败不给默认值），见 check 一节「放错层与失败处理」；
-- 结构可以按 Phase 声明输入输出，`psn check` 照 ESE F11 核对（标准 C10），见「Phase 输入输出声明」和 check 一节「Phase 输入输出」。
+2026-10-23 起照 Dify 宿主 方案构建标准 solution-app/v1 改了两处：
+- 方案应用（SOLUTION）的标题带编号族、全长不超过 60 字，即 N2，见 stamp 一节；其余编号族保留旧写法；
+- `psn check` 带上 五级结构检查的放错层规则 F06–F09 与失败处理 L5（标准第 3 节：两条线都跑 psn check），再加标准 N4（取数失败不给默认值），见 check 一节「放错层与失败处理」；
+- 结构可以按 Phase 声明输入输出，`psn check` 照 F11 核对（标准 C10），见「Phase 输入输出声明」和 check 一节「Phase 输入输出」。
 
 ## 结构与实例身份（R1、R4、R6）
 
@@ -79,7 +79,7 @@ workflow 同时写两个 Step 列表：
 - `fail_exits`：失败信号 `error`、`error_message` 只许跨进这些 Step；
 - `raw_fetch_steps`：原始取数明细不得跨出这些 Step 所在的 Phase。
 
-字段都是可选的。一个 workflow 只要声明了其中任何一项，所有 Phase 都要有 `io`（可以是空列表），两个 Step 列表也都要写。Brian 2026-10-23 定：新方案应用必须声明，96e837d4 不补；P5 的输入逐条写，没有通配写法；start 变量算 P1 的输出。
+字段都是可选的。一个 workflow 只要声明了其中任何一项，所有 Phase 都要有 `io`（可以是空列表），两个 Step 列表也都要写。新方案应用必须声明；P5 的输入逐条写，没有通配写法；start 变量算 P1 的输出。
 
 ```json
 {"id": "P2", "name": "受理策略", "steps": [...],
@@ -115,7 +115,6 @@ S、N 一经分配不改、不复用。新增节点应使用该 Step 已分配�
 
 仓内的 [`resolve_node`](../plugin/dmn_client/node_contract.py) 精确比较定义包的 `workflows[].workflow_id`。合成测试直接调用这个函数，证明家族名能解析，实例键不能冒充家族名。`psn check` 用这个函数逐个解析图里决策节点自带的定义包。resolver 和工具参数没有改动。`evaluate_decision` 只新增了 `trace.psn_ref` 回显（第 5 项）。
 
-“现网 43 个决策节点的内嵌定义包写 SOLUTION、使用 default-value”是用户提供的**宿主观测，非本仓验证**；本项不访问宿主或处理该缺陷。
 
 这些约束已经在第 2、3、5 项实现，见对应各节：
 - 第 2 项用 `resolve_node` 解析内嵌定义包，解析不到时报 `NODE_REF_UNRESOLVABLE`；
@@ -195,13 +194,13 @@ python -m dmn_client.psn check --structure ../examples/psn/structure.synthetic.j
 | NOT_STAMPED | WARN | 编号节点的标题不以编号开头（后接 ` · 名称` 或什么都不接），或描述里没有 `psn:<实例 ref>` 一行（GATE / EVENT 不查）。SOLUTION 按 N2：编号写编号族形式 `SOLUTION/P4.S2.N3`，不带族的 `P4.S2.N3 · `、实例键 `SOLUTION.coupon-use/P4.S2.N3 · ` 都算没写，全长超过 60 字也算没写。其余编号族照旧：裸编号，如 `Q1.S1.N2`，不限长度 |
 | SILENT_DMN_DEFAULT | WARN | 决策节点用 `default-value`：插件本身崩溃或超时时，错误被默认值替代 |
 | DMN_STATUS_UNCHECKED | WARN | 从决策节点沿连线往下，没有任何代码节点同时引用这个节点的输出和 `execution_status` |
-| MISPLACED_NODE | WARN | 节点的类别不该出现在这个 Step（ESE F06–F09，见下文「放错层与失败处理」） |
-| WORKFLOW_CALL_FORBIDDEN | WARN | TARGET、DISPATCH 里有工作流工具节点：这两条 workflow 不调子流程（ESE F07、F08）。DELIVERY、SOLUTION 的工作流调用按 Step 放位置，放错报 `MISPLACED_NODE` |
-| DISPATCH_DECISION_COUNT | WARN | DISPATCH 的决策节点不是恰好 1 个（ESE F08）；这一条不指认节点 |
-| NO_FAILURE_HANDLING | WARN | 工作流工具、取数、模型或决策节点没有失败处理：没有 fail-branch 出边，不是 `default-value`，也不在 continue-on-error 的循环里（ESE L5） |
-| SCENE_DEFINITION_IN_CODE | WARN | DELIVERY、DISPATCH 的代码节点里带了场景定义（ESE F06、F08） |
+| MISPLACED_NODE | WARN | 节点的类别不该出现在这个 Step（F06–F09，见下文「放错层与失败处理」） |
+| WORKFLOW_CALL_FORBIDDEN | WARN | TARGET、DISPATCH 里有工作流工具节点：这两条 workflow 不调子流程（F07、F08）。DELIVERY、SOLUTION 的工作流调用按 Step 放位置，放错报 `MISPLACED_NODE` |
+| DISPATCH_DECISION_COUNT | WARN | DISPATCH 的决策节点不是恰好 1 个（F08）；这一条不指认节点 |
+| NO_FAILURE_HANDLING | WARN | 工作流工具、取数、模型或决策节点没有失败处理：没有 fail-branch 出边，不是 `default-value`，也不在 continue-on-error 的循环里（L5） |
+| SCENE_DEFINITION_IN_CODE | WARN | DELIVERY、DISPATCH 的代码节点里带了场景定义（F06、F08） |
 | SILENT_FETCH_DEFAULT | WARN | SOLUTION 的取数节点用 `default-value`：http-request，以及 P1.S1 的工作流调用（取数应用）。取数失败被默认值替代，「没取到」会被当成「没有」（标准 N4） |
-| PHASE_IO_UNDECLARED_OUTPUT | WARN | 跨 Phase 读了对方没声明为输出的变量（标准 C10、ESE F11，只查声明了 io 的 workflow，下同） |
+| PHASE_IO_UNDECLARED_OUTPUT | WARN | 跨 Phase 读了对方没声明为输出的变量（标准 C10、F11，只查声明了 io 的 workflow，下同） |
 | PHASE_IO_UNDECLARED_INPUT | WARN | 跨 Phase 读变量，本 Phase 却没声明这条输入 |
 | PHASE_IO_UNUSED | WARN | 声明了的输出没有别的 Phase 读，或声明了的输入本 Phase 没读 |
 | PHASE_IO_SHAPE | WARN | 输出的形状、上限与节点不符 |
@@ -222,19 +221,19 @@ Dify 节点类型与 kind 的对应：
 
 合成样例 `examples/psn/graph.solution.synthetic.json` 由 `plugin/tests/psn_fixtures.py` 生成，测试保证两者一致。其中 `solution_decision` 带的是仓库可求值示例定义包，id 换成编号族形式（SOLUTION / N1），所以同一张图既能查，也能写编号后真求值。
 
-### 放错层与失败处理（ESE F06–F09、L5）
+### 放错层与失败处理（F06–F09、L5）
 
-规则从 ESE_monorepo 的 `origin/master` f3e20d7c 搬来，2026-10-21 版：
+支持的结构检查规则：
 - `50_ticket/40_五级结构/核对规则.json` 的 F06–F09；
 - 同目录 `五级骨架.json` 的 DELIVERY step 表；
 - 检查器 `60_application/gate/五级结构检查.js` 第 121–149 行。
 
 实现在 `plugin/dmn_client/psn/placement.py`。码一律默认 WARN，`--strict` 时算 FAIL。标准与 F09 说法不同的一处以标准为准：SOLUTION 可以在 P1.S1 用工作流工具调取数、事实等能力应用（标准 D 节类别表、C6），F09 原文是一律不许（2026-10-23 定）。
 
-**类别**照 ESE `类别表.json`，与上面的 kind 是两套：
+**类别**照 `类别表.json`，与上面的 kind 是两套：
 - 决策插件的工具节点是决策；
 - 工作流工具是 workflow 调用；
-- 其他工具、http-request、knowledge-retrieval 是取数（ESE 叫「取数类 CALL」）；
+- 其他工具、http-request、knowledge-retrieval 是取数（也称「取数类 CALL」）；
 - http-request 的 url 含 `/chat/completion`，或标题含「模型识读」，算模型；llm、agent 等也是模型；
 - iteration、loop 是循环；
 - 代码、汇合、GATE、EVENT 不放位置，哪里都可以。
@@ -248,31 +247,31 @@ Dify 节点类型与 kind 的对应：
 | DISPATCH | F08 | D1.S2，恰好 1 个 | 无 | 无 | 无 | 无 | 不许 http-request；代码节点不带场景定义 |
 | SOLUTION | F09 | P1.S2、P2–P5 | P1.S1（标准，不查调的是哪个应用） | P1.S1 | P1.S1，且只许模型识读格 | P1.S1 | 取数不给默认值（N4） |
 
-- **模型识读格**（F09，标准 N6）：模型节点在 P1.S1、位于取数循环里（有父循环），并且被标成识读格（标题含「模型识读」，或 http 的 url 含登记的模型路径）。ESE 检查器还要求它是 http-request；规则原文和标准 N6 都不限节点类型，ESE B 线已发布的券应用用的是 llm 节点，所以这里不限类型。
+- **模型识读格**（F09，标准 N6）：模型节点在 P1.S1、位于取数循环里（有父循环），并且被标成识读格（标题含「模型识读」，或 http 的 url 含登记的模型路径）。此检查不限于 http-request 节点。
 - **失败处理（L5）**：工作流调用、取数、模型、决策节点满足其一即可：
   - 有 `sourceHandle: fail-branch` 的出边；
   - `error_strategy: default-value`；
   - 直接父节点是 `error_handle_mode: continue-on-error` 的循环。
 
   决策节点用 default-value 虽然算有失败处理，`SILENT_DMN_DEFAULT` 仍然提示。
-- **取数不给默认值（标准 N4，只查 SOLUTION）**：http-request（包括模型识读格），以及 P1.S1 的工作流调用（取数应用），用 `error_strategy: default-value` 时报 `SILENT_FETCH_DEFAULT`。在 continue-on-error 循环里的也报：默认值会把失败的那一条变成空，循环后就核不出哪些条目失败。L5 照 ESE 原文仍把 default-value 算作有失败处理，所以这类节点只报这一条，不报 `NO_FAILURE_HANDLING`。
-- **场景定义**：代码里出现 ESE 场景卡编译器写的键（`"场景最小参数集"`、`"必要成立条件"`、`"预判成立条件"`、`"充分成立条件"`、`"条件表"`、`"必要快照表"`）即报。代码里 `gunzipSync(Buffer.from("…",'base64'))` 包着的数据块先解压再查，单块最多读 16 MiB。
-- **DELIVERY 的 workflow 调用 Step** 以 `五级骨架.json` 为准，ESE 检查器也读这份；`核对规则.json` 的 F06 原文还写着 O1.S2。
+- **取数不给默认值（标准 N4，只查 SOLUTION）**：http-request（包括模型识读格），以及 P1.S1 的工作流调用（取数应用），用 `error_strategy: default-value` 时报 `SILENT_FETCH_DEFAULT`。在 continue-on-error 循环里的也报：默认值会把失败的那一条变成空，循环后就核不出哪些条目失败。L5 照 结构检查规则仍把 default-value 算作有失败处理，所以这类节点只报这一条，不报 `NO_FAILURE_HANDLING`。
+- **场景定义**：代码里出现 场景卡编译器写的键（`"场景最小参数集"`、`"必要成立条件"`、`"预判成立条件"`、`"充分成立条件"`、`"条件表"`、`"必要快照表"`）即报。代码里 `gunzipSync(Buffer.from("…",'base64'))` 包着的数据块先解压再查，单块最多读 16 MiB。
+- **DELIVERY 的 workflow 调用 Step** 以 `五级骨架.json` 为准，结构检查器也读这份；`核对规则.json` 的 F06 原文还写着 O1.S2。
 
 **没有搬的：**
 - F10（PREDICT）、F12（EVIDENCE）：psn-structure/v1 没有这两个编号族；
-- HANDLE、KNOWLEDGE：ESE 没有对应规则；
-- 骨架里逐 Step 列出的代码、汇合类别：那是 ESE 自己的 Step 排法；
+- HANDLE、KNOWLEDGE：当前没有对应规则；
+- 骨架里逐 Step 列出的代码、汇合类别：那是 约定的 Step 排法；
 - F01–F05：一一对应、编号、归属、类别、不编号，psn check 已有各自的码；
 - F13（代码节点输出深度）。
 
 只认 hu8627/dmn_json 为决策插件，与上面的 kind 一致。别的决策插件的节点按取数算。
 
-### Phase 输入输出（标准 C10，ESE F11）
+### Phase 输入输出（标准 C10，F11）
 
 声明写在结构里，见上文「Phase 输入输出声明」。`psn check` 只查声明了 io 的 workflow：没有声明的不报，既有应用的读回也就不报。这几个码默认都是 WARN，实现在 `plugin/dmn_client/psn/phase_io.py`。
 
-**引用怎么找**：照 ESE 检查器的认法（`五级结构检查.js` 的「引用们」），在节点的 data 里找，代码正文 `code` 不算：
+**引用怎么找**：照 结构检查器的认法（`五级结构检查.js` 的「引用们」），在节点的 data 里找，代码正文 `code` 不算：
 - 任何第一项是节点 id 的字符串数组，如变量选择器 `["fact_build", "f_0"]`；
 - 任何 `{{#节点.变量#}}` 模板。
 
@@ -291,12 +290,12 @@ Dify 节点类型与 kind 的对应：
   - start 变量的上限超过它自己的 `max_length`。
 - 实际输出类型能认出来的节点：代码节点、start、变量汇合、迭代，以及本插件的 `evaluate_decision`（按它的 output_schema）。其余节点不比类型。
 
-**Brian 2026-10-23 的定法**：「F11 按默认做：新方案应用必须声明 io，96e837d4 不补；P5 输入逐条写，不许通配；start 变量算 P1 的输出；不加 PREDICT、EVIDENCE 族。」所以：
+**方案应用输入输出约束：**
 - 输入没有通配写法；
 - start 节点归在 P1，它的变量就是 P1 的输出；
-- 「必须声明」由方案构建标准管，检查不查，所以 96e837d4 不会因为没有声明而被报。
+- 「必须声明」由方案构建标准管，检查不查；未声明时不执行该组检查。
 
-ESE 那边还有输出体积实测（`输出上界检查.js`）和 F13（代码节点输出深度），这两项没有搬过来。
+其他工具可执行输出体积实测（`输出上界检查.js`）和 F13（代码节点输出深度），这两项没有搬过来。
 
 ## 把编号写进图：`psn stamp` / `psn from-graph`（第 3 项）
 
@@ -309,12 +308,12 @@ python -m dmn_client.psn from-graph --graph STAMPED --workflow KEY [--structure 
 
 - **只改编号节点的 `data.title` 和 `data.desc`。** 其余字节都不变，包括连线、位置、代码和工具参数。
 - **标题。**
-  - 方案应用（SOLUTION）的格式是 `SOLUTION/<Phase>.S<n>.N<m> · <名称>`，如 `SOLUTION/P4.S2.N3 · 名称`（solution-app/v1 N2，Brian 2026-10-23 D5 ②）。实例键只写在描述的 psn 行里。
-  - 其余编号族不在标准范围内，保留旧写法：裸编号 `<Phase>.S<n>.N<m> · <名称>`，如 `Q1.S1.N2 · 名称`，不限长度，check 也照旧认这种写法（Brian 2026-10-23）。标题里带了族前缀的，stamp 会换回裸编号，不会叠成两个编号。
+  - 方案应用（SOLUTION）的格式是 `SOLUTION/<Phase>.S<n>.N<m> · <名称>`，如 `SOLUTION/P4.S2.N3 · 名称`。实例键只写在描述的 psn 行里。
+  - 其余编号族不在标准范围内，保留旧写法：裸编号 `<Phase>.S<n>.N<m> · <名称>`，如 `Q1.S1.N2 · 名称`，不限长度，check 也照旧认这种写法。标题里带了族前缀的，stamp 会换回裸编号，不会叠成两个编号。
   - 先去掉已有前缀（W7）：
     - 任何形式的编号：编号族形式 `SOLUTION/P4.S2.N3 · `、N2 之前不带族的 `P4.S2.N3 · `、带实例键的 `SOLUTION.fee-standard/P4.S2.N3 · `；
     - 旧式的 `P4.S1：`、`P1：`、`P1–P5 `。
-  - SOLUTION 的标题全长不超过 60 字，超了截名称，不截编号；截断处末尾的空格一并去掉。字数按 UTF-16 码元算，与 JavaScript 的 `length` 和 ESE 五级结构检查（F02）一致：一般汉字、字母、标点各算 1，BMP 以外的字符（如表情）算 2，且不会被截成半个。
+  - SOLUTION 的标题全长不超过 60 字，超了截名称，不截编号；截断处末尾的空格一并去掉。字数按 UTF-16 码元算，与 JavaScript 的 `length` 和 五级结构检查（F02）一致：一般汉字、字母、标点各算 1，BMP 以外的字符（如表情）算 2，且不会被截成半个。
   - 名称为空时只写编号，如 `SOLUTION/P1.S2.N2`、`Q1.S1.N2`。只有阶段码的标题（如 `P1`）、只有编号的标题都算没有名称。
 - **描述。** 已有文字原样保留，末尾放一行 `psn:<实例 ref>`。旧的 psn 行先删掉，所以不会叠加。
 - **不编号的 GATE / EVENT 节点一个字节都不动。** 与发布时写编号的规则相同。
@@ -371,7 +370,7 @@ python -m dmn_client.psn diff --old S --new S2 [--json]
 
 只有当 `node_ref` 是编号族形式（`workflow_id` 匹配 `^[A-Z]+$`，phase、step、node 符合编号语法）时才回显；其他写法（比如仓库示例里的 `demo.solve` / `D1`）照旧求值，只是不带 `psn_ref`，结果与 0.4.1 逐字节相同。
 
-**与工单第 5 项原文不同的一处：** 原文要求对不合语法的 node_ref 返回新码 `NODE_REF_INVALID`。这样会让仓库自带示例和任何不用编号形式的使用方一律失败，与同一项的验收「仓内所有 examples 新旧版本重放，除新增 psn_ref 外逐字节一致」矛盾。所以只回显、不拒绝。编号形式是否正确，由离线的 `psn check`（`NODE_REF_MISMATCH` / `NODE_REF_UNRESOLVABLE`）把关。
+**兼容边界：** 运行时只回显编号，不因非编号形式的 node_ref 拒绝原有调用。编号形式是否正确，由离线的 `psn check`（`NODE_REF_MISMATCH` / `NODE_REF_UNRESOLVABLE`）把关。
 
 ## 查看器（第 6 项）
 

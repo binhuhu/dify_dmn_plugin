@@ -1,4 +1,6 @@
-# DMN Decision Engine: Dify tool plugin
+# Legacy XML DMN engine integration
+
+This page documents the legacy XML engine integration. For the current JSON decision-table plugin, installation, and release information, start with the [repository README](../README.md). The Node.js engine requirement below applies only to the XML tools.
 
 This directory is the Python 3.12 Dify tool plugin. The separately deployed engine is Node.js. There is no Java runtime and no embedded or handwritten FEEL evaluator in this plugin.
 

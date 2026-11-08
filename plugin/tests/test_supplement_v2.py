@@ -96,6 +96,7 @@ def test_editor_maintenance_app_saves_into_tools_not_endpoint_storage():
     endpoint_storage, tool_storage = FakeStorage(), FakeStorage()
     ep = app_endpoint(endpoint_storage, maintenance_app(tool_storage))
     raw = doc()
+    # not one of the five: saved directly, as in 0.5.23 (signed, since the endpoint has no other door)
     status, body = hit(
         ep, "api/table", method="POST", body={**raw, "expected_version": 0}, settings=SETTINGS
     )
@@ -125,7 +126,7 @@ def test_v1_to_v2_upgrade_is_cas_protected_and_retains_immutable_v1_history():
     downgrade = run_op(storage, "save", body={**old, "expected_version": 2})
     assert downgrade[0] == 400 and downgrade[1]["error"]["code"] == "STORED_TABLE_SCHEMA_CHANGED"
     old_result = evaluate_stored(
-        old["table"], FORMAT_SUPPLEMENT, {"scene_id": "P_02_04_01"}, lambda _: json.loads(v1_bytes)
+        old["table"], FORMAT_SUPPLEMENT, {"scene_id": "P_99_83_01"}, lambda _: json.loads(v1_bytes)
     )
     assert old_result["status"] == "SUCCEEDED" and "associations" not in old_result["result"]
 

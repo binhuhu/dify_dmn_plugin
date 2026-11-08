@@ -1,5 +1,8 @@
 # DMN 支持边界：dmn13-safe-v1
 
+> Historical external `hu8627/dmn` Node/XML engine documentation. This is not the installation guide or full support matrix for the current `hu8627/dmn_json` candidate; see the [repository README](../README.md).
+
+
 ## 已支持且本地验证
 
 - DMN 1.3 XML，单文档、同文档信息依赖 DRG

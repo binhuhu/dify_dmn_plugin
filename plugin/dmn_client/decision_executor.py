@@ -122,12 +122,12 @@ MAX_CONDITIONS = 32
 
 
 def rule_combinations(rule):
-    """0.5.19 (DMN 2.0 意见第 15、22 条): the condition combinations of a rule — when_any (any one), or when."""
+    """0.5.19: the condition combinations of a rule — when_any (any one), or when."""
     return rule["when_any"] if "when_any" in rule else [rule["when"]]
 
 
 def _rule(rule, params, scene_aware=False):
-    """TRUE / FALSE / UNKNOWN. 0.5.19 (意见第 15、22 条): when_any combinations are joined by the stored tables'
+    """TRUE / FALSE / UNKNOWN. 0.5.19: when_any combinations are joined by the stored tables'
     three-valued or — TRUE when any is TRUE, else UNKNOWN when any is UNKNOWN, else FALSE."""
     if "when_any" not in rule:
         return _combination(rule["when"], params, scene_aware)

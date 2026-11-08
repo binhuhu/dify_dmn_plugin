@@ -3,6 +3,7 @@ const { chromium } = require("@playwright/test");
 const path = require("node:path");
 const fs = require("node:fs");
 const assert = require("node:assert/strict");
+const { runEditorBrowser } = require("./route-editor-browser.cjs");
 (async () => {
   const browser = await chromium.launch({
     headless: true,
@@ -260,6 +261,7 @@ const assert = require("node:assert/strict");
     console.log(
       "Browser PASS: desktop/mobile, imports, rules, focus, wheel, psn structure, no remote requests",
     );
+    await runEditorBrowser(browser);
   } finally {
     await browser.close();
   }

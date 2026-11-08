@@ -1,5 +1,5 @@
-"""0.5.3 (WO-29): stored tables beside dispatch.route - P2 acceptance tables (decision-table/v1), supplement requirements,
-resource targets - with the route table's CAS and history; resource rows in route tables (v2 stubs unchanged, v3 stubs see
+"""0.5.3: stored tables beside dispatch.route - P2 acceptance tables (decision-table/v1), supplement requirements,
+resource targets - with the route table's optimistic version checks and history; resource rows in route tables (v2 stubs unchanged, v3 stubs see
 them); the evaluate_stored_table tool."""
 
 import copy
@@ -36,92 +36,103 @@ from dmn_client.stored_tables import (
 from tools.evaluate_stored_table import EvaluateStoredTableTool
 
 HERE = Path(__file__).resolve().parent
-P2 = json.loads((HERE / "p2_ee1aebd3_model.json").read_text())
-DAYS = "facts.COUPON__payment__END_TO_COMPLAINT_DAYS.天数"
-BASIS = "facts.COUPON__payment__END_TO_COMPLAINT_DAYS.可作超期依据"
-UNCONFIRMED = "facts.COUPON__coupon__RECORD_FOUND.目标未确认"
-DUPLICATE = "facts.WORKSHEET__aftersale__IS_DUPLICATE.结论"
-KB_APP = "7b281885-e5ec-4e13-b61e-f3b7e7e068a2"
+P2 = json.loads((HERE / "p2_synthetic_model.json").read_text())
+DAYS = "facts.SYNTHETIC.queue_depth"
+BASIS = "facts.SYNTHETIC.enabled"
+UNCONFIRMED = "facts.SYNTHETIC.pending"
+DUPLICATE = "facts.SYNTHETIC.lane"
+KB_APP = "00000000-0000-4000-8000-000000000103"
 
 
 def p2_doc(**over):
     base = {
         "schema": "dmn-json.decision-table/v1",
         "table": "p2." + COUPON,
-        "owner": {"app_id": COUPON, "team": "ESE", "name": "优惠券使用 · ESE B"},
+        "owner": {"app_id": COUPON, "team": "TEST", "name": "Synthetic queue"},
         "model_ref": P2["model_ref"],
         "model": copy.deepcopy(P2["model"]),
-        "note": "ee1aebd3 150a6613 的 P2.D1@1.0.0，原样",
+        "note": "P2.D1@1.0.0 regression fixture",
     }
     base.update(over)
     return base
 
 
 def supplement_doc(**over):
+    """Independent workshop evidence requirements, authored from schema states."""
+    scenes = {
+        "P_99_83_03": {
+            "state": "UNDECLARED",
+            "basis": "Toy station not configured",
+            "gap_code": "SUPPLEMENT_UNDECLARED",
+        },
+        "P_99_83_01": {"state": "NONE", "basis": "Toy inspection needs no attachments"},
+    }
+    for scene, items in (
+        (
+            "P_99_83_02",
+            [
+                ("toy_dimension", "EXPRESSION", True),
+                ("toy_drawing", "MATERIAL", False),
+                ("toy_color", "EXPRESSION", True),
+            ],
+        ),
+        ("P_99_83_04", [("toy_stencil", "MATERIAL", True)]),
+    ):
+        scenes[scene] = {
+            "state": "REQUIRED",
+            "basis": "Independent toy evidence recipe",
+            "items": [
+                {
+                    "item_id": item,
+                    "kind": kind,
+                    "prompt_key": "workshop.evidence." + item,
+                    "required": required,
+                }
+                for item, kind, required in items
+            ],
+        }
     base = {
         "schema": "dmn-json.supplement-requirements/v1",
         "table": "supplement.requirements",
-        "scenes": {
-            "P_02_04_01": {"state": "NONE", "basis": "Brian 10-27 11:40 券无补充"},
-            "P_04_04_01": {
-                "state": "REQUIRED",
-                "basis": "示例",
-                "items": [
-                    {
-                        "item_id": "lost_item",
-                        "kind": "EXPRESSION",
-                        "prompt_key": "supplement.lost_item.describe",
-                        "required": True,
-                    },
-                    {
-                        "item_id": "photo",
-                        "kind": "MATERIAL",
-                        "prompt_key": "supplement.lost_item.photo",
-                        "required": False,
-                    },
-                ],
-            },
-            "P_05_01_01": {
-                "state": "UNDECLARED",
-                "basis": "场景定义无补充块",
-                "gap_code": "SUPPLEMENT_UNDECLARED",
-            },
-        },
-        "note": "种子",
+        "scenes": scenes,
+        "note": "Independent workshop evidence fixture",
     }
     base.update(over)
     return base
 
 
 def resource_doc(**over):
+    """Independent workshop resources cover all entry and confirmation shapes."""
+    targets = {}
+    for rid, kind, entry, status in (
+        ("workshop.queue", "HUMAN", None, "TO_CONFIRM"),
+        ("workshop.stop", "SAFETY", {"kind": "TRANSFER", "to": "SAFETY"}, "CONFIRMED"),
+        (
+            "workshop.manual",
+            "SELF_SERVICE",
+            {"kind": "AGENTHUB_APP", "app_id": KB_APP},
+            "TO_CONFIRM",
+        ),
+        (
+            "workshop.robot",
+            "SELF_SERVICE",
+            {"kind": "AGENTHUB_APP", "app_id": "00000000-0000-4000-8000-000000000832"},
+            "CONFIRMED",
+        ),
+    ):
+        targets[rid] = {
+            "kind": kind,
+            "name": "Toy " + rid.split(".")[1],
+            "entry": entry,
+            "status": status,
+            "basis": "Independent protocol example",
+        }
     base = {
         "schema": "dmn-json.resource-targets/v1",
         "table": "dispatch.resource",
-        "targets": {
-            "self_service.knowledge": {
-                "kind": "SELF_SERVICE",
-                "name": "自助 · 问知识库",
-                "entry": {"kind": "AGENTHUB_APP", "app_id": KB_APP},
-                "status": "TO_CONFIRM",
-                "basis": "侧栏 knowledge-config",
-            },
-            "human.queue": {
-                "kind": "HUMAN",
-                "name": "人工",
-                "entry": None,
-                "status": "TO_CONFIRM",
-                "basis": "待定",
-            },
-            "safety.transfer": {
-                "kind": "SAFETY",
-                "name": "转安全",
-                "entry": {"kind": "TRANSFER", "to": "SAFETY"},
-                "status": "CONFIRMED",
-                "basis": "Brian 10-13",
-            },
-        },
+        "targets": targets,
         "route_tables": ["dispatch.route"],
-        "note": "种子",
+        "note": "Independent workshop resource fixture",
     }
     base.update(over)
     return base
@@ -132,23 +143,23 @@ def with_resources(d=None):
     d["resource_table"] = "dispatch.resource"
     d["routes"] += [
         {
-            "scene_id": "P_02_04_01",
+            "scene_id": "P_99_41_01",
             "issue_type": "CONSULT",
             "phase": "STAGE_1",
-            "target": {"kind": "RESOURCE", "resource_id": "self_service.knowledge"},
+            "target": {"kind": "RESOURCE", "resource_id": "workshop.manual"},
         },
         {
-            "scene_id": "P_02_04_01",
+            "scene_id": "P_99_41_01",
             "issue_type": "COMPLAINT",
             "phase": "STAGE_2",
-            "target": {"kind": "RESOURCE", "resource_id": "human.queue"},
+            "target": {"kind": "RESOURCE", "resource_id": "workshop.queue"},
         },
     ] + [
         {
             "scene_id": s,
             "issue_type": "CONSULT",
             "phase": "STAGE_1",
-            "target": {"kind": "RESOURCE", "resource_id": "safety.transfer"},
+            "target": {"kind": "RESOURCE", "resource_id": "workshop.stop"},
         }
         for s in SAFETY
     ]
@@ -210,7 +221,7 @@ def test_p2_model_refusals(edit):
     d = p2_doc()
     m = d["model"]
     if edit == "actions":
-        m["result_templates"]["P2-ACCEPT"]["actions"] = [
+        m["result_templates"]["SYN-READY"]["actions"] = [
             {"intent_id": "x", "kind": "CONTROL", "route_ref": "r"}
         ]
     elif edit == "undeclared":
@@ -234,8 +245,8 @@ def test_p2_evaluates_unknown_facts_to_the_tables_own_unknown_rule():
     )
     assert out["status"] == "SUCCEEDED" and out["error"] is None
     r = out["result"]
-    assert r["selected_rule_ids"] == ["P2-ACCEPT-UNKNOWN"] and r["decision"]["state"] == "成立"
-    assert r["decision"]["data"]["result"] == ["受理", "按常规判定"]
+    assert r["selected_rule_ids"] == ["SYN-FALLBACK"] and r["decision"]["state"] == "成立"
+    assert r["decision"]["data"]["result"] == ["synthetic", "selected"]
     assert len(r["filled_parameters"]) == 5 and UNCONFIRMED not in r["filled_parameters"]
     assert (r["model_ref"], r["model_version"], r["hit_policy"]) == (
         "P2.D1@1.0.0",
@@ -243,11 +254,11 @@ def test_p2_evaluates_unknown_facts_to_the_tables_own_unknown_rule():
         "FIRST",
     )
     assert [x["rule_id"] for x in r["rules"]] == [
-        "P2-EXPIRED",
-        "P2-DUPLICATE",
-        "P2-CHEATING",
-        "P2-ACCEPT",
-        "P2-ACCEPT-UNKNOWN",
+        "SYN-LIMIT",
+        "SYN-LANE",
+        "SYN-FLAG",
+        "SYN-READY",
+        "SYN-FALLBACK",
     ]
     assert out["source"] == {
         "kind": "PLUGIN_STORAGE",
@@ -264,23 +275,23 @@ def test_p2_known_facts_decide():
         "p2." + COUPON,
         FORMAT_DECISION,
         {
-            "parameters": records(**{DAYS: 400, BASIS: True, UNCONFIRMED: False}),
+            "parameters": records(**{DAYS: 8, BASIS: True, UNCONFIRMED: False}),
             "missing": "UNKNOWN",
         },
         st.load,
     )["result"]
     assert (
-        expired["selected_rule_ids"] == ["P2-EXPIRED"] and expired["decision"]["state"] == "不成立"
+        expired["selected_rule_ids"] == ["SYN-LIMIT"] and expired["decision"]["state"] == "不成立"
     )
     dup = evaluate_stored(
         "p2." + COUPON,
         FORMAT_DECISION,
-        {"parameters": records(**{DUPLICATE: "是"}), "missing": "UNKNOWN"},
+        {"parameters": records(**{DUPLICATE: "blue"}), "missing": "UNKNOWN"},
         st.load,
     )["result"]
     assert (
-        dup["selected_rule_ids"] == ["P2-DUPLICATE"]
-        and dup["decision"]["data"]["rule_id"] == "P2-DUPLICATE"
+        dup["selected_rule_ids"] == ["SYN-LANE"]
+        and dup["decision"]["data"]["rule_id"] == "SYN-LANE"
     )
 
 
@@ -330,7 +341,7 @@ def test_p2_undeclared_records_are_ignored_when_asked():
     assert out["status"] == "SUCCEEDED" and out["result"]["ignored_parameters"] == [
         "facts.OTHER_TABLES_FACT"
     ]
-    assert out["result"]["selected_rule_ids"] == ["P2-ACCEPT-UNKNOWN"]
+    assert out["result"]["selected_rule_ids"] == ["SYN-FALLBACK"]
 
 
 def test_read_path_envelopes():
@@ -357,7 +368,7 @@ def test_read_path_envelopes():
     as_text = evaluate_stored(
         "supplement.requirements",
         FORMAT_SUPPLEMENT,
-        json.dumps({"scene_id": "P_02_04_01"}),
+        json.dumps({"scene_id": "P_99_83_01"}),
         st.load,
     )
     assert as_text["result"]["state"] == "NONE"
@@ -375,7 +386,7 @@ def test_supplement_rows():
         )
 
     none, req, und, absent = (
-        get(s)["result"] for s in ("P_02_04_01", "P_04_04_01", "P_05_01_01", "P_09_01_01")
+        get(s)["result"] for s in ("P_99_83_01", "P_99_83_02", "P_99_83_03", "P_09_01_01")
     )
     assert (none["state"], none["declared"], none["items"], none["gap_code"]) == (
         "NONE",
@@ -384,8 +395,9 @@ def test_supplement_rows():
         None,
     )
     assert req["state"] == "REQUIRED" and [i["prompt_key"] for i in req["items"]] == [
-        "supplement.lost_item.describe",
-        "supplement.lost_item.photo",
+        "workshop.evidence.toy_dimension",
+        "workshop.evidence.toy_drawing",
+        "workshop.evidence.toy_color",
     ]
     assert (und["state"], und["gap_code"]) == ("UNDECLARED", "SUPPLEMENT_UNDECLARED")
     assert absent == supplement_row(st.load("supplement.requirements"), "P_09_01_01")
@@ -394,6 +406,7 @@ def test_supplement_rows():
         False,
         "SUPPLEMENT_UNDECLARED",
     ), "never NONE by default"
+    assert get("P_99_83_04")["result"]["items"][0]["prompt_key"] == "workshop.evidence.toy_stencil"
     assert get("bad")["error"]["code"] == "INPUT_INVALID"
 
 
@@ -418,7 +431,7 @@ def test_supplement_rows():
 )
 def test_supplement_refusals(row):
     with pytest.raises(RouteTableError) as e:
-        validate_doc(supplement_doc(scenes={"P_02_04_01": row}))
+        validate_doc(supplement_doc(scenes={"P_99_83_01": row}))
     assert e.value.code == "SUPPLEMENT_TABLE_INVALID"
 
 
@@ -454,22 +467,22 @@ def test_supplement_table_name_is_bound():
 )
 def test_resource_refusals(target):
     with pytest.raises(RouteTableError) as e:
-        validate_doc(resource_doc(targets={"human.queue": target}))
+        validate_doc(resource_doc(targets={"workshop.queue": target}))
     assert e.value.code == "RESOURCE_TABLE_INVALID"
 
 
 def test_resource_lookup():
     st = store(resource_doc())
     out = evaluate_stored(
-        "dispatch.resource", FORMAT_RESOURCE, {"resource_id": "self_service.knowledge"}, st.load
+        "dispatch.resource", FORMAT_RESOURCE, {"resource_id": "workshop.manual"}, st.load
     )
     assert out["result"] == {
-        "resource_id": "self_service.knowledge",
+        "resource_id": "workshop.manual",
         "kind": "SELF_SERVICE",
-        "name": "自助 · 问知识库",
+        "name": "Toy manual",
         "entry": {"kind": "AGENTHUB_APP", "app_id": KB_APP},
         "status": "TO_CONFIRM",
-        "basis": "侧栏 knowledge-config",
+        "basis": "Independent protocol example",
     }
     unknown = evaluate_stored(
         "dispatch.resource", FORMAT_RESOURCE, {"resource_id": "nope"}, st.load
@@ -500,7 +513,7 @@ def test_route_table_with_resources_needs_the_resource_table_first_and_known_ids
 def test_a_resource_table_keeps_targets_a_route_table_names():
     st = store(resource_doc(), with_resources())
     smaller = resource_doc()
-    del smaller["targets"]["human.queue"]
+    del smaller["targets"]["workshop.queue"]
     with pytest.raises(RouteTableError) as e:
         st.save(smaller, 1)
     assert e.value.code == "RESOURCE_TABLE_IN_USE"
@@ -516,7 +529,7 @@ def test_a_resource_table_keeps_targets_a_route_table_names():
 
 
 def test_a_resource_table_cannot_drop_a_route_table_that_still_names_it():
-    # 10-29 v0.5.3 release check: taking the route table out of route_tables first and then deleting a target it still names
+    # Resource-reference regression: taking the route table out of route_tables first and then deleting a target it still names
     # used to save, and the v3 route then failed at run time with ROUTE_TABLE_UNKNOWN_RESOURCE. Both saves are refused now.
     st = store(resource_doc(), with_resources())
     dropped = resource_doc(route_tables=["other.route"])
@@ -524,7 +537,7 @@ def test_a_resource_table_cannot_drop_a_route_table_that_still_names_it():
         st.save(dropped, 1)
     assert e.value.code == "RESOURCE_TABLE_ROUTE_DROPPED"
     dropped_and_smaller = resource_doc(route_tables=["other.route"])
-    del dropped_and_smaller["targets"]["self_service.knowledge"]
+    del dropped_and_smaller["targets"]["workshop.manual"]
     with pytest.raises(RouteTableError) as e:
         st.save(dropped_and_smaller, 1)
     assert e.value.code == "RESOURCE_TABLE_ROUTE_DROPPED"
@@ -571,7 +584,7 @@ def test_the_v2_stub_compiles_exactly_the_rows_it_knew():
     assert stored == plain, "RESOURCE rows are invisible to a routing-table/v2 reader"
     bundle = stub_bundle()
     bundle["models"]["dispatch.route@4.0.0"]["source"]["format"] = FORMAT_V2
-    consult = call(bundle, "P_02_04_01", "CONSULT", "STAGE_1", st.load)
+    consult = call(bundle, "P_99_41_01", "CONSULT", "STAGE_1", st.load)
     assert consult["outputs"]["decision"]["data"]["route_state"] == "unregistered"
     assert set(consult["outputs"]["decision"]["data"]) == set(DATA_V2)
     assert "resources" not in consult["trace"]["model_source"]
@@ -581,7 +594,7 @@ def test_the_v3_stub_routes_resources_and_reads_safety_as_its_target():
     st = store(resource_doc(), with_resources())
     bundle = stub_bundle()
     bundle["models"]["dispatch.route@4.0.0"]["source"]["format"] = FORMAT_V3
-    consult = call(bundle, "P_02_04_01", "CONSULT", "STAGE_1", st.load)
+    consult = call(bundle, "P_99_41_01", "CONSULT", "STAGE_1", st.load)
     data = consult["outputs"]["decision"]["data"]
     assert set(data) == set(DATA_V3)
     assert (
@@ -593,17 +606,15 @@ def test_the_v3_stub_routes_resources_and_reads_safety_as_its_target():
     ) == (
         "routed",
         "RESOURCE",
-        "self_service.knowledge",
+        "workshop.manual",
         "SELF_SERVICE",
         "TO_CONFIRM",
     )
     assert json.loads(data["resource_entry_json"]) == {"kind": "AGENTHUB_APP", "app_id": KB_APP}
-    assert consult["trace"]["selected_rule_ids"] == [
-        "resource:self_service.knowledge·CONSULT·STAGE_1"
-    ]
+    assert consult["trace"]["selected_rule_ids"] == ["resource:workshop.manual·CONSULT·STAGE_1"]
     src = consult["trace"]["model_source"]
     assert src["resources"]["table"] == "dispatch.resource" and src["resources"]["version"] == 1
-    safety = call(bundle, SAFETY[0], "COMPLAINT", "STAGE_1", st.load)["outputs"]["decision"]["data"]
+    safety = call(bundle, SAFETY[0], "CONSULT", "STAGE_2", st.load)["outputs"]["decision"]["data"]
     assert (
         safety["route_kind"],
         safety["transfer_to"],
@@ -612,10 +623,10 @@ def test_the_v3_stub_routes_resources_and_reads_safety_as_its_target():
     ) == (
         "TRANSFER",
         "SAFETY",
-        "safety.transfer",
+        "workshop.stop",
         "SAFETY",
     )
-    coupon = call(bundle, "P_02_04_01", "COMPLAINT", "STAGE_1", st.load)["outputs"]["decision"][
+    coupon = call(bundle, "P_99_41_01", "COMPLAINT", "STAGE_1", st.load)["outputs"]["decision"][
         "data"
     ]
     assert (coupon["route_kind"], coupon["app_id"], coupon["resource_id"]) == (
@@ -629,7 +640,7 @@ def test_the_v3_stub_on_a_table_without_resources():
     st = store(route_doc())
     bundle = stub_bundle()
     bundle["models"]["dispatch.route@4.0.0"]["source"]["format"] = FORMAT_V3
-    out = call(bundle, SAFETY[0], "COMPLAINT", "STAGE_1", st.load)
+    out = call(bundle, SAFETY[0], "CONSULT", "STAGE_2", st.load)
     assert (
         out["outputs"]["decision"]["data"]["resource_id"] is None
         and out["trace"]["model_source"]["resources"] is None
@@ -686,6 +697,29 @@ def test_the_evaluate_stored_table_tool():
         )
     )
     assert out[0][0] == "json" and out[0][1]["status"] == "SUCCEEDED"
-    assert out[0][1]["result"]["selected_rule_ids"] == ["P2-ACCEPT-UNKNOWN"]
+    assert out[0][1]["result"]["selected_rule_ids"] == ["SYN-FALLBACK"]
     assert [m[1] for m in out[1:]] == ["results", "status", "result_json"]
     assert json.loads(out[3][2]) == out[0][1]
+
+
+@pytest.mark.parametrize(
+    "values, selected",
+    [
+        ({DAYS: 7, UNCONFIRMED: False}, "SYN-READY"),
+        ({DAYS: 8, BASIS: True}, "SYN-LIMIT"),
+        ({"facts.SYNTHETIC.flag": True}, "SYN-FLAG"),
+        ({DAYS: 8, BASIS: True, DUPLICATE: "blue"}, "SYN-LIMIT"),
+        ({DUPLICATE: "blue", "facts.SYNTHETIC.flag": True}, "SYN-LANE"),
+        ({}, "SYN-FALLBACK"),
+    ],
+)
+def test_independent_queue_model_boundaries_and_first_match(values, selected):
+    st = store(p2_doc())
+    out = evaluate_stored(
+        "p2." + COUPON,
+        FORMAT_DECISION,
+        {"parameters": records(**values), "missing": "UNKNOWN"},
+        st.load,
+    )
+    assert out["status"] == "SUCCEEDED"
+    assert out["result"]["selected_rule_ids"] == [selected]

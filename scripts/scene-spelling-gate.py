@@ -1,4 +1,4 @@
-"""plan-v2 M-06 gates for dmn_json 0.5.9: scene ids in both spellings (legacy P_02_04_01, canonical M_P_02_04_01).
+"""Scene spelling parity gates for dmn_json: scene ids in both spellings (legacy P_99_61_01, canonical M_P_99_61_01).
 
     <plugin venv>/bin/python scripts/scene-spelling-gate.py [--base v0.5.8] [--head HEAD] [--json report.json]
         --nodes <published app json> ... --route <doc> --supplement <doc> --acceptance <doc> --scene-entity <doc>
@@ -147,7 +147,7 @@ from dmn_client.decision_executor import evaluate_decision
 from dmn_client.stored_tables import evaluate_stored
 
 # Compiling a stored route table is pure for one storage snapshot; both revisions memoize it the same way per world
-# (the gate runs ~10^4 route cases on an 866-route table) and hand out a fresh copy each time.
+# (the gate runs ~10^4 route cases on an route table) and hand out a fresh copy each time.
 import copy
 _real_materialize = _dx._materialize
 _memo = {}

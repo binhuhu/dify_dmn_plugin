@@ -15,7 +15,7 @@ resource:
       enabled: true
 ```
 
-The companion manifest and staging project version become `0.4.0-rc4`; existing SDK smoke/test version assertions are synchronized. The original external-plugin identity/version is unchanged. This note documents upgrade impact. Exact package and publication identifiers are recorded in the RC4 release record. No central-control or AgentHub installation/upgrade is performed.
+The companion manifest and staging project version become `0.4.0-rc4`; existing SDK smoke/test version assertions are synchronized. The original external-plugin identity/version is unchanged. This note documents upgrade impact. Exact package and publication identifiers are recorded in the RC4 release record. No central-control or Dify 宿主 installation/upgrade is performed.
 
 `resource.permission.endpoint.enabled` is the plugin's permission to register an Endpoint. It is separate from provider `credentials_for_provider`, which remains `{}` with byte-identical provider YAML/Python. No tool/model/app/storage invocation permission is added.
 
@@ -36,7 +36,7 @@ RC3 archive → RC4 staging changes only `manifest.yaml` and the project version
 
 RC3 registers `endpoints/structure_viewer.yaml` but declares `resource.permission: {}`. Dify 1.11.1's official compose pins daemon `0.5.1-local`; its permission model includes `endpoint.enabled`, and its create-Endpoint client calls daemon `/endpoint/setup`.
 
-Daemon 0.5.1's `AllowRegisterEndpoint()` returns true only when permission, endpoint permission and `enabled` are present/true. `SetupEndpoint()` checks it after loading the installation/declaration, before installing the Endpoint, and returns permission denied otherwise. Therefore the missing flag is a confirmed source-level blocker for new Endpoint setup. This is **not** evidence that plugin package installation itself must fail, and it is not a real AgentHub/daemon execution result. The global `PLUGIN_ENDPOINT_ENABLED` switch and actual deployment can impose additional conditions.
+Daemon 0.5.1's `AllowRegisterEndpoint()` returns true only when permission, endpoint permission and `enabled` are present/true. `SetupEndpoint()` checks it after loading the installation/declaration, before installing the Endpoint, and returns permission denied otherwise. Therefore the missing flag is a confirmed source-level blocker for new Endpoint setup. This is **not** evidence that plugin package installation itself must fail, and it is not a real Dify 宿主/daemon execution result. The global `PLUGIN_ENDPOINT_ENABLED` switch and actual deployment can impose additional conditions.
 
 Pinned primary sources:
 
@@ -75,11 +75,11 @@ The existing `scripts/shadow-compare-dsl.py` projects fields and sorts action re
 
 **Five-case NodeResult replay: PASS. Judgment results: zero changes in the five reviewed calls.** All 11 private handoff files passed exact byte-size and SHA-256 verification. The supplied definition and invocation file each contain zero `reused_from` occurrences. Coverage is ready / missing / ambiguous / uncovered / not_ws. Both evaluator processes exit 0; original RC1 → fresh RC1 and fresh RC1 → RC4 each pass `cmp` with exit 0. Each complete output is 6,545 bytes.
 
-The unchanged supplied runner uses `json.dump(..., ensure_ascii=False, sort_keys=True)` to serialize the complete NodeResults. That is the handed-off baseline's serialization boundary, not an added normalization step. The replay wrapper captures its stdout bytes unchanged and runs `cmp`; it does not drop fields, sort actions, trim output or reserialize results. These are direct evaluator results, not daemon/AgentHub node execution or the separate SDK stream test. The same Python environment is used for the old package and new source.
+The unchanged supplied runner uses `json.dump(..., ensure_ascii=False, sort_keys=True)` to serialize the complete NodeResults. That is the handed-off baseline's serialization boundary, not an added normalization step. The replay wrapper captures its stdout bytes unchanged and runs `cmp`; it does not drop fields, sort actions, trim output or reserialize results. These are direct evaluator results, not daemon/Dify 宿主 node execution or the separate SDK stream test. The same Python environment is used for the old package and new source.
 
 A separate counterexample deliberately includes `reused_from`: RC1 succeeds, while RC3/RC4 block with `SNAPSHOT_REUSE_UNVERIFIED`. This inherited security behavior is an expected change outside the reviewed five calls. Existing regressions cover trusted verification and scope rejection; the SDK regression checks success → blocked reuse with cleared outputs → identical ordinary success on the same instance. No workaround weakens these checks.
 
-Only the definition and calls supplied in this handoff are covered; this executor has not enumerated another machine's entire private repository. The handoff identifies the central-control pinned RC1 package. Actual AgentHub installation readback is a separate task and is not an item-1 prerequisite. Private definitions, invocation values, raw results and local paths are not committed or published.
+Only the definition and calls supplied in this handoff are covered; this executor has not enumerated another machine's entire private repository. The handoff identifies the central-control pinned RC1 package. Actual Dify 宿主 installation readback is a separate task and is not an item-1 prerequisite. Private definitions, invocation values, raw results and local paths are not committed or published.
 
 Do not upgrade to RC3 for the missing Endpoint permission. RC4 fixes that declaration and passes the reviewed-call replay, so it is the candidate to validate and upgrade under the central-control owner's control. Real daemon installation → Endpoint setup → tool execution remains **NOT_RUN** and belongs to item 2 after review acceptance. Publishing this prerelease does not install it or authorize production changes.
 

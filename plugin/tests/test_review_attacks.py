@@ -1,8 +1,4 @@
-"""Independent adversarial review of the 0.5.20 storage migration (d0bb423) against 迁移不变式.md I1–I17.
-
-Each test states the invariant it attacks. A test that FAILS on d0bb423 is a counterexample; a test marked HELD passes and
-records an attack that did not break the candidate. Interleavings of two processes are made deterministic with a storage
-wrapper that runs the other process at a chosen storage call (no threads)."""
+"""Adversarial storage migration regressions for invariants I1–I17 using deterministic interleavings."""
 
 import copy
 import json
@@ -361,7 +357,7 @@ def test_a10_pre_copy_old_name_save_lands_but_is_answered_unavailable():
     h = ArmOnHead(s.data, read_fails=lambda key: armed["on"] and key == first)
     status, out = run_op(h, "save", body=dict(legacy(bump(bump(five()[std]))), expected_version=N))
     landed = json.loads(s.data["route-table:" + OLD[std]])["version"]
-    # ADJUSTED (round 4, I20 + I26): a storage failure re-reading the record after the head is not swallowed; the save
+    # Invariant I20 + I26: a storage failure re-reading the record after the head is not swallowed; the save
     # is answered 503 and says explicitly that the version was written and must be read back (not 「稍后再试」)
     told = (
         status == 503
@@ -460,9 +456,9 @@ SCRATCH = pathlib.Path(__file__).resolve().parents[2] / ".compatibility-fixtures
 BASE0519, RUNNER = SCRATCH / "base0519" / "plugin", SCRATCH / "run0519.py"
 READS_0519 = [
     ["run_op", "table", "dispatch.resource", None, None],
-    ["ev", "dispatch.resource", "resource-targets/v1", {"resource_id": "human.queue"}],
-    ["route", "dispatch.route", "routing-table/v4", "P_02_04_01", "COMPLAINT", "STAGE_1"],
-    ["route", "dispatch.route", "routing-table/v3", "P_02_04_01", "COMPLAINT", "STAGE_1"],
+    ["ev", "dispatch.resource", "resource-targets/v1", {"resource_id": "workshop.queue"}],
+    ["route", "dispatch.route", "routing-table/v4", "P_99_41_01", "COMPLAINT", "STAGE_1"],
+    ["route", "dispatch.route", "routing-table/v3", "P_99_41_01", "COMPLAINT", "STAGE_1"],
 ]
 
 
@@ -532,7 +528,7 @@ def test_a12_undo_leaves_the_orphan_version_of_a_crashed_s_save(std):
         tables(CrashAtStdHead(s.data)).save(next_body(s, std), N, new_id=lambda: "3" * 32)
     assert tables(s).undo(std, N)["version"] == N
     left = sorted(k for k in s.data if k.startswith("route-table:" + std))
-    # ADJUSTED (round 4, I18): the first record stays after an undo (state OLD, its epoch grown) so that a late writer
+    # Invariant I18: the first record stays after an undo (state OLD, its epoch grown) so that a late writer
     # of the undone first store cannot mistake a later one for its own; every other key is as before the copy
     first = "route-table:%s:first" % std
     assert left == [first] and json.loads(s.data[first])["state"] == "OLD", left
@@ -554,7 +550,7 @@ def test_a13_undo_of_a_copy_in_progress_is_overtaken_by_the_copy():
             return True
         return False
 
-    # ADJUSTED (round 4, I21): the first store overtaken by the undo fails explicitly instead of returning
+    # Invariant I21: the first store overtaken by the undo fails explicitly instead of returning
     with pytest.raises(RouteTableError) as exc:
         StorageTables(Hooked(data, on_set=undo_now), now=CLOCK).save(
             body_of(s, std), N, new_id=lambda: X

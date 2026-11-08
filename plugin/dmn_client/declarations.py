@@ -84,7 +84,7 @@ KEYS = {
     "rows",
     "row_order_sha256",
     "texts",
-    "coexist",  # 0.5.19 (意见第 3 条): FEATURE_REALITY only
+    "coexist",  # 0.5.19: FEATURE_REALITY only
 }
 SET_KEYS = {"stage", "role", "models"}
 MAX_SHADOWING = 100
@@ -146,9 +146,9 @@ RESOURCE_GAP = {"code": "RESOURCE_TO_CONFIRM", "owner": "SYSTEM", "kind": "CONFI
 PERSON_ID_RE = re.compile(
     r"(agent|staff|employee|worker|operator|seat|user)_?(id|no|num|number|code)", re.I
 )
-# 0.5.22 review round 2: a number written as a string ("1", "１", "1.5") is not a priority code; it goes as an integer
+# a number written as a string ("1", "１", "1.5") is not a priority code; it goes as an integer
 NUMERIC_RE = re.compile(r"[+-]?\d+(\.\d+)?")
-# 0.5.19 (意见第 5、12 条): a gap says what is missing, who supplies it and what kind it is. AUTHOR and RULE are new (the
+# 0.5.19: a gap says what is missing, who supplies it and what kind it is. AUTHOR and RULE are new (the
 # input is complete but no rule covers it: the table's author owes a row). A list is one item per association group.
 GAP_OWNERS = ("OPERATOR", "CUSTOMER", "SYSTEM", "AUTHOR")
 GAP_KINDS = ("FACT", "ENTITY", "CONFIRM", "RULE")
@@ -156,11 +156,11 @@ GAP_KEYS = {"code", "owner", "kind", "field_id"}
 GAP_LIST_KEYS = GAP_KEYS | {"any_of", "min_satisfied", "blocking", "assoc_id"}
 MAX_GAPS = 64
 GAP_STATES = ("PENDING", "UNKNOWN")
-# 0.5.19 (意见第 12 条): one suggested action; executing is never the table's
+# 0.5.19: one suggested action; executing is never the table's
 ACTION_KEYS = {"code", "capability_id", "executor", "money"}
 EXECUTORS = ("SYSTEM", "AGENT")
 UNIT_MAX = 32
-# 0.5.19 (意见第 11 条): a solution-layer table name fixes the role of its declaration
+# 0.5.19: a solution-layer table name fixes the role of its declaration
 ROLE_BY_NAME = (
     ("solution.fact.feature.", "FACT_FEATURE"),
     ("solution.feature.reality.", "FEATURE_REALITY"),
@@ -204,7 +204,7 @@ def _named_map(value, path, label, entry):
 
 
 def _parameter(v, path, stage="TRANSITION"):
-    # 0.5.19 (意见第 13 条): a STANDARD parameter may give its stored unit
+    # 0.5.19: a STANDARD parameter may give its stored unit
     unit = stage == "STANDARD"
     _need(
         type(v) is dict and set(v) <= {"name", "source", "domain"} | ({"unit"} if unit else set()),
@@ -291,7 +291,7 @@ def _output(v, path, fields=False):
 
 
 def _row(v, path, stage="TRANSITION"):
-    # 0.5.19 (意见第 8 条): split_of + split_reason, the FIRST-table exception
+    # 0.5.19: split_of + split_reason, the FIRST-table exception
     split = stage == "STANDARD"
     _need(
         type(v) is dict
@@ -543,7 +543,7 @@ def _resource_name(table):
 
 
 def _role_of_name(role, table):
-    """0.5.19 (意见第 11 条): a solution-layer table name fixes the role of its declaration."""
+    """0.5.19: a solution-layer table name fixes the role of its declaration."""
     for prefix, want in ROLE_BY_NAME:
         if type(table) is str and table.startswith(prefix):
             _need(
@@ -555,7 +555,7 @@ def _role_of_name(role, table):
 
 
 def _coexist(value, out):
-    """0.5.19 (意见第 3 条): the realities a reality table lets hold together, as groups of reality_id; every id is one
+    """0.5.19: the realities a reality table lets hold together, as groups of reality_id; every id is one
     of outputs.reality_id.values."""
     _need(
         out["stage"] == "STANDARD" and out["role"] == "FEATURE_REALITY",
@@ -643,7 +643,7 @@ def _decision(out, model):
             % (model["hit_policy"], ", ".join(split[:5])),
             ".rows." + (split[0][:64] if split else ""),
         )
-        # 0.5.19 (意见第 12 条): the role's business keys first, then one rule per conclusion
+        # 0.5.19: the role's business keys first, then one rule per conclusion
         _business_keys(out["role"], model)
         _one_rule_per_conclusion(out["role"], model, out["rows"], first)
     for ref, t in templates.items():
@@ -723,7 +723,7 @@ def _key_at(result, key):
 
 
 def _business_keys(role, model):
-    """0.5.19 (意见第 12 条): every template but the no-match one writes the role's business keys (null when it has no
+    """0.5.19: every template but the no-match one writes the role's business keys (null when it has no
     value), so a conclusion is never told apart by a key left out."""
     keys = CONCLUSION_KEYS.get(role, ())
     for ref, t in model["result_templates"].items():
@@ -742,7 +742,7 @@ def _business_keys(role, model):
 
 
 def _one_rule_per_conclusion(role, model, rows=None, first=False):
-    """0.5.18: two rules giving the same conclusion are one rule with when_any combinations. 0.5.19 (意见第 8 条): a FIRST
+    """0.5.18: two rules giving the same conclusion are one rule with when_any combinations. 0.5.19: a FIRST
     table may give a conclusion again when merging would move combinations past another conclusion's rule: the later
     rule's row names the conclusion's first rule in split_of with a split_reason, and between it and the previous rule
     of that conclusion stands a rule of another conclusion that may hold together with it."""
@@ -910,7 +910,7 @@ def _standard(out, t, p):
     for i, a in enumerate(result["actions"]):
         _action(a, p + ".result.actions[%d]" % i)
     role, state = out["role"], t["state"]
-    # 0.5.19 (意见第 23 条): a feature is a value
+    # 0.5.19: a feature is a value
     _need(
         role != "FACT_FEATURE" or state != "FAIL",
         "特征表不用 FAIL：特征是值，布尔否写 PASS + value=false",
@@ -924,7 +924,7 @@ def _standard(out, t, p):
             p + ".result.gap",
         )
     else:
-        # 0.5.19 (意见第 12 条): PENDING / UNKNOWN say what is missing and who supplies it
+        # 0.5.19: PENDING / UNKNOWN say what is missing and who supplies it
         _need(
             state not in GAP_STATES or result.get("gap") is not None,
             "%s 的模板要写 result.gap（code + owner + kind）：缺什么、归谁补" % state,
@@ -1142,7 +1142,7 @@ def _resource_result(result, state, p):
             "UNKNOWN（缺编码）的缺口写 gap = {code: RESOURCE_TO_CONFIRM, owner: SYSTEM, kind: CONFIRM}",
             q + ".gap",
         )
-        # review round 2 (K1): the other half of K5. UNKNOWN means a code is missing, so at least one of the four is
+        # K1 complements K5. UNKNOWN means a code is missing, so at least one of the four is
         # null; a rule whose four codes are all given is PASS
         _need(
             any(_key_at(result, k)[1] is None for k in CONCLUSION_KEYS[RESOURCE]),
@@ -1155,7 +1155,7 @@ def _resource_result(result, state, p):
 
 def _code(value, label, path):
     """A code (pool, skill group, priority) as the platform writes it: not blank, no whitespace, no invisible or control
-    characters (review round 2: a spelling must never make a second conclusion)."""
+    characters (a spelling must never make a second conclusion)."""
     _need(
         type(value) is str
         and 0 < len(value) <= 64
@@ -1167,7 +1167,7 @@ def _code(value, label, path):
 
 
 def _resource_codes(model):
-    """0.5.22 review round 2, across the rule templates of a RESOURCE table, in rule order:
+    """Across the rule templates of a RESOURCE table, in rule order:
     - K1: a PASS and an UNKNOWN never carry the same four codes (codes complete → PASS, missing → UNKNOWN);
     - one spelling per code: two codes that differ only in case are one code, written two ways (the later is refused)."""
     keys = CONCLUSION_KEYS[RESOURCE]
@@ -1244,7 +1244,7 @@ def _gap_item(g, p, keys):
 
 
 def _gap(gap, p):
-    """0.5.19 (意见第 5、12 条): one gap {code, owner, kind, field_id?}, or (supplement style) a list of them, one per
+    """0.5.19: one gap {code, owner, kind, field_id?}, or (supplement style) a list of them, one per
     association group, each may add any_of, min_satisfied, blocking, assoc_id."""
     if type(gap) is list:
         _need(0 < len(gap) <= MAX_GAPS, "gap 列表 1–%d 项" % MAX_GAPS, p)
@@ -1255,7 +1255,7 @@ def _gap(gap, p):
 
 
 def _action(a, p):
-    """0.5.19 (意见第 12 条): an action is exactly {code, capability_id, executor, money}; money is null or the rule that
+    """0.5.19: an action is exactly {code, capability_id, executor, money}; money is null or the rule that
     computes the amount."""
     _need(
         type(a) is dict and set(a) == ACTION_KEYS,
@@ -1355,7 +1355,7 @@ def _disposal(result, texts, state, p):
 
 def _texts_against_declare(out, lines, p):
     """0.5.17 (R7): every {槽位} is declared when the table declares slots; no declared forbidden word appears.
-    0.5.19 (意见第 13 条): a text with a {槽位} needs texts.slots whether or not the table declared any."""
+    0.5.19: a text with a {槽位} needs texts.slots whether or not the table declared any."""
     decl = out.get("texts") or {}
     for line in lines:
         for name in SLOT_RE.findall(line):
@@ -1481,7 +1481,7 @@ def _kind_rules(model):
 
 
 def _coexist_warnings(model, coexist):
-    """0.5.19 (意见第 3 条), yellow only: on a COLLECT reality table an exit rule (kind EXIT) and a reality rule (kind
+    """0.5.19, yellow only: on a COLLECT reality table an exit rule (kind EXIT) and a reality rule (kind
     REALITY) that may hold together (the exit wins over every reality), and two realities that may hold together without
     a coexist group listing both (they are treated as the exit)."""
     rules = _kind_rules(model)

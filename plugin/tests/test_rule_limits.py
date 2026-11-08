@@ -1,4 +1,4 @@
-"""The 128-rule limit of a decision table, at the boundary (WO-20261015 item 7)."""
+"""The 128-rule limit of a decision table, at the boundary."""
 
 import copy
 

@@ -1,5 +1,8 @@
 # 架构稳定性评估与落地边界
 
+> Historical external `hu8627/dmn` Node/XML engine documentation. This is not the installation guide or full support matrix for the current `hu8627/dmn_json` candidate; see the [repository README](../README.md).
+
+
 ## 结论
 
 结构适合候选试点：查询和决策共享显式 Step 合同，定位一个 Phase，解决问题 P1–P7；每个 Phase 可以交错多个 query/decision Step。Dify 仅做工具接入，DMN 和能力契约由版本固定的服务统一执行。这一结构避免把规则隐在提示词或插件核心中。

@@ -14,7 +14,7 @@ from dmn_client.scene_id import (  # noqa: F401
     by_scene,
     is_scene,
 )
-from dmn_client.table_names import alias_of, old_name, read_as, storage_name
+from dmn_client.table_names import STANDARD, alias_of, old_name, read_as, storage_name
 
 SCHEMA = "dmn-json.route-table/v1"
 FORMAT = "admission-routing-table/v1"
@@ -70,7 +70,7 @@ MAX_HISTORY = 50
 TABLE_RE = re.compile(r"^[a-z0-9][a-z0-9._-]{0,63}$")
 # 0.5.17 (DMN 2.0 §二): a solution-layer policy table is solution.<two segments>.<scene_id>[.<part>]. The scene id keeps its
 # canonical spelling (M_P_02_04_01), so this is the one storable name outside TABLE_RE; <part> is lower case, up to 24.
-# 0.5.19 (DMN 2.0 意见第 14 条): or solution.disposal.status.shared, one disposal status table several scenes share (the
+# 0.5.19: or solution.disposal.status.shared, one disposal status table several scenes share (the
 # name); only disposal.status, without <part>
 SOLUTION_TABLE_RE = re.compile(
     r"^solution\.(?:(?:fact\.feature|feature\.reality|disposal\.strategy|disposal\.status)"
@@ -642,9 +642,9 @@ def _row_shown(key):
 
 
 def route_callability(doc):
-    """0.5.23 (D13, Brian 11-06 19:0x「As recommended」): what a route table leaves callable. invoke_solution calls only
+    """Return what a route table leaves callable. invoke_solution calls only
     CURRENT, so a SOLUTION_APP row is callable iff its app is CURRENT in the registry (a v2 table reads every app as
-    CURRENT, solution_entry). An app id with surrounding whitespace is never callable (review rounds 1–2): the routing
+    CURRENT, solution_entry). An app id with surrounding whitespace is never callable: the routing
     result reads the entry under the exact id while invoke_solution strips it and reads another, so such a "twin"
     could stand in either way. Returns (callable_keys, not_callable {key: (app_id, status)}, unrouted CURRENT apps); a
     key is (scene_id in its legacy spelling, issue_type, phase)."""
@@ -1708,9 +1708,34 @@ class StorageTables:
                             if "supersedes" in doc
                             else {}
                         ),
+                        # 0.5.24 (D14): who published this version and under which release-window line; only a
+                        # version with a publish record gets these keys, so every other entry is 0.5.23's
+                        **self._published(doc),
                     }
                 )
         return out
+
+    @staticmethod
+    def publish_key(table, save_id):
+        """0.5.24 (D14): the record of the publish that wrote the version with save_id. Never read by a reader."""
+        return "route-table:" + table + ":p:" + save_id
+
+    def _published(self, doc):
+        table, save_id = doc.get("table"), doc.get("save_id")
+        # only the five have drafts and publishes: every other table's history is read exactly as in 0.5.23
+        if not (storage_name(table) in STANDARD and type(save_id) is str and save_id):
+            return {}
+        try:
+            rec = self._read(self.publish_key(table, save_id))
+        except Exception:
+            return {"publish_record": "UNREADABLE"}
+        if type(rec) is not dict or rec.get("save_id") != save_id:
+            return {}
+        return {
+            "writer": copy.deepcopy(rec.get("publisher")),
+            "release_ref": rec.get("release_ref"),
+            "draft_writer": copy.deepcopy((rec.get("draft") or {}).get("writer")),
+        }
 
     def route_tables(self):
         """Route tables."""
@@ -1764,7 +1789,7 @@ class StorageTables:
         if clean["schema"] in ROUTE_SCHEMAS and clean.get("resource_table"):
             raw = self.load(clean["resource_table"])
             _need(
-                # 0.5.22 review round 2: the table is there, in decision format; route compiling reads only the list
+                # the table is there, in decision format; route compiling reads only the list
                 not (
                     isinstance(raw, dict)
                     and raw.get("schema") == stored_tables.SCHEMA_DECISION
@@ -2160,7 +2185,7 @@ class StorageTables:
         mark = _mark(rec)
         retry = rec is not None and rec["state"] == COPYING
         if not retry:
-            # I22 (Codex review of 0.5.20): a version key above the old head is a crashed save's leftover that a pin
+            # I22: a version key above the old head is a crashed save's leftover that a pin
             # S@k reads through the alias before the copy; the copy would give (S, k) a second content: refused, nothing
             # written. A retry of a copy already under way is not checked again (it converges, I10)
             orphans = self.old_orphans(table)

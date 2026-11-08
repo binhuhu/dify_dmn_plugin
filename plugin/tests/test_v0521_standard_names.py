@@ -22,12 +22,13 @@ from dmn_client.stored_tables import (
     reserved_name,
 )
 
-OWNERS = {APP_TARGET: "定位 TARGET", APP_TRIAGE: "分诊 TRIAGE"}
+OWNERS = {APP_TARGET: "Synthetic target owner", APP_TRIAGE: "Synthetic triage owner"}
 
 
 def decision(table, app_id):
     return p2_doc(
-        table=table, owner={"app_id": app_id, "team": "交付链", "name": OWNERS.get(app_id, "方案")}
+        table=table,
+        owner={"app_id": app_id, "team": "TEST", "name": OWNERS.get(app_id, "Synthetic owner")},
     )
 
 
@@ -55,10 +56,10 @@ def save(storage, body, table=None, expected=0):
 @pytest.mark.parametrize(
     "table,app_id",
     [
-        ("target.coupon.priority", APP_TARGET),
+        ("target.tile.priority", APP_TARGET),
         ("target.scene.language", APP_TARGET),
         ("triage.scene.priority", APP_TRIAGE),
-        ("triage.order_line.limit_2", APP_TRIAGE),
+        ("triage.toy_board.limit_2", APP_TRIAGE),
         ("target." + "a" * 32 + "." + "b" * 20, APP_TARGET),
     ],
 )
@@ -104,9 +105,9 @@ def test_a_decision_set_takes_a_standard_name_too():
 @pytest.mark.parametrize(
     "table,app_id",
     [
-        ("target.coupon.priority", APP_TRIAGE),  # the prefix fixes the owner
+        ("target.tile.priority", APP_TRIAGE),  # the prefix fixes the owner
         ("triage.scene.priority", APP_TARGET),
-        ("target.coupon.priority", "7b281885-e5ec-4e13-b61e-f3b7e7e068a2"),
+        ("target.tile.priority", "00000000-0000-4000-8000-000000000103"),
     ],
 )
 def test_the_prefix_still_fixes_the_owner(table, app_id):
@@ -151,19 +152,19 @@ def test_the_two_mapped_decision_names_are_unchanged(table, app_id):
     "table",
     [
         "target.a.b.c",
-        "target.Coupon.priority",
-        "target.1coupon.priority",
-        "target.coupon.Priority",
+        "target.Tile.priority",
+        "target.1tile.priority",
+        "target.tile.Priority",
         "target..priority",
-        "target.coupon.",
-        "target.coupon.priority\n",
-        "target.coupon-x.priority",
-        "target.coupon.prio-rity",
+        "target.tile.",
+        "target.tile.priority\n",
+        "target.tile-x.priority",
+        "target.tile.prio-rity",
         "target." + "a" * 33 + ".b",
         "target.a." + "b" * 33,
         "target." + "a" * 32 + "." + "b" * 32,  # each segment fits, the whole name is over 64
         "triage." + "a" * 32 + "." + "b" * 25,
-        "target.coupon.priority ",
+        "target.tile.priority ",
     ],
 )
 def test_other_dotted_names_are_refused(table):
@@ -186,14 +187,14 @@ def test_old_single_segment_names_keep_working(table, app_id):
 
 def test_new_names_have_no_first_store_state():
     s = FakeStorage()
-    assert save(s, decision("target.coupon.priority", APP_TARGET))[0] == 200
-    status, out = run_op(s, "check", "target.coupon.priority")
+    assert save(s, decision("target.tile.priority", APP_TARGET))[0] == 200
+    status, out = run_op(s, "check", "target.tile.priority")
     assert (
         status == 400 and out["error"]["code"] == "ROUTE_TABLE_INVALID"
     )  # only the five have standard names to migrate
-    status, out = run_op(s, "undo", "target.coupon.priority", "1")
+    status, out = run_op(s, "undo", "target.tile.priority", "1")
     assert status == 400
-    changed = decision("target.coupon.priority", APP_TARGET)
+    changed = decision("target.tile.priority", APP_TARGET)
     changed["note"] = "第二版"
     status, out = save(s, changed, expected=1)
     assert status == 200 and out["version"] == 2
@@ -203,7 +204,7 @@ def test_a_route_table_cannot_take_a_new_standard_name():
     from test_route_table_v2 import doc as route_doc
 
     body = route_doc()
-    body["table"] = "triage.coupon.route"
+    body["table"] = "triage.tile.route"
     with pytest.raises(RouteTableError) as e:
         validate_doc(body)
     assert e.value.code in ("ROUTE_TABLE_INVALID", "STORED_TABLE_NAME")

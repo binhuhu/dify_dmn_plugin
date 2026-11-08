@@ -238,12 +238,12 @@ def test_route_tables_validate_in_the_canonical_spelling():
 
 def test_a_stored_table_with_both_spellings_of_one_scene_is_refused():
     d = doc_v2()
-    d["scenes"][m("P_02_04_01")] = d["scenes"]["P_02_04_01"]
+    d["scenes"][m("P_99_41_01")] = d["scenes"]["P_99_41_01"]
     with pytest.raises(RouteTableError) as e:
         validate_doc(d)
     assert e.value.code == "SCENE_KEY_DUPLICATE"
     s = supplement_doc()
-    s["scenes"][m("P_02_04_01")] = s["scenes"]["P_02_04_01"]
+    s["scenes"][m("P_99_83_01")] = s["scenes"]["P_99_83_01"]
     with pytest.raises(RouteTableError) as e:
         validate_doc(s)
     assert e.value.code == "SCENE_KEY_DUPLICATE"
@@ -296,8 +296,8 @@ def test_a_v1_route_table_decides_the_same_for_either_spelling():
         st.save(table, 0)
         bundle = json.loads(json.dumps(stub_bundle()))
         bundle["models"]["dispatch.route@4.0.0"]["source"]["format"] = "admission-routing-table/v1"
-        a = call(bundle, "P_02_04_01", "COMPLAINT", "STAGE_1", st.load)
-        b = call(bundle, "M_P_02_04_01", "COMPLAINT", "STAGE_1", st.load)
+        a = call(bundle, "P_99_71_01", "FEEDBACK", "STAGE_2", st.load)
+        b = call(bundle, "M_P_99_71_01", "FEEDBACK", "STAGE_2", st.load)
         assert decision(a) == decision(b)
         assert a["trace"]["selected_rule_ids"]
 
@@ -321,8 +321,8 @@ def test_inline_bundles_are_not_touched():
     from dmn_client.route_table import materialize
 
     compiled, _ = materialize(compiled, st.load)
-    a = call(compiled, "P_02_04_01", "COMPLAINT", "STAGE_1", None)
-    b = call(compiled, "M_P_02_04_01", "COMPLAINT", "STAGE_1", None)
+    a = call(compiled, "P_99_71_01", "FEEDBACK", "STAGE_2", None)
+    b = call(compiled, "M_P_99_71_01", "FEEDBACK", "STAGE_2", None)
     assert a["trace"]["selected_rule_ids"] and b["trace"]["selected_rule_ids"] == []
 
 
@@ -416,7 +416,7 @@ def test_supplement_lookup_takes_both_spellings_and_echoes_the_asked_spelling(ta
         d["scenes"] = {m(k): v for k, v in d["scenes"].items()}
     st = StorageTables(FakeStorage())
     st.save(d, 0)
-    for sid in ("P_02_04_01", "P_04_04_01", "P_05_01_01", "P_99_99_99"):
+    for sid in ("P_99_83_01", "P_99_83_02", "P_99_83_03", "P_99_83_04", "P_99_99_99"):
         for asked in (sid, m(sid)):
             r = evaluate_stored(
                 "supplement.requirements",
@@ -463,7 +463,7 @@ def test_a_canonical_row_added_to_a_legacy_table_is_saved_in_legacy():
     d = doc_v2(note="Synthetic added row")
     d["routes"].append(
         {
-            "scene_id": "M_P_05_01_01",
+            "scene_id": "M_P_99_44_01",
             "issue_type": "COMPLAINT",
             "phase": "STAGE_1",
             "target": {"kind": "SOLUTION_APP", "app_id": COUPON},
@@ -475,7 +475,7 @@ def test_a_canonical_row_added_to_a_legacy_table_is_saved_in_legacy():
     assert "scene_spelling_was" not in body
     head = stored(st)
     assert all(SCENE_RE_058.match(s) for s in scene_values(head))
-    assert {"scene_id": "P_05_01_01", "issue_type": "COMPLAINT", "phase": "STAGE_1"} in [
+    assert {"scene_id": "P_99_44_01", "issue_type": "COMPLAINT", "phase": "STAGE_1"} in [
         {k: r[k] for k in ("scene_id", "issue_type", "phase")} for r in head["routes"]
     ]
 
@@ -529,7 +529,7 @@ def test_a_legacy_copy_saved_over_a_canonical_version_reads_under_0_5_8():
 def test_a_mixed_first_save_is_stored_in_legacy():
     st = FakeStorage()
     d = doc_v2()
-    d["scenes"] = {m(k) if k == "P_02_04_01" else k: v for k, v in d["scenes"].items()}
+    d["scenes"] = {m(k) if k == "P_99_41_01" else k: v for k, v in d["scenes"].items()}
     status, body = save(st, d, 0)
     assert status == 200, body
     assert body["respelled_count"] == 1 and body["scene_spelling"] == "LEGACY"
@@ -550,28 +550,28 @@ def test_a_v1_table_respells_registry_and_routes():
 def test_solution_names_and_notes_are_not_respelled():
     st = FakeStorage()
     save(st, doc_v2(), 0)
-    d = doc_v2(note="改 M_P_02_04_01 那一行")
-    d["solutions"][COUPON]["name"] = "SYN-样例-B-SOLUTION-WF-示例-M_P_02_04_01-例"
-    d["scenes"][m("P_04_04_01")] = d["scenes"].pop("P_04_04_01")
+    d = doc_v2(note="改 M_P_99_41_01 那一行")
+    d["solutions"][COUPON]["name"] = "SYN-样例-B-SOLUTION-WF-示例-M_P_99_41_01-例"
+    d["scenes"][m("P_99_42_01")] = d["scenes"].pop("P_99_42_01")
     status, body = save(st, d, 1)
     assert status == 200, body
     head = stored(st)
-    assert head["note"] == "改 M_P_02_04_01 那一行"
-    assert head["solutions"][COUPON]["name"] == "SYN-样例-B-SOLUTION-WF-示例-M_P_02_04_01-例"
+    assert head["note"] == "改 M_P_99_41_01 那一行"
+    assert head["solutions"][COUPON]["name"] == "SYN-样例-B-SOLUTION-WF-示例-M_P_99_41_01-例"
     assert body["respelled_count"] == 1
 
 
 def test_supplement_keys_and_basis_tokens_are_respelled():
     st = FakeStorage()
     save(st, supplement_doc(), 0)
-    d = supplement_doc(note="M_P_02_04_01 一行")
-    d["scenes"][m("P_02_04_01")] = dict(d["scenes"].pop("P_02_04_01"), basis="同 M_P_04_04_01")
+    d = supplement_doc(note="M_P_99_83_01 一行")
+    d["scenes"][m("P_99_83_01")] = dict(d["scenes"].pop("P_99_83_01"), basis="同 M_P_99_83_02")
     status, body = save(st, d, 1)
     assert status == 200, body
     assert body["respelled_count"] == 2 and body["scene_spelling"] == "LEGACY"
     head = stored(st, "supplement.requirements")
-    assert head["scenes"]["P_02_04_01"]["basis"] == "同 P_04_04_01"
-    assert head["note"] == "M_P_02_04_01 一行"
+    assert head["scenes"]["P_99_83_01"]["basis"] == "同 P_99_83_02"
+    assert head["note"] == "M_P_99_83_01 一行"
 
 
 def test_decision_table_conditions_and_scene_rule_ids_are_respelled():
@@ -604,7 +604,7 @@ def test_decision_table_conditions_and_scene_rule_ids_are_respelled():
 @pytest.mark.parametrize(
     "edit",
     [
-        lambda d: d["scenes"].__setitem__("M_P_02_04_01", d["scenes"]["P_02_04_01"]),
+        lambda d: d["scenes"].__setitem__("M_P_99_41_01", d["scenes"]["P_99_41_01"]),
         lambda d: (
             d["scenes"].__setitem__("M_P_09_09_09", {"name": "合成", "domain": "测试"}),
             d["routes"].append(
@@ -644,7 +644,7 @@ def test_a_decision_table_with_both_spellings_in_one_list_or_rule_id_is_refused(
 
 def test_supplement_with_both_spellings_is_refused_on_save():
     d = supplement_doc()
-    d["scenes"]["M_P_02_04_01"] = d["scenes"]["P_02_04_01"]
+    d["scenes"]["M_P_99_83_01"] = d["scenes"]["P_99_83_01"]
     st = FakeStorage()
     status, body = save(st, d, 0)
     assert status == 400 and body["error"]["code"] == "SCENE_KEY_DUPLICATE"
@@ -656,7 +656,7 @@ def test_the_respelled_table_still_routes_and_invokes():
     d = canonical_doc(doc_v2(note="re-key"))
     save(st, d, 1)
     tables = StorageTables(st)
-    a = call(v2_stub(), "P_04_04_01", "COMPLAINT", "STAGE_1", tables.load)
+    a = call(v2_stub(), "P_99_42_01", "COMPLAINT", "STAGE_1", tables.load)
     assert a["execution_status"] == "SUCCEEDED" and a["trace"]["selected_rule_ids"]
     from dmn_client.solution_invoke import invoke_solution
 
@@ -734,14 +734,14 @@ def test_basis_respells_passenger_leaf_tokens_only():
     st = FakeStorage()
     save(st, supplement_doc(), 0)
     d = supplement_doc(note="二")
-    d["scenes"][m("P_02_04_01")] = dict(
-        d["scenes"].pop("P_02_04_01"), basis="同 M_P_04_04_01；合作方 M_H_21、块 M_P_02_04"
+    d["scenes"][m("P_99_83_01")] = dict(
+        d["scenes"].pop("P_99_83_01"), basis="同 M_P_99_83_02；合作方 M_H_21、块 M_P_02_04"
     )
     status, body = save(st, d, 1)
     assert status == 200, body
     assert body["respelled_count"] == 2
     head = stored(st, "supplement.requirements")
-    assert head["scenes"]["P_02_04_01"]["basis"] == "同 P_04_04_01；合作方 M_H_21、块 M_P_02_04"
+    assert head["scenes"]["P_99_83_01"]["basis"] == "同 P_99_83_02；合作方 M_H_21、块 M_P_02_04"
 
 
 def _old_answers():

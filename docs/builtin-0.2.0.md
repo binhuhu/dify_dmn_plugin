@@ -22,4 +22,4 @@
 
 当前执行环境 `command -v dify` 未找到官方 CLI，未生成新的 .difypkg，也没有该包的 SHA256/Dify checksum。不将 staging 目录或普通 zip 称为安装包。未重试此前被拒绝的 GitHub Release API、CLI二进制下载；旧 Release 未修改。官方 CLI 可用的授权打包环境可直接执行 README 中两步命令，之后必须重新验证包内文件与此提交一致、记录包 SHA256和Dify checksum。
 
-没有运行新包 Go decoder、完整目标平台安装/调用或业务验收。用户已报告旧外部包经旧版插件管理页面上传成功；这不代表新免凭据包已安装。无任意代码执行、无网络 fallback、无 Java、无新增完整 FEEL 解释器或工作流 DSL。
+没有运行新包 Go decoder、完整目标平台安装/调用或业务验收。旧版安装反馈不能证明新免凭据包已安装。无任意代码执行、无网络 fallback、无 Java、无新增完整 FEEL 解释器或工作流 DSL。

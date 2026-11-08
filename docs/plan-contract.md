@@ -1,5 +1,8 @@
 # Candidate query–DMN execution contract
 
+> Historical external `hu8627/dmn` Node/XML engine documentation. This is not the installation guide or full support matrix for the current `hu8627/dmn_json` candidate; see the [repository README](../README.md).
+
+
 ## Status and source boundaries
 
 This is an executable **candidate protocol and synthetic demonstration**, not the production identity/binding/result contracts. Its schema names deliberately do not claim `scene-result.v2`. No production model, binding ledger, verified endpoint, deployment approval or production zero-drift baseline was supplied.

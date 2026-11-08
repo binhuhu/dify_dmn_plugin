@@ -16,6 +16,7 @@ from dmn_client.route_table import (
 from dmn_client.scene_spelling import respell
 from dmn_client.stored_tables import KEYS, SCHEMA_DECISION, resource_decision_name
 from dmn_client.table_names import old_name, read_names
+from dmn_client.vocabulary import ROUTE_V1_KEYS, ROUTE_V2_KEYS, unknown_keys
 
 OPS = ("table", "history", "version", "save")
 UNDO = "undo"
@@ -27,19 +28,8 @@ MAX_BODY = 512 * 1024
 MAX_DECLARE = 256 * 1024
 MAX_REQUEST = MAX_BODY + MAX_DECLARE + 64 * 1024
 DEFAULT_TABLE = "dispatch.route"
-V1_KEYS = ("table", "issue_types", "phases", "registry", "routes", "note")
-V2_KEYS = (
-    "schema",
-    "table",
-    "issue_types",
-    "phases",
-    "scenes",
-    "solutions",
-    "routes",
-    "note",
-    "resource_table",
-    "declare",
-)
+# 0.5.24 (AQE-E-02): the route formats' keys live in the declared vocabulary, with every other format's
+V1_KEYS, V2_KEYS = ROUTE_V1_KEYS, ROUTE_V2_KEYS
 CONFLICT = ("ROUTE_TABLE_STALE", "ROUTE_TABLE_RACE")
 UNAVAILABLE = (
     "STORED_TABLE_UNAVAILABLE",
@@ -76,8 +66,10 @@ def _sizes(doc):
     return None
 
 
-def run_op(storage, op, table=DEFAULT_TABLE, version=None, body=None):
-    """op in OPS; version: positive int (or digit string) for op=version; body: dict or JSON string for op=save."""
+def run_op(storage, op, table=DEFAULT_TABLE, version=None, body=None, *, gate=None, new_id=None):
+    """op in OPS; version: positive int (or digit string) for op=version; body: dict or JSON string for op=save.
+    0.5.24: gate / new_id pass through to StorageTables.save (publish writes its record from gate, keyed by new_id).
+    run_op is the engine; the tool and the endpoint call two_state.run_entry, which adds drafts, publish and writers."""
     tables = StorageTables(storage)
     table = table or DEFAULT_TABLE
     try:
@@ -147,6 +139,9 @@ def run_op(storage, op, table=DEFAULT_TABLE, version=None, body=None):
             keys = KEYS.get(body.get("schema")) or (
                 V2_KEYS if body.get("schema") in ROUTE_SCHEMAS else V1_KEYS
             )
+            dropped = unknown_keys(
+                body
+            )  # 0.5.24 (AQE-E-02): still dropped here, but never silently
             doc = {k: body.get(k) for k in keys}
             if doc.get("resource_table") is None:
                 doc.pop("resource_table", None)
@@ -180,10 +175,20 @@ def run_op(storage, op, table=DEFAULT_TABLE, version=None, body=None):
                 doc,
                 body.get("expected_version"),
                 gate_report=body.get("gate_report"),
+                gate=gate,
                 schema_transition=body.get("schema_transition"),
+                **({"new_id": new_id} if new_id is not None else {}),
             )
             warned = declarations.warnings(saved, current if isinstance(current, dict) else None)
             warned = warned + _after_save(tables, saved)
+            if dropped:
+                warned.append(
+                    {
+                        "code": "UNKNOWN_KEYS_DROPPED",
+                        "keys": dropped,
+                        "message": "这些顶层键不是这种表的键，没有存：" + "、".join(dropped[:20]),
+                    }
+                )
             return 200, {
                 "table": saved["table"],
                 "version": saved["version"],

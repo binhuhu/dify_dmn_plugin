@@ -1,4 +1,4 @@
-"""Round 4 (be4089a): bar (a) single operation + every crash point; bar (c) boundary."""
+"""Storage migration regressions covering single operations, crash points, and boundaries."""
 
 import json
 

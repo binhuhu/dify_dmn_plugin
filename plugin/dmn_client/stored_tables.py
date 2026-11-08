@@ -89,7 +89,7 @@ MODEL_KEY_RE = re.compile(r"^[a-z][a-z0-9_]{0,47}$")
 MAX_PARAMETERS = 32
 MAX_RULES = 512
 MAX_CONDITIONS = 32
-# 0.5.18: condition combinations in one rule (when_any); 0.5.19 (DMN 2.0 意见第 10 条): 32 → 128, each still ≤ 32 conditions
+# 0.5.18: condition combinations in one rule (when_any); 0.5.19: 32 → 128, each still ≤ 32 conditions
 MAX_COMBINATIONS = 128
 MAX_TEMPLATES = 128
 MAX_SUPPLEMENT_SCENES = 1024
@@ -148,7 +148,7 @@ DECISION_NAME_RULE = (
     "<名称> 小写字母或数字开头，只含小写字母、数字、_、-，最多 48 个字符；"
     "<对象>、<判断> 小写字母开头，只含小写字母、数字、_，各最多 32 个字符，全名最多 64 个字符；"
     "三段名里 target.scene.topic（场景与话题表）和末段为 resource 的名字（资源去向表）不作决策表名"
-)  # 0.5.21's text, verbatim: every refusal 0.5.21 gave keeps its message (0.5.22 review round 1, F2 / 低-1)
+)  # 0.5.21's text, verbatim: every refusal 0.5.21 gave keeps its message
 ITEM_RE = re.compile(r"^[a-z][a-z0-9_]{0,63}$")
 PROMPT_RE = re.compile(r"^[a-z][a-z0-9_.]{0,95}$")
 RESOURCE_RE = re.compile(r"^[a-z][a-z0-9_.-]{0,63}$")
@@ -456,7 +456,7 @@ def _owner(doc, code, decision_set=False):
     }
     name = doc.get("table")
     _need(
-        # 0.5.22 review round 2: on a resource name a decision table is TRIAGE's resource routing; another owner is
+        # on a resource name a decision table is TRIAGE's resource routing; another owner is
         # told so (0.5.21 refused it with the name rule, whose last clause no longer holds for these names)
         decision_set
         or not (table_name(name) and resource_decision_name(name))
@@ -1422,7 +1422,7 @@ def model_sources(model):
 
 
 def _source_check(name, info, expected):
-    """0.5.19 (意见第 17 条): the receipt a table parameter reads comes from the table its model names (read aliases
+    """0.5.19: the receipt a table parameter reads comes from the table its model names (read aliases
     count as their stored name). The table a receipt names: source.table, else (an upstream call that did not get that
     far) its table. A receipt naming no table (an upstream table that was not requested) stays a missing parameter, as
     before: only a succeeded receipt has a state to read, and it always names its table."""
@@ -1924,7 +1924,7 @@ def evaluate_stored(
                     "content_sha256",
                 )
         if fmt == FORMAT_DECISION:
-            # 0.5.19 (意见第 17 条): the receipt sources come from the model (from_table), never from the declaration
+            # 0.5.19: the receipt sources come from the model (from_table), never from the declaration
             out["result"] = evaluate_decision_table(clean, inputs, model_sources(clean["model"]))
         elif fmt == FORMAT_DECISION_SET:
             sources = {key: model_sources(m["model"]) for key, m in clean["models"].items()}

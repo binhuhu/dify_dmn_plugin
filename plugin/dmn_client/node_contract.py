@@ -550,7 +550,7 @@ def _validate_step_strict(step: dict, bundle: dict) -> None:
                 "PARAMETER_BINDING_MISMATCH",
             )
             for rule in model["rules"]:
-                # 0.5.19 (DMN 2.0 意见第 15、22 条): a rule holds when, or when_any (condition combinations)
+                # 0.5.19: a rule holds when, or when_any (condition combinations)
                 for condition in (
                     c
                     for w in (rule["when_any"] if "when_any" in rule else [rule["when"]])

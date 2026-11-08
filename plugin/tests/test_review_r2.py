@@ -1,5 +1,4 @@
-"""Round 2 of the independent review of the 0.5.20 migration (4dae5c4 / b0226ac) against I18–I27. A FAILING test is a
-counterexample. Interleavings are deterministic: a storage wrapper runs the other process at a chosen storage call."""
+"""Storage migration regressions for invariants I18–I27 using deterministic storage-call interleavings."""
 
 import copy
 import json
@@ -129,7 +128,7 @@ def test_r2_aba_transient_leaves_an_orphan_that_blocks_every_later_save(std):
         StorageTables(Hooked2(data, on_set=outer), now=CLOCK).save(
             copy.deepcopy(body), N, new_id=lambda: "b" * 32
         )
-    # ADJUSTED (round 6, bar (b) measured per class): P3 re-reads the record before its version check, so the transient
+    # Invariant bar (b) measured per class: P3 re-reads the record before its version check, so the transient
     # COPYING lands at its re-read after the head (I20): P3 is told STORED_TABLE_COPY_RACE「第 n+1 版已写入…读回核对」, not
     # 「没有生效」; P_b restores NEW under a fresh owner (R2). What the test guarded still holds: no orphan is left, and no
     # later save is blocked. The pin n+1 reads P3's content, which P3 was told is written; a retry from n is STALE
@@ -196,8 +195,8 @@ def test_r3_head_written_after_a_whole_undo_leaves_a_key_0519_refuses(std):
 READS_BOTH = READS_0519 + [
     ["run_op", "table", RESOURCE, None, None],
     ["run_op", "table", ROUTE, None, None],
-    ["ev", RESOURCE, "resource-targets/v1", {"resource_id": "human.queue"}],
-    ["route", ROUTE, "routing-table/v4", "P_02_04_01", "COMPLAINT", "STAGE_1"],
+    ["ev", RESOURCE, "resource-targets/v1", {"resource_id": "workshop.queue"}],
+    ["route", ROUTE, "routing-table/v4", "P_99_41_01", "COMPLAINT", "STAGE_1"],
 ]
 
 

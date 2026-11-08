@@ -286,9 +286,7 @@ def test_p2_tables_read_exactly_as_in_0_5_4():
     out = evaluate_stored(
         "p2." + COUPON, FORMAT_DECISION, {"parameters": {}, "missing": "UNKNOWN"}, st.load
     )
-    assert out["status"] == "SUCCEEDED" and out["result"]["selected_rule_ids"] == [
-        "P2-ACCEPT-UNKNOWN"
-    ]
+    assert out["status"] == "SUCCEEDED" and out["result"]["selected_rule_ids"] == ["SYN-FALLBACK"]
 
 
 def _acceptance(load, sid, days=None, quality="KNOWN", missing="BLOCK"):

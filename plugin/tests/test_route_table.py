@@ -1,6 +1,7 @@
-"""Route tables edited in the plugin (Brian 2026-10-22): storage stubs, compile parity, evaluate_decision, editor Endpoint."""
+"""Route tables edited in the plugin: storage stubs, compile parity, evaluate_decision, editor Endpoint."""
 
 import json
+from datetime import datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -18,6 +19,7 @@ from dmn_client.route_table import (
     materialize,
     validate_doc,
 )
+from dmn_client.two_state import MAINTENANCE_APP, run_entry, sign
 from endpoints.route_editor import ASSETS, RouteEditorEndpoint
 
 HERE = Path(__file__).resolve().parent
@@ -26,40 +28,46 @@ APP_B = "bbbbbbbb-0000-4000-8000-000000000002"
 SPACE = "cccccccc-0000-4000-8000-000000000003"
 NODE_REF = {"workflow_id": "DISPATCH", "phase_id": "D1", "step_id": "D1.S2", "node_id": "N1"}
 KEY = "k" * 32
-# The live 52df5f0d DISPATCH readback (route model + REGISTRY line), committed so the parity checks below run in CI
-# (review T2-06: they used to skip outside the maintainer's machine).
-LIVE_READBACK = HERE / "dispatch_52df5f0d_readback.json"
+# The synthetic DISPATCH readback (route model + REGISTRY line), committed so the parity checks below run in CI
+# Keep these checks independent of the developer's local environment.
+LIVE_READBACK = HERE / "dispatch_synthetic_readback.json"
 
 
 def doc(**over):
+    """Independent toy tile-workshop example of the v1 routing protocol.
+
+    A feedback row starts a toy processor, a consultation reads an invented
+    tile manual, and a second registered processor deliberately has no route.
+    No deployed article, scene catalog, or captured workflow is an input.
+    """
+    tile = {"app_id": APP_A, "solution_id": "toy.tile"}
+    kiln = {"app_id": APP_B, "solution_id": "toy.kiln"}
+    manual = {
+        "kind": "KNOWLEDGE",
+        "kb_refs": [{"space_id": SPACE, "article_id": "toy-article-001"}],
+        "topics": ["tile_manual"],
+        "intents": ["CONSULT_RULE"],
+    }
     base = {
         "table": "dispatch.route",
         "issue_types": ["COMPLAINT", "CONSULT", "FEEDBACK"],
         "phases": ["STAGE_1", "STAGE_2", "STAGE_3"],
-        "registry": {
-            "P_02_04_01": [{"app_id": APP_A, "solution_id": "a.default", "name": "方案甲"}],
-            "P_05_01_01": [{"app_id": APP_B, "solution_id": "b.default"}],
-        },
+        "registry": {"P_99_71_01": [{**tile, "name": "Toy tile processor"}], "P_99_73_01": [kiln]},
         "routes": [
             {
-                "scene_id": "P_02_04_01",
-                "issue_type": "COMPLAINT",
-                "phase": "STAGE_1",
-                "target": {"kind": "SOLUTION_APP", "app_id": APP_A, "solution_id": "a.default"},
+                "scene_id": "P_99_71_01",
+                "issue_type": "FEEDBACK",
+                "phase": "STAGE_2",
+                "target": {"kind": "SOLUTION_APP", **tile},
             },
             {
-                "scene_id": "P_01_01_01",
+                "scene_id": "P_99_72_01",
                 "issue_type": "CONSULT",
-                "phase": "STAGE_1",
-                "target": {
-                    "kind": "KNOWLEDGE",
-                    "kb_refs": [{"space_id": SPACE, "article_id": "6041376"}],
-                    "topics": ["login_account"],
-                    "intents": ["CONSULT_RULE"],
-                },
+                "phase": "STAGE_3",
+                "target": manual,
             },
         ],
-        "note": "seed",
+        "note": "Independent tile-manual protocol fixture",
     }
     base.update(over)
     return base
@@ -80,6 +88,10 @@ class FakeStorage:
     def set(self, key, val):
         assert type(val) is bytes
         self.data[key] = val
+
+    def delete(self, key):
+        # 0.5.24: a publish deletes its draft
+        del self.data[key]
 
 
 def stub_bundle():
@@ -133,7 +145,7 @@ def test_validate_normalizes_and_rejects_bad_tables():
                         "target": {
                             "kind": "SOLUTION_APP",
                             "app_id": APP_B,
-                            "solution_id": "b.default",
+                            "solution_id": "toy.kiln",
                         },
                     }
                 ]
@@ -183,7 +195,7 @@ def test_validate_normalizes_and_rejects_bad_tables():
         (
             doc(
                 registry={
-                    "P_02_04_01": [
+                    "P_99_71_01": [
                         {"app_id": APP_A, "solution_id": "a"},
                         {"app_id": APP_A, "solution_id": "b"},
                     ]
@@ -199,7 +211,7 @@ def test_validate_normalizes_and_rejects_bad_tables():
         assert exc.value.code == code, (code, exc.value.message)
     many = [
         {
-            "scene_id": "P_01_01_%02d" % (i % 99 + 1),
+            "scene_id": "P_99_74_%02d" % (i % 99 + 1),
             "issue_type": "CONSULT",
             "phase": "STAGE_%d" % (i // 99 + 1),
             "target": doc()["routes"][1]["target"],
@@ -218,8 +230,8 @@ def test_compile_matches_builder_shape_and_template_refs():
         and model["empty_template_ref"] == "unregistered"
     )
     assert [r["rule_id"] for r in model["rules"]] == [
-        "P_02_04_01·COMPLAINT·STAGE_1",
-        "P_01_01_01·CONSULT·STAGE_1",
+        "P_99_71_01·FEEDBACK·STAGE_2",
+        "P_99_72_01·CONSULT·STAGE_3",
     ]
     assert model["rules"][0]["output_template_ref"] == "solution-app:" + APP_A
     assert (
@@ -228,39 +240,20 @@ def test_compile_matches_builder_shape_and_template_refs():
     )
     know = model["result_templates"][model["rules"][1]["output_template_ref"]]["data"]
     assert json.loads(know["kb_refs_json"]["literal"]) == [
-        {"article_id": "6041376", "space_id": SPACE}
+        {"article_id": "toy-article-001", "space_id": SPACE}
     ] and json.loads(know["intents_json"]["literal"]) == ["CONSULT_RULE"]
 
 
-def test_compile_reproduces_live_dispatch_model_byte_for_byte():
-    published = json.loads(LIVE_READBACK.read_text())["published"]
-    node = next(n for n in published["graph"]["nodes"] if n["id"] == "admission-dmn")
-    live = json.loads(node["data"]["tool_configurations"]["definition_bundle_json"]["value"])[
+def test_compile_reproduces_independently_authored_dispatch_model():
+    fixture = json.loads(LIVE_READBACK.read_text())
+    node = fixture["published"]["graph"]["nodes"][0]
+    expected = json.loads(node["data"]["tool_configurations"]["definition_bundle_json"]["value"])[
         "models"
     ]["dispatch.route@4.0.0"]
-    target = live["result_templates"][live["rules"][0]["output_template_ref"]]["data"]
-    app, solution = target["app_id"]["literal"], target["solution_id"]["literal"]
-    table = {
-        "table": "dispatch.route",
-        "issue_types": ["COMPLAINT", "CONSULT", "FEEDBACK"],
-        "phases": ["STAGE_1", "STAGE_2", "STAGE_3"],
-        "note": "",
-        "registry": {"P_02_04_01": [{"app_id": app, "solution_id": solution}]},
-        "routes": [
-            {
-                "scene_id": "P_02_04_01",
-                "issue_type": "COMPLAINT",
-                "phase": "STAGE_1",
-                "target": {"kind": "SOLUTION_APP", "app_id": app, "solution_id": solution},
-            }
-        ],
-    }
-    assert json.dumps(compile_model("4.0.0", validate_doc(table)), sort_keys=True) == json.dumps(
-        live, sort_keys=True
-    )
+    assert compile_model("4.0.0", validate_doc(fixture["expected_table"])) == expected
 
 
-def test_seed_from_live_readback_routes_like_the_live_workflow():
+def test_seed_from_synthetic_readback_preserves_both_routes_and_no_match():
     import importlib.util
 
     spec = importlib.util.spec_from_file_location(
@@ -268,13 +261,19 @@ def test_seed_from_live_readback_routes_like_the_live_workflow():
     )
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
-    seeded = mod.seed(json.loads(LIVE_READBACK.read_text()))
+    fixture = json.loads(LIVE_READBACK.read_text())
+    seeded = mod.seed(fixture)
+    assert seeded["routes"] == fixture["expected_table"]["routes"]
     st = StorageTables(FakeStorage())
     st.save(seeded, 0)
-    r = call(stub_bundle(), "P_02_04_01", "COMPLAINT", "STAGE_1", st.load)
-    assert r["outputs"]["decision"]["data"]["solution_id"] == "coupon-use.default" and r["trace"][
-        "selected_rule_ids"
-    ] == ["P_02_04_01·COMPLAINT·STAGE_1"]
+    for row in seeded["routes"]:
+        r = call(stub_bundle(), row["scene_id"], row["issue_type"], row["phase"], st.load)
+        assert r["outputs"]["decision"]["data"]["solution_id"] == row["target"]["solution_id"]
+        assert r["trace"]["selected_rule_ids"] == [
+            "·".join([row["scene_id"], row["issue_type"], row["phase"]])
+        ]
+    r = call(stub_bundle(), "P_99_01_03", "CONSULT", "STAGE_2", st.load)
+    assert r["outputs"]["decision"]["data"]["route_state"] == "unregistered"
 
 
 def test_materialize_only_touches_storage_stubs():
@@ -285,7 +284,7 @@ def test_materialize_only_touches_storage_stubs():
     out, sources = materialize(bundle, lambda t: stored if t == "dispatch.route" else None)
     assert (
         out["models"]["dispatch.route@4.0.0"]["rules"][0]["rule_id"]
-        == "P_02_04_01·COMPLAINT·STAGE_1"
+        == "P_99_71_01·FEEDBACK·STAGE_2"
     )
     assert sources == [
         {
@@ -311,7 +310,7 @@ def test_materialize_only_touches_storage_stubs():
 def test_decision_reads_stored_table_and_keeps_the_admission_envelope():
     st = StorageTables(FakeStorage())
     st.save(doc(), 0)
-    r = call(stub_bundle(), "P_02_04_01", "COMPLAINT", "STAGE_1", st.load)
+    r = call(stub_bundle(), "P_99_71_01", "FEEDBACK", "STAGE_2", st.load)
     assert (
         r["execution_status"] == "SUCCEEDED" and r["output_port"] == "ok" and r["error"] is None
     ), r.get("error")
@@ -320,7 +319,7 @@ def test_decision_reads_stored_table_and_keeps_the_admission_envelope():
         "route_state": "routed",
         "route_kind": "SOLUTION_APP",
         "app_id": APP_A,
-        "solution_id": "a.default",
+        "solution_id": "toy.tile",
         "kb_refs_json": None,
         "topics_json": None,
         "intents_json": None,
@@ -329,10 +328,10 @@ def test_decision_reads_stored_table_and_keeps_the_admission_envelope():
     assert (
         t["model_ref"] == "dispatch.route@4.0.0"
         and t["hit_policy"] == "FIRST"
-        and t["selected_rule_ids"] == ["P_02_04_01·COMPLAINT·STAGE_1"]
+        and t["selected_rule_ids"] == ["P_99_71_01·FEEDBACK·STAGE_2"]
     )
     assert t["model_source"]["kind"] == "PLUGIN_STORAGE" and t["model_source"]["version"] == 1
-    miss = call(stub_bundle(), "P_09_09_09", "COMPLAINT", "STAGE_1", st.load)
+    miss = call(stub_bundle(), "P_09_09_09", "FEEDBACK", "STAGE_2", st.load)
     assert (
         miss["execution_status"] == "SUCCEEDED"
         and miss["outputs"]["decision"]["data"]["route_state"] == "unregistered"
@@ -344,21 +343,21 @@ def test_edit_takes_effect_on_the_next_run_without_a_new_bundle():
     st = StorageTables(FakeStorage())
     st.save(doc(), 0)
     assert (
-        call(stub_bundle(), "P_05_01_01", "COMPLAINT", "STAGE_1", st.load)["outputs"]["decision"][
+        call(stub_bundle(), "P_99_73_01", "FEEDBACK", "STAGE_2", st.load)["outputs"]["decision"][
             "data"
         ]["route_state"]
         == "unregistered"
     )
     routes = doc()["routes"] + [
         {
-            "scene_id": "P_05_01_01",
-            "issue_type": "COMPLAINT",
-            "phase": "STAGE_1",
-            "target": {"kind": "SOLUTION_APP", "app_id": APP_B, "solution_id": "b.default"},
+            "scene_id": "P_99_73_01",
+            "issue_type": "FEEDBACK",
+            "phase": "STAGE_2",
+            "target": {"kind": "SOLUTION_APP", "app_id": APP_B, "solution_id": "toy.kiln"},
         }
     ]
     st.save(doc(routes=routes, note="加计价路由"), 1)
-    r = call(stub_bundle(), "P_05_01_01", "COMPLAINT", "STAGE_1", st.load)
+    r = call(stub_bundle(), "P_99_73_01", "FEEDBACK", "STAGE_2", st.load)
     assert (
         r["outputs"]["decision"]["data"]["app_id"] == APP_B
         and r["trace"]["model_source"]["version"] == 2
@@ -366,7 +365,7 @@ def test_edit_takes_effect_on_the_next_run_without_a_new_bundle():
 
 
 def test_missing_table_or_storage_failure_fail_with_the_node_envelope():
-    r = call(stub_bundle(), "P_02_04_01", "COMPLAINT", "STAGE_1", StorageTables(FakeStorage()).load)
+    r = call(stub_bundle(), "P_99_71_01", "FEEDBACK", "STAGE_2", StorageTables(FakeStorage()).load)
     assert (
         r["execution_status"] == "FAILED"
         and r["error"]["code"] == "ROUTE_TABLE_MISSING"
@@ -374,9 +373,9 @@ def test_missing_table_or_storage_failure_fail_with_the_node_envelope():
     )
     down = call(
         stub_bundle(),
-        "P_02_04_01",
-        "COMPLAINT",
-        "STAGE_1",
+        "P_99_71_01",
+        "FEEDBACK",
+        "STAGE_2",
         StorageTables(FakeStorage(fail=True)).load,
     )
     assert (
@@ -420,13 +419,73 @@ def test_storage_versions_history_and_stale_saves():
 
 
 def endpoint(storage):
+    """0.5.24: the endpoint has no storage door of its own; it forwards to the maintenance app, whose
+    route_table_store node holds the writers. Here the app runs the tool's code on storage."""
+
+    def invoke(app_id, inputs, response_mode="streaming"):
+        status, body = run_entry(
+            storage,
+            inputs["op"],
+            inputs["table"],
+            inputs["version"] or None,
+            inputs["body_json"] or None,
+            writers=WRITERS,
+            caller_app=app_id,
+        )
+        yield {
+            "event": "workflow_finished",
+            "data": {
+                "status": "succeeded",
+                "outputs": {
+                    "status_code": status,
+                    "result_json": json.dumps(body, ensure_ascii=False),
+                },
+            },
+        }
+
     ep = object.__new__(RouteEditorEndpoint)
-    ep.session = SimpleNamespace(storage=storage)
+    ep.session = SimpleNamespace(
+        storage=FakeStorage(), app=SimpleNamespace(workflow=SimpleNamespace(invoke=invoke))
+    )
     return ep
 
 
+# 0.5.24 (D14): the endpoint has no shared key; every call carries a writer's signature (X-Route-Writer). KEY is the
+# test writer's own key; key=None sends no writer, any other key signs with a key the registry does not hold.
+WRITER = "tester"
+WRITERS = "%s:PERSON:%s" % (WRITER, KEY)
+GET_OPS = {
+    "api/table": "table",
+    "api/history": "history",
+    "api/version": "version",
+    "api/draft": "draft",
+}
+POST_OPS = {
+    "api/table": "save",
+    "api/draft": "draft_save",
+    "api/discard": "draft_discard",
+    "api/publish": "publish",
+}
+
+
+def writer_header(op, table, version, body, key=KEY, writer=WRITER, at=None):
+    at = at or datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return "%s;%s;%s" % (writer, at, sign(key, op, table, version, body or {}, writer, at))
+
+
 def hit(ep, path, method="GET", key=KEY, body=None, settings=None, query=None):
-    headers = {"X-Route-Edit-Key": key} if key is not None else {}
+    query = query or {}
+    op = (POST_OPS if method == "POST" else GET_OPS).get(path, "-")
+    version = query.get("v", "") if path == "api/version" else ""
+    headers = (
+        {
+            "X-Route-Writer": writer_header(
+                op, query.get("table", "dispatch.route"), version, body, key
+            )
+        }
+        if key is not None
+        else {}
+    )
     env = EnvironBuilder(
         method=method,
         path="/" + path,
@@ -436,10 +495,48 @@ def hit(ep, path, method="GET", key=KEY, body=None, settings=None, query=None):
         content_type="application/json" if body is not None else None,
     ).get_environ()
     r = ep._invoke(
-        Request(env), {"route": path}, {"edit_key": KEY} if settings is None else settings
+        Request(env),
+        {"route": path},
+        {"store_app_id": MAINTENANCE_APP} if settings is None else settings,
     )
     return r.status_code, (
         json.loads(r.data) if r.content_type.startswith("application/json") else r.data
+    )
+
+
+def _draft_id(ep, query, settings):
+    return (hit(ep, "api/draft", query=query, settings=settings)[1].get("draft") or {}).get(
+        "draft_id", ""
+    )
+
+
+def publish_via(ep, body, settings=None, release_ref="发布窗 测试行", query=None):
+    """0.5.24: what the editor's save is now: store a draft, then publish it with a PASS gate report. Returns the
+    draft's refusal if the draft is refused, else the publish answer."""
+    query = query or {"table": body.get("table", "dispatch.route")}
+    status, draft = hit(
+        ep,
+        "api/draft",
+        method="POST",
+        body={**body, "expected_draft": _draft_id(ep, query, settings)},
+        settings=settings,
+        query=query,
+    )
+    if status != 200:
+        return status, draft
+    d = draft["draft"]
+    return hit(
+        ep,
+        "api/publish",
+        method="POST",
+        body={
+            "draft_id": d["draft_id"],
+            "expected_version": d["base_version"],
+            "gate_report": {"content_sha256": d["content_sha256"], "gate_status": "PASS"},
+            "release_ref": release_ref,
+        },
+        settings=settings,
+        query=query,
     )
 
 
@@ -457,12 +554,16 @@ def test_editor_page_assets_and_csp():
     assert hit(ep, "../manifest.yaml")[0] == 404 and hit(ep, "index.html", method="POST")[0] == 405
 
 
-def test_editor_api_needs_the_edit_key():
+def test_editor_api_needs_a_named_writer_not_the_retired_edit_key():
     ep = endpoint(FakeStorage())
+    # 0.5.24 (D14): the old shared key is not looked at; with no writers registered nothing is answered
+    assert hit(ep, "api/table", settings={"edit_key": KEY})[1]["error"]["code"] == (
+        "ROUTE_STORE_APP_REQUIRED"
+    ), "the old key opens nothing; without the maintenance app there is no door"
     assert hit(ep, "api/table", settings={})[0] == 503
-    assert hit(ep, "api/table", settings={"edit_key": "short"})[0] == 503
     assert hit(ep, "api/table", key=None)[0] == 401
-    assert hit(ep, "api/table", key="x" * 32)[0] == 401
+    assert hit(ep, "api/table", key="x" * 32)[1]["error"]["code"] == "STORED_TABLE_WRITER_REJECTED"
+    assert hit(ep, "api/table")[0] == 200
 
 
 def test_editor_api_load_save_history_version_and_errors():
@@ -471,20 +572,20 @@ def test_editor_api_load_save_history_version_and_errors():
     status, body = hit(ep, "api/table", query={"table": "dispatch.route"})
     assert status == 200 and body["version"] == 0 and body["doc"] is None
     status, body = hit(ep, "api/table", method="POST", body={**doc(), "expected_version": 0})
+    assert status == 400 and body["error"]["code"] == "STORED_TABLE_PUBLISH_REQUIRED"
+    status, body = publish_via(ep, {**doc(), "expected_version": 0})
     assert status == 200 and body["version"] == 1 and body["doc"]["content_sha256"]
-    status, body = hit(
-        ep, "api/table", method="POST", body={**doc(note="again"), "expected_version": 0}
-    )
+    status, body = publish_via(ep, {**doc(note="again"), "expected_version": 0})
     assert status == 409 and body["error"]["code"] == "ROUTE_TABLE_STALE"
     bad = doc(
         routes=[
             {
                 **doc()["routes"][0],
-                "target": {"kind": "SOLUTION_APP", "app_id": APP_B, "solution_id": "b.default"},
+                "target": {"kind": "SOLUTION_APP", "app_id": APP_B, "solution_id": "toy.kiln"},
             }
         ]
     )
-    status, body = hit(ep, "api/table", method="POST", body={**bad, "expected_version": 1})
+    status, body = publish_via(ep, {**bad, "expected_version": 1})
     assert (
         status == 400
         and body["error"]["code"] == "ROUTE_TABLE_UNREGISTERED_APP"

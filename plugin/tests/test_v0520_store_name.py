@@ -2,7 +2,7 @@
 turn read-only at their table's first store under the standard name.
 
 Until a table's first store under its standard name, every read receipt, save receipt, refusal and listing is 0.5.19's:
-the byte-identity test digests them and was computed on 0.5.19 (c83caf1, and 5f25923 before it). The other tests fail
+the byte-identity test digests them against public v0.5.19 using the same sanitized fixtures. The other tests fail
 on 0.5.19, but for a few that pin behaviour kept from it (they say so)."""
 
 import copy
@@ -119,9 +119,9 @@ FORMATS = {
     "triage.scene.acceptance": (FORMAT_DECISION_SET, [{"parameters": {}, "missing": "UNKNOWN"}]),
     "triage.supplement.requirements": (
         FORMAT_SUPPLEMENT,
-        [{"scene_id": "P_04_04_01"}, {"scene_id": "M_P_04_04_01"}, {"scene_id": "P_99_99_99"}],
+        [{"scene_id": "P_99_83_02"}, {"scene_id": "M_P_99_83_02"}, {"scene_id": "P_99_99_99"}],
     ),
-    RESOURCE: (FORMAT_RESOURCE, [{"resource_id": "human.queue"}, {"resource_id": "nope.nope"}]),
+    RESOURCE: (FORMAT_RESOURCE, [{"resource_id": "workshop.queue"}, {"resource_id": "nope.nope"}]),
     ROUTE: (
         FORMAT_DECISION,
         [{"parameters": {}}],
@@ -165,9 +165,9 @@ def route_reads(storage, name):
     tables = StorageTables(storage)
     for fmt in ("routing-table/v2", "routing-table/v3", "routing-table/v4"):
         for scene, issue, phase in (
-            ("P_02_04_01", "COMPLAINT", "STAGE_1"),
-            ("P_02_04_01", "CONSULT", "STAGE_1"),
-            ("P_04_01_01", "COMPLAINT", "STAGE_1"),
+            ("P_99_41_01", "COMPLAINT", "STAGE_1"),
+            ("P_99_41_01", "CONSULT", "STAGE_1"),
+            ("P_99_46_01", "FEEDBACK", "STAGE_3"),
         ):
             out.append(call(stub(name, fmt), scene, issue, phase, tables.load))
     for app in (COUPON, LOST, ORDER, "00000000-0000-4000-8000-0000000000ff"):
@@ -298,8 +298,11 @@ def pre_migration_receipts():
     return out
 
 
-# sha256 of pre_migration_receipts() as computed on 0.5.19 (c83caf1; the same on 5f25923)
-PRE_MIGRATION_0519_SHA256 = "edb832d26b9f74c640113f48012a82f72e53e14f72bb72c76b72b25a079fa378"
+# Independently reproduced with public v0.5.19, commit 3364027130f2df77c69d44685788d783ab322e5e.
+# The 1,070 receipts use the current independent toy model and synthetic metadata.
+# Reproduce without the current runtime: python -I plugin/tests/fixtures/reproduce_pre_migration_golden.py --repo .
+# The reproducer verifies the public tag and every imported runtime module's archive origin.
+PRE_MIGRATION_0519_SHA256 = "776ca7c3d95a4b1f92e24882aa1728cca87c4ffeed15b90bebff17abadd92f4f"
 
 
 def test_pre_migration_receipts_are_0519s_byte_for_byte():

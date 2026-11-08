@@ -6,13 +6,13 @@ identity:
     zh_Hans: 读存储表
 description:
   human:
-    en_US: Read one table kept in this plugin's tool storage (saved like a route table, with versions and CAS) - a solution's
+    en_US: Read one table kept in this plugin's tool storage (saved like a route table, with version history and optimistic checks, not atomic CAS) - a solution's
       P2 acceptance table or a TARGET / TRIAGE policy table (decision-table/v1, evaluated; decision-set/v1 for several models
       in one table, each with its own call status), the per-scene supplement requirements (supplement-requirements/v1 |
       supplement-requirements/v2), the resource-routing targets (resource-targets/v1) or the 定位 scene-topic catalog with its intent → issue type map
       (scene-topic/v1, target.scene.topic, read by scene_id, topic, topic + intent or intent). Optional version / content_sha256
       pin the exact stored version (a missing pin fails, never falls back to the latest).
-    zh_Hans: 读插件工具存储里的一张表（与路由表同样存、带版本与 CAS）：方案的 P2 受理表或定位 / 分诊的策略表（decision-table/v1，求值；一张表多个模型用 decision-set/v1，每个模型各带调用 status）、按场景的补充要求（supplement-requirements/v1 | supplement-requirements/v2）、资源路由目标（resource-targets/v1）或定位的场景与话题目录及诉求 → 问题类型对照（scene-topic/v1，target.scene.topic：按场景号、话题、话题 + 诉求或诉求查）。可选 version / content_sha256 钉住存储里的那一版（不在就失败，不回退最新版）。
+    zh_Hans: 读插件工具存储里的一张表（与路由表同样存、带版本历史与乐观检查，不提供原子 CAS）：方案的 P2 受理表或定位 / 分诊的策略表（decision-table/v1，求值；一张表多个模型用 decision-set/v1，每个模型各带调用 status）、按场景的补充要求（supplement-requirements/v1 | supplement-requirements/v2）、资源路由目标（resource-targets/v1）或定位的场景与话题目录及诉求 → 问题类型对照（scene-topic/v1，target.scene.topic：按场景号、话题、话题 + 诉求或诉求查）。可选 version / content_sha256 钉住存储里的那一版（不在就失败，不回退最新版）。
   llm: Read or evaluate one stored table of this plugin (P2 acceptance or policy table, decision set, supplement requirements, resource targets, scene-topic catalog). The legacy supplement-requirements/v1 reader also accepts v2 documents; inputs remain {scene_id}.
 parameters:
 - name: table

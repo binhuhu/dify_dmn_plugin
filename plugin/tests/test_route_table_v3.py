@@ -6,7 +6,7 @@ import json
 from types import SimpleNamespace
 
 import pytest
-from test_route_table import FakeStorage, call, endpoint, hit, stub_bundle
+from test_route_table import FakeStorage, call, endpoint, publish_via, stub_bundle
 from test_route_table_v2 import COUPON, LOST, events
 from test_route_table_v2 import doc as doc_v2
 from test_stored_tables import resource_doc
@@ -32,54 +32,48 @@ from dmn_client.route_table import (
 from dmn_client.solution_invoke import invoke_solution
 from tools.invoke_solution import InvokeSolutionTool
 
-ORDER = "00000000-0000-4000-8000-000000000004"
-GATE = "SYNTHETIC_GATE"
+ORDER = "00000000-0000-4000-8000-000000000413"
+GATE = "TOY_POLISHING_DISABLED"
 INPUTS = ["call_id", "request_json"]
 
-V2_CONTENT_055 = "92e59c06423f04dd8a442dc90e579ab04c4e0d40bb1b040c5df86df0db47816a"
-V2_MODEL_055 = "b240aa9d9eda3248b734ae66d3b0cf276b9e96c90469ebdda36dda86bd39144a"
-V3_MODEL_055 = "3cf6fe7f43c73e8ee1823abbcb8e9640324899ef163812fddb9832cf1ae9dbc3"
+# Toy inputs compiled independently by public v0.5.5 (9e250bdec53db5e184646de3d3445615cc7e4b24).
+# Reproduce: python -I plugin/tests/fixtures/reproduce_historical_route_golden.py --repo .
+TOY_V2_CONTENT_BASELINE = "8ed2f24d95a248ed1e4ff44f8af48a651e06945e4c9166b70bed4b5c7dcc48f4"
+TOY_V2_MODEL_BASELINE = "d4d740802afa9426ad0121b452d971ff4849660ac6f9c1f3b51d9ccc57f986d1"
+TOY_V3_MODEL_BASELINE = "ef4c8b7a3f1ef8424eebca7296602bf0f6d0488ad169be369502490692758e25"
 
 
 def v3(**over):
+    """Extend the independent tile workshop with a gated polishing station."""
     d = doc_v2()
     d["schema"] = SCHEMA_V3
-    d["scenes"]["P_04_01_01"] = {"name": "Synthetic scene D", "domain": "Synthetic domain B"}
-    d["solutions"] = {
-        COUPON: {
-            "name": "Synthetic application A",
-            "inputs": list(INPUTS),
-            "status": "CURRENT",
-            "request_contract": "场景方案调用/v4",
-            "topics": ["synthetic_topic_a", "synthetic_topic_b"],
-            "intents": ["REPORT_PROBLEM"],
-            "invocation_scope": "ISSUE_TARGET",
-            "priority": 1,
-            "package_id": "synthetic-app-a",
-            "target_handoff": "SUPPORTED",
-        },
-        LOST: {
-            "name": "Synthetic application B",
-            "inputs": list(INPUTS),
-            "status": "CANDIDATE",
-            "topics": ["synthetic_topic_d"],
-            "intents": ["REPORT_PROBLEM", "REQUEST_SERVICE"],
-        },
-        ORDER: {
-            "name": "Synthetic application C",
-            "inputs": list(INPUTS),
-            "status": "GATED",
-            "gate_code": GATE,
-            "request_contract": "场景方案调用/v4",
-            "topics": ["synthetic_topic_c"],
-            "intents": ["REPORT_PROBLEM"],
-        },
+    for app, status, topics, intents in (
+        (COUPON, "CURRENT", ["tile_shape", "tile_color"], ["INSPECT_TILE"]),
+        (LOST, "CANDIDATE", ["tile_edge"], ["INSPECT_TILE", "SORT_TILE"]),
+    ):
+        d["solutions"][app].update(status=status, topics=topics, intents=intents)
+    d["solutions"][COUPON].update(
+        request_contract="场景方案调用/v4",
+        invocation_scope="ISSUE_TARGET",
+        priority=2,
+        package_id="toy-tile-sorter",
+        target_handoff="SUPPORTED",
+    )
+    d["scenes"]["P_99_46_01"] = {"name": "Toy polishing station", "domain": "Tile workshop"}
+    d["solutions"][ORDER] = {
+        "name": "Toy polishing app",
+        "inputs": list(INPUTS),
+        "status": "GATED",
+        "gate_code": GATE,
+        "request_contract": "场景方案调用/v4",
+        "topics": ["tile_surface"],
+        "intents": ["POLISH_TILE"],
     }
     d["routes"].append(
         {
-            "scene_id": "P_04_01_01",
-            "issue_type": "COMPLAINT",
-            "phase": "STAGE_1",
+            "scene_id": "P_99_46_01",
+            "issue_type": "FEEDBACK",
+            "phase": "STAGE_3",
             "target": {"kind": "SOLUTION_APP", "app_id": ORDER},
         }
     )
@@ -110,19 +104,19 @@ def test_v3_validates_and_stores_every_entry_in_one_shape():
     assert clean["schema"] == SCHEMA_V3
     assert all(set(s) == set(SOLUTION_KEYS_V3) for s in clean["solutions"].values())
     assert clean["solutions"][LOST] == {
-        "name": "Synthetic application B",
+        "name": "Tile processor Beta",
         "inputs": INPUTS,
         "status": "CANDIDATE",
         "gate_code": None,
         "request_contract": None,
-        "topics": ["synthetic_topic_d"],
-        "intents": ["REPORT_PROBLEM", "REQUEST_SERVICE"],
+        "topics": ["tile_edge"],
+        "intents": ["INSPECT_TILE", "SORT_TILE"],
         "invocation_scope": None,
         "priority": None,
         "package_id": None,
         "target_handoff": None,
     }
-    assert clean["solutions"][COUPON]["topics"] == ["synthetic_topic_a", "synthetic_topic_b"], (
+    assert clean["solutions"][COUPON]["topics"] == ["tile_shape", "tile_color"], (
         "order kept as registered (round trip)"
     )
     assert validate_doc(clean) == clean, "the stored form validates to itself"
@@ -167,9 +161,11 @@ def test_v2_reads_as_before_with_every_app_current():
     clean = validate_doc(doc_v2())
     assert clean["schema"] == SCHEMA_V2
     assert all(set(s) == {"name", "inputs"} for s in clean["solutions"].values())
-    assert content_sha256(clean) == V2_CONTENT_055, "a v2 table keeps its 0.5.5 digest"
+    assert content_sha256(clean) == TOY_V2_CONTENT_BASELINE, (
+        "the toy table matches the independently archived compiler"
+    )
     assert solution_entry(clean, COUPON) == {
-        "name": "Synthetic application A",
+        "name": "Tile processor Alpha",
         "inputs": INPUTS,
         "status": "CURRENT",
         "gate_code": None,
@@ -253,12 +249,12 @@ def _set(app, **fields):
             "solutions.%s.request_contract" % COUPON,
         ),
         (
-            _set(COUPON, topics=["synthetic_topic_a", "synthetic_topic_a"]),
+            _set(COUPON, topics=["tile_shape", "tile_shape"]),
             "ROUTE_TABLE_INVALID",
             "solutions.%s.topics" % COUPON,
         ),
         (
-            _set(COUPON, topics=["Coupon Use"]),
+            _set(COUPON, topics=["Tile Shape"]),
             "ROUTE_TABLE_INVALID",
             "solutions.%s.topics" % COUPON,
         ),
@@ -276,7 +272,7 @@ def _set(app, **fields):
             "solutions.%s.invocation_scope" % COUPON,
         ),
         (
-            _set(COUPON, package_id="Coupon Use"),
+            _set(COUPON, package_id="Tile Shape"),
             "ROUTE_TABLE_INVALID",
             "solutions.%s.package_id" % COUPON,
         ),
@@ -425,7 +421,7 @@ def test_invoke_tool_emits_status_and_gate():
 
 def test_v4_stub_carries_the_solution_block():
     st = saved(v3())
-    r = call(stub(FORMAT_V4), "P_04_01_01", "COMPLAINT", "STAGE_1", st.load)
+    r = call(stub(FORMAT_V4), "P_99_46_01", "FEEDBACK", "STAGE_3", st.load)
     assert r["execution_status"] == "SUCCEEDED", r.get("error")
     source = r["trace"]["model_source"]
     assert (
@@ -439,23 +435,23 @@ def test_v4_stub_carries_the_solution_block():
         "status": "GATED",
         "gate_code": GATE,
         "request_contract": "场景方案调用/v4",
-        "topics": ["synthetic_topic_c"],
-        "intents": ["REPORT_PROBLEM"],
+        "topics": ["tile_surface"],
+        "intents": ["POLISH_TILE"],
         "table_content_sha256": source["content_sha256"],
     }
     assert "resource_id" in data, "v4 = the v3 fields plus the solution block"
-    coupon = call(stub(FORMAT_V4), "P_02_04_01", "COMPLAINT", "STAGE_1", st.load)
+    coupon = call(stub(FORMAT_V4), "P_99_41_01", "COMPLAINT", "STAGE_1", st.load)
     assert coupon["outputs"]["decision"]["data"]["solution"]["status"] == "CURRENT"
-    transfer = call(stub(FORMAT_V4), "P_07_02_05", "COMPLAINT", "STAGE_1", st.load)
+    transfer = call(stub(FORMAT_V4), "P_99_45_02", "CONSULT", "STAGE_2", st.load)
     assert transfer["outputs"]["decision"]["data"]["solution"] is None
-    none = call(stub(FORMAT_V4), "P_05_01_01", "COMPLAINT", "STAGE_1", st.load)
+    none = call(stub(FORMAT_V4), "P_99_44_01", "COMPLAINT", "STAGE_1", st.load)
     data = none["outputs"]["decision"]["data"]
     assert data["route_state"] == "unregistered" and data["solution"] is None
 
 
 def test_v4_stub_on_a_v2_table_reads_the_defaults():
     st = saved(doc_v2())
-    r = call(stub(FORMAT_V4), "P_02_04_01", "COMPLAINT", "STAGE_1", st.load)
+    r = call(stub(FORMAT_V4), "P_99_41_01", "COMPLAINT", "STAGE_1", st.load)
     block = r["outputs"]["decision"]["data"]["solution"]
     assert block == {
         "app_id": COUPON,
@@ -464,21 +460,24 @@ def test_v4_stub_on_a_v2_table_reads_the_defaults():
         "request_contract": None,
         "topics": [],
         "intents": [],
-        "table_content_sha256": V2_CONTENT_055,
+        "table_content_sha256": TOY_V2_CONTENT_BASELINE,
     }
 
 
-def test_v2_and_v3_stubs_compile_exactly_as_in_0_5_5():
+def test_toy_v2_and_v3_stubs_match_archived_compiler():
     clean = validate_doc(doc_v2())
-    assert sha(compile_model_v2("4.0.0", clean)) == V2_MODEL_055
-    assert sha(compile_model_v2("4.1.0", clean, {"targets": {}, "transfers": {}})) == V3_MODEL_055
+    assert sha(compile_model_v2("4.0.0", clean)) == TOY_V2_MODEL_BASELINE
+    assert (
+        sha(compile_model_v2("4.1.0", clean, {"targets": {}, "transfers": {}}))
+        == TOY_V3_MODEL_BASELINE
+    )
 
 
 def test_upgrading_the_table_to_v3_changes_nothing_a_v2_or_v3_stub_reads():
 
     d = v3()
     d["routes"] = d["routes"][:-1]
-    del d["scenes"]["P_04_01_01"]
+    del d["scenes"]["P_99_46_01"]
     del d["solutions"][ORDER]
     plain = doc_v2()
     assert {k: {"name": s["name"], "inputs": s["inputs"]} for k, s in d["solutions"].items()} == (
@@ -553,10 +552,10 @@ def test_the_state_rule_sees_route_tables_other_than_dispatch_route():
 
 def test_editor_api_saves_v3():
     ep = endpoint(FakeStorage())
-    status, body = hit(ep, "api/table", method="POST", body={**v3(), "expected_version": 0})
+    status, body = publish_via(ep, {**v3(), "expected_version": 0})
     assert status == 200 and body["doc"]["schema"] == SCHEMA_V3, body
     assert body["doc"]["solutions"][ORDER]["gate_code"] == GATE
-    status, body = hit(ep, "api/table", method="POST", body={**doc_v2(), "expected_version": 1})
+    status, body = publish_via(ep, {**doc_v2(), "expected_version": 1})
     assert status == 400 and body["error"]["code"] == "STORED_TABLE_SCHEMA_CHANGED"
 
 

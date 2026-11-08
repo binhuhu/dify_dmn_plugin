@@ -3,7 +3,7 @@
 One row per scene (M_ scene id, ascending), each with its domain, definition, status and sub-topics; the intent → issue
 type map (intent_types) is stored with it: exactly the three issue types the TRIAGE workflow routes by, each intent in
 exactly one, associate_entity only where the type associates an entity. The name and the schema are bound one to one;
-the five delivery-chain tables are untouched (their suites and the live parity pin that)."""
+the existing table formats have separate compatibility tests. This catalog models a fictional tile workshop."""
 
 import copy
 import json
@@ -15,6 +15,7 @@ from dmn_client.declarations import check as check_declaration
 from dmn_client.route_store import MAX_BODY, MAX_REQUEST, run_op
 from dmn_client.route_table import RouteTableError, StorageTables, digest, validate_doc
 from dmn_client.stored_tables import (
+    APP_TARGET,
     FORMAT_SCENE_TOPIC,
     FORMAT_SUPPLEMENT,
     FORMATS,
@@ -31,83 +32,83 @@ from dmn_client.stored_tables import (
 
 SHA = "ab" * 32
 
-# the live 分诊 DECISION_TABLE (admission-input, 0f34962a) and 定位 ON_INTENTS, as stored
+# Independently authored geometric-tile workshop; no deployed catalog is an input.
+# Only the three issue-type enums and scene-id syntax are protocol constraints.
 INTENT_TYPES = {
     "types": {
         "COMPLAINT": {
-            "label": "投诉",
-            "panel": "诉",
-            "marker": "TS",
-            "weight": 3,
+            "label": "Tile changes",
+            "panel": "A",
+            "marker": "AA",
+            "weight": 7,
             "associate_entity": True,
         },
         "CONSULT": {
-            "label": "咨询",
-            "panel": "询",
-            "marker": "ZX",
-            "weight": 1,
+            "label": "Build guides",
+            "panel": "B",
+            "marker": "BB",
+            "weight": 4,
             "associate_entity": False,
         },
         "FEEDBACK": {
-            "label": "反馈",
-            "panel": "馈",
-            "marker": "FK",
+            "label": "Gallery votes",
+            "panel": "C",
+            "marker": "CC",
             "weight": 2,
             "associate_entity": False,
         },
     },
     "intents": {
-        "REPORT_PROBLEM": "COMPLAINT",
-        "APPEAL": "COMPLAINT",
-        "REQUEST_SERVICE": "COMPLAINT",
-        "CONSULT_RULE": "CONSULT",
-        "CONSULT_OPERATION": "CONSULT",
-        "QUERY_RECORD": "CONSULT",
-        "SUGGESTION": "FEEDBACK",
-        "PRAISE": "FEEDBACK",
+        "ADJUST_SHAPE": "COMPLAINT",
+        "REPORT_TILE": "COMPLAINT",
+        "SWAP_TILE": "COMPLAINT",
+        "BUILD_SPECS": "CONSULT",
+        "BUILD_STEPS": "CONSULT",
+        "FIND_PATTERN": "CONSULT",
+        "RATE_PATTERN": "FEEDBACK",
+        "SUGGEST_COLOR": "FEEDBACK",
     },
 }
 
 
-def row(sid, name, topics, l1="账号", l2="账号准入", status="ACTIVE", **extra):
+def row(sid, name, topics, l1="Toy workshop", l2="Tile assembly", status="ACTIVE", **extra):
     out = {
         "scene_id": sid,
         "name": name,
-        "domain": {"l1": l1, "l2": l2, "business_mode": None, "role": "Passenger"},
-        "definition": name + "：乘客询问或报告的问题。",
+        "domain": {"l1": l1, "l2": l2, "business_mode": None, "role": "Builder"},
+        "definition": "A fictional workshop station: " + name,
         "definition_sha256": SHA,
         "status": status,
         "topics": [{"topic": t, "allowed_intents": a} for t, a in topics],
-        "note": "现网定位图常量原样",
+        "note": "Independently specified toy station",
     }
     out.update(extra)
     return out
 
 
 def doc(**over):
-    coupon = row(
-        "M_P_02_04_01",
-        "优惠券使用",
+    color = row(
+        "M_P_91_03_01",
+        "Color workshop",
         [
-            ("coupon_deduction_mismatch", ["APPEAL", "REPORT_PROBLEM", "REQUEST_SERVICE"]),
-            ("coupon_use", ["CONSULT_OPERATION", "CONSULT_RULE"]),
+            ("color_compare", ["ADJUST_SHAPE", "REPORT_TILE", "SWAP_TILE"]),
+            ("color_mix", ["BUILD_SPECS", "BUILD_STEPS"]),
         ],
-        l1="营销",
-        l2="优惠券",
-        language_semantics={"version": "coupon-language-options/20261009-r1", "sha256": "12" * 32},
+        l2="Paint mixing",
+        language_semantics={"version": "toy-tile-language/v3", "sha256": "12" * 32},
     )
-    coupon["topics"][0]["intent_semantics"] = [
+    color["topics"][0]["intent_semantics"] = [
         {
-            "intent": "APPEAL",
-            "meaning": "用户报告优惠券抵扣结果与预期不一致。",
-            "required_expression_evidence": "原话明确比较实际抵扣与预期抵扣。",
-            "specificity": "DEDUCTION_MISMATCH_REPORTED",
+            "intent": "ADJUST_SHAPE",
+            "meaning": "Rotate a triangular tile in the toy drawing.",
+            "required_expression_evidence": "The drawing marks a rotation arrow.",
+            "specificity": "TOY_ROTATION",
         },
         {
-            "intent": "REPORT_PROBLEM",
-            "meaning": "用户报告优惠券抵扣结果与预期不一致。",
-            "required_expression_evidence": "原话明确比较实际抵扣与预期抵扣。",
-            "specificity": "DEDUCTION_MISMATCH_REPORTED",
+            "intent": "REPORT_TILE",
+            "meaning": "Identify a striped tile in the toy drawing.",
+            "required_expression_evidence": "The drawing contains a stripe marker.",
+            "specificity": "TOY_STRIPE",
         },
     ]
     base = {
@@ -116,26 +117,25 @@ def doc(**over):
         "intent_types": copy.deepcopy(INTENT_TYPES),
         "rows": [
             row(
-                "M_P_01_01_01",
-                "注册与登录",
+                "M_P_91_01_01",
+                "Tile bench",
                 [
-                    ("account_access_rule", ["CONSULT_RULE"]),
-                    ("login_account", ["CONSULT_OPERATION", "REPORT_PROBLEM"]),
-                    ("register_account", ["CONSULT_OPERATION", "REPORT_PROBLEM"]),
+                    ("assembly_basics", ["BUILD_SPECS"]),
+                    ("assembly_join", ["BUILD_STEPS", "REPORT_TILE"]),
+                    ("assembly_trim", ["BUILD_STEPS", "REPORT_TILE"]),
                 ],
             ),
-            row("M_P_01_02_04", "查询账号信息", [("account_information_lookup", ["QUERY_RECORD"])]),
-            coupon,
+            row("M_P_91_02_01", "Blueprint shelf", [("blueprint_lookup", ["FIND_PATTERN"])]),
+            color,
             row(
-                "M_P_09_01_01",
-                "人身安全",
-                [("personal_safety_report", ["REPORT_PROBLEM"]), ("service_praise", ["PRAISE"])],
-                l1="安全",
-                l2="人身安全",
+                "M_P_91_04_01",
+                "Display stand",
+                [("display_check", ["REPORT_TILE"]), ("display_rate", ["RATE_PATTERN"])],
+                l2="Gallery",
                 status="SAFETY_TRANSFER",
             ),
         ],
-        "note": "首存：现网定位场景目录 + 现网分诊诉求→问题类型",
+        "note": "Toy catalog created solely for schema and lookup regressions",
     }
     base.update(over)
     return base
@@ -161,7 +161,7 @@ def declare(**over):
             "RETIRED": "已退",
             "DRAFT": "草稿",
         },
-        "rows": {"M_P_01_01_01": {"why": "现网 CATALOG 第 1 行"}},
+        "rows": {"M_P_91_01_01": {"why": "First toy catalog row"}},
     }
     base.update(over)
     return base
@@ -203,7 +203,7 @@ def test_format_registered_and_bound_to_its_one_name():
     assert FORMATS[FORMAT_SCENE_TOPIC] == SCHEMA_SCENE_TOPIC
     assert ISSUE_TYPES == ("COMPLAINT", "CONSULT", "FEEDBACK")
     assert reserved_name(TABLE_SCENE_TOPIC)  # a route table can never take it
-    assert not decision_table_name(TABLE_SCENE_TOPIC, "56d3c0c5-4d41-4454-99ab-e3a6db6aa66c")
+    assert not decision_table_name(TABLE_SCENE_TOPIC, APP_TARGET)
 
 
 def test_saves_as_an_ordinary_first_version_and_reads_back_byte_equal():
@@ -234,7 +234,7 @@ def test_content_hash_ignores_the_declaration_and_the_note():
 def test_second_save_numbers_on_and_a_stale_one_is_refused():
     s, tables = stored()
     changed = doc(note="第二版")
-    changed["rows"][1]["topics"][0]["allowed_intents"] = ["QUERY_RECORD", "REPORT_PROBLEM"]
+    changed["rows"][1]["topics"][0]["allowed_intents"] = ["FIND_PATTERN", "REPORT_TILE"]
     status, out = save(s, changed, expected=0)
     assert status == 409 and out["error"]["code"] == "ROUTE_TABLE_STALE"
     status, out = save(s, changed, expected=1)
@@ -251,7 +251,7 @@ def test_size_over_the_body_limit_is_refused_before_validation():
         row(
             "M_P_%02d_%02d_%02d" % (1 + i // 100, 1 + (i // 10) % 10, 1 + i % 10),
             "场景",
-            [("topic_%04d" % i, ["REPORT_PROBLEM"])],
+            [("topic_%04d" % i, ["REPORT_TILE"])],
         )
         for i in range(300)
     ]
@@ -352,25 +352,25 @@ MUTATIONS = [
     ),
     (
         "marker lower",
-        lambda d: _set(d, ["intent_types", "types", "CONSULT", "marker"], "zx"),
+        lambda d: _set(d, ["intent_types", "types", "CONSULT", "marker"], "bb"),
         "SCENE_TOPIC_TABLE_INVALID",
         "intent_types.types.CONSULT.marker",
     ),
     (
         "panel too long",
-        lambda d: _set(d, ["intent_types", "types", "CONSULT", "panel"], "咨询类"),
+        lambda d: _set(d, ["intent_types", "types", "CONSULT", "panel"], "LONG"),
         "SCENE_TOPIC_TABLE_INVALID",
         "intent_types.types.CONSULT.panel",
     ),
     (
         "panel repeated",
-        lambda d: _set(d, ["intent_types", "types", "CONSULT", "panel"], "诉"),
+        lambda d: _set(d, ["intent_types", "types", "CONSULT", "panel"], "A"),
         "SCENE_TOPIC_TABLE_INVALID",
         "intent_types.types",
     ),
     (
         "marker repeated",
-        lambda d: _set(d, ["intent_types", "types", "FEEDBACK", "marker"], "TS"),
+        lambda d: _set(d, ["intent_types", "types", "FEEDBACK", "marker"], "AA"),
         "SCENE_TOPIC_TABLE_INVALID",
         "intent_types.types",
     ),
@@ -382,19 +382,21 @@ MUTATIONS = [
     ),
     (
         "intent to an unknown type",
-        lambda d: _set(d, ["intent_types", "intents", "QUERY_RECORD"], "SERVICE"),
+        lambda d: _set(d, ["intent_types", "intents", "FIND_PATTERN"], "SERVICE"),
         "SCENE_TOPIC_TABLE_INVALID",
-        "intent_types.intents.QUERY_RECORD",
+        "intent_types.intents.FIND_PATTERN",
     ),
     (
         "intent code lower",
-        lambda d: _set(d, ["intent_types", "intents", "query_record"], "CONSULT"),
+        lambda d: _set(d, ["intent_types", "intents", "find_pattern"], "CONSULT"),
         "SCENE_TOPIC_TABLE_INVALID",
-        "intent_types.intents.query_record",
+        "intent_types.intents.find_pattern",
     ),
     (
         "a type with no intent",
-        lambda d: [_del(d, ["intent_types", "intents", k]) for k in ("SUGGESTION", "PRAISE")],
+        lambda d: [
+            _del(d, ["intent_types", "intents", k]) for k in ("SUGGEST_COLOR", "RATE_PATTERN")
+        ],
         "SCENE_TOPIC_TABLE_INVALID",
         "intent_types.intents",
     ),
@@ -408,7 +410,7 @@ MUTATIONS = [
     ("rows empty", lambda d: _set(d, ["rows"], []), "SCENE_TOPIC_TABLE_INVALID", "rows"),
     (
         "rows not a list",
-        lambda d: _set(d, ["rows"], {"M_P_01_01_01": {}}),
+        lambda d: _set(d, ["rows"], {"M_P_91_01_01": {}}),
         "SCENE_TOPIC_TABLE_INVALID",
         "rows",
     ),
@@ -426,7 +428,7 @@ MUTATIONS = [
     ),
     (
         "legacy scene id",
-        lambda d: _set(d, ["rows", 0, "scene_id"], "P_01_01_01"),
+        lambda d: _set(d, ["rows", 0, "scene_id"], "P_91_01_01"),
         "SCENE_TOPIC_TABLE_INVALID",
         "rows[0].scene_id",
     ),
@@ -511,7 +513,7 @@ MUTATIONS = [
     ),
     (
         "topic in two scenes",
-        lambda d: _set(d, ["rows", 1, "topics", 0, "topic"], "login_account"),
+        lambda d: _set(d, ["rows", 1, "topics", 0, "topic"], "assembly_join"),
         "SCENE_TOPIC_TABLE_INVALID",
         "rows[1].topics[0].topic",
     ),
@@ -530,7 +532,7 @@ MUTATIONS = [
     (
         "allowed unsorted",
         lambda d: _set(
-            d, ["rows", 0, "topics", 1, "allowed_intents"], ["REPORT_PROBLEM", "CONSULT_OPERATION"]
+            d, ["rows", 0, "topics", 1, "allowed_intents"], ["REPORT_TILE", "BUILD_STEPS"]
         ),
         "SCENE_TOPIC_TABLE_INVALID",
         "rows[0].topics[1].allowed_intents",
@@ -538,21 +540,23 @@ MUTATIONS = [
     (
         "allowed repeated",
         lambda d: _set(
-            d, ["rows", 0, "topics", 0, "allowed_intents"], ["CONSULT_RULE", "CONSULT_RULE"]
+            d, ["rows", 0, "topics", 0, "allowed_intents"], ["BUILD_SPECS", "BUILD_SPECS"]
         ),
         "SCENE_TOPIC_TABLE_INVALID",
         "rows[0].topics[0].allowed_intents",
     ),
     (
         "allowed not in the map",
-        lambda d: _set(d, ["rows", 0, "topics", 0, "allowed_intents"], ["ASK_PRICE"]),
+        lambda d: _set(d, ["rows", 0, "topics", 0, "allowed_intents"], ["UNKNOWN_ACTION"]),
         "SCENE_TOPIC_TABLE_INVALID",
         "rows[0].topics[0].allowed_intents",
     ),
     # optional parts
     (
         "semantics for a disallowed intent",
-        lambda d: _set(d, ["rows", 2, "topics", 0, "intent_semantics", 0, "intent"], "PRAISE"),
+        lambda d: _set(
+            d, ["rows", 2, "topics", 0, "intent_semantics", 0, "intent"], "RATE_PATTERN"
+        ),
         "SCENE_TOPIC_TABLE_INVALID",
         "rows[2].topics[0].intent_semantics[0].intent",
     ),
@@ -603,7 +607,7 @@ def test_another_schema_cannot_take_the_name():
     supplement = {
         "schema": "dmn-json.supplement-requirements/v1",
         "table": TABLE_SCENE_TOPIC,
-        "scenes": {"M_P_01_01_01": {"state": "NONE", "basis": "无需补充"}},
+        "scenes": {"M_P_91_01_01": {"state": "NONE", "basis": "无需补充"}},
         "note": "x",
     }
     with pytest.raises(RouteTableError) as e:
@@ -621,17 +625,18 @@ def test_a_save_needs_a_note():
 
 def test_read_by_scene_either_spelling():
     _, tables = stored()
-    for sid in ("M_P_02_04_01", "P_02_04_01"):
+    for sid in ("M_P_91_03_01", "P_91_03_01"):
         r = read(tables, {"scene_id": sid})
         assert r["status"] == "SUCCEEDED" and r["result"]["state"] == "PASS"
         assert (
-            r["result"]["scene_id"] == "M_P_02_04_01" and r["result"]["row"]["name"] == "优惠券使用"
+            r["result"]["scene_id"] == "M_P_91_03_01"
+            and r["result"]["row"]["name"] == "Color workshop"
         )
         assert r["source"]["table"] == TABLE_SCENE_TOPIC and r["source"]["version"] == 1
-    r = read(tables, {"scene_id": "M_P_09_09_09"})
+    r = read(tables, {"scene_id": "M_P_99_99_99"})
     assert r["status"] == "SUCCEEDED" and r["result"] == {
         "query": "SCENE",
-        "scene_id": "M_P_09_09_09",
+        "scene_id": "M_P_99_99_99",
         "state": "NO_MATCH",
         "row": None,
     }
@@ -639,14 +644,14 @@ def test_read_by_scene_either_spelling():
 
 def test_read_by_topic():
     _, tables = stored()
-    r = read(tables, {"topic": "login_account"})["result"]
+    r = read(tables, {"topic": "assembly_join"})["result"]
     assert r == {
         "query": "TOPIC",
-        "topic": "login_account",
+        "topic": "assembly_join",
         "state": "PASS",
-        "scene_id": "M_P_01_01_01",
+        "scene_id": "M_P_91_01_01",
         "status": "ACTIVE",
-        "allowed_intents": ["CONSULT_OPERATION", "REPORT_PROBLEM"],
+        "allowed_intents": ["BUILD_STEPS", "REPORT_TILE"],
         "issue_types": ["COMPLAINT", "CONSULT"],
     }
     assert read(tables, {"topic": "no_such_topic"})["result"]["state"] == "NO_MATCH"
@@ -655,18 +660,18 @@ def test_read_by_topic():
 @pytest.mark.parametrize(
     "topic,intent,state,issue_type,associate",
     [
-        ("login_account", "CONSULT_OPERATION", "PASS", "CONSULT", False),
-        ("login_account", "REPORT_PROBLEM", "PASS", "COMPLAINT", True),
+        ("assembly_join", "BUILD_STEPS", "PASS", "CONSULT", False),
+        ("assembly_join", "REPORT_TILE", "PASS", "COMPLAINT", True),
         (
-            "account_information_lookup",
-            "QUERY_RECORD",
+            "blueprint_lookup",
+            "FIND_PATTERN",
             "PASS",
             "CONSULT",
             False,
-        ),  # 查记录 = 咨询, no entity
-        ("service_praise", "PRAISE", "PASS", "FEEDBACK", False),
-        ("login_account", "APPEAL", "NO_MATCH", None, None),
-        ("no_such_topic", "APPEAL", "NO_MATCH", None, None),
+        ),  # Toy blueprint lookup maps to CONSULT without entity association
+        ("display_rate", "RATE_PATTERN", "PASS", "FEEDBACK", False),
+        ("assembly_join", "ADJUST_SHAPE", "NO_MATCH", None, None),
+        ("no_such_topic", "ADJUST_SHAPE", "NO_MATCH", None, None),
     ],
 )
 def test_read_by_topic_and_intent(topic, intent, state, issue_type, associate):
@@ -677,7 +682,7 @@ def test_read_by_topic_and_intent(topic, intent, state, issue_type, associate):
 
 
 @pytest.mark.parametrize("intent,code", sorted(INTENT_TYPES["intents"].items()))
-def test_read_by_intent_is_the_live_map(intent, code):
+def test_read_by_intent_matches_the_toy_map(intent, code):
     _, tables = stored()
     r = read(tables, {"intent": intent})["result"]
     t = INTENT_TYPES["types"][code]
@@ -691,9 +696,9 @@ def test_read_by_intent_is_the_live_map(intent, code):
     }
 
 
-def test_unknown_intent_is_the_live_gap():
+def test_unknown_intent_returns_the_contract_gap():
     _, tables = stored()
-    r = read(tables, {"intent": "ASK_PRICE"})["result"]
+    r = read(tables, {"intent": "UNKNOWN_ACTION"})["result"]
     assert (
         r["state"] == "NO_MATCH"
         and r["gap_code"] == "INTENT_TYPE_UNKNOWN"
@@ -705,11 +710,11 @@ def test_unknown_intent_is_the_live_gap():
     "inputs",
     [
         {},
-        {"scene": "M_P_01_01_01"},
+        {"scene": "M_P_91_01_01"},
         {"scene_id": "x"},
         {"topic": "Upper"},
         {"intent": "lower"},
-        {"topic": "a", "scene_id": "M_P_01_01_01"},
+        {"topic": "a", "scene_id": "M_P_91_01_01"},
         {"topic": "a", "intent": 3},
     ],
 )
@@ -721,7 +726,7 @@ def test_other_input_shapes_are_refused(inputs):
 
 def test_format_must_match_both_ways():
     _, tables = stored()
-    r = read(tables, {"scene_id": "M_P_01_01_01"}, fmt=FORMAT_SUPPLEMENT)
+    r = read(tables, {"scene_id": "M_P_91_01_01"}, fmt=FORMAT_SUPPLEMENT)
     assert r["status"] == "FAILED" and r["error"]["code"] == "STORED_TABLE_FORMAT_MISMATCH"
 
 
@@ -729,9 +734,9 @@ def test_pins_read_the_pinned_version():
     s, tables = stored()
     first = tables.load(TABLE_SCENE_TOPIC)["content_sha256"]
     changed = doc(note="第二版")
-    changed["rows"][1]["topics"][0]["allowed_intents"] = ["QUERY_RECORD", "REPORT_PROBLEM"]
+    changed["rows"][1]["topics"][0]["allowed_intents"] = ["FIND_PATTERN", "REPORT_TILE"]
     assert save(s, changed, expected=1)[0] == 200
-    q = {"topic": "account_information_lookup", "intent": "REPORT_PROBLEM"}
+    q = {"topic": "blueprint_lookup", "intent": "REPORT_TILE"}
     assert read(tables, q)["result"]["state"] == "PASS"
     assert read(tables, q, version=1)["result"]["state"] == "NO_MATCH"
     pinned = read(tables, q, content_sha256=first)
@@ -740,7 +745,7 @@ def test_pins_read_the_pinned_version():
 
 def test_missing_table_is_not_found():
     tables = StorageTables(FakeStorage())
-    r = read(tables, {"intent": "APPEAL"})
+    r = read(tables, {"intent": "ADJUST_SHAPE"})
     assert r["status"] == "NOT_FOUND" and r["error"]["code"] == "STORED_TABLE_MISSING"
 
 
@@ -759,7 +764,7 @@ def test_declaration_checks_against_the_rows():
         ({"role": "SUPPLEMENT"}, "role"),
         ({"parameters": {"topic": {"name": "话题", "source": "request:topic"}}}, "parameters"),
         ({"states": {"ACTIVE": "启用"}}, "SAFETY_TRANSFER"),
-        ({"rows": {"M_P_08_08_08": {"why": "不在表里"}}}, "M_P_08_08_08"),
+        ({"rows": {"M_P_98_98_98": {"why": "不在表里"}}}, "M_P_98_98_98"),
         ({"compiled": {}}, "declare 只能有"),
     ],
 )
@@ -789,17 +794,17 @@ NEWLINE = [
     # `$` also matches before a final newline; every new check is a fullmatch
     (
         "topic",
-        lambda d: _set(d, ["rows", 1, "topics", 0, "topic"], "login_account\n"),
+        lambda d: _set(d, ["rows", 1, "topics", 0, "topic"], "assembly_join\n"),
         "rows[1].topics[0].topic",
     ),
     (
         "intent code",
-        lambda d: _set(d, ["intent_types", "intents", "APPEAL\n"], "CONSULT"),
-        "intent_types.intents.APPEAL\n",
+        lambda d: _set(d, ["intent_types", "intents", "ADJUST_SHAPE\n"], "CONSULT"),
+        "intent_types.intents.ADJUST_SHAPE\n",
     ),
     (
         "marker",
-        lambda d: _set(d, ["intent_types", "types", "CONSULT", "marker"], "TS\n"),
+        lambda d: _set(d, ["intent_types", "types", "CONSULT", "marker"], "AA\n"),
         "intent_types.types.CONSULT.marker",
     ),
     (
@@ -835,12 +840,12 @@ def test_a_trailing_newline_is_refused(label, mutate, path):
 @pytest.mark.parametrize(
     "inputs",
     [
-        {"scene_id": "P_01_01_01\n"},
-        {"scene_id": "M_P_01_01_01\n"},
+        {"scene_id": "P_91_01_01\n"},
+        {"scene_id": "M_P_91_01_01\n"},
         {"scene_id": "P_\u0661\u0661_\u0661\u0661_\u0661\u0661"},
-        {"topic": "login_account\n"},
-        {"intent": "APPEAL\n"},
-        {"topic": "login_account", "intent": "REPORT_PROBLEM\n"},
+        {"topic": "assembly_join\n"},
+        {"intent": "ADJUST_SHAPE\n"},
+        {"topic": "assembly_join", "intent": "REPORT_TILE\n"},
     ],
 )
 def test_lookalike_read_inputs_are_input_invalid(inputs):
@@ -855,7 +860,7 @@ def test_the_format_reads_only_its_one_name():
     r = evaluate_stored(
         "target.foo",
         FORMAT_SCENE_TOPIC,
-        {"intent": "APPEAL"},
+        {"intent": "ADJUST_SHAPE"},
         tables.load,
         load_version=tables.version,
     )
@@ -866,7 +871,7 @@ def test_the_format_reads_only_its_one_name():
 def test_a_stored_head_that_is_not_an_object_reads_as_corrupt(raw):
     s, tables = stored()
     s.data["route-table:" + TABLE_SCENE_TOPIC] = raw
-    r = read(tables, {"intent": "APPEAL"})
+    r = read(tables, {"intent": "ADJUST_SHAPE"})
     assert (
         r["status"] == "FAILED"
         and r["error"]["code"] == "ROUTE_TABLE_CORRUPT"
@@ -881,7 +886,7 @@ def test_standard_stage_refusals_keep_0520s_text_for_the_others():
     supplement = {
         "schema": "dmn-json.supplement-requirements/v1",
         "table": "triage.supplement.requirements",
-        "scenes": {"M_P_01_01_01": {"state": "NONE", "basis": "无需补充"}},
+        "scenes": {"M_P_91_01_01": {"state": "NONE", "basis": "无需补充"}},
         "note": "x",
         "declare": {
             "stage": "STANDARD",
@@ -901,6 +906,6 @@ def test_topic_reads_carry_the_scene_status(status):
     d["rows"][0]["status"] = status
     assert save(s, d)[0] == 200
     tables = StorageTables(s)
-    assert read(tables, {"topic": "login_account"})["result"]["status"] == status
-    r = read(tables, {"topic": "login_account", "intent": "REPORT_PROBLEM"})["result"]
+    assert read(tables, {"topic": "assembly_join"})["result"]["status"] == status
+    r = read(tables, {"topic": "assembly_join", "intent": "REPORT_TILE"})["result"]
     assert (r["state"], r["status"]) == ("PASS", status)

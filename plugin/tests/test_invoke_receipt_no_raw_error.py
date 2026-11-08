@@ -147,7 +147,10 @@ def test_invoke_tool_messages_carry_no_raw_error(workflow_invoke, code, message)
     assert_no_leak([m.model_dump(mode="json") for m in msgs])
 
 
-SHA_V2 = "92e59c06423f04dd8a442dc90e579ab04c4e0d40bb1b040c5df86df0db47816a"
+# Independently reproduced using public v0.5.7 (ab65ea29aa90deed4a30a59168f86b246d1364fd).
+# All 12 receipts: python -I plugin/tests/fixtures/reproduce_invoke_receipt_golden.py --repo .
+# Toy route content also independently matches the public v0.5.5 compiler golden.
+SHA_V2 = "8ed2f24d95a248ed1e4ff44f8af48a651e06945e4c9166b70bed4b5c7dcc48f4"
 EMPTY = {
     "status": "",
     "error_code": "",
@@ -170,7 +173,7 @@ IDENT = {
     "table": "dispatch.route",
     "table_version": 1,
     "table_content_sha256": SHA_V2,
-    "solution_name": "Synthetic application A",
+    "solution_name": "Tile processor Alpha",
     "solution_status": "CURRENT",
 }
 
@@ -306,7 +309,7 @@ PINNED_0_5_7 = {
             app_id=COUPON,
             table="dispatch.route",
             table_version=1,
-            table_content_sha256="26e6c771801458ddbbb01f130108b0e7ba91d292ee94a39db8e6a08b71ae3770",
+            table_content_sha256="493e0ef74768ac7144457b4292cc4966e1efac696f2664809f38c4ff94690798",
         ),
     ),
 }

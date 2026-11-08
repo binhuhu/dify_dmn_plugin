@@ -1,0 +1,303 @@
+{
+  "source": "Independently authored toy queue model; no production readback input. See fixtures/build_independent_models.py.",
+  "model_ref": "P2.D1@1.0.0",
+  "model": {
+    "profile": "service-decision-table-v1",
+    "version": "1.0.0",
+    "hit_policy": "FIRST",
+    "parameters": {
+      "facts.SYNTHETIC.queue_depth": {
+        "type": "number",
+        "record_required": true,
+        "nullable": false,
+        "allowed_quality": [
+          "KNOWN",
+          "UNKNOWN"
+        ]
+      },
+      "facts.SYNTHETIC.enabled": {
+        "type": "boolean",
+        "record_required": true,
+        "nullable": false,
+        "allowed_quality": [
+          "KNOWN",
+          "UNKNOWN"
+        ]
+      },
+      "facts.SYNTHETIC.pending": {
+        "type": "boolean",
+        "record_required": true,
+        "nullable": false,
+        "allowed_quality": [
+          "KNOWN",
+          "UNKNOWN"
+        ]
+      },
+      "facts.SYNTHETIC.lane": {
+        "type": "string",
+        "record_required": true,
+        "nullable": false,
+        "allowed_quality": [
+          "KNOWN",
+          "UNKNOWN"
+        ]
+      },
+      "facts.SYNTHETIC.flag": {
+        "type": "boolean",
+        "record_required": true,
+        "nullable": false,
+        "allowed_quality": [
+          "KNOWN",
+          "UNKNOWN"
+        ]
+      },
+      "facts.SYNTHETIC.label": {
+        "type": "string",
+        "record_required": true,
+        "nullable": false,
+        "allowed_quality": [
+          "KNOWN",
+          "UNKNOWN"
+        ]
+      }
+    },
+    "rules": [
+      {
+        "rule_id": "SYN-LIMIT",
+        "when": [
+          {
+            "path": [
+              "parameters",
+              "facts.SYNTHETIC.queue_depth",
+              "quality"
+            ],
+            "op": "eq",
+            "value": "KNOWN"
+          },
+          {
+            "path": [
+              "parameters",
+              "facts.SYNTHETIC.queue_depth",
+              "value"
+            ],
+            "op": "gt",
+            "value": 7
+          },
+          {
+            "path": [
+              "parameters",
+              "facts.SYNTHETIC.enabled",
+              "quality"
+            ],
+            "op": "eq",
+            "value": "KNOWN"
+          },
+          {
+            "path": [
+              "parameters",
+              "facts.SYNTHETIC.enabled",
+              "value"
+            ],
+            "op": "eq",
+            "value": true
+          }
+        ],
+        "output_template_ref": "SYN-LIMIT"
+      },
+      {
+        "rule_id": "SYN-LANE",
+        "when": [
+          {
+            "path": [
+              "parameters",
+              "facts.SYNTHETIC.lane",
+              "quality"
+            ],
+            "op": "eq",
+            "value": "KNOWN"
+          },
+          {
+            "path": [
+              "parameters",
+              "facts.SYNTHETIC.lane",
+              "value"
+            ],
+            "op": "eq",
+            "value": "blue"
+          }
+        ],
+        "output_template_ref": "SYN-LANE"
+      },
+      {
+        "rule_id": "SYN-FLAG",
+        "when": [
+          {
+            "path": [
+              "parameters",
+              "facts.SYNTHETIC.flag",
+              "quality"
+            ],
+            "op": "eq",
+            "value": "KNOWN"
+          },
+          {
+            "path": [
+              "parameters",
+              "facts.SYNTHETIC.flag",
+              "value"
+            ],
+            "op": "eq",
+            "value": true
+          }
+        ],
+        "output_template_ref": "SYN-FLAG"
+      },
+      {
+        "rule_id": "SYN-READY",
+        "when": [
+          {
+            "path": [
+              "parameters",
+              "facts.SYNTHETIC.queue_depth",
+              "quality"
+            ],
+            "op": "eq",
+            "value": "KNOWN"
+          },
+          {
+            "path": [
+              "parameters",
+              "facts.SYNTHETIC.queue_depth",
+              "value"
+            ],
+            "op": "lte",
+            "value": 7
+          },
+          {
+            "path": [
+              "parameters",
+              "facts.SYNTHETIC.pending",
+              "quality"
+            ],
+            "op": "eq",
+            "value": "KNOWN"
+          },
+          {
+            "path": [
+              "parameters",
+              "facts.SYNTHETIC.pending",
+              "value"
+            ],
+            "op": "eq",
+            "value": false
+          }
+        ],
+        "output_template_ref": "SYN-READY"
+      },
+      {
+        "rule_id": "SYN-FALLBACK",
+        "when": [],
+        "output_template_ref": "SYN-FALLBACK"
+      }
+    ],
+    "result_templates": {
+      "SYN-LIMIT": {
+        "state": "不成立",
+        "data": {
+          "result": {
+            "literal": [
+              "synthetic",
+              "selected"
+            ]
+          },
+          "state": {
+            "literal": "不成立"
+          },
+          "rule_id": {
+            "literal": "SYN-LIMIT"
+          }
+        },
+        "actions": []
+      },
+      "SYN-LANE": {
+        "state": "不成立",
+        "data": {
+          "result": {
+            "literal": [
+              "synthetic",
+              "selected"
+            ]
+          },
+          "state": {
+            "literal": "不成立"
+          },
+          "rule_id": {
+            "literal": "SYN-LANE"
+          }
+        },
+        "actions": []
+      },
+      "SYN-FLAG": {
+        "state": "不成立",
+        "data": {
+          "result": {
+            "literal": [
+              "synthetic",
+              "selected"
+            ]
+          },
+          "state": {
+            "literal": "不成立"
+          },
+          "rule_id": {
+            "literal": "SYN-FLAG"
+          }
+        },
+        "actions": []
+      },
+      "SYN-READY": {
+        "state": "成立",
+        "data": {
+          "result": {
+            "literal": [
+              "synthetic",
+              "selected"
+            ]
+          },
+          "state": {
+            "literal": "成立"
+          },
+          "rule_id": {
+            "literal": "SYN-READY"
+          }
+        },
+        "actions": []
+      },
+      "SYN-FALLBACK": {
+        "state": "成立",
+        "data": {
+          "result": {
+            "literal": [
+              "synthetic",
+              "selected"
+            ]
+          },
+          "state": {
+            "literal": "成立"
+          },
+          "rule_id": {
+            "literal": "SYN-FALLBACK"
+          }
+        },
+        "actions": []
+      },
+      "synthetic-none": {
+        "state": "NO_MATCH",
+        "data": {},
+        "actions": []
+      }
+    },
+    "on_no_match": "RESULT_TEMPLATE",
+    "empty_template_ref": "synthetic-none"
+  }
+}

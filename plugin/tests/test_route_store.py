@@ -1,20 +1,21 @@
-"""Route tables in tool storage (AgentHub 0.5.1 probe, 2026-10-23): endpoint storage is not the tools' storage there.
+"""Route tables in tool storage: endpoint storage is not the tools' storage there.
 
 The editor endpoint forwards reads and saves to the maintenance app (store_app_id); the app's route_table_store tool
 runs them in tool storage, where evaluate_decision reads. Here the two storages are separate FakeStorage objects,
-as observed on AgentHub.
+to verify storage separation.
 """
 
 import json
 from types import SimpleNamespace
 
-from test_route_table import KEY, FakeStorage, call, endpoint, hit
+from test_route_table import WRITERS, FakeStorage, call, endpoint, hit, publish_via
 from test_route_table_v2 import COUPON, doc, v2_stub
 
 from dmn_client.route_store import app_inputs, run_op, via_app
+from dmn_client.two_state import MAINTENANCE_APP, run_entry
 from tools.route_table_store import RouteTableStoreTool
 
-APP = "f058bec9-b8f8-480d-a90b-6d17e2a9c1aa"
+APP = MAINTENANCE_APP  # exercise the configured caller pin, not a duplicate deployment identifier
 
 
 def maintenance_app(tool_storage, calls=None):
@@ -29,12 +30,15 @@ def maintenance_app(tool_storage, calls=None):
         }
         if calls is not None:
             calls.append((app_id, inputs["op"]))
-        status, body = run_op(
+        # the published maintenance app: its route_table_store node holds the writers (0.5.24)
+        status, body = run_entry(
             tool_storage,
             inputs["op"],
             inputs["table"],
             inputs["version"] or None,
             inputs["body_json"] or None,
+            writers=WRITERS,
+            caller_app=app_id,
         )
         yield {"event": "workflow_started", "workflow_run_id": "r1", "data": {"id": "r1"}}
         yield {
@@ -61,21 +65,19 @@ def app_endpoint(endpoint_storage, invoke):
     return ep
 
 
-SETTINGS = {"edit_key": KEY, "store_app_id": APP}
+SETTINGS = {"store_app_id": APP}
 
 
 def test_editor_saves_through_the_app_into_tool_storage_and_workflows_see_it():
     endpoint_storage, tool_storage, calls = FakeStorage(), FakeStorage(), []
     ep = app_endpoint(endpoint_storage, maintenance_app(tool_storage, calls))
-    status, body = hit(
-        ep, "api/table", method="POST", body={**doc(), "expected_version": 0}, settings=SETTINGS
-    )
+    status, body = publish_via(ep, {**doc(), "expected_version": 0}, settings=SETTINGS)
     assert status == 200 and body["version"] == 1, body
     assert endpoint_storage.data == {}, "nothing lands in the endpoint's own storage"
     assert "route-table:dispatch.route" in tool_storage.data
     r = call(
         v2_stub(),
-        "P_02_04_01",
+        "P_99_41_01",
         "COMPLAINT",
         "STAGE_1",
         lambda t: run_op(tool_storage, "table", t)[1]["doc"],
@@ -87,27 +89,21 @@ def test_editor_saves_through_the_app_into_tool_storage_and_workflows_see_it():
     assert status == 200 and body["version"] == 1
     assert hit(ep, "api/history", settings=SETTINGS)[1]["versions"][0]["version"] == 1
     assert hit(ep, "api/version", settings=SETTINGS, query={"v": "1"})[1]["doc"]["version"] == 1
-    assert [c[1] for c in calls] == ["save", "table", "history", "version"] and {
-        c[0] for c in calls
-    } == {APP}
+    assert [c[1] for c in calls] == [
+        "draft",
+        "draft_save",
+        "publish",
+        "table",
+        "history",
+        "version",
+    ] and {c[0] for c in calls} == {APP}
 
 
 def test_conflicts_and_validation_errors_pass_through_the_app():
     tool_storage = FakeStorage()
     ep = app_endpoint(FakeStorage(), maintenance_app(tool_storage))
-    assert (
-        hit(
-            ep, "api/table", method="POST", body={**doc(), "expected_version": 0}, settings=SETTINGS
-        )[0]
-        == 200
-    )
-    status, body = hit(
-        ep,
-        "api/table",
-        method="POST",
-        body={**doc(note="again"), "expected_version": 0},
-        settings=SETTINGS,
-    )
+    assert publish_via(ep, {**doc(), "expected_version": 0}, settings=SETTINGS)[0] == 200
+    status, body = publish_via(ep, {**doc(note="again"), "expected_version": 0}, settings=SETTINGS)
     assert status == 409 and body["error"]["code"] == "ROUTE_TABLE_STALE"
     bad = doc(
         routes=[
@@ -119,9 +115,7 @@ def test_conflicts_and_validation_errors_pass_through_the_app():
             }
         ]
     )
-    status, body = hit(
-        ep, "api/table", method="POST", body={**bad, "expected_version": 1}, settings=SETTINGS
-    )
+    status, body = publish_via(ep, {**bad, "expected_version": 1}, settings=SETTINGS)
     assert status == 400 and body["error"]["code"] == "ROUTE_TABLE_UNKNOWN_SCENE"
 
 
@@ -140,27 +134,33 @@ def test_app_failures_are_503_and_never_touch_endpoint_storage():
     status, body = hit(
         app_endpoint(endpoint_storage, refused),
         "api/table",
-        settings={"edit_key": KEY, "store_app_id": "not-an-id"},
+        settings={"store_app_id": "not-an-id"},
     )
     assert status == 503 and body["error"]["code"] == "ROUTE_STORE_APP_INVALID"
     assert endpoint_storage.data == {}
     assert (
-        hit(app_endpoint(endpoint_storage, refused), "api/table", key="x" * 32, settings=SETTINGS)[
-            0
-        ]
+        hit(app_endpoint(endpoint_storage, refused), "api/table", key=None, settings=SETTINGS)[0]
         == 401
-    ), "key checked before the app"
-
-
-def test_without_store_app_id_the_endpoint_keeps_its_own_storage():
-    endpoint_storage = FakeStorage()
+    ), "a call naming no writer stops at the endpoint"
+    # 0.5.24: the endpoint holds no key; the maintenance app's node checks the signature
     status, body = hit(
         app_endpoint(endpoint_storage, maintenance_app(FakeStorage())),
         "api/table",
-        method="POST",
-        body={**doc(), "expected_version": 0},
+        key="x" * 32,
+        settings=SETTINGS,
     )
-    assert status == 200 and "route-table:dispatch.route" in endpoint_storage.data
+    assert status == 401 and body["error"]["code"] == "STORED_TABLE_WRITER_REJECTED"
+
+
+def test_without_store_app_id_the_endpoint_has_no_door():
+    endpoint_storage = FakeStorage()
+    status, body = publish_via(
+        app_endpoint(endpoint_storage, maintenance_app(FakeStorage())),
+        {**doc(), "expected_version": 0},
+        settings={},
+    )
+    assert status == 503 and body["error"]["code"] == "ROUTE_STORE_APP_REQUIRED"
+    assert endpoint_storage.data == {}
 
 
 def test_route_table_store_tool():

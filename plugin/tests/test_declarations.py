@@ -47,7 +47,7 @@ def transition(doc, role="ACCEPTANCE"):
             for p in m["parameters"]
         },
         "outputs": outputs,
-        "states": {t["state"]: "现网取值" for t in m["result_templates"].values()},
+        "states": {t["state"]: "测试取值" for t in m["result_templates"].values()},
         "rows": {r["rule_id"]: {"why": "依据：" + r["rule_id"]} for r in m["rules"]},
     }
     if m["hit_policy"] == "FIRST":
@@ -451,9 +451,9 @@ def test_runtime_ignores_declaration_but_keeps_content_validation(family, declar
             "parameters": {"dup": {"value": False, "quality": "KNOWN", "source_refs": ["test"]}}
         }
     elif family == "supplement":
-        doc, inputs = supplement_doc(), {"scene_id": "P_02_04_01"}
+        doc, inputs = supplement_doc(), {"scene_id": "P_99_83_01"}
     else:
-        doc, inputs = resource_doc(), {"resource_id": "human.queue"}
+        doc, inputs = resource_doc(), {"resource_id": "workshop.queue"}
     fmt = next(k for k, v in FORMATS.items() if v == doc["schema"])
     doc.pop("declare", None)
     baseline = evaluate_stored(doc["table"], fmt, inputs, lambda _: doc)

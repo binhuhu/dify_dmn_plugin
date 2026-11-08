@@ -89,20 +89,20 @@ if mode == "build":
 
     acc = json.load(open(tree + "/plugin/tests/triage_acceptance.synthetic.json"))
     stored = world(p2(), sup(), res(), acc)
-    days = "facts.ORDER__trip__END_TO_COMPLAINT_DAYS.天数"
+    token_count = "synthetic.token_count"
     rec = lambda v, q="KNOWN": {"quality": q, "value": v, "source_refs": ["test"]}  # noqa: E731
     cases = []
-    for sid in ["P_02_04_01", "P_04_04_01", "P_05_01_01", "P_99_99_99"]:
-        for d in [0, 1, 7, 8, 30, 31, 400]:
-            cases.append(["triage.acceptance", "decision-table/v1", {"parameters": {"scene_id": rec(sid), days: rec(d)}}])
-        cases.append(["triage.acceptance", "decision-table/v1", {"parameters": {"scene_id": rec(sid), days: rec(None, "UNKNOWN")}}])
+    for sid in ["P_99_81_01", "P_99_81_02", "P_99_81_03", "P_99_99_99"]:
+        for d in [0, 3, 4, 8, 9, 10, 42]:
+            cases.append(["triage.acceptance", "decision-table/v1", {"parameters": {"scene_id": rec(sid), token_count: rec(d)}}])
+        cases.append(["triage.acceptance", "decision-table/v1", {"parameters": {"scene_id": rec(sid), token_count: rec(None, "UNKNOWN")}}])
         cases.append(["triage.acceptance", "decision-table/v1", {"parameters": {"scene_id": rec(sid)}, "missing": "UNKNOWN"}])
         cases.append(["triage.acceptance", "decision-table/v1", {"parameters": {"scene_id": rec(sid)}}])
     for sid in sorted(sup()["scenes"]) + ["P_99_99_99", "P_02", "P_02_04_01\n"]:
         cases.append(["supplement.requirements", "supplement-requirements/v1", {"scene_id": sid}])
     p2_table = p2()["table"]
-    for v in [0, 30, 366, 400]:
-        cases.append([p2_table, "decision-table/v1", {"parameters": {"facts.COUPON__payment__END_TO_COMPLAINT_DAYS.天数": rec(v)}, "missing": "UNKNOWN"}])
+    for v in [0, 7, 8, 42]:
+        cases.append([p2_table, "decision-table/v1", {"parameters": {"facts.SYNTHETIC.queue_depth": rec(v), "facts.SYNTHETIC.enabled": rec(True), "facts.SYNTHETIC.pending": rec(False), "facts.SYNTHETIC.lane": rec("main"), "facts.SYNTHETIC.flag": rec(False), "facts.SYNTHETIC.label": rec("toy")}, "missing": "UNKNOWN"}])
     for rid in sorted(res()["targets"]) + ["nope.nope"]:
         cases.append(["dispatch.resource", "resource-targets/v1", {"resource_id": rid}])
     out["stored"] = {"storage": {k: base64.b64encode(v).decode() for k, v in stored.storage.data.items()}, "cases": cases}

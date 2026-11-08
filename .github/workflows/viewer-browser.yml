@@ -6,12 +6,18 @@ permissions:
   contents: read
 jobs:
   browser:
-    runs-on: macos-14
+    runs-on: macos-15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: "24"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install pinned editor endpoint dependencies
+        run: python3 -m pip install -r plugin/requirements.txt
       - name: Install locked viewer dependencies
         run: npm ci --ignore-scripts --prefix viewer
       - name: Install pinned Chromium

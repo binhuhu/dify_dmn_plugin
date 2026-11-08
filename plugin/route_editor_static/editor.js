@@ -1,12 +1,13 @@
 (() => {
   'use strict';
   // 按场景列出现网定位的全部场景，每行选一个去向（方案应用 / 转安全 / 无方案）；方案应用先在「方案登记」里登记。
-  // 只经本端点的 /api/* 读写插件存储（请求头带编辑口令），不执行规则、不连别的地址。DOM API + textContent 出字，不拼 HTML；
-  // 口令只放本标签页的 sessionStorage。
+  // 只经本端点的 /api/* 读写插件存储，不执行规则、不连别的地址。DOM API + textContent 出字，不拼 HTML。
+  // 0.5.24（D14）：没有共用编辑口令。每个请求用你自己的口令签名（HMAC-SHA256，口令不发出去），请求头 X-Route-Writer
+  // 带名字、时间、签名；「路由表维护」应用核签名。交付链五张表先存草稿、再带闸报告和发布窗那一行发布。口令只放本标签页的 sessionStorage。
 
 
   // 同一场景两种写法一起导入就拒；存后插件若换了写法，提示里说换了几处。
-  const KEY_STORE = 'route-edit-key';
+  const KEY_STORE = 'route-writer-key', WRITER_STORE = 'route-writer-id';
   const SCHEMA = 'dmn-json.route-table/v2';
   const SCHEMA_V3 = 'dmn-json.route-table/v3';
   const STATUS = [['CURRENT', '可调用'], ['CANDIDATE', '候选，不调'], ['GATED', '闸挡着，不调'], ['SHADOW', '影子，不调'], ['RETIRED', '退役，不调']];
@@ -23,13 +24,14 @@
   const spellAs = (sid, canonical) => canonical === null || !SCENE_ID.test(sid) ? sid : canonical ? 'M_' + sid.replace(/^M_/, '') : sid.replace(/^M_/, '');
   const app = document.getElementById('app');
   const base = (() => { const p = location.pathname; return p.endsWith('/') ? p : p.endsWith('/index.html') ? p.slice(0, -'index.html'.length) : p + '/'; })();
-  const state = { key: readKey(), table: 'dispatch.route', loaded: false, doc: null, baseDoc: null, version: 0, draft: null, basedOn: 0, history: [],
+  const state = { key: readKey(), writer: readWriter(), serverDraft: null, releaseRef: '', table: 'dispatch.route', loaded: false, doc: null, baseDoc: null, version: 0, draft: null, basedOn: 0, history: [],
     busy: false, msg: null, confirming: false, conflict: false, errKey: null, errApp: null,
     view: { issue_type: 'COMPLAINT', phase: 'STAGE_1', domain: '', kind: 'ALL', q: '' }, exported: '', newApp: { app_id: '', name: '', inputs: 'call_id request_json' },
     gateText: '' };
 
   function readKey() { try { return sessionStorage.getItem(KEY_STORE) || ''; } catch (_) { return ''; } }
-  function keepKey(k) { try { sessionStorage.setItem(KEY_STORE, k); } catch (_) { /* 私密窗口等：只在本页内存里 */ } }
+  function readWriter() { try { return sessionStorage.getItem(WRITER_STORE) || ''; } catch (_) { return ''; } }
+  function keepKey(k, w) { try { sessionStorage.setItem(KEY_STORE, k); sessionStorage.setItem(WRITER_STORE, w); } catch (_) { /* 私密窗口等：只在本页内存里 */ } }
   function el(tag, props, ...kids) {
     const n = document.createElement(tag);
     for (const [k, v] of Object.entries(props || {})) {
@@ -47,9 +49,26 @@
   const canon = v => Array.isArray(v) ? '[' + v.map(canon).join(',') + ']' : v && typeof v === 'object'
     ? '{' + Object.keys(v).sort().map(k => JSON.stringify(k) + ':' + canon(v[k])).join(',') + '}' : JSON.stringify(v ?? null);
 
+  // 签名：插件按 RFC 8785 规范化请求体（去掉 writer）再取 sha256；本页发的都是对象、字符串、整数，排序键 + JSON.stringify 就是 RFC 8785。
+  const GET_OP = { table: 'table', history: 'history', version: 'version', draft: 'draft' };
+  const POST_OP = { table: 'save', draft: 'draft_save', discard: 'draft_discard', publish: 'publish' };
+  const enc = new TextEncoder();
+  const hex = b => [...new Uint8Array(b)].map(x => x.toString(16).padStart(2, '0')).join('');
+  const jcs = v => Array.isArray(v) ? '[' + v.map(x => x === undefined ? 'null' : jcs(x)).join(',') + ']' : v && typeof v === 'object'
+    ? '{' + Object.keys(v).filter(k => v[k] !== undefined).sort().map(k => JSON.stringify(k) + ':' + jcs(v[k])).join(',') + '}' : JSON.stringify(v);
+  async function writerHeader(op, version, body) {
+    const at = new Date().toISOString().replace(/\.\d{3}Z$/, 'Z');
+    const digest = hex(await crypto.subtle.digest('SHA-256', enc.encode(jcs(body || {}))));
+    const msg = ['dmn-store-sig/1', op, state.table, version, digest, state.writer, at].join('\n');
+    const k = await crypto.subtle.importKey('raw', enc.encode(state.key), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+    return state.writer + ';' + at + ';' + hex(await crypto.subtle.sign('HMAC', k, enc.encode(msg)));
+  }
   async function api(path, body) {
+    const [name, query] = path.split('?'), pinned = new URLSearchParams(query || '').get('v');
+    const op = (body ? POST_OP : GET_OP)[name] || '-';
     const r = await fetch(base + 'api/' + path, { method: body ? 'POST' : 'GET', cache: 'no-store', credentials: 'omit', redirect: 'error',
-      headers: { 'X-Route-Edit-Key': state.key, ...(body ? { 'Content-Type': 'application/json' } : {}) }, body: body ? JSON.stringify(body) : undefined });
+      headers: { 'X-Route-Writer': await writerHeader(op, name === 'version' && pinned != null ? pinned : '', body), ...(body ? { 'Content-Type': 'application/json' } : {}) },
+      body: body ? JSON.stringify(body) : undefined });
     let v; try { v = await r.json(); } catch (_) { throw Error('服务没返回 JSON（' + r.status + '）'); }
     if (!r.ok || v.error) { const e = Error(v.error?.message || '请求失败（' + r.status + '）'); e.code = v.error?.code; e.path = v.error?.path || ''; throw e; }
     return v;
@@ -138,14 +157,15 @@
   async function load() {
     state.busy = true; state.msg = null; state.confirming = false; state.conflict = false; state.errKey = state.errApp = null; paint();
     try {
-      let [t, h] = await Promise.all([api(q('table')), api(q('history'))]);
+      let [t, h, dr] = await Promise.all([api(q('table')), api(q('history')), api(q('draft')).catch(e => e.code === 'STORED_TABLE_DRAFT_NOT_SUPPORTED' ? { draft: null, none: true } : Promise.reject(e))]);
+      state.serverDraft = dr.draft || null; state.twoState = !dr.none;
       // 0.5.20 (存表名即标准名): an old name read after the first store answers with the standard name; edit that one
       if (t.read_as && t.table) { state.table = t.table; h = await api(q('history')); }
       state.doc = t.doc; state.baseDoc = routeDoc(t.doc); state.version = t.version; state.history = h.versions; state.basedOn = t.version; state.loaded = true;
       state.draft = toDraft(routeDoc(t.doc));
       if (t.doc && !routeDoc(t.doc)) state.msg = { cls: 'warn', text: '插件里的 ' + state.table + ' 是旧格式（' + t.doc.schema + '），本页只编辑 v2 / v3：用「导入 JSON」放进第一版后保存。' };
       else state.msg = t.doc ? null : { cls: 'warn', text: '插件里还没有路由表 ' + state.table + '：用「导入 JSON」放进第一版（场景目录 + 方案登记 + 路由）。' };
-    } catch (e) { state.msg = { cls: 'bad', text: e.message }; if (e.code === 'EDIT_KEY_REJECTED') state.loaded = false; }
+    } catch (e) { state.msg = { cls: 'bad', text: e.message }; if (/^STORED_TABLE_WRITER/.test(e.code || '')) state.loaded = false; }
     state.busy = false; paint();
   }
   function askSave() {
@@ -158,7 +178,7 @@
       if (k.startsWith('app:')) state.errApp = k.slice(4); else focusRow(k);
       state.msg = { cls: 'bad', text: '先改掉这些再保存：' + bad.slice(0, 5).map(x => x[1]).join('；') + (bad.length > 5 ? '…（共 ' + bad.length + ' 处）' : '') }; paint(); return;
     }
-    if (!gateReport().ok) { state.msg = { cls: 'bad', text: '存前闸报告要是一个 JSON 对象（或者清空）。' }; paint(); return; }
+    if (!state.twoState && !gateReport().ok) { state.msg = { cls: 'bad', text: '存前闸报告要是一个 JSON 对象（或者清空）。' }; paint(); return; }
     state.confirming = true; state.msg = null; paint();
   }
   async function save() {
@@ -166,7 +186,14 @@
     const sent = toDoc(d), n = changes(d).routes.length, gate = gateReport().value;
     state.busy = true; state.confirming = false; state.msg = null; paint();
     try {
-      const r = await api('table', { ...sent, expected_version: state.version, ...(gate ? { gate_report: gate } : {}) });
+      if (state.twoState) {
+        // 交付链五张表：只存草稿，不生效
+        const r = await api(q('draft'), { ...sent, expected_version: state.version, expected_draft: state.serverDraft?.draft_id || '' });
+        state.serverDraft = r.draft; state.conflict = false;
+        state.msg = { cls: 'ok', text: '已存草稿（基于第 ' + r.draft.base_version + ' 版，改了 ' + n + ' 条去向，内容摘要 ' + r.draft.content_sha256.slice(0, 12) + '），还没生效。按这个摘要跑存前闸，把报告贴到下面、写发布窗那一行，再发布。' };
+        state.busy = false; paint(); return;
+      }
+      const r = await api(q('table'), { ...sent, expected_version: state.version, ...(gate ? { gate_report: gate } : {}) });
       state.doc = r.doc; state.baseDoc = r.doc; state.version = r.version; state.draft = toDraft(r.doc); state.basedOn = r.version; state.conflict = false; state.gateText = '';
       state.history = (await api(q('history'))).versions;
       state.msg = { cls: 'ok', text: '已保存第 ' + r.version + ' 版（改了 ' + n + ' 条去向，共 ' + r.doc.routes.length + ' 条路由）。现网流程下一次运行就读这一版。'
@@ -180,6 +207,30 @@
       if (m && sent.routes[Number(m[1])]) { const r = sent.routes[Number(m[1])]; focusRow(key3(r.scene_id, r.issue_type, r.phase)); }
       else if (s) state.errApp = s[1];
     }
+    state.busy = false; paint();
+  }
+  // 0.5.24：发布草稿。要存前闸报告（核的是草稿的内容摘要）和发布窗那一行。
+  async function publish() {
+    const dr = state.serverDraft, gate = gateReport();
+    if (!dr) return;
+    if (!gate.ok || !gate.value) { state.msg = { cls: 'bad', text: '发布要贴存前闸报告（JSON 对象，content_sha256 等于草稿的内容摘要，gate_status 写 PASS 或 FAIL）。' }; paint(); return; }
+    if (!state.releaseRef.trim()) { state.msg = { cls: 'bad', text: '写发布窗那一行（发布窗清单行号或 bus 事件名）再发布。' }; paint(); return; }
+    state.busy = true; state.msg = null; paint();
+    try {
+      const r = await api(q('publish'), { draft_id: dr.draft_id, expected_version: dr.base_version, gate_report: gate.value, release_ref: state.releaseRef.trim() });
+      state.doc = r.doc; state.baseDoc = r.doc; state.version = r.version; state.draft = toDraft(r.doc); state.basedOn = r.version; state.serverDraft = null; state.gateText = ''; state.releaseRef = '';
+      state.history = (await api(q('history'))).versions;
+      const inv = r.published?.invariants_after;
+      state.msg = { cls: 'ok', text: '已发布第 ' + r.version + ' 版，现网流程下一次运行就读这一版。发布人 ' + r.published.publisher.id + '，发布窗 ' + r.published.release_ref + '。'
+        + (inv ? ' 能不能调：' + inv.broken.length + ' 行调不到、' + inv.parked.length + ' 行挂起、' + inv.current_not_routed.length + ' 个在用方案没有路由行。' : '') };
+    } catch (e) { state.msg = { cls: 'bad', text: e.message + (e.path ? '（' + e.path + '）' : '') }; }
+    state.busy = false; paint();
+  }
+  async function discard() {
+    const dr = state.serverDraft; if (!dr) return;
+    state.busy = true; paint();
+    try { await api(q('discard'), { draft_id: dr.draft_id }); state.serverDraft = null; state.msg = { cls: 'ok', text: '草稿已删。' }; }
+    catch (e) { state.msg = { cls: 'bad', text: e.message }; }
     state.busy = false; paint();
   }
   // 冲突后：取最新版，把「我相对起点的改动」重放上去；双方都改了的同一处以我的为准，并列出来。
@@ -259,7 +310,7 @@
   }
   function addSolution() {
     const d = state.draft, a = state.newApp, id = a.app_id.trim().toLowerCase();
-    if (!/^[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}$/.test(id)) { state.msg = { cls: 'bad', text: '应用编号要是 AgentHub 应用 id（36 位，形如 ee1aebd3-41ff-…）。' }; paint(); return; }
+    if (!/^[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}$/.test(id)) { state.msg = { cls: 'bad', text: '应用编号要是 AgentHub 应用 id（36 位，形如 00000000-0000-4000-8000-000000000001）。' }; paint(); return; }
     if (!a.name.trim() || !words(a.inputs).length) { state.msg = { cls: 'bad', text: '登记方案要写名称和开始变量。' }; paint(); return; }
 
     d.solutions[id] = isV3(d) ? { name: a.name.trim(), inputs: words(a.inputs), ...structuredClone(DEFAULTS), status: 'CANDIDATE' } : { name: a.name.trim(), inputs: words(a.inputs) };
@@ -304,7 +355,8 @@
   function view() {
     const out = [el('h1', { text: '受理路由表' }), el('p', { cls: 're-lead', text: '每个场景选一个去向：方案应用、转安全，或无方案。方案应用先在「方案登记」里登记；知识库路由不在这里，留在侧栏配置。保存后现网流程下一次运行就读新表，不用重发受理路由或交付流程；每次保存都留一版，可以载入旧版再存回去。' })];
     out.push(el('div', { cls: 're-card' }, el('div', { cls: 're-row' },
-      el('label', { cls: 're-field' }, el('span', { text: '编辑口令' }), el('input', { type: 'password', id: 're-key', value: state.key, autocomplete: 'off' })),
+      el('label', { cls: 're-field' }, el('span', { text: '写手' }), el('input', { id: 're-writer', value: state.writer, autocomplete: 'off', placeholder: '你的名字（写手登记里的）' })),
+      el('label', { cls: 're-field' }, el('span', { text: '我的口令' }), el('input', { type: 'password', id: 're-key', value: state.key, autocomplete: 'off' })),
       el('label', { cls: 're-field' }, el('span', { text: '路由表' }), el('input', { id: 're-table', value: state.table })),
       el('button', { type: 'button', cls: 'primary', 'data-act': 'load', disabled: state.busy, text: state.loaded ? '重新读取（丢掉编辑区）' : '读取' }))));
     if (state.msg) out.push(el('div', { cls: 're-status ' + state.msg.cls, role: state.msg.cls === 'bad' ? 'alert' : 'status' }, el('span', { text: state.msg.text }),
@@ -361,25 +413,26 @@
           el('td', { cls: 're-num', text: String(used[id] || 0) }),
           el('td', {}, used[id] ? el('span', { cls: 're-muted', text: '有路由' }) : el('button', { type: 'button', cls: 'link', 'data-act': 'unreg', 'data-v': id, text: '删除登记' }))))))),
       el('div', { cls: 're-row' },
-        el('label', { cls: 're-field' }, el('span', { text: '应用编号' }), el('input', { id: 're-new-id', value: state.newApp.app_id, placeholder: 'ee1aebd3-41ff-…', size: '38' })),
+        el('label', { cls: 're-field' }, el('span', { text: '应用编号' }), el('input', { id: 're-new-id', value: state.newApp.app_id, placeholder: '00000000-0000-4000-8000-000000000001', size: '38' })),
         el('label', { cls: 're-field' }, el('span', { text: '名称' }), el('input', { id: 're-new-name', value: state.newApp.name, placeholder: '示例方案' })),
         el('label', { cls: 're-field' }, el('span', { text: '开始变量' }), el('input', { id: 're-new-inputs', value: state.newApp.inputs })),
         el('button', { type: 'button', 'data-act': 'reg', text: '登记' }))));
 
     // 保存：先列改动，确认后才写
     const total = diff.routes.length + diff.solutions.length + (diff.scenes ? 1 : 0) + (diff.schema ? 1 : 0);
-    out.push(el('section', { cls: 're-card' + (state.confirming ? ' re-confirm' : '') }, el('h2', { text: state.confirming ? '确认保存为第 ' + (state.version + 1) + ' 版' : '保存' }),
+    if (state.twoState) out.push(draftCard());
+    out.push(el('section', { cls: 're-card' + (state.confirming ? ' re-confirm' : '') }, el('h2', { text: state.confirming ? (state.twoState ? '确认存为草稿' : '确认保存为第 ' + (state.version + 1) + ' 版') : (state.twoState ? '存草稿' : '保存') }),
       total ? el('details', { open: state.confirming }, el('summary', { text: '和第 ' + state.version + ' 版相比：去向 ' + diff.routes.length + ' 条 · 方案登记 ' + diff.solutions.length + ' 项' + (diff.scenes ? ' · 场景目录' : '') + (diff.schema ? ' · 升为 v3' : '') }), changeList(diff, d))
         : el('p', { cls: 're-muted', text: '和现存版本相比没有改动。' }),
-      state.confirming ? el('p', { cls: 're-warn', text: '确认后立即生效：读这张表的现网流程，下一次运行就按新表走。' }) : null,
+      state.confirming ? el('p', { cls: 're-warn', text: state.twoState ? '存成草稿，不生效：发布之前现网流程照读第 ' + state.version + ' 版。' + (state.serverDraft ? '会替换现在的草稿。' : '') : '确认后立即生效：读这张表的现网流程，下一次运行就按新表走。' }) : null,
       state.confirming ? null : el('label', { cls: 're-field' }, el('span', { text: '改动说明（必填）' }), el('textarea', { id: 're-note', rows: '2', text: d.note })),
       state.confirming ? el('p', {}, '改动说明：' + d.note) : null,
-      state.confirming ? (state.gateText.trim() ? el('p', { cls: 're-muted', text: '随这次保存发出存前闸报告（插件核内容摘要并记下）。' }) : null)
+      state.twoState ? null : state.confirming ? (state.gateText.trim() ? el('p', { cls: 're-muted', text: '随这次保存发出存前闸报告（插件核内容摘要并记下）。' }) : null)
         : el('details', { open: !!state.gateText.trim() }, el('summary', { text: '存前闸报告（可选）' }),
           el('textarea', { id: 're-gate', rows: '3', 'aria-label': '存前闸报告 JSON', placeholder: '{"status": "PASS", "content_sha256": "…", …}', text: state.gateText })),
       el('div', { cls: 're-row' }, state.confirming
-        ? [el('button', { type: 'button', cls: 'primary', 'data-act': 'confirm', disabled: state.busy, text: '确认保存' }), el('button', { type: 'button', 'data-act': 'cancel', text: '返回修改' })]
-        : el('button', { type: 'button', cls: 'primary', 'data-act': 'save', disabled: state.busy || !total, text: state.busy ? '正在保存…' : '检查改动并保存' }))));
+        ? [el('button', { type: 'button', cls: 'primary', 'data-act': 'confirm', disabled: state.busy, text: state.twoState ? '确认存草稿' : '确认保存' }), el('button', { type: 'button', 'data-act': 'cancel', text: '返回修改' })]
+        : el('button', { type: 'button', cls: 'primary', 'data-act': 'save', disabled: state.busy || !total, text: state.busy ? '正在保存…' : state.twoState ? '检查改动并存草稿' : '检查改动并保存' }))));
 
     out.push(el('details', { cls: 're-card' }, el('summary', { text: '场景目录（' + Object.keys(d.scenes).length + ' 个场景）' }),
       el('p', { cls: 're-muted', text: '场景目录取自现网定位。定位发布新目录后在这里导入：粘贴 {场景编号: {name, domain}}，或 [{scene_id, name, domain}]（定位 CATALOG 的行就可以）。' }),
@@ -395,6 +448,19 @@
       state.exported ? el('textarea', { rows: '8', readonly: true, 'aria-label': '导出的 JSON', text: state.exported }) : null));
     return out;
   }
+  // 0.5.24：草稿与发布
+  function draftCard() {
+    const dr = state.serverDraft;
+    if (!dr) return el('section', { cls: 're-card' }, el('h2', { text: '草稿与发布' }), el('p', { cls: 're-muted', text: '没有未发布的草稿。改完先存草稿，再带存前闸报告和发布窗那一行发布；发布前现网照读生效版。' }));
+    const stale = dr.base_version !== state.version;
+    return el('section', { cls: 're-card re-confirm' }, el('h2', { text: '未发布的草稿' }),
+      el('p', { text: '草稿 ' + dr.draft_id.slice(0, 12) + ' · ' + (dr.writer?.id || '?') + ' 存于 ' + dr.saved_at + ' · 基于第 ' + dr.base_version + ' 版 · 内容摘要 ' + dr.content_sha256 + ' · 说明：' + (dr.doc?.note ?? dr.body?.note ?? '') }),
+      stale ? el('p', { cls: 're-warn', text: '生效版已是第 ' + state.version + ' 版，这份草稿发不了：在新版上重做草稿。' }) : null,
+      el('label', { cls: 're-field' }, el('span', { text: '存前闸报告（必填，核的是上面的内容摘要）' }), el('textarea', { id: 're-gate', rows: '3', 'aria-label': '存前闸报告 JSON', placeholder: '{"content_sha256": "…", "gate_status": "PASS", …}', text: state.gateText })),
+      el('label', { cls: 're-field' }, el('span', { text: '发布窗那一行（必填）' }), el('input', { id: 're-release', value: state.releaseRef, placeholder: '发布窗清单行号或 bus 事件名' })),
+      el('div', { cls: 're-row' }, el('button', { type: 'button', cls: 'primary', 'data-act': 'publish', disabled: state.busy || stale, text: '发布为第 ' + (dr.would_be_version ?? dr.base_version + 1) + ' 版' }),
+        el('button', { type: 'button', 'data-act': 'discard', disabled: state.busy, text: '删草稿' })));
+  }
   function paint() {
     const a = document.activeElement;
     const focus = a && app.contains(a) ? (a.id ? '#' + a.id : a.dataset.k ? '[data-k="' + a.dataset.k + '"][data-f="' + a.dataset.f + '"]' : a.dataset.app ? '[data-app="' + a.dataset.app + '"][data-f="' + a.dataset.f + '"]' : null) : null;
@@ -406,7 +472,9 @@
   app.addEventListener('click', e => {
     const b = e.target.closest('[data-act]'); if (!b) return;
     const act = b.dataset.act, d = state.draft;
-    if (act === 'load') { state.key = app.querySelector('#re-key').value; state.table = app.querySelector('#re-table').value.trim(); keepKey(state.key); void load(); }
+    if (act === 'load') { state.key = app.querySelector('#re-key').value; state.writer = app.querySelector('#re-writer').value.trim(); state.table = app.querySelector('#re-table').value.trim(); keepKey(state.key, state.writer); void load(); }
+    else if (act === 'publish') void publish();
+    else if (act === 'discard') void discard();
     else if (act === 'save') askSave();
     else if (act === 'confirm') void save();
     else if (act === 'cancel') { state.confirming = false; paint(); }
@@ -430,6 +498,7 @@
     if (t.id === 're-new-name') { state.newApp.name = t.value; return; }
     if (t.id === 're-new-inputs') { state.newApp.inputs = t.value; return; }
     if (t.id === 're-gate') { state.gateText = t.value; return; }
+    if (t.id === 're-release') { state.releaseRef = t.value; return; }
     if (d && t.dataset.app && d.solutions[t.dataset.app]) {
       const s = d.solutions[t.dataset.app], f = t.dataset.f;
       if (f === 'name') s.name = t.value;
@@ -464,5 +533,5 @@
     paint();
   });
   paint();
-  if (state.key) void load();
+  if (state.key && state.writer) void load();
 })();

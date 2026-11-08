@@ -1,5 +1,4 @@
-"""Round 3 of the independent review of the 0.5.20 migration (e265d3b): the R1–R6 fixes of 57c94cf. A FAILING test is a
-counterexample. Interleavings are deterministic (a storage wrapper runs the other process at a chosen storage call)."""
+"""Storage migration concurrency regressions using deterministic storage-call interleavings."""
 
 import json
 
@@ -55,7 +54,7 @@ def test_t1_concurrent_s_saves_the_acknowledged_one_is_not_the_head(std):
     log = {}
 
     def p4():
-        # ADJUSTED (round 6, T1): P4 may be refused (0.5.19's STALE guard restored); the refusal is recorded, not raised
+        # Invariant T1: P4 may be refused (0.5.19's STALE guard restored); the refusal is recorded, not raised
         # into P3's storage call
         try:
             log["p4"] = other(data).save(next_body(s, std, note="P4"), N, new_id=lambda: "4" * 32)
@@ -67,7 +66,7 @@ def test_t1_concurrent_s_saves_the_acknowledged_one_is_not_the_head(std):
         log["p3"] = p3.save(dict(bump(next_body(s, std)), note="P3"), N, new_id=lambda: "3" * 32)
     except RouteTableError as exc:
         log["p3"] = exc.code
-    # ADJUSTED (round 6, T1): the counterexample is "the 200 one is not the head". With the guard restored P4 is
+    # Invariant T1: the counterexample is "the 200 one is not the head". With the guard restored P4 is
     # refused ROUTE_TABLE_STALE (0.5.19's old-name rule, as test_t1_held) and P3, answered 200, is what readers read
     assert log["p4"] == "ROUTE_TABLE_STALE", log["p4"]
     assert isinstance(log["p3"], dict) and log["p3"]["version"] == N + 1, log["p3"]
@@ -192,7 +191,7 @@ def test_t5_version_key_after_a_whole_undo_stays_and_nothing_removes_it(std):
         StorageTables(Hooked(data, on_set=undo_first), now=CLOCK).save(
             next_body(s, std), N, new_id=lambda: "e" * 32
         )
-    # ADJUSTED (round 6, bar (b) measured per class): the save re-reads the record before its version check, so the
+    # Invariant bar (b) measured per class: the save re-reads the record before its version check, so the
     # undo that runs at its first write is caught after its head (I20, STORED_TABLE_COPY_RACE「已写入…读回核对」) and
     # the head and version it wrote are withdrawn; the rest of the test is unchanged
     assert exc.value.code == "STORED_TABLE_COPY_RACE" and log["undo"]["table"] == std

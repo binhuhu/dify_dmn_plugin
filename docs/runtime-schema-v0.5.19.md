@@ -1,6 +1,6 @@
 # v0.5.19 runtime schema extension
 
-The files under `specs/service-decision-dsl-v2/` are the fixed requirements snapshot recorded by its `SOURCE.json`. They are retained unchanged. That snapshot's architecture schema requires `when` on every rule and does not accept `when_any`.
+The files under `specs/service-decision-dsl-v2/` are the fixed requirements snapshot recorded by its `SOURCE.json`. Schemas, examples and normative requirements remain unchanged; documentation-only privacy cleanup and current/source digest boundaries are recorded in that manifest. That snapshot's architecture schema requires `when` on every rule and does not accept `when_any`.
 
 The v0.5.19 plugin validates architecture bundles using `plugin/dmn_client/dsl_schemas/architecture.schema.json`. Its only structural difference from that snapshot is in `$defs.rule`:
 

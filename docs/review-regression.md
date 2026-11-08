@@ -1,5 +1,7 @@
 # Targeted review regression — 2026-09-30
 
+Historical test and artifact record; not current deployment or CI status.
+
 Baseline: `d7d1c61f34aa84a490eca8e1bb42d0c3d49c2d3b`.
 
 Reproduced before changes:
@@ -27,9 +29,9 @@ Validation:
 - SDK 0.10.2 registration accepts `type: any` for all three JSON parameters. Real SDK invocations with native objects and JSON strings produce equal envelopes for query, evaluation and terminal plan requests.
 - SDK/gevent emits its existing monkey-patch warning and Pydantic deprecation warning; subprocess fixture additionally emits Python's fork-with-threads deprecation warning.
 
-No live Dify/AgentHub Object flow, Docker deployment, production capability transport, private workflow migration, production rules or historical business acceptance was run. Queries remain synthetic mocks. No service deployment, main change or security setting change is included.
+No live Dify/Dify 宿主 Object flow, Docker deployment, production capability transport, private workflow migration, production rules or historical business acceptance was run. Queries remain synthetic mocks. No service deployment, main change or security setting change is included.
 
-At this earlier checkpoint packaging was blocked in this executor. The dated packaging follow-up below supersedes that status; the original package must not be used for the corrected source.
+The packaging follow-up below records the corrected artifact. The original package must not be used with the corrected source.
 
 ## Scope correction: independent locate and solve, optional P6/P7
 
@@ -64,31 +66,26 @@ code and never reach the network.
 Validation after these corrections: **99 Node tests and 230 Python tests passed**,
 including **26 actual SDK → authenticated local HTTP → isolated Node tests**.
 Ruff lint/format and git whitespace checks passed. Existing SDK/deprecation and
-subprocess warnings remain. Target Dify/AgentHub installation was not tested.
+subprocess warnings remain. Target Dify/Dify 宿主 installation was not tested.
 
 ## Packaging and compatibility follow-up — 2026-09-30
 
-The original authorized packaging workspace subsequently built the corrected
-candidate with its installed official Dify CLI 0.6.10. The coordinating workspace
-reported bytewise verification of all 20 package files against source
-`d04f51ccdb67cb8c375f0c2900984c3a8bd7386c`. This executor did not repeat that build
-or decode the corrected package; its earlier restricted binary fetch is not a
-current claim that no corrected package exists.
+The corrected candidate was built with official Dify CLI 0.6.10. The historical
+record reports bytewise verification of all 20 package files against source
+`d04f51ccdb67cb8c375f0c2900984c3a8bd7386c`. The artifact metadata is:
 
 - File: `hu8627-dmn-0.1.0-d04f51c.difypkg`
 - Size: 53,718 bytes
 - SHA-256: `122e68ef2627d9371eb6cae1d7ee9cfb51b50bcedab59c7e6afa58c3b1776fbf`
 - Dify checksum: `d720592666104edb8c86951dbeabf7233a41e8412b17a8e71d0bbd51f25028be`
 
-This artifact supersedes the earlier pending package. On 2026-09-30 at
-11:23:49 UTC the user published the public [v0.1.0 Release](https://github.com/hu8627/dify_dmn_plugin/releases/tag/v0.1.0).
-The authorized GitHub connector verified release ID `399973040`, draft=false,
-prerelease=false, and asset ID `600747721`: the filename, 53,718-byte size and
-GitHub-reported SHA-256 match the artifact above. This is connector metadata
-verification, not a new downloaded-byte verification in this executor.
-The restricted Release API was not retried or bypassed.
-[Compatibility checks](compatibility-1.11.1.md) passed for actual Dify 1.11.1
-Python models, SDK stdio and a fresh 37-package dependency installation.
-Daemon Go package decoding and target UI installation/call remain NOT RUN.
-Target From GitHub installation is being retried; success is not yet verified.
-The target Node service remains undeployed. See the [release record and checklist](release-checklist.md).
+This artifact superseded the earlier package. The public
+[v0.1.0 Release](https://github.com/hu8627/dify_dmn_plugin/releases/tag/v0.1.0)
+records the corresponding filename, size and SHA-256. Public metadata verification
+is distinct from downloading and verifying every artifact byte.
+[Compatibility checks](compatibility-1.11.1.md) recorded tests against Dify 1.11.1
+Python models and SDK stdio with a fresh dependency installation.
+Daemon package decoding, target UI installation/calls and target Node deployment were
+not verified by that compatibility check. This historical document makes no statement
+that installation or a retry is currently in progress. See the
+[release record and checklist](release-checklist.md).

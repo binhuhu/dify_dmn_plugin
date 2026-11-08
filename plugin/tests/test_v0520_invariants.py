@@ -822,7 +822,7 @@ def test_i17_moved_resource_versions_list_route_tables_by_the_names_0519_reads()
     assert moved["content_sha256"] == third["content_sha256"]
 
 
-# ══ I18–I27: the write discipline (round 4, after the independent review) ═════
+# ══ I18–I27: the write discipline ═════
 
 
 class At(Faulty):
@@ -986,8 +986,8 @@ def test_i18_the_epoch_grows_at_every_state_change_and_the_owner_names_the_write
 
 def test_i18_a_save_that_saw_one_new_does_not_commit_into_a_later_one():
     """ABA: an S save starts in NEW, the table is undone and copied again (NEW again) while it writes its version key.
-    ADJUSTED (round 6, bar (b) measured per class: the save re-reads the record before its version check, as 0.5.19's
-    calls, not between its version key and its head): the save's head now lands in the new lineage, and what is left of
+    The historical call order applies: the save re-reads the record before its version check, as 0.5.19's
+    calls, not between its version key and its head. Consequently, the save's head now lands in the new lineage, and what is left of
     the protection is I20 and the epoch (I18): the save is not answered 200 but told that its version was written while
     the state changed to another round of NEW (read back); the new lineage's record is untouched; its copy stays in the
     chain; both names read one head that is its own version key; the next save and the undo work. Rule (c) excludes the
@@ -1027,8 +1027,7 @@ def test_i18_a_save_that_saw_one_new_does_not_commit_into_a_later_one():
 
 @pytest.mark.parametrize("std", ALL)
 def test_i22_an_orphan_old_version_does_not_move_the_old_name_and_blocks_the_copy(std):
-    """ADJUSTED (round 9, Codex review of 0.5.20; was ..._nor_blocks_the_copy, which expected the copy to go ahead
-    and report the orphan): before the copy a pin S@n+1 reads an old-name orphan through the alias (0.5.19's reading),
+    """Before the copy a pin S@n+1 reads an old-name orphan through the alias (0.5.19's reading),
     and after the copy the next S save would give (S, n+1) another content (I1 / I2). So the first store is refused
     STORED_TABLE_ORPHAN_VERSION with nothing written; check lists the orphan; once it is removed by hand the copy goes
     ahead and (S, n+1) maps to one content only. The orphan still does not move the old name."""
@@ -1233,7 +1232,7 @@ def test_r3_check_lists_standard_keys_0519_would_see_and_undo_clears_them():
     assert run_op(s, "check", RESOURCE)[1]["standard_keys"] == []
 
 
-# ── round 6: where the record re-read sits; an aborted copy; a key gone between exist and get ───────────────────────
+# ── Where the record re-read sits; an aborted copy; a key gone between exist and get ───────────────────────
 
 
 class Traced(Faulty):
@@ -1399,7 +1398,7 @@ def test_r6_an_ordinary_save_crashed_at_any_write(std, named, after):
         if standard:
             assert run_op(s, "undo", std, str(N))[0] == 200, k
         else:
-            # ADJUSTED (round 9, I22): the copy no longer goes ahead over the orphan; check lists it, the copy is
+            # Invariant I22: the copy no longer goes ahead over the orphan; check lists it, the copy is
             # refused STORED_TABLE_ORPHAN_VERSION, and after the orphan is removed by hand the copy and the undo work
             assert run_op(s, "check", std)[1]["old_orphans"] == [orphan], k
             refused = run_op(s, "save", "", body=copy_body(s, std))
