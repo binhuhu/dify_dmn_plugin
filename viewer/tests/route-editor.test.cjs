@@ -7,7 +7,9 @@ const fs = require("node:fs");
 const path = require("node:path");
 const { JSDOM } = require("jsdom");
 const vm = require("node:vm");
-const { webcrypto, createHash, createHmac, timingSafeEqual } = require("node:crypto");
+const { createHash, createHmac, timingSafeEqual } = require("node:crypto");
+const { setImmediate: nextTurn } = require("node:timers/promises");
+const { installEditorAsync } = require("./editor-dom-idle.cjs");
 
 const SCRIPT = fs.readFileSync(path.resolve("plugin/route_editor_static/editor.js"), "utf8");
 const APP_A = "00000000-0000-4000-8000-000000000001";
@@ -83,35 +85,101 @@ function fakeApi() {
   return s;
 }
 
-async function page(api) {
+const asyncWindows = new WeakMap();
+async function page(api, { beforeCrypto, onWindow } = {}) {
   const dom = new JSDOM('<main id="app"></main>', { url: "http://127.0.0.1/e/hook/", runScripts: "outside-only", pretendToBeVisual: true });
   const w = dom.window;
-  w.fetch = api.fetch;
+  asyncWindows.set(w, installEditorAsync(w, (...args) => api.fetch(...args), { beforeCrypto }));
   w.structuredClone = structuredClone;
   w.TextEncoder = TextEncoder;
-  Object.defineProperty(w, "crypto", { value: webcrypto });
   new vm.Script(SCRIPT).runInContext(dom.getInternalVMContext());
   $(w, "#re-writer").value = WRITER;
   $(w, "#re-key").value = KEY;
   $(w, "#re-table").value = TABLE;
   $(w, '[data-act="load"]').click();
-  await settle();
+  if (onWindow) onWindow(w);
+  await settle(w);
   return w;
 }
-const settle = () => new Promise((r) => setTimeout(r, 20));
+const settle = (w) => asyncWindows.get(w).idle();
 const $ = (w, sel) => w.document.querySelector(sel);
-const click = async (w, sel) => { $(w, sel).click(); await settle(); };
+const click = async (w, sel) => { $(w, sel).click(); await settle(w); };
 const pick = async (w, scene, value) => {
   const s = $(w, `select[data-k="${scene}|COMPLAINT|STAGE_1"]`);
   s.value = value;
   s.dispatchEvent(new w.Event("change", { bubbles: true }));
-  await settle();
+  await settle(w);
 };
 const note = async (w, text) => {
   const n = $(w, "#re-note");
   n.value = text;
   n.dispatchEvent(new w.Event("input", { bubbles: true }));
 };
+
+const deferred = () => {
+  let resolve;
+  const promise = new Promise((done) => { resolve = done; });
+  return { promise, resolve };
+};
+
+test("the DOM harness waits for all real crypto operations before the initial render", async (t) => {
+  const api = fakeApi(); api.saveAs(first());
+  const digestGate = deferred(), entered = deferred();
+  t.after(() => digestGate.resolve());
+  let w, returned = false;
+  const loading = page(api, {
+    onWindow: (window) => { w = window; },
+    beforeCrypto: (name) => {
+      if (name === "digest") { entered.resolve(); return digestGate.promise; }
+    },
+  }).then((window) => { returned = true; return window; });
+  await entered.promise;
+  await nextTurn();
+  assert.equal(returned, false, "page() must not return while initial signatures are blocked");
+  assert.deepEqual(asyncWindows.get(w).pending(), ["crypto.digest", "crypto.digest", "crypto.digest"]);
+  assert.equal(w.document.querySelectorAll(".re-tall tbody tr").length, 0);
+  digestGate.resolve();
+  await loading;
+  assert.equal(w.document.querySelectorAll(".re-tall tbody tr").length, 3);
+  assert.deepEqual(asyncWindows.get(w).pending(), []);
+  w.close();
+});
+
+test("the DOM harness waits for a held signature and the subsequent history JSON/render", async (t) => {
+  const api = fakeApi(); api.saveAs(first());
+  const signGate = deferred(), signEntered = deferred(), historyGate = deferred(), historyEntered = deferred();
+  t.after(() => { signGate.resolve(); historyGate.resolve(); });
+  let hold = false, returned = false;
+  const fetch0 = api.fetch;
+  api.fetch = async (url, init) => {
+    const response = await fetch0(url, init);
+    if (!hold || !url.includes("/api/history?")) return response;
+    return { ...response, json: async () => {
+      historyEntered.resolve(); await historyGate.promise; return response.json();
+    } };
+  };
+  const w = await page(api, { beforeCrypto: (name) => {
+    if (hold && name === "sign") { signEntered.resolve(); return signGate.promise; }
+  } });
+  await pick(w, "P_99_31_02", "APP:" + APP_B);
+  await note(w, "Synthetic asynchronous save");
+  await click(w, '[data-act="save"]');
+  hold = true;
+  const saving = click(w, '[data-act="confirm"]').then(() => { returned = true; });
+  await signEntered.promise; await nextTurn();
+  assert.equal(returned, false);
+  assert.equal(api.posts.length, 0, "real signing has not finished");
+  signGate.resolve();
+  await historyEntered.promise; await nextTurn();
+  assert.equal(api.posts.length, 1, "save completed but its history/render chain is still pending");
+  assert.equal(returned, false);
+  assert.deepEqual(asyncWindows.get(w).pending(), ["response.json"]);
+  historyGate.resolve();
+  await saving;
+  assert.match($(w, ".re-status").textContent, /已保存第 2 版/);
+  assert.deepEqual(asyncWindows.get(w).pending(), []);
+  w.close();
+});
 
 test("lists every catalogued scene with its route", async () => {
   const api = fakeApi();
@@ -256,12 +324,12 @@ test("a resource route shows as its target and survives a search", async () => {
   const type = $(w, "#re-type");
   type.value = "CONSULT";
   type.dispatchEvent(new w.Event("change", { bubbles: true }));
-  await settle();
+  await settle(w);
   assert.equal($(w, 'select[data-k="P_99_31_01|CONSULT|STAGE_1"]').value, "RESOURCE:self_service.knowledge", "not shown as 无方案");
   const box = $(w, "#re-q");
   box.value = "资源目标";
   box.dispatchEvent(new w.Event("input", { bubbles: true }));
-  await settle();
+  await settle(w);
   assert.equal(w.document.querySelectorAll(".re-tall tbody tr").length, 1);
 });
 
@@ -310,7 +378,7 @@ const type = async (w, app, f, value) => {
   // a select fires change; a text field fires input while typing and change when the edit is committed (blur / Enter)
   if (n.tagName !== "SELECT") n.dispatchEvent(new w.Event("input", { bubbles: true }));
   n.dispatchEvent(new w.Event("change", { bubbles: true }));
-  await settle();
+  await settle(w);
 };
 
 test("a v3 table shows each solution's registry state; lifting a gate changes only that entry", async () => {
