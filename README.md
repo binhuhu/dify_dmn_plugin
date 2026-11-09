@@ -37,6 +37,8 @@
 
 **0.5.25** 在 0.5.24 之上只改两处：v3 路由表的 `CURRENT` 方案不再要求 `topics` / `intents`（路由按场景）；已按 `M_` 场景号存储的表不会被一次旧写法保存悄悄整表退回，回滚须显式写 `scene_spelling_rollback: true`。0.5.24 的范围与限制不变，见 [0.5.25 发布说明](docs/releases/v0.5.25.md)。
 
+**0.5.26** 只加一处：`op=writers` 对维护应用列出写手口令的短指纹 `key_fp`，`sign-store-request.py --fingerprint` 打印本机口令的同一指纹，改写手登记后先比对再签名。见 [0.5.26 发布说明](docs/releases/v0.5.26.md)。
+
 ## 安装与使用
 
 ### 安装入口

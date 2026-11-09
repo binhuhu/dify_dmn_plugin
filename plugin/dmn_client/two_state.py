@@ -190,6 +190,17 @@ def message(op, table, version, body_digest, writer_id, at):
     return "\n".join((SIG_PREFIX, op, table, version, body_digest, writer_id, at)).encode("utf-8")
 
 
+FP_PREFIX = "dmn-writer-fp/1\n"
+
+
+def key_fingerprint(key):
+    """0.5.26: a short, one-way tag of a writer key (12 hex of sha256 over a fixed prefix and the key). op=writers shows
+    it so a signer can check that the plugin holds the key it signs with. The host may cache decrypted secret-input tool
+    settings per workflow node, so a registry edited after the first run can keep reaching the plugin in its old form
+    for a while; the tag makes that visible. It is not a key and does not let anyone sign."""
+    return hashlib.sha256((FP_PREFIX + key).encode("utf-8")).hexdigest()[:12]
+
+
 def sign(key, op, table, version, body, writer_id, at):
     """The signature a writer sends (also what scripts/sign-store-request.py computes)."""
     msg = message(op, table, version, body_sha256(body), writer_id, at)
@@ -912,7 +923,8 @@ def _writers_read(storage, writers, caller_app):
     if caller_app == pinned:
         try:
             out["writers"] = [
-                {"id": i, "kind": k} for i, (k, _) in sorted(parse_writers(writers).items())
+                {"id": i, "kind": k, "key_fp": key_fingerprint(key)}
+                for i, (k, key) in sorted(parse_writers(writers).items())
             ]
         except RouteTableError as exc:
             out["registry_error"] = exc.code

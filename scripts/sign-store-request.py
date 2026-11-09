@@ -7,6 +7,8 @@ op=version parameter, or nothing). A signature is good for 10 minutes.
 
     DMN_WRITER_KEY=... python3 -I scripts/sign-store-request.py --writer synthetic-writer --op draft_save \\
         --table triage.dispatch.route < body.json > signed.json
+
+0.5.26: --fingerprint prints only the key_fp of DMN_WRITER_KEY; compare it with op=writers before signing.
 """
 
 import argparse
@@ -17,21 +19,31 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "plugin"))
-from dmn_client.two_state import sign  # noqa: E402
+from dmn_client.two_state import key_fingerprint, sign  # noqa: E402
 
 
 def main():
     p = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
-    p.add_argument("--writer", required=True)
-    p.add_argument("--op", required=True)
+    p.add_argument("--writer")
+    p.add_argument("--op")
     p.add_argument("--table", default="dispatch.route")
     p.add_argument("--version", default="")
+    p.add_argument(
+        "--fingerprint",
+        action="store_true",
+        help="print only the key_fp of DMN_WRITER_KEY (compare with op=writers) and exit",
+    )
     a = p.parse_args()
     key = os.environ.get("DMN_WRITER_KEY", "")
     if len(key) < 24:
         sys.exit("DMN_WRITER_KEY is not set or shorter than 24 characters")
+    if a.fingerprint:
+        print(key_fingerprint(key))
+        return
+    if not a.writer or not a.op:
+        p.error("--writer and --op are required to sign")
     body = json.load(sys.stdin)
     if not isinstance(body, dict):
         sys.exit("the request body must be a JSON object")
