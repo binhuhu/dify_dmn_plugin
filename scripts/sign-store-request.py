@@ -19,7 +19,15 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "plugin"))
-from dmn_client.two_state import key_fingerprint, sign  # noqa: E402
+import hashlib  # noqa: E402
+
+FP_PREFIX = "dmn-writer-fp/1\n"
+
+
+def key_fingerprint(key):
+    """Same tag as dmn_client.two_state.key_fingerprint (op=writers key_fp); computed here without the plugin's
+    dependencies so --fingerprint runs on a bare python3 (a test pins the two together)."""
+    return hashlib.sha256((FP_PREFIX + key).encode("utf-8")).hexdigest()[:12]
 
 
 def main():
@@ -44,6 +52,10 @@ def main():
         return
     if not a.writer or not a.op:
         p.error("--writer and --op are required to sign")
+    from dmn_client.two_state import (
+        sign,
+    )  # signing needs the plugin's dependencies (rfc8785)
+
     body = json.load(sys.stdin)
     if not isinstance(body, dict):
         sys.exit("the request body must be a JSON object")

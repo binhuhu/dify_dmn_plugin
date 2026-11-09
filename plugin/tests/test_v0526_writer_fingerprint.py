@@ -96,3 +96,19 @@ def test_sign_store_request_prints_the_same_fingerprint():
     ).stdout.strip()
     assert out == key_fingerprint(KEY_A)
     assert KEY_A not in out
+
+
+def test_fingerprint_runs_without_the_plugin_dependencies():
+    """--fingerprint must work on a bare python3: rfc8785 (needed only for signing) is made unimportable here."""
+    code = (
+        "import sys, runpy; sys.modules['rfc8785'] = None; "
+        "sys.argv = [%r, '--fingerprint']; runpy.run_path(%r, run_name='__main__')"
+    ) % (str(ROOT / "scripts/sign-store-request.py"), str(ROOT / "scripts/sign-store-request.py"))
+    out = subprocess.run(
+        [sys.executable, "-I", "-c", code],
+        env=dict(os.environ, DMN_WRITER_KEY=KEY_A),
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.strip()
+    assert out == key_fingerprint(KEY_A)

@@ -56,15 +56,15 @@ parameters:
     zh_Hans: op=save 时的保存内容，和编辑页提交的一样（路由表文档 + expected_version）。
   llm_description: For op=save, the editor's JSON body.
 - name: writers
-  type: secret-input
+  type: string
   required: false
   form: form
   label:
     en_US: Writers
     zh_Hans: 写手登记
   human_description:
-    en_US: "0.5.24: one line per writer, <id>:<kind>:<key> (kind PERSON / SESSION / SCRIPT / APP, key at least 24 characters, one per person). Writes to the five delivery-chain tables must be signed with one of these keys; empty, they are refused."
-    zh_Hans: 0.5.24：一行一个写手，<名字>:<种类>:<口令>（种类 PERSON / SESSION / SCRIPT / APP，口令至少 24 个字符，一人一份）。交付链五张表的写入要用其中一份口令签名；不填就一律不收。
+    en_US: "0.5.27: plain registry, visible in maintenance configuration and DSL exports. Anyone with these keys and maintenance-app invocation access can impersonate any registered writer. Use only when all configuration/export readers may hold every key. Old host caches may persist; republishing does not guarantee immediate revocation. Host upgrade, rotation and rollback remain unverified. One line per writer: <id>:<kind>:<key> (PERSON / SESSION / SCRIPT / APP). Use an independent random high-entropy key of at least 24 characters for each writer. Signed writes to the five delivery-chain tables are refused if empty."
+    zh_Hans: "0.5.27：普通明文登记，维护配置和 DSL 导出可见全部密钥；有密钥并能调用维护应用的人可冒用任意写手。仅供所有配置及导出查看者都获准持有全部密钥时使用。宿主旧缓存可能保留，重发不保证立即撤权；升级、轮换和回滚仍待宿主验收。一行一个写手：<名字>:<种类>:<密钥>，种类 PERSON / SESSION / SCRIPT / APP；每位写手使用独立、至少 24 字符的随机高熵密钥。空登记拒绝交付链五张表的签名写入。"
 output_schema:
   type: object
   properties:
