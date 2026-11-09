@@ -50,15 +50,15 @@ v2 的 `solutions` 只有 `{name, inputs}`：方案能不能调，实际由分�
 | `status` | 必填：`CURRENT`（可调）/ `CANDIDATE` / `GATED` / `SHADOW` / `RETIRED`（都不调） |
 | `gate_code` | 挡住它的闸（如 `ORDER_BINDING_REQUIRED`；大写字母数字下划线）：`GATED` 必填；`SHADOW` 可写（影子方案同时被闸挡着）；`CURRENT` / `CANDIDATE` / `RETIRED` 不写（被闸挡着的候选写成 `GATED`） |
 | `request_contract` | 请求合同名 / 版本，如 `场景方案调用/v4`、`场景方案调用/v4.1` |
-| `topics`、`intents` | 适用判断（话题小写编码、诉求大写编码），保持登记时的顺序 |
+| `topics`、`intents` | 可选（0.5.25 起 `CURRENT` 也可空）：话题小写编码、诉求大写编码，保持登记时的顺序；路由按场景，不按它们收窄。下游流程如果仍按这两个列表判适用，先改下游，再清空在用方案的列表 |
 | `invocation_scope`、`priority`、`package_id`、`target_handoff` | 可选（如 `ISSUE_TARGET`、`1`、`coupon-use`、`SUPPORTED`） |
 | `input_bindings` | **不进插件表**（`ROUTE_TABLE_INVALID @solutions.<app>.input_bindings`）：交付编排按 `request_contract` 自己组请求 |
 
-校验：`CURRENT` 必有 `request_contract` 与非空 `topics` / `intents`（`ROUTE_TABLE_SOLUTION_INCOMPLETE`）；`GATED` 必有 `gate_code`（`ROUTE_TABLE_GATE_REQUIRED`）；同一个应用在两张路由表里状态（`status` + `gate_code`）不能不同（`ROUTE_TABLE_SOLUTION_STATUS_CONFLICT`，存储键 `route-table-index` 记 0.5.6 起存过的路由表，`dispatch.route` 总在比；v2 表按全部 CURRENT 算）；v3 表不能再存回 v1 / v2（`STORED_TABLE_SCHEMA_CHANGED`：旧格式把每个方案都当 CURRENT，会放开 GATED 的方案）。存的时候每一项补齐全部键（没写的是 `null` / `[]`）。`content_sha256` 包含每一项的登记字段，不含说明。
+校验：`CURRENT` 必有 `request_contract`（`ROUTE_TABLE_SOLUTION_INCOMPLETE`；0.5.25 起 `topics` / `intents` 可空——路由按场景，话题 / 诉求不收窄路由；写了照旧逐个核格式、照写入顺序存）；`GATED` 必有 `gate_code`（`ROUTE_TABLE_GATE_REQUIRED`）；同一个应用在两张路由表里状态（`status` + `gate_code`）不能不同（`ROUTE_TABLE_SOLUTION_STATUS_CONFLICT`，存储键 `route-table-index` 记 0.5.6 起存过的路由表，`dispatch.route` 总在比；v2 表按全部 CURRENT 算）；v3 表不能再存回 v1 / v2（`STORED_TABLE_SCHEMA_CHANGED`：旧格式把每个方案都当 CURRENT，会放开 GATED 的方案）。存的时候每一项补齐全部键（没写的是 `null` / `[]`）。`content_sha256` 包含每一项的登记字段，不含说明。
 
 0.5.23：v3 表存表时和它要替换的那一版比，存完不能比原来更调不到，否则整次拒存、什么都不写：
 
-- 方案行新指向（或它指着的应用被改成）非 `CURRENT` 的应用 → `ROUTE_TABLE_SOLUTION_NOT_CALLABLE`（路径指到发来的那一行 `routes[i].target.app_id`）。要换方案：同一次存表把新应用转成 `CURRENT`（请求合同、话题、诉求补齐）；要挂起：改成转接或资源去向。
+- 方案行新指向（或它指着的应用被改成）非 `CURRENT` 的应用 → `ROUTE_TABLE_SOLUTION_NOT_CALLABLE`（路径指到发来的那一行 `routes[i].target.app_id`）。要换方案：同一次存表把新应用转成 `CURRENT`（补齐请求合同；0.5.25 起话题、诉求可空）；要挂起：改成转接或资源去向。
 - 原来能调的方案行被删了、没给别的去向 → `ROUTE_TABLE_SOLUTION_LOST`。改成转接或资源去向就是显式的兜底，照收。
 - 原来有方案行指向的 `CURRENT` 应用，存完没有任何方案行指向它 → `ROUTE_TABLE_CURRENT_UNROUTED`（路径 `solutions.<app>.status`）。要换下它，同一次存表把它转成 `CANDIDATE` 或 `RETIRED`。原来就没有行指向的（新登记的、先转在用再补行的）不挡。
 

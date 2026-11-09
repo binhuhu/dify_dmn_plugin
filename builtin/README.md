@@ -1,4 +1,4 @@
-# JSON 决策工具 0.5.24（单人串行维护）
+# JSON 决策工具 0.5.25（单人串行维护）
 
 这是同一仓库的独立免凭据安装包 `hu8627/dmn_json`。原有 `hu8627/dmn` 外部 XML 插件和其他已安装插件保留，不卸载、不替换。新建“内置 JSON 决策表 / evaluate_json_table”节点无需 Key、引擎地址或外部服务。现有外部工具仍通过原插件配置 Node 服务，未配置时返回 INVALID_CONFIGURATION。两个包的模型格式和语义不能互换。
 
@@ -6,11 +6,11 @@
 
 ## 节点决策与受控查询
 
-支持 execute_query 与 evaluate_decision；保留以下三个旧工具的语义。新节点合同、可信查询配置、参考宿主和未完成生产验收见 [RC说明](https://github.com/binhuhu/dify_dmn_plugin/blob/v0.5.24/docs/dsl-v0.4.md)。纯决策免 Key；受控查询无连接配置时 BLOCKED，不以 synthetic 冒充成功。
+支持 execute_query 与 evaluate_decision；保留以下三个旧工具的语义。新节点合同、可信查询配置、参考宿主和未完成生产验收见 [RC说明](https://github.com/binhuhu/dify_dmn_plugin/blob/v0.5.25/docs/dsl-v0.4.md)。纯决策免 Key；受控查询无连接配置时 BLOCKED，不以 synthetic 冒充成功。
 
 ## 保留 0.3.0 工具
 
-同一 `hu8627/dmn_json` 身份新增 `query_local`（仅 SYNTHETIC mock 查询）和 `execute_json_plan`（本地 LOCATE / P1–P5），三个工具均无需凭据。完整合同、JSON 示例、策略差异与测试方法见 [0.3.0 合同](https://github.com/binhuhu/dify_dmn_plugin/blob/v0.5.24/docs/builtin-0.3.0.md)。旧 XML/FEEL 计划必须显式转换；P1/FEATURE UNIQUE 与 PRIORITY FEEL 不被 FIRST/COLLECT 自动等价替代。
+同一 `hu8627/dmn_json` 身份新增 `query_local`（仅 SYNTHETIC mock 查询）和 `execute_json_plan`（本地 LOCATE / P1–P5），三个工具均无需凭据。完整合同、JSON 示例、策略差异与测试方法见 [0.3.0 合同](https://github.com/binhuhu/dify_dmn_plugin/blob/v0.5.25/docs/builtin-0.3.0.md)。旧 XML/FEEL 计划必须显式转换；P1/FEATURE UNIQUE 与 PRIORITY FEEL 不被 FIRST/COLLECT 自动等价替代。
 
 ## 调用
 
@@ -36,17 +36,19 @@ AND 中 FALSE 优先于 UNKNOWN。FIRST 的已选规则之前存在 UNKNOWN 或 
 
 ## 构建与验收
 
-从仓库根目录运行 `python scripts/stage-builtin.py /tmp/dmn-json-0.5.24`，然后用已安装的官方 Dify CLI：`dify plugin package /tmp/dmn-json-0.5.24 -o hu8627-dmn_json-0.5.24.difypkg`。没有 CLI 时 staging 目录不是安装包，不用普通 zip 冒充 difypkg。不重试已拒绝的下载/API，不修改旧 Release。包未签名，遵循平台签名策略。
+从仓库根目录运行 `python scripts/stage-builtin.py /tmp/dmn-json-0.5.25`，然后用已安装的官方 Dify CLI：`dify plugin package /tmp/dmn-json-0.5.25 -o hu8627-dmn_json-0.5.25.difypkg`。没有 CLI 时 staging 目录不是安装包，不用普通 zip 冒充 difypkg。不重试已拒绝的下载/API，不修改旧 Release。包未签名，遵循平台签名策略。
 
 依赖沿用仓库固定 requirements.txt；首次安装仍需要平台正常解析 Python 依赖。免 Key/无外部决策服务指工具调用路径，不是离线安装保证。目标 UI 安装与真实调用仍需验收。
 
 ## 场景、方案和路由配置
 
-受理路由表在插件里改，存插件存储（打开 `storage` 权限），改了不用重发受理路由流程。evaluate_decision 遇到 `PLUGIN_STORAGE` 存储引用时，运行时取表编译，回执外形不变。0.5.24 的路由编辑端点须配置维护应用 `store_app_id`；共享编辑口令已停用，未配置维护应用时写入失败关闭。
+受理路由表在插件里改，存插件存储（打开 `storage` 权限），改了不用重发受理路由流程。evaluate_decision 遇到 `PLUGIN_STORAGE` 存储引用时，运行时取表编译，回执外形不变。0.5.24 起路由编辑端点须配置维护应用 `store_app_id`；共享编辑口令已停用，未配置维护应用时写入失败关闭。
 
-v2 表（`dmn-json.route-table/v2`）自带场景目录和方案登记，支持方案应用、转接或无方案；知识库路由由外部配置管理，不写入 v2 表。交付链五张表（`target.scene.entity`、`triage.scene.acceptance`、`triage.supplement.requirements`、`triage.dispatch.route`、`triage.dispatch.resource` 及其旧名）通过钉定维护应用签名，先保存草稿，再按协议提交 gate report 与 release reference 发布；不再直接保存生效。每张表只有一份服务端共享草稿，所有作者及旧名、标准名共用，不提供每位作者独立草稿。工具 `invoke_solution`（调用方案）按 app_id 调本工作空间里已登记的方案应用，需要「调用应用」权限（`app`）。合同、约束、实测步骤和上线顺序见 [route-table-editing.md](https://github.com/binhuhu/dify_dmn_plugin/blob/v0.5.24/docs/route-table-editing.md)。目标宿主安装、升级、真实业务 API 与生产验收仍为 **NOT_RUN**。
+v2 表（`dmn-json.route-table/v2`）自带场景目录和方案登记，支持方案应用、转接或无方案；知识库路由由外部配置管理，不写入 v2 表。交付链五张表（`target.scene.entity`、`triage.scene.acceptance`、`triage.supplement.requirements`、`triage.dispatch.route`、`triage.dispatch.resource` 及其旧名）通过钉定维护应用签名，先保存草稿，再按协议提交 gate report 与 release reference 发布；不再直接保存生效。每张表只有一份服务端共享草稿，所有作者及旧名、标准名共用，不提供每位作者独立草稿。工具 `invoke_solution`（调用方案）按 app_id 调本工作空间里已登记的方案应用，需要「调用应用」权限（`app`）。合同、约束、实测步骤和上线顺序见 [route-table-editing.md](https://github.com/binhuhu/dify_dmn_plugin/blob/v0.5.25/docs/route-table-editing.md)。目标宿主安装、升级、真实业务 API 与生产验收仍为 **NOT_RUN**。
 
-本版限定单人按工作空间串行维护，覆盖所有写入、草稿删除、发布和撤销；等待前次结果明确后再执行下一次，不并行使用多个标签页、脚本或自动写入任务。签名、有效期与普通顺序重放保护保留，但跨进程并发重放与并发写入仍可能成功并覆盖状态。单人维护不能消除恶意或意外并发重放；插件不强制串行操作，不提供 CAS、事务或跨进程协调。结果不明时停止自动重试，先核验权威新鲜状态。降级 v0.5.23 会恢复共享编辑口令及直接保存，不保留本版签名治理和重放保护，见 [0.5.24 安装与回滚限制](https://github.com/binhuhu/dify_dmn_plugin/blob/v0.5.24/docs/releases/v0.5.24.md#installation-and-rollback)。
+0.5.25：v3 路由表里 `CURRENT` 方案只要求请求合同，`topics` / `intents` 可空（路由按场景）；下游流程若仍按这两个列表判适用，先改下游再清空列表。表已按 `M_` 场景号存储时，全为旧写法的保存被拒（`SCENE_SPELLING_REGRESSION`），确需回滚时请求里写 `scene_spelling_rollback: true`。见 [0.5.25 发布说明](https://github.com/binhuhu/dify_dmn_plugin/blob/v0.5.25/docs/releases/v0.5.25.md)。
+
+本版限定单人按工作空间串行维护，覆盖所有写入、草稿删除、发布和撤销；等待前次结果明确后再执行下一次，不并行使用多个标签页、脚本或自动写入任务。签名、有效期与普通顺序重放保护保留，但跨进程并发重放与并发写入仍可能成功并覆盖状态。单人维护不能消除恶意或意外并发重放；插件不强制串行操作，不提供 CAS、事务或跨进程协调。结果不明时停止自动重试，先核验权威新鲜状态。降级 v0.5.23 会恢复共享编辑口令及直接保存，不保留本版签名治理和重放保护，见 [0.5.24 安装与回滚限制](https://github.com/binhuhu/dify_dmn_plugin/blob/v0.5.25/docs/releases/v0.5.24.md#installation-and-rollback)。
 
 ## 只读结构展示（RC2）
 

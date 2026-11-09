@@ -18,7 +18,15 @@ from dmn_client.table_names import STANDARD
 SCHEMA = "dmn-json.vocabulary/v1"
 
 # keys of the save request itself (route_store / two_state), never stored as content
-REQUEST_KEYS = ("expected_version", "gate_report", "schema_transition", "writer")
+# 0.5.25: scene_spelling_rollback = the explicit M_ → legacy rollback (route_store); a draft that carries it keeps
+# it in its body, so the publish of that draft does the same
+REQUEST_KEYS = (
+    "expected_version",
+    "gate_report",
+    "schema_transition",
+    "writer",
+    "scene_spelling_rollback",
+)
 # fields the plugin writes into a stored version: an editor that loads a version, edits it and sends it back carries
 # them; they are ignored, as before, not unknown
 OWN_FIELDS = (

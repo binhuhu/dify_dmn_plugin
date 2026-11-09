@@ -514,7 +514,9 @@ def test_a_legacy_copy_saved_over_a_canonical_version_reads_under_0_5_8():
     st = FakeStorage()
     save(st, doc_v2(), 0)
     save(st, canonical_doc(doc_v2(note="synthetic re-key")), 1)
-    status, body = save(st, doc_v2(note="回滚到旧号体"), 2)
+    status, body = save(
+        st, dict(doc_v2(note="回滚到旧号体"), scene_spelling_rollback=True), 2
+    )  # 0.5.25: rollback is explicit
     assert status == 200, body
     assert body["scene_spelling"] == "LEGACY" and body["scene_spelling_was"] == "CANONICAL"
     head = stored(st)

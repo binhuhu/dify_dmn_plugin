@@ -2,7 +2,7 @@
 
 import json
 
-from dmn_client import declarations
+from dmn_client import declarations, scene_id
 from dmn_client.client import EngineError, json_object
 from dmn_client.route_table import (
     ROUTE_SCHEMAS,
@@ -13,7 +13,7 @@ from dmn_client.route_table import (
     table_name,
     validate_doc,
 )
-from dmn_client.scene_spelling import respell
+from dmn_client.scene_spelling import respell, table_spelling
 from dmn_client.stored_tables import KEYS, SCHEMA_DECISION, resource_decision_name
 from dmn_client.table_names import old_name, read_names
 from dmn_client.vocabulary import ROUTE_V1_KEYS, ROUTE_V2_KEYS, unknown_keys
@@ -168,6 +168,48 @@ def run_op(storage, op, table=DEFAULT_TABLE, version=None, body=None, *, gate=No
             if doc.get("declare") is None:
                 doc.pop("declare", None)  # declare: null removes it
             doc, spelled = respell(doc, current)
+            # 0.5.25 (M_ migration): once a table is stored in M_, a save whose scene ids are all legacy
+            # would respell the whole table back to legacy (one-spelling documents are stored as sent). That undoes the
+            # migration silently, so it needs an explicit rollback: body scene_spelling_rollback = true.
+            # Decided from the two documents themselves, not from respell's receipt: respell turns an unexpected
+            # error into "nothing to do", which must not let a legacy body through.
+            try:
+                was_canonical = (
+                    isinstance(current, dict) and table_spelling(current) == scene_id.CANONICAL
+                )
+            except Exception:
+                # an unreadable stored spelling must not open the door for a legacy body
+                try:
+                    unknown_legacy = table_spelling(doc) == scene_id.LEGACY
+                except Exception:
+                    unknown_legacy = True
+                if unknown_legacy and body.get("scene_spelling_rollback") is not True:
+                    return error(
+                        503,
+                        "ROUTE_TABLE_UNAVAILABLE",
+                        "读不出这张表存着的场景号写法，这次又是旧写法：先不存",
+                    )
+                was_canonical = False
+            if was_canonical:
+                try:
+                    regress = table_spelling(doc) == scene_id.LEGACY
+                except Exception:
+                    return error(
+                        503,
+                        "ROUTE_TABLE_UNAVAILABLE",
+                        "读不出这次存表的场景号写法，表存着的是 M_，先不存",
+                    )
+            else:
+                regress = False
+            if regress and body.get("scene_spelling_rollback") is not True:
+                return error(
+                    400,
+                    "SCENE_SPELLING_REGRESSION",
+                    "表 %s 存着的是 M_ 写法，这次发来的场景号全是旧写法，存进去会把整表换回旧写法：照 M_ 写再存；"
+                    "确实要退回旧写法（M_ 迁移回滚），请求里写 scene_spelling_rollback: true"
+                    % name,
+                    "scene_spelling_rollback",
+                )
             sized = _sizes(doc)
             if sized:
                 return sized

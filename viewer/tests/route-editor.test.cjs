@@ -428,7 +428,7 @@ test("contract, topics and intents are edited in place; empty text is null / []"
   assert.deepEqual(sent, want);
 });
 
-test("what the plugin would refuse is stopped before confirm (GATED without a gate, CURRENT without contract / topics / intents)", async () => {
+test("what the plugin would refuse is stopped before confirm (GATED without a gate, CURRENT without a request contract)", async () => {
   const api = fakeApi();
   api.saveAs(v3doc());
   const w = await page(api);
@@ -441,11 +441,27 @@ test("what the plugin would refuse is stopped before confirm (GATED without a ga
   assert.ok($(w, "tr.re-error"), "the entry is marked");
   await type(w, APP_A, "gate_code", "SYNTHETIC_OTHER");
   await type(w, APP_B, "status", "CURRENT");
-  await type(w, APP_B, "topics", "");
+  await type(w, APP_B, "request_contract", "");
   await click(w, '[data-act="save"]');
   assert.ok(!$(w, ".re-confirm"));
-  assert.match($(w, ".re-status").textContent, /CURRENT 要写请求合同、话题、诉求/);
+  assert.match($(w, ".re-status").textContent, /CURRENT 要写请求合同/);
   assert.equal(api.posts.length, 0);
+});
+
+test("0.5.25: a CURRENT app with a request contract and empty topics / intents reaches confirm and is sent with []", async () => {
+  const api = fakeApi();
+  api.saveAs(v3doc());
+  const w = await page(api);
+  await type(w, APP_A, "topics", "");
+  await type(w, APP_A, "intents", "");
+  await note(w, "清空话题、诉求");
+  await click(w, '[data-act="save"]');
+  assert.ok($(w, ".re-confirm"), "empty lists are not refused any more");
+  await click(w, '[data-act="confirm"]');
+  const { expected_version, ...sent } = api.posts[0];
+  assert.equal(sent.solutions[APP_A].status, "CURRENT");
+  assert.deepEqual(sent.solutions[APP_A].topics, []);
+  assert.deepEqual(sent.solutions[APP_A].intents, []);
 });
 
 test("a v2 table is upgraded to v3 on request: every app CURRENT, then filled before it can be saved", async () => {
@@ -458,7 +474,7 @@ test("a v2 table is upgraded to v3 on request: every app CURRENT, then filled be
   assert.equal(field(w, APP_A, "status").value, "CURRENT");
   await note(w, "升 v3");
   await click(w, '[data-act="save"]');
-  assert.ok(!$(w, ".re-confirm"), "CURRENT apps need contract / topics / intents first");
+  assert.ok(!$(w, ".re-confirm"), "CURRENT apps need a request contract first");
   for (const app of [APP_A, APP_B]) {
     await type(w, app, "request_contract", "场景方案调用/v4");
     await type(w, app, "topics", app === APP_A ? "synthetic_topic_a" : "synthetic_topic_d");

@@ -142,7 +142,7 @@
     const out = [];
     for (const [id, s] of Object.entries(d.solutions)) {
       if (s.status === 'GATED' && !s.gate_code) out.push(['app:' + id, '方案 ' + id.slice(0, 8) + '：GATED 要写闸编码']);
-      if (s.status === 'CURRENT' && (!s.request_contract || !s.topics?.length || !s.intents?.length)) out.push(['app:' + id, '方案 ' + id.slice(0, 8) + '：CURRENT 要写请求合同、话题、诉求']);
+      if (s.status === 'CURRENT' && !s.request_contract) out.push(['app:' + id, '方案 ' + id.slice(0, 8) + '：CURRENT 要写请求合同']);
     }
     return out;
   }
@@ -395,7 +395,7 @@
     const info = s => [['调用范围', s.invocation_scope], ['优先级', s.priority], ['方案包', s.package_id], ['交接', s.target_handoff]].filter(([, x]) => x != null).map(([k, x]) => k + ' ' + x).join(' · ') || '其余登记字段没写';
     const text = (id, f, value, labelText, extra) => el('input', { 'data-app': id, 'data-f': f, value: value == null ? '' : Array.isArray(value) ? value.join(' ') : value, 'aria-label': labelText, ...(extra || {}) });
     out.push(el('section', { cls: 're-card' }, el('h2', { text: '方案登记（' + Object.keys(d.solutions).length + ' 个应用 · ' + (v3 ? 'v3' : 'v2') + '）' }),
-      el('p', { cls: 're-muted', text: '只有登记过的应用能被路由；「调用方案」工具只调状态 CURRENT 的应用（GATED 拒绝并报闸编码）。开始变量要和应用开始节点一致（统一入口是 call_id request_json）。CURRENT 要写请求合同、话题、诉求；GATED 要写挡住它的闸。新方案、状态和闸的改动都随本表按相同流程保存或发布。' }),
+      el('p', { cls: 're-muted', text: '只有登记过的应用能被路由；「调用方案」工具只调状态 CURRENT 的应用（GATED 拒绝并报闸编码）。开始变量要和应用开始节点一致（统一入口是 call_id request_json）。CURRENT 要写请求合同（话题、诉求可空：路由按场景，不按话题 / 诉求收窄）；GATED 要写挡住它的闸。新方案、状态和闸的改动都随本表按相同流程保存或发布。' }),
       v3 ? null : el('p', { cls: 're-warn' }, '本表是 v2：方案登记只有名称和开始变量，调用时每个方案都当 CURRENT。 ',
         el('button', { type: 'button', 'data-act': 'upgrade', text: '升为 v3（逐个写状态、闸、请求合同、话题、诉求）' })),
       el('div', { cls: 're-scroll' }, el('table', {}, el('thead', {}, el('tr', {}, head.map(t => el('th', { text: t })))),
@@ -481,7 +481,7 @@
     else if (act === 'rebase') void rebase();
     else if (act === 'kind') { state.view.kind = b.dataset.v; paint(); }
     else if (act === 'reg' && d) addSolution();
-    else if (act === 'upgrade' && d) { upgrade(d); state.confirming = false; state.msg = { cls: 'warn', text: '已升为 v3，还没保存：每个方案先当 CURRENT；CURRENT 要写请求合同、话题、诉求，不调的改成 CANDIDATE / GATED（写闸）等。' }; paint(); }
+    else if (act === 'upgrade' && d) { upgrade(d); state.confirming = false; state.msg = { cls: 'warn', text: '已升为 v3，还没保存：每个方案先当 CURRENT；CURRENT 要写请求合同，不调的改成 CANDIDATE / GATED（写闸）等。' }; paint(); }
     else if (act === 'unreg' && d) { delete d.solutions[b.dataset.v]; state.confirming = false; paint(); }
     else if (act === 'version') void loadVersion(Number(b.dataset.v));
     else if (act === 'import') importTable(app.querySelector('#re-import').value);

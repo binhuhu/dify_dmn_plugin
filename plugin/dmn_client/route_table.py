@@ -581,14 +581,15 @@ def _solution_v3(s, p):
         ),
     )
     if status == CALLABLE:
-        for key in ("request_contract", "topics", "intents"):
-            _need(
-                out[key],
-                "ROUTE_TABLE_SOLUTION_INCOMPLETE",
-                "CURRENT 的方案要写请求合同、话题、诉求（缺 %s）：受理按话题 / 诉求判适用，"
-                "交付编排按请求合同组请求" % key,
-                p + "." + key,
-            )
+        # 0.5.25: routing is by scene; topics / intents no longer narrow routing, so a
+        # CURRENT app needs only the request contract delivery builds its request from. Lists that are written are
+        # still validated and stored as written (see _code_list); an empty list is stored as [].
+        _need(
+            out["request_contract"],
+            "ROUTE_TABLE_SOLUTION_INCOMPLETE",
+            "CURRENT 的方案要写请求合同（缺 request_contract）：交付编排按请求合同组请求",
+            p + ".request_contract",
+        )
     return {k: out[k] for k in SOLUTION_KEYS_V3}
 
 
@@ -720,7 +721,7 @@ def callability_gate(prev, clean, sent=None):
         raise RouteTableError(
             "ROUTE_TABLE_SOLUTION_NOT_CALLABLE",
             "%s 的方案行指向应用 %s，它在方案登记里是 %s，invoke_solution 调不到%s：要换方案，就在同一次存表里把新应用"
-            "转成 CURRENT（补齐请求合同、话题、诉求）；要挂起，就改成转接或资源去向；原来有能调的方案就仍指向它"
+            "转成 CURRENT（补齐请求合同）；要挂起，就改成转接或资源去向；原来有能调的方案就仍指向它"
             % (
                 _row_shown(key),
                 str(app).strip()[:8],

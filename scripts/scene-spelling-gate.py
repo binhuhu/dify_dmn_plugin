@@ -49,6 +49,7 @@ DOC_KEYS = {
     "dmn-json.route-table/v3": ("schema table issue_types phases scenes solutions routes note resource_table").split(),
     "dmn-json.decision-table/v1": "schema table owner model_ref model note".split(),
     "dmn-json.supplement-requirements/v1": "schema table scenes note".split(),
+    "dmn-json.supplement-requirements/v2": "schema table scenes note".split(),  # 0.5.25: supplement tables may be v2
     "dmn-json.resource-targets/v1": "schema table targets route_tables note".split(),
 }
 CASES_PER_NODE = 24
@@ -135,9 +136,19 @@ if mode == "rekey":  # HEAD: S8 re-key to M_, then the rollback to the legacy bo
         m, _ = _Fields(doc).respell("CANONICAL")
         out["rekey." + name] = run_op(st, "save", "", None, json.dumps(dict(m, note="M_ re-key (gate)", expected_version=StorageTables(st).load(doc["table"])["version"]), ensure_ascii=False))
     out["storage_m"] = pack(st)
+    # 0.5.25: a rollback to legacy is explicit (scene_spelling_rollback: true). On a head that has the guard, first
+    # check on a throwaway copy that the same save without the flag is refused, then roll back with the flag.
+    import dmn_client.route_store as _rs
+    guarded = "SCENE_SPELLING_REGRESSION" in open(_rs.__file__, encoding="utf-8").read()
+    out["guarded"] = guarded
+    if guarded:
+        probe = DictStorage(unpack(pack(st)))
+        doc = inp["live"]["route"]
+        out["guard.route"] = run_op(probe, "save", "", None, json.dumps(dict(doc, expected_version=StorageTables(probe).load(doc["table"])["version"]), ensure_ascii=False))
     for name in ("route", "supplement", "acceptance", "scene-entity"):
         doc = inp["live"][name]
-        out["rollback." + name] = run_op(st, "save", "", None, json.dumps(dict(doc, expected_version=StorageTables(st).load(doc["table"])["version"]), ensure_ascii=False))
+        extra = {"scene_spelling_rollback": True} if guarded else {}
+        out["rollback." + name] = run_op(st, "save", "", None, json.dumps(dict(doc, expected_version=StorageTables(st).load(doc["table"])["version"], **extra), ensure_ascii=False))
     out["storage_r"] = pack(st)
     json.dump(out, open(out_path, "w"), ensure_ascii=False)
     sys.exit(0)
@@ -760,6 +771,11 @@ def main(argv):
                 live_report["acceptance_default_for_M_only"] += 1
                 failures.append("G-LIVE acceptance lands on %s for M_ only: %s" % (empty, key))
     receipts = {}
+    if rk.get("guarded"):
+        status, body = rk["guard.route"]
+        receipts["guard.route"] = {"status": status, "code": (body.get("error") or {}).get("code")}
+        if status != 400 or receipts["guard.route"]["code"] != "SCENE_SPELLING_REGRESSION":
+            failures.append("G-LIVE guard.route: a rollback without scene_spelling_rollback was not refused %s" % receipts["guard.route"])
     for k, saved in rk.items():
         if not k.startswith(("rekey.", "rollback.")):
             continue
@@ -770,7 +786,15 @@ def main(argv):
             "content_sha256": (body.get("doc") or {}).get("content_sha256"),
         }
         want = ("CANONICAL", "LEGACY") if k.startswith("rekey.") else ("LEGACY", "CANONICAL")
-        if status != 200 or (body.get("scene_spelling"), body.get("scene_spelling_was")) != want:
+        name = k.split(".", 1)[1]
+        # 0.5.25: a table already stored in M_ re-keys to itself: no respelling, same content
+        already = (
+            status == 200
+            and body.get("scene_spelling") is None
+            and (body.get("doc") or {}).get("content_sha256") == live_files[name]["content_sha256"]
+        )
+        receipts[k]["already_canonical"] = already
+        if not already and (status != 200 or (body.get("scene_spelling"), body.get("scene_spelling_was")) != want):
             failures.append("G-LIVE %s receipt %s" % (k, receipts[k]))
         if (
             k.startswith("rollback.")

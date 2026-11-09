@@ -62,7 +62,14 @@ DRAFT_OPS = ("draft", "draft_save", "draft_discard", "publish")
 # maintenance app is another release.
 MAINTENANCE_APP = "3c016f44-73a2-49b0-ad9b-37b578c46545"  # 路由表维护
 WRITERS_OPS = ("writers",)
-ROLLBACK_KEYS = ("from_version", "expected_version", "expected_draft", "note", "schema_transition")
+ROLLBACK_KEYS = (
+    "from_version",
+    "expected_version",
+    "expected_draft",
+    "note",
+    "schema_transition",
+    "scene_spelling_rollback",  # 0.5.25: a version rollback across the M_ spelling is explicit too
+)
 VOCABULARY = "vocabulary"
 SIGNED_ON_FIVE = ("draft_save", "draft_discard", "publish", "undo")
 SIGNED_MUTATIONS = (*SIGNED_ON_FIVE, "save")
@@ -630,6 +637,8 @@ def _draft_save(storage, table, rest, who, now, new_id):
         )
         if "schema_transition" in rest:
             body["schema_transition"] = rest["schema_transition"]
+        if "scene_spelling_rollback" in rest:
+            body["scene_spelling_rollback"] = rest["scene_spelling_rollback"]
     else:
         body = {
             f: v

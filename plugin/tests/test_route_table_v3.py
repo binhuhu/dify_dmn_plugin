@@ -219,16 +219,6 @@ def _set(app, **fields):
             "solutions.%s.request_contract" % COUPON,
         ),
         (
-            _set(COUPON, topics=[]),
-            "ROUTE_TABLE_SOLUTION_INCOMPLETE",
-            "solutions.%s.topics" % COUPON,
-        ),
-        (
-            _set(COUPON, intents=KeyError),
-            "ROUTE_TABLE_SOLUTION_INCOMPLETE",
-            "solutions.%s.intents" % COUPON,
-        ),
-        (
             _set(COUPON, input_bindings={"request_json": "request.synthetic_action"}),
             "ROUTE_TABLE_INVALID",
             "solutions.%s.input_bindings" % COUPON,
