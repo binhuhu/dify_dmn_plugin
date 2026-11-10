@@ -513,6 +513,26 @@ def _status(code):
 # Writer lines = signed mode exactly as 0.5.24-27. OPEN mixed with writer lines, or any malformed line, is a mistake, not a
 # default: every write is refused (STORED_TABLE_WRITERS_INVALID). A value that is neither text nor missing is refused too.
 OPEN_WORD = "OPEN"
+# Provenance is best-effort sidecar metadata, never part of table bytes or digests.
+# Runtime user is a bounded host-supplied identifier, NOT a verified human identity.
+# writer.via is excluded from HMAC: it is only an unverified request-context hint,
+# even when the editor endpoint sets it. writer_verified proves possession of a
+# registered shared key, not a human identity or an authenticated endpoint.
+ENDPOINT_VIA = "endpoint"
+
+
+def _context_text(value):
+    return value[:256] if isinstance(value, str) else None
+
+
+def _safe_context(record):
+    return dict(
+        record,
+        user=_context_text(record.get("user")),
+        user_verified=False,
+        via=_context_text(record.get("via")),
+        via_verified=False,
+    )
 
 
 def _registry_lines(writers):
@@ -542,6 +562,7 @@ def run_entry(
     now=lambda: datetime.now(timezone.utc),
     new_id=lambda: uuid.uuid4().hex,
     caller_app=None,
+    caller_user=None,
 ):
     """The tool's and the endpoint's way in. Every other table, and every unsigned read, is run_op exactly as 0.5.23
     answers it. On the five: save is refused (draft, then publish); draft_save / draft_discard / publish / undo need a
@@ -559,6 +580,8 @@ def run_entry(
         else:
             parsed, refused = _parse(body)
         has_writer = isinstance(parsed, dict) and "writer" in parsed
+        w = parsed.get("writer") if has_writer else None
+        via = _context_text(w.get("via")) if isinstance(w, dict) and "via" in w else "app"
         if opened and has_writer:
             return error(
                 403,
@@ -567,6 +590,18 @@ def run_entry(
                 "（编辑端点、签名脚本）。去掉 writer 经 AgentHub 存，或在写手登记里登记写手改回签名模式",
                 "writer",
             )
+
+        def recorded(result, who=None):
+            by = {
+                "user": _context_text(caller_user),
+                "user_verified": False,
+                "via": via,
+                "via_verified": False,
+                "writer": (who or {}).get("id"),
+                "writer_verified": bool(who),
+            }
+            return _record(storage, op, table, result, by, caller_app == MAINTENANCE_APP)
+
         if op in DRAFT_OPS:
             if refused:
                 return refused
@@ -636,13 +671,125 @@ def run_entry(
                         result = error(_status(exc.code), exc.code, exc.message, exc.path)
                     except Exception:
                         result = error(503, "ROUTE_TABLE_UNAVAILABLE", "插件存储读写失败，稍后再试")
-                    return guarded.finish(*result)
+                    return recorded(guarded.finish(*result), who)
             who = verify(writers, parsed.get("writer"), op, table, vstr, parsed, now())
-        return _dispatch(storage, op, table, version, body, parsed, has_writer, who, now, new_id)
+        return recorded(
+            _dispatch(storage, op, table, version, body, parsed, has_writer, who, now, new_id), who
+        )
     except RouteTableError as exc:
         return error(_status(exc.code), exc.code, exc.message, exc.path)
     except Exception:  # storage backend failure: no detail, never echo content
         return error(503, "ROUTE_TABLE_UNAVAILABLE", "插件存储读写失败，稍后再试")
+
+
+def by_key(table, save_id):
+    return "route-table:" + storage_name(table) + ":by:" + save_id
+
+
+def _provenance(storage, table, save_id):
+    """Read canonical and pre-fix legacy sidecars without guessing on conflicts.
+
+    Undo migrates documents, not sidecars. The save id remains their immutable
+    identity. A failed alias read must not silently select the other candidate.
+    """
+    std = storage_name(table)
+    records = []
+    for name in dict.fromkeys((std, old_name(std) or std)):
+        rec = StorageTables(storage)._read("route-table:" + name + ":by:" + save_id)
+        if rec is not None:
+            if not isinstance(rec, dict):
+                raise ValueError("Invalid provenance")
+            records.append(rec)
+    if records and any(rec != records[0] for rec in records[1:]):
+        raise ValueError("Conflicting provenance aliases")
+    return records[0] if records else None
+
+
+def _persist_metadata(storage, key, record):
+    """Never replace provenance. No CAS is available; this is not an audit log.
+
+    persisted means a matching read-back, not a durability/transaction guarantee.
+    unavailable includes uncertain writes and conflicting or unreadable metadata.
+    """
+    try:
+        previous = StorageTables(storage)._read(key)
+        if previous is not None and previous != record:
+            return "unavailable"
+        if previous is None:
+            storage.set(key, json.dumps(record, ensure_ascii=False, sort_keys=True).encode("utf-8"))
+        return "persisted" if StorageTables(storage)._read(key) == record else "unavailable"
+    except Exception:
+        return "unavailable"
+
+
+def _record(storage, op, table, result, by, show_history=False):
+    """Enrich successful operations without changing mutation success semantics.
+
+    Undo/discard describe the actor of an operation, never the original author of
+    moved versions or an independently verified author of reference-fix versions.
+    Historical identifiers are visible only in the pinned maintenance app context;
+    other callers retain exactly the existing history data and access rules.
+    """
+    status, out = result
+    if status != 200 or not isinstance(out, dict):
+        return result
+    if op in ("undo", "draft_discard"):
+        operation = {
+            "operation_id": uuid.uuid4().hex,
+            "op": op,
+            "actor": by,
+            "result": copy.deepcopy(out),
+        }
+        key = "route-table:" + storage_name(table) + ":operation:" + operation["operation_id"]
+        state = _persist_metadata(storage, key, operation)
+        return status, dict(out, operation_record=operation, metadata_status=state)
+    key = None
+    if op in ("save", "publish") and isinstance(out.get("doc"), dict):
+        doc = out["doc"]
+        if type(doc.get("table")) is str and type(doc.get("save_id")) is str and doc["save_id"]:
+            table, sid = doc["table"], doc["save_id"]
+            key = by_key(table, sid)
+    if op == "draft_save" and isinstance(out.get("draft"), dict):
+        sid = out["draft"].get("draft_id")
+        if isinstance(sid, str) and sid:
+            sid = "draft:" + sid
+            key = by_key(table, sid)
+    if key is not None:
+        try:
+            previous = _provenance(storage, table, sid)
+            if previous is not None:
+                # Immutable attribution: a retry's caller did not author this version.
+                return status, dict(
+                    out, saved_by=_safe_context(previous), metadata_status="persisted"
+                )
+            if out.get("already_published"):
+                # A missing record cannot be reconstructed from the retry actor.
+                return status, dict(out, saved_by=None, metadata_status="unavailable")
+            state = _persist_metadata(storage, key, by)
+        except Exception:
+            # Conflicting/unreadable records must not be replaced or attributed to
+            # the current caller, even when the underlying operation succeeded.
+            return status, dict(out, saved_by=None, metadata_status="unavailable")
+        return status, dict(out, saved_by=by, metadata_status=state)
+    if op == "history" and show_history and isinstance(out.get("versions"), list):
+        vs = []
+        for v in out["versions"]:
+            item = v
+            try:
+                if isinstance(v, dict) and type(v.get("version")) is int:
+                    doc = StorageTables(storage).version(table, v["version"])
+                    sid = doc.get("save_id") if isinstance(doc, dict) else None
+                    if isinstance(sid, str) and sid:
+                        rec = _provenance(storage, doc.get("table") or table, sid)
+                        # Older sidecars predate explicit context trust labels.
+                        if rec is not None:
+                            rec = _safe_context(rec)
+                            item = dict(v, saved_by=rec)
+            except Exception:
+                item = dict(v, metadata_status="unavailable") if isinstance(v, dict) else v
+            vs.append(item)
+        return status, dict(out, versions=vs)
+    return result
 
 
 def _dispatch(storage, op, table, version, body, parsed, has_writer, who, now, new_id):

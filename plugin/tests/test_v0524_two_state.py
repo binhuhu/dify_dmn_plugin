@@ -28,6 +28,7 @@ from dmn_client.two_state import (
     REQUEST_SCHEMA,
     DryRun,
     body_sha256,
+    by_key,
     draft_key,
     invariants,
     parse_writers,
@@ -202,7 +203,12 @@ def test_a_draft_adds_its_key_and_request_receipt_while_readers_still_read_live(
         "draft_save", {**replaced("草稿"), "expected_version": 1, "expected_draft": ""}
     )
     receipt_key = request_key("draft_save", T, "", request)
-    assert set(st.data) - set(before) == {draft_key(T), receipt_key}
+    # 0.5.29: plus the draft's saved_by record (who wrote it), kept beside the draft
+    assert set(st.data) - set(before) == {
+        draft_key(T),
+        receipt_key,
+        by_key(T, "draft:" + out["draft"]["draft_id"]),
+    }
     receipt = json.loads(st.data[receipt_key])
     assert receipt["schema"] == REQUEST_SCHEMA and receipt["state"] == "complete"
     assert receipt["request_sha256"] == receipt_key.split(":", 1)[1]

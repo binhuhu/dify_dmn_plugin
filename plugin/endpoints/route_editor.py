@@ -92,6 +92,9 @@ class RouteEditorEndpoint(Endpoint):
                 "编辑接口要写明是谁：请求头 X-Route-Writer: <名字>;<时间>;<签名>（0.5.24 起不再用共用编辑口令）",
                 "writer",
             )
+        writer["via"] = (
+            "endpoint"  # Unverified context hint only; excluded from HMAC, not proof of endpoint origin.
+        )
         table = r.args.get("table", DEFAULT_TABLE)
         if r.method == "GET" and name in GET_OPS:
             op, version, body = (

@@ -36,6 +36,9 @@ class RouteTableStoreTool(Tool):
                 tool_parameters.get("body_json") or None,
                 writers=tool_parameters.get("writers"),
                 caller_app=getattr(self.session, "app_id", None),
+                caller_user=getattr(
+                    getattr(self, "runtime", None), "user_id", None
+                ),  # 0.5.29: saved_by.user
             )
         yield self.create_json_message({"status_code": status, "result": body})
         yield self.create_variable_message("status_code", status)
