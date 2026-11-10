@@ -72,9 +72,20 @@ TABLE_RE = re.compile(r"^[a-z0-9][a-z0-9._-]{0,63}$")
 # canonical spelling (M_P_02_04_01), so this is the one storable name outside TABLE_RE; <part> is lower case, up to 24.
 # 0.5.19: or solution.disposal.status.shared, one disposal status table several scenes share (the
 # name); only disposal.status, without <part>
+# 0.5.28 (DMN 2.0, solution layer four tables, end to end): search.fact -> fact.feature -> feature.reality ->
+# reality.strategy. disposal.strategy (reality.strategy's former name) and disposal.status (moved out of the solution
+# layer) stay storable and readable as legacy names, so tables already stored under them keep working.
+SOLUTION_TABLES = ("search.fact", "fact.feature", "feature.reality", "reality.strategy")
+SOLUTION_LEGACY = ("disposal.strategy", "disposal.status")
 SOLUTION_TABLE_RE = re.compile(
-    r"^solution\.(?:(?:fact\.feature|feature\.reality|disposal\.strategy|disposal\.status)"
-    r"\.(?:" + CANONICAL_PATTERN[1:-1] + "|" + NEW_MODE_PATTERN[1:-1] + r")"
+    r"^solution\.(?:(?:"
+    + "|".join(t.replace(".", r"\.") for t in SOLUTION_TABLES + SOLUTION_LEGACY)
+    + r")"
+    + r"\.(?:"
+    + CANONICAL_PATTERN[1:-1]
+    + "|"
+    + NEW_MODE_PATTERN[1:-1]
+    + r")"
     r"(?:\.[a-z][a-z0-9_]{0,23})?|disposal\.status\.shared)$"
 )
 

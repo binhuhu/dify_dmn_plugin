@@ -423,13 +423,15 @@ def test_unsigned_reads_through_the_app_are_0_5_23s():
 # ── writers ──────────────────────────────────────────────────────────────────
 
 
-def test_no_writers_registered_refuses_every_write_to_the_five():
+def test_no_writers_registered_is_open_mode_and_refuses_signed_requests_0_5_28():
+    """0.5.28: no writer registered = open mode (the default). A signed request is then refused (open mode takes only
+    unsigned runs of the maintenance app); unsigned open-mode writes are test_v0528_open_mode's."""
     st = live(FakeStorage())
     for w in (None, "", "  \n# nobody\n"):
         status, out = draft(st, v3(note="x"), 1, writers=w)
-        assert status == 503 and out["error"]["code"] == "STORED_TABLE_WRITERS_UNSET"
+        assert status == 403 and out["error"]["code"] == "STORED_TABLE_OPEN_MODE_WRITER", out
     status, out = entry(st, "undo", {}, table="triage.dispatch.route", version=1, writers=None)
-    assert status == 503
+    assert status == 403 and out["error"]["code"] == "STORED_TABLE_OPEN_MODE_WRITER", out
 
 
 @pytest.mark.parametrize(
@@ -538,12 +540,17 @@ def test_the_tool_takes_writers_from_its_node_parameter():
         WRITER,
         body["writer"]["at"],
     )
-    assert run(op="draft_save", table=T, body_json=json.dumps(body))["status_code"] == 503
+    # 0.5.28: no writers parameter = open mode, which refuses a signed request
+    assert run(op="draft_save", table=T, body_json=json.dumps(body))["status_code"] == 403
     got = run(op="draft_save", table=T, body_json=json.dumps(body), writers=TWO)
     assert got["status_code"] == 200, got["result_json"]
-    assert run(op="save", table=T, body_json=json.dumps({**v3(), "expected_version": 1}))["result"][
-        "error"
-    ]["code"] == ("STORED_TABLE_PUBLISH_REQUIRED")
+    # signed mode (a registry in the node): no direct save of the five
+    assert run(
+        op="save", table=T, body_json=json.dumps({**v3(), "expected_version": 1}), writers=TWO
+    )["result"]["error"]["code"] == ("STORED_TABLE_PUBLISH_REQUIRED")
+    # 0.5.28 open mode (no registry in the node, the default): the five are saved directly
+    saved = run(op="save", table=T, body_json=json.dumps({**v3(), "expected_version": 1}))
+    assert saved["status_code"] == 200, saved["result_json"]
 
 
 def test_the_first_store_under_the_standard_name_is_a_publish():

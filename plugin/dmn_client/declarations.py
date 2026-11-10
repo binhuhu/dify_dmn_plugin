@@ -41,6 +41,7 @@ DECISION_ROLES = (
     "FEATURE_REALITY",
     "DISPOSAL",
     "DISPOSAL_STATUS",  # 0.5.17 (DMN 2.0 R9): once per run, outcome + reason_code
+    "SEARCH_FACT",  # 0.5.28: solution.search.fact, query -> facts; generic decision-set checks only (columns pending)
 )
 # 0.5.22: the three-tier resource routing is a decision table (role RESOURCE), only under a resource-targets name
 RESOURCE = "RESOURCE"
@@ -133,6 +134,9 @@ CONCLUSION_KEYS = {
     "FEATURE_REALITY": ("reality_id",),
     "DISPOSAL": ("disposal_id",),
     "DISPOSAL_STATUS": ("outcome", "reason_code"),
+    "SEARCH_FACT": (
+        "fact_id",
+    ),  # 0.5.28: one rule per fact code (proposal until the standard fixes the columns)
     # 0.5.22: a dotted key is a path into the result object
     "RESOURCE": ("tier1.pool", "tier2.skill_group", "tier2.priority", "tier3.pick"),
 }
@@ -166,6 +170,9 @@ ROLE_BY_NAME = (
     ("solution.feature.reality.", "FEATURE_REALITY"),
     ("solution.disposal.strategy.", "DISPOSAL"),
     ("solution.disposal.status.", "DISPOSAL_STATUS"),
+    # 0.5.28 (DMN 2.0, solution layer four tables): reality.strategy is disposal.strategy's new name
+    ("solution.reality.strategy.", "DISPOSAL"),
+    ("solution.search.fact.", "SEARCH_FACT"),
 )
 MAX_COEXIST = 256
 
@@ -385,7 +392,7 @@ def check(declare, clean, schema):
         "declare 只能有 " + " / ".join(sorted(KEYS)),
         "",
     )
-    out = {"stage": declare.get("stage"), "role": declare.get("role")}
+    out = {"stage": declare.get("stage"), "role": _declared_role(declare, clean)}
     _need(out["stage"] in STAGES, "stage 只能是 TRANSITION / STANDARD", ".stage")
     _need(out["role"] in roles, "这种表的 role 只能是 " + " / ".join(roles), ".role")
     _need(
@@ -540,6 +547,20 @@ def _resource_name(table):
     from dmn_client.stored_tables import resource_decision_name
 
     return resource_decision_name(table)
+
+
+def _named_role(table):
+    """0.5.28: the role a solution-layer table name implies, or None. Its declaration may leave role out: the name (and
+    the solution routing) already says what the table is."""
+    for prefix, role in ROLE_BY_NAME:
+        if type(table) is str and table.startswith(prefix):
+            return role
+    return None
+
+
+def _declared_role(declare, clean):
+    role = declare.get("role") if type(declare) is dict else None
+    return _named_role(clean.get("table")) if role is None else role
 
 
 def _role_of_name(role, table):
@@ -835,7 +856,7 @@ def _set(declare, clean, roles):
         "决策集的 declare 只能有 " + " / ".join(sorted(SET_KEYS)),
         "",
     )
-    out = {"stage": declare.get("stage"), "role": declare.get("role")}
+    out = {"stage": declare.get("stage"), "role": _declared_role(declare, clean)}
     _need(out["stage"] in STAGES, "stage 只能是 TRANSITION / STANDARD", ".stage")
     _need(out["role"] in roles, "这种表的 role 只能是 " + " / ".join(roles), ".role")
     _role_of_name(out["role"], clean["table"])

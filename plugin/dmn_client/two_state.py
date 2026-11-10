@@ -504,6 +504,34 @@ def _status(code):
     return 409 if code in CONFLICT else 503 if code in UNAVAILABLE else 400
 
 
+# 0.5.28: open mode is the default: the maintenance node's writers setting empty, missing or only
+# # comments, or the single word OPEN (any case). Then the maintenance app writes without signatures: the five are saved
+# directly again (with the same key and reference checks a draft gets), drafts and publishes need no writer. Writes to the
+# five still count only from the pinned maintenance app, and a request that carries a writer is refused: it comes through
+# the editor endpoint (which no host login guards) or from a signing script, and open mode takes neither. Who may write is
+# then whoever may run the maintenance app in the host (its console session, or its web app / API if enabled).
+# Writer lines = signed mode exactly as 0.5.24-27. OPEN mixed with writer lines, or any malformed line, is a mistake, not a
+# default: every write is refused (STORED_TABLE_WRITERS_INVALID). A value that is neither text nor missing is refused too.
+OPEN_WORD = "OPEN"
+
+
+def _registry_lines(writers):
+    return [
+        line.strip()
+        for line in writers.lstrip("\ufeff").split("\n")
+        if line.strip() and not line.strip().startswith("#")
+    ]
+
+
+def open_mode(writers):
+    if writers is None:
+        return True
+    if not isinstance(writers, str):
+        return False
+    lines = [x.upper() for x in _registry_lines(writers)]
+    return lines == [] or lines == [OPEN_WORD]
+
+
 def run_entry(
     storage,
     op,
@@ -524,12 +552,21 @@ def run_entry(
         return 200, declared()
     table = table or DEFAULT_TABLE
     vstr = "" if version is None else str(version)
+    opened = open_mode(writers)
     try:
         if body is None or body == "":
             parsed, refused = {}, None
         else:
             parsed, refused = _parse(body)
         has_writer = isinstance(parsed, dict) and "writer" in parsed
+        if opened and has_writer:
+            return error(
+                403,
+                "STORED_TABLE_OPEN_MODE_WRITER",
+                "维护应用是开放模式（写手登记写的是 OPEN）：只收在 AgentHub 里运行维护应用的请求，不收带写手签名的请求"
+                "（编辑端点、签名脚本）。去掉 writer 经 AgentHub 存，或在写手登记里登记写手改回签名模式",
+                "writer",
+            )
         if op in DRAFT_OPS:
             if refused:
                 return refused
@@ -540,7 +577,12 @@ def run_entry(
                     "草稿与发布只用于交付链五张表；%s 照旧直接存表" % table,
                     "table",
                 )
-        if op == "save" and isinstance(parsed, dict) and is_five(parsed.get("table")):
+        if (
+            op == "save"
+            and isinstance(parsed, dict)
+            and is_five(parsed.get("table"))
+            and not opened
+        ):
             return error(
                 400,
                 "STORED_TABLE_PUBLISH_REQUIRED",
@@ -552,6 +594,30 @@ def run_entry(
             return 200, _writers_read(storage, writers, caller_app)
         need = has_writer or (op in SIGNED_ON_FIVE and is_five(table)) or op in DRAFT_OPS[1:]
         who = None
+        if opened:
+            if refused and (op in DRAFT_OPS[1:] or op in SIGNED_ON_FIVE):
+                return refused
+            # a save's table is the one in its body (the table parameter may be the default); the others name it
+            writes_five = (
+                (op == "save" and isinstance(parsed, dict) and is_five(parsed.get("table")))
+                or (op in SIGNED_ON_FIVE or op in DRAFT_OPS[1:])
+                and is_five(table)
+            )
+            if writes_five:
+                check_caller(storage, caller_app)
+            if op == "save" and writes_five:
+                # the checks a draft of the five gets (review 0.5.28 adv 中-1): no unregistered top-level key, and no
+                # reference to a table outside the five
+                unknown = unknown_keys(parsed)
+                _need(
+                    not unknown,
+                    "STORED_TABLE_UNKNOWN_KEY",
+                    "%s 不是这种表的键：交付链表不收未登记的顶层键。去掉它，或先把它登记进表格式"
+                    % (unknown[0] if unknown else ""),
+                    unknown[0] if unknown else "",
+                )
+                _inside_five(parsed)
+            need = False
         if need:
             if refused:
                 return refused
@@ -919,7 +985,14 @@ def _delete_own_draft(storage, tables, key, draft):
 def _writers_read(storage, writers, caller_app):
     """What the pinned app and its registry are, never a key: an install check, and 81's."""
     pinned = pinned_app(storage)
-    out = {"pinned_app": pinned, "caller_app": caller_app, "caller_is_pinned": caller_app == pinned}
+    out = {
+        "pinned_app": pinned,
+        "caller_app": caller_app,
+        "caller_is_pinned": caller_app == pinned,
+        "mode": "OPEN" if open_mode(writers) else "SIGNED",  # 0.5.28
+    }
+    if out["mode"] == "OPEN":
+        return out
     if caller_app == pinned:
         try:
             out["writers"] = [

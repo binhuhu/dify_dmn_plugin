@@ -16,6 +16,18 @@ The provider does not request a provider-level API key for local decisions. Sign
 
 Host configuration, workflow snapshots, exports, debugging records, logs or backups may retain the registry and other workflow data according to the host's behavior and policies. Do not put production keys in public examples, repositories, issues or exports. Use a different random, high-entropy key for each writer, never a human-chosen password. The `op=writers` response returns short `key_fp` hashes rather than raw keys, but these hashes allow offline guessing of weak keys and do not prevent configuration-layer disclosure.
 
+## Default-open maintenance in 0.5.28
+
+In 0.5.28, a missing, empty or comment-only `writers` setting, or the word `OPEN`, selects OPEN mode. Deleting every writer line, including by mistake during an upgrade or edit, changes the node to OPEN. Keeping valid writer lines selects SIGNED mode. Malformed lines and `OPEN` mixed with writer lines do not select OPEN.
+
+In OPEN mode, anyone able to invoke the pinned maintenance application can change the five delivery-chain tables without a writer key. This includes callers admitted by the host's enabled Web App or API. If either entry point admits unauthenticated callers, those callers may write too. The application pin does not identify an individual or prove that the host required login. Verify the actual host access policy before relying on this mode. The editor endpoint is not a host-login boundary: it still requires a writer signature, and OPEN rejects requests carrying a writer, including editor endpoint calls.
+
+OPEN saves, drafts and publication records have no authenticated writer or publisher identity. Host run records may provide additional context under the host's own retention and access policies, but the plugin does not guarantee individual attribution. OPEN does not perform HMAC verification, signature freshness checks or signed-request replay receipt handling. Single-operator serial use does not restore that protection: an old unsigned draft-save request can recreate a discarded draft if the live version is unchanged. Direct saves also skip the publication window, gate report, release reference and approval for a FAIL gate. Use the draft/publish path when those records are required.
+
+OPEN does not use the signed path's process-local mutation lock. Expected version and draft checks detect some stale requests, but are not atomic locks and cannot prevent every simultaneous overwrite, even in one process. Keep maintenance single-operator and serial in both modes. A storage error may occur after a write; do not automatically retry, overwrite or delete on an uncertain outcome. Verify authoritative fresh state first.
+
+Mode is taken from each calling node's effective setting. A console draft run, a published workflow, another node or a cached snapshot may use different settings. `op=writers` reports the calling node's mode, not a workspace-wide enforcement state. Keep the intended draft and published settings aligned and verify the actual host behavior. Package publication does not enable or accept any host entry point.
+
 ## Rotation, rollback and verification limits
 
 Changing a setting, republishing or upgrading does not establish immediate key revocation. A previously cached registry, another worker or an older workflow snapshot may continue to use old keys. Target-host cache behavior, migration and key revocation have not been accepted for this release. Compare fingerprints and verify that the new key succeeds and the removed key is rejected on the actual host before treating rotation as complete. A fingerprint match alone is not proof that all workers or in-flight runs have been updated.

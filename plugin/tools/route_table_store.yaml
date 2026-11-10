@@ -19,8 +19,8 @@ parameters:
     en_US: op
     zh_Hans: 操作
   human_description:
-    en_US: table | history | version | save (not for the five delivery-chain tables from 0.5.24 on) | draft | draft_save | draft_discard | publish (0.5.24, the five delivery-chain tables) | vocabulary (0.5.24, the declared value sets, row shapes and table names) | undo (undo a first store under a standard name; version = its head version) | check (the standard-name keys 0.5.19 would see, and the old name's version keys above its head; both empty before a first store and before reinstalling 0.5.19)
-    zh_Hans: table（当前版）/ history（历史）/ version（某一版）/ save（保存；0.5.24 起交付链五张表不收）/ draft（读草稿）/ draft_save（存草稿）/ draft_discard（删草稿）/ publish（发布草稿，0.5.24，交付链五张表）/ vocabulary（0.5.24：插件认的取值、行形、表名，一份声明）/ undo（撤销标准名的首存，version 写它当前头版的版本号）/ check（0.5.19 会看到的标准名键，以及旧名头版之上的版本键；首存前、回退装 0.5.19 前都应为空）
+    en_US: table | history | version | save (the five delivery-chain tables use OPEN for direct save; SIGNED requires draft and publish) | draft | draft_save | draft_discard | publish (0.5.24, the five delivery-chain tables) | vocabulary (0.5.24, the declared value sets, row shapes and table names) | undo (undo a first store under a standard name; version = its head version) | check (the standard-name keys 0.5.19 would see, and the old name's version keys above its head; both empty before a first store and before reinstalling 0.5.19)
+    zh_Hans: table（当前版）/ history（历史）/ version（某一版）/ save（保存；五张交付链表在 OPEN 模式直接存，SIGNED 模式须草稿与发布）/ draft（读草稿）/ draft_save（存草稿）/ draft_discard（删草稿）/ publish（发布草稿，0.5.24，交付链五张表）/ vocabulary（0.5.24：插件认的取值、行形、表名，一份声明）/ undo（撤销标准名的首存，version 写它当前头版的版本号）/ check（0.5.19 会看到的标准名键，以及旧名头版之上的版本键；首存前、回退装 0.5.19 前都应为空）
   llm_description: table, history, version, save, undo, check, draft, draft_save, draft_discard, publish or vocabulary.
 - name: table
   type: string
@@ -63,8 +63,8 @@ parameters:
     en_US: Writers
     zh_Hans: 写手登记
   human_description:
-    en_US: "0.5.27: plain registry, visible in maintenance configuration and DSL exports. Anyone with these keys and maintenance-app invocation access can impersonate any registered writer. Use only when all configuration/export readers may hold every key. Old host caches may persist; republishing does not guarantee immediate revocation. Host upgrade, rotation and rollback remain unverified. One line per writer: <id>:<kind>:<key> (PERSON / SESSION / SCRIPT / APP). Use an independent random high-entropy key of at least 24 characters for each writer. Signed writes to the five delivery-chain tables are refused if empty."
-    zh_Hans: "0.5.27：普通明文登记，维护配置和 DSL 导出可见全部密钥；有密钥并能调用维护应用的人可冒用任意写手。仅供所有配置及导出查看者都获准持有全部密钥时使用。宿主旧缓存可能保留，重发不保证立即撤权；升级、轮换和回滚仍待宿主验收。一行一个写手：<名字>:<种类>:<密钥>，种类 PERSON / SESSION / SCRIPT / APP；每位写手使用独立、至少 24 字符的随机高熵密钥。空登记拒绝交付链五张表的签名写入。"
+    en_US: "0.5.28: empty (the default) or the single word OPEN = open mode: no signatures, whoever can run this app writes, the five saved directly; requests carrying a writer (editor endpoint, signing scripts) are refused; the plugin records no editor. Writer lines = signed mode. 0.5.27: plain registry, visible in maintenance configuration and DSL exports. Anyone with these keys and maintenance-app invocation access can impersonate any registered writer. Use only when all configuration/export readers may hold every key. Old host caches may persist; republishing does not guarantee immediate revocation. Host upgrade, rotation and rollback remain unverified. One line per writer: <id>:<kind>:<key> (PERSON / SESSION / SCRIPT / APP). Use an independent random high-entropy key of at least 24 characters for each writer."
+    zh_Hans: "0.5.28：留空（默认）或只写一个词 OPEN = 开放模式：不签名，能运行本应用的人都能写，五张表直接存；带写手签名的请求（编辑端点、签名脚本）不收；插件不记改动人。有写手行 = 签名模式。0.5.27：普通明文登记，维护配置和 DSL 导出可见全部密钥；有密钥并能调用维护应用的人可冒用任意写手。仅供所有配置及导出查看者都获准持有全部密钥时使用。宿主旧缓存可能保留，重发不保证立即撤权；升级、轮换和回滚仍待宿主验收。一行一个写手：<名字>:<种类>:<密钥>，种类 PERSON / SESSION / SCRIPT / APP；每位写手使用独立、至少 24 字符的随机高熵密钥。"
 output_schema:
   type: object
   properties:

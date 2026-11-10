@@ -216,8 +216,9 @@ def test_authentication_and_caller_refusals_write_nothing(case):
         kw["caller_app"] = "00000000-0000-4000-8000-0000000000aa"
         code, status = "STORED_TABLE_WRITERS_APP_REJECTED", 403
     elif case == "registry":
-        kw["writers"] = ""
-        code, status = "STORED_TABLE_WRITERS_UNSET", 503
+        # 0.5.28: an empty registry is open mode (default); a registry with a bad line still refuses every write
+        kw["writers"] = "not a writer line"
+        code, status = "STORED_TABLE_WRITERS_INVALID", 503
     no_write_refusal(st, op, req, code, status, **kw)
 
 
