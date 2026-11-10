@@ -35,6 +35,7 @@ from dmn_client.route_table import (  # noqa: E402
     solution_block,
     validate_doc,
 )
+from dmn_client.route_table import target_apps as row_apps  # noqa: E402
 from dmn_client.solution_invoke import invoke_solution  # noqa: E402
 
 BUNDLE = ROOT / "plugin/tests/route_table_bundle.json"
@@ -101,8 +102,8 @@ def derive(base, rows, route, supplement, gates):
         sols.append(copy.deepcopy(r["row"]))
     routed = {}
     for row in route["routes"]:
-        if row["target"]["kind"] == "SOLUTION_APP":
-            routed.setdefault(row["scene_id"], set()).add(row["target"]["app_id"])
+        for app in row_apps(row["target"]):
+            routed.setdefault(row["scene_id"], set()).add(app)
     for sid, scene in reg["scenes"].items():
         sup = (supplement["scenes"].get(sid) or {}).get("state")
         callable_ = sup in ("NONE", "REQUIRED")
@@ -427,15 +428,17 @@ def main(argv=None):
         need(r["trace"]["model_source"].get("format") == FORMAT_V4, "V4_SOURCE_FORMAT")
         v4_rows += 1
         block = r["outputs"]["decision"]["data"]["solution"]
-        if row["target"]["kind"] == "SOLUTION_APP":
-            want = solution_block(stored, row["target"]["app_id"], content)
+        # a split row, read by a flow that binds no split key, gives its first app
+        if row_apps(row["target"]):
+            want = solution_block(stored, row_apps(row["target"])[0], content)
             if block != want:
                 block_bad.append({"row": row, "got": block, "want": want})
         elif block is not None:
             null_bad.append(row)
-    solution_rows = [r for r in stored["routes"] if r["target"]["kind"] == "SOLUTION_APP"]
+    solution_rows = [r for r in stored["routes"] if row_apps(r["target"])]
     blocks = {
-        r["scene_id"]: solution_block(stored, r["target"]["app_id"], content) for r in solution_rows
+        r["scene_id"]: solution_block(stored, row_apps(r["target"])[0], content)
+        for r in solution_rows
     }
     docs_v2 = {"dispatch.route": v1_doc, "dispatch.resource": load("dispatch.resource")}
     docs_v3 = {"dispatch.route": stored, "dispatch.resource": load("dispatch.resource")}

@@ -708,3 +708,77 @@ test("a conflict with a re-keyed table replays my edits in the table's new spell
   assert.ok(sent.routes.every((r) => r.scene_id.startsWith("M_")), "nothing goes out in the old spelling");
   assert.ok(sent.routes.some((r) => r.scene_id === "M_P_99_31_02" && r.target.app_id === APP_B));
 });
+
+// v0.5.31: split controls must preserve arm order (the no-key fallback is arm 0).
+const splitDoc = () => {
+  const d = v3doc();
+  Object.assign(d.solutions[APP_B], { status: "CURRENT", gate_code: null });
+  d.routes[0].target = { kind: "SOLUTION_SPLIT", split: [
+    { app_id: APP_A, share: 50 }, { app_id: APP_B, share: 50 },
+  ] };
+  return d;
+};
+const splitField = (w, f, i) => $(w, `[data-k="P_99_31_01|COMPLAINT|STAGE_1"][data-f="split-${f}"][data-i="${i}"]`);
+const changeSplit = async (w, f, i, value) => {
+  const n = splitField(w, f, i);
+  n.value = value;
+  n.dispatchEvent(new w.Event("change", { bubbles: true }));
+  await settle(w);
+};
+
+test("split controls edit shares, save ordered arms and reload their values", async (t) => {
+  const api = fakeApi(); api.saveAs(splitDoc());
+  const w = await page(api); t.after(() => w.close());
+  assert.equal(splitField(w, "app", 0).value, APP_A);
+  assert.equal(splitField(w, "app", 1).value, APP_B);
+  await changeSplit(w, "share", 0, "40");
+  await changeSplit(w, "share", 1, "60");
+  await note(w, "Synthetic split shares");
+  await click(w, '[data-act="save"]');
+  assert.match($(w, ".re-confirm").textContent, /40%/);
+  await click(w, '[data-act="confirm"]');
+  assert.deepEqual(api.posts[0].routes[0].target, { kind: "SOLUTION_SPLIT", split: [
+    { app_id: APP_A, share: 40 }, { app_id: APP_B, share: 60 },
+  ] });
+  await click(w, '[data-act="load"]');
+  assert.equal(splitField(w, "share", 0).value, "40");
+  assert.equal(splitField(w, "share", 1).value, "60");
+});
+
+test("split add/remove and single conversion retain the chosen first app", async (t) => {
+  const api = fakeApi(); api.saveAs(splitDoc());
+  const w = await page(api); t.after(() => w.close());
+  await click(w, '[data-act="split-add"]');
+  assert.equal(splitField(w, "app", 2).value, "");
+  assert.equal(splitField(w, "share", 2).value, "1");
+  await note(w, "Synthetic added arm");
+  await click(w, '[data-act="save"]');
+  assert.match($(w, ".re-status").textContent, /还没选应用/);
+  assert.equal(api.posts.length, 0);
+  await click(w, '[data-act="split-del"][data-i="2"]');
+  assert.equal(splitField(w, "app", 2), null);
+  assert.equal(splitField(w, "share", 0).value, "50");
+  await pick(w, "P_99_31_01", "APP:" + APP_B);
+  assert.equal(splitField(w, "app", 0), null);
+  await pick(w, "P_99_31_01", "SOLUTION_SPLIT");
+  assert.equal(splitField(w, "app", 0).value, APP_B);
+  assert.equal(splitField(w, "app", 1).value, "");
+});
+
+test("invalid split totals, fractional shares, duplicates and parked apps cannot write", async (t) => {
+  const api = fakeApi(); api.saveAs(splitDoc());
+  const w = await page(api); t.after(() => w.close());
+  await note(w, "Synthetic invalid split");
+  const refused = async (message) => {
+    await click(w, '[data-act="save"]');
+    assert.match($(w, ".re-status").textContent, message);
+    assert.equal($(w, '[data-act="confirm"]'), null);
+    assert.equal(api.posts.length, 0);
+  };
+  await changeSplit(w, "share", 0, "40"); await refused(/要等于 100/);
+  await changeSplit(w, "share", 0, "50.5"); await refused(/1–99 的整数/);
+  await changeSplit(w, "share", 0, "50");
+  await changeSplit(w, "app", 1, APP_A); await refused(/出现了两次/);
+  await changeSplit(w, "app", 1, APP_B);
+  await type(w, APP_B, "status", "CANDIDATE"); await refused(/不是 CURRENT/);
+});

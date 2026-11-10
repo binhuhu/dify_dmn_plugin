@@ -1,4 +1,4 @@
-# JSON 决策工具 0.5.29（单人串行维护）
+# JSON 决策工具 0.5.31（单人串行维护）
 
 这是同一仓库的独立 JSON 安装包 `hu8627/dmn_json`。原有 `hu8627/dmn` 外部 XML 插件和其他已安装插件保留，不卸载、不替换。新建“内置 JSON 决策表 / evaluate_json_table”节点无需 Key、引擎地址或外部服务。现有外部工具仍通过原插件配置 Node 服务，未配置时返回 INVALID_CONFIGURATION。两个包的模型格式和语义不能互换。
 
@@ -6,7 +6,7 @@
 
 ## 节点决策与受控查询
 
-支持 execute_query 与 evaluate_decision；保留以下三个旧工具的语义。新节点合同、可信查询配置、参考宿主和未完成生产验收见 [RC说明](https://github.com/binhuhu/dify_dmn_plugin/blob/v0.5.29/docs/dsl-v0.4.md)。纯决策免 Key；受控查询无连接配置时 BLOCKED，不以 synthetic 冒充成功。
+支持 execute_query 与 evaluate_decision；保留以下三个旧工具的语义。新节点合同、可信查询配置、参考宿主和未完成生产验收见 [RC说明](https://github.com/binhuhu/dify_dmn_plugin/blob/v0.5.31/docs/dsl-v0.4.md)。纯决策免 Key；受控查询无连接配置时 BLOCKED，不以 synthetic 冒充成功。
 
 ## 保留 0.3.0 工具
 
@@ -36,7 +36,7 @@ AND 中 FALSE 优先于 UNKNOWN。FIRST 的已选规则之前存在 UNKNOWN 或 
 
 ## 构建与验收
 
-从仓库根目录运行 `python scripts/stage-builtin.py /tmp/dmn-json-0.5.29`，然后用已安装的官方 Dify CLI：`dify plugin package /tmp/dmn-json-0.5.29 -o hu8627-dmn_json-0.5.29.difypkg`。没有 CLI 时 staging 目录不是安装包，不用普通 zip 冒充 difypkg。不重试已拒绝的下载/API，不修改旧 Release。包未签名，遵循平台签名策略。
+从仓库根目录运行 `python scripts/stage-builtin.py /tmp/dmn-json-0.5.31`，然后用已安装的官方 Dify CLI：`dify plugin package /tmp/dmn-json-0.5.31 -o hu8627-dmn_json-0.5.31.difypkg`。没有 CLI 时 staging 目录不是安装包，不用普通 zip 冒充 difypkg。不重试已拒绝的下载/API，不修改旧 Release。包未签名，遵循平台签名策略。
 
 依赖沿用仓库固定 requirements.txt；首次安装仍需要平台正常解析 Python 依赖。免 Key/无外部决策服务指工具调用路径，不是离线安装保证。目标 UI 安装与真实调用仍需验收。
 
@@ -55,6 +55,10 @@ v2 表（`dmn-json.route-table/v2`）自带场景目录和方案登记，支持�
 0.5.28：写手登记留空（默认）或只写一个词 OPEN = 开放模式：不要签名，五张表重新直接存，能在 AgentHub 里运行维护应用的人都能写（写入五张表仍只认维护应用；带签名的请求和编辑端点不收；插件不记改动人）；缺失或仅注释也算 OPEN，误删全部写手会自动开放。宿主 Web App/API 若允许匿名调用，调用者同样可能修改五张表；登记里有写手 = 签名模式，同 0.5.24–0.5.27。方案层四张表名 `solution.search.fact` / `fact.feature` / `feature.reality` / `reality.strategy` + `.<场景号>`，声明可不写 role（表名即角色）；旧名 `disposal.strategy` / `disposal.status` 照收。见 [0.5.28 发布说明](https://github.com/binhuhu/dify_dmn_plugin/blob/v0.5.29/docs/releases/v0.5.28.md)。
 
 0.5.29：对成功保存、草稿、发布、撤销和草稿删除尝试记录旁路归属，失败不改变业务写入结果；宿主 user_id 与 via 均不独立认证，只有 writer_verified 表示 HMAC 已核验。历史身份字段仅向钉定维护应用返回；撤销/删除记录为独立操作，不改原版本作者。详见 [0.5.29 发布说明](https://github.com/binhuhu/dify_dmn_plugin/blob/v0.5.29/docs/releases/v0.5.29.md)。
+
+0.5.31：v3 路由表的一行可以按份额分给 2–4 个方案应用，去向写 `{"kind":"SOLUTION_SPLIT","split":[{"app_id":"…","share":50},{"app_id":"…","share":50}]}`：每个应用都要已登记且是 CURRENT，份额是 1–99 的整数、合计 100。分流只对绑定了 `split_key` 参数的流程生效：决策节点的 `input_bindings` 加 `split_key` 并传工单号，插件对它取 sha256 得 0–99 的桶号，按份额的先后区间落到其中一个应用，同一个工单号每次去同一个应用；返回的仍是 `route_kind: SOLUTION_APP`，下游不用改。没绑 `split_key` 的流程、或绑了但这次没传工单号，都走第一个应用，运行记录的 `route_split` 写明是哪种。先改流程还是先改表都行：绑了 `split_key` 的流程读没有分流行的表照常工作（工单号收下、不起作用）；读同一张路由表的决策节点要么都绑、要么都不绑，否则报 `ROUTE_TABLE_SPLIT_BINDING`。没绑的流程读没有分流行的表，编译结果与 0.5.30 相同。路由编辑页的去向下拉加了「按份额分流」。
+
+0.5.30：方案层表名可在场景号后带方案段（方案应用编号的第一段，8 位小写十六进制），如 `solution.fact.feature.M_P_02_04_01.56d3c0c5`；带方案段的名字只收 `owner.app_id` 第一段与之相同的文档，同一场景的两个方案各存各的表、各有各的版本。不带方案段的名字行为不变；8 位十六进制的第五段一律读作方案段，不再能当分片名；表名仍限 64 个字符，带方案段后留给分片的字符相应变少。0.5.30 本身不含路由按份额分流。见 [v0.5.30 发布说明](https://github.com/binhuhu/dify_dmn_plugin/blob/v0.5.31/docs/releases/v0.5.30.md)。
 
 本版限定单人按工作空间串行维护，覆盖所有写入、草稿删除、发布和撤销；等待前次结果明确后再执行下一次，不并行使用多个标签页、脚本或自动写入任务。只有 SIGNED 模式保留签名、有效期与普通顺序重放保护；OPEN 不使用这些保护，也不经过签名路径的进程内锁。版本检查不是原子互斥，同进程 OPEN 并发和跨进程并发仍可能双方成功并覆盖状态。即使单人串行，生效版本未变时，旧的无签名 draft_save 请求也可能重新创建已删除的草稿。单人维护不能消除恶意或意外并发重放；插件不强制串行操作，不提供 CAS、事务或跨进程协调。结果不明时停止自动重试，先核验权威新鲜状态。降级 v0.5.23 会恢复共享编辑口令及直接保存，不保留本版签名治理和重放保护，见 [0.5.24 安装与回滚限制](https://github.com/binhuhu/dify_dmn_plugin/blob/v0.5.29/docs/releases/v0.5.24.md#installation-and-rollback)。
 

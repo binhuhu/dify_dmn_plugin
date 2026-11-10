@@ -849,10 +849,12 @@ DECISION_NAME_RULE_0521 = (
     "target.<名称> 或 target.<对象>.<判断>（owner.app_id = 定位 TARGET " + APP_TARGET + "）、"
     "triage.<名称> 或 triage.<对象>.<判断>（owner.app_id = 分诊 TRIAGE " + APP_TRIAGE + "）、"
     # 0.5.28: the solution layer's four names (legacy disposal.strategy / disposal.status still taken)
-    "solution.<search.fact|fact.feature|feature.reality|reality.strategy>.<场景号>[.<分片>]"
+    # 0.5.30: the solution segment
+    "solution.<search.fact|fact.feature|feature.reality|reality.strategy>.<场景号>[.<方案段>][.<分片>]"
     "（旧名 disposal.strategy / disposal.status 照收）"
     "或多场景共用的 solution.disposal.status.shared"
-    "（owner.app_id = 该方案应用；场景号如 M_P_02_04_01；分片小写字母开头，只含小写字母、数字、_，最多 24 个字符）；"
+    "（owner.app_id = 该方案应用；场景号如 M_P_02_04_01；方案段 = owner.app_id 的第一段，8 位小写十六进制；"
+    "分片小写字母开头，只含小写字母、数字、_，最多 24 个字符）；"
     "<名称> 小写字母或数字开头，只含小写字母、数字、_、-，最多 48 个字符；"
     "<对象>、<判断> 小写字母开头，只含小写字母、数字、_，各最多 32 个字符，全名最多 64 个字符；"
     "三段名里 target.scene.topic（场景与话题表）和末段为 resource 的名字（资源去向表）不作决策表名"

@@ -11,7 +11,7 @@ import rfc8785
 from dmn_client.bindings import bind_inputs
 from dmn_client.json_table import condition, equal
 from dmn_client.node_contract import ContractError, decode_object, make_result, prepare_invocation
-from dmn_client.route_table import RouteTableError, materialize
+from dmn_client.route_table import RouteTableError, materialize, with_split_bucket
 from dmn_client.scene_spelling import scene_state
 
 PROFILE = "service-decision-table-v1"
@@ -452,6 +452,11 @@ def evaluate_decision(
         source = next((s for s in stored if s["model_ref"] == prepared["node"]["model_ref"]), None)
         if source is not None:
             trace["model_source"] = source
+            # 0.5.31: a stored route table with split rows: the bucket comes from the split key, here and only here
+            if source.get("split") == "BOUND":
+                params, trace["route_split"] = with_split_bucket(params)
+            elif "split" in source:
+                trace["route_split"] = {"bound": False, "key_given": False, "bucket": None}
         templates = _select(model, params, trace, scene_aware=source is not None)
         decision = _render(prepared, templates, params)
         return make_result(ref, context, "SUCCEEDED", outputs={"decision": decision}, trace=trace)

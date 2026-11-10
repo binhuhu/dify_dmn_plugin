@@ -25,6 +25,7 @@ from dmn_client.route_table import (
     _text,
     canon,
     digest,
+    solution_segment,
     table_name,
 )
 from dmn_client.scene_id import CANONICAL, by_scene, identity_key, is_scene, spelling
@@ -142,14 +143,15 @@ DECISION_NAME_RULE = (
     "决策表的表名只能是四种之一：p2.<方案应用编号>（owner.app_id = 该方案应用）、"
     "target.<名称> 或 target.<对象>.<判断>（owner.app_id = 定位 TARGET " + APP_TARGET + "）、"
     "triage.<名称> 或 triage.<对象>.<判断>（owner.app_id = 分诊 TRIAGE " + APP_TRIAGE + "）、"
-    "solution.<search.fact|fact.feature|feature.reality|reality.strategy>.<场景号>[.<分片>]"
+    "solution.<search.fact|fact.feature|feature.reality|reality.strategy>.<场景号>[.<方案段>][.<分片>]"
     "（旧名 disposal.strategy / disposal.status 照收）"
     "或多场景共用的 solution.disposal.status.shared"
-    "（owner.app_id = 该方案应用；场景号如 M_P_02_04_01；分片小写字母开头，只含小写字母、数字、_，最多 24 个字符）；"
+    "（owner.app_id = 该方案应用；场景号如 M_P_02_04_01；方案段 = owner.app_id 的第一段，8 位小写十六进制；"
+    "分片小写字母开头，只含小写字母、数字、_，最多 24 个字符）；"
     "<名称> 小写字母或数字开头，只含小写字母、数字、_、-，最多 48 个字符；"
     "<对象>、<判断> 小写字母开头，只含小写字母、数字、_，各最多 32 个字符，全名最多 64 个字符；"
     "三段名里 target.scene.topic（场景与话题表）和末段为 resource 的名字（资源去向表）不作决策表名"
-)  # 0.5.21's text, verbatim: every refusal 0.5.21 gave keeps its message
+)  # 0.5.30 adds the solution segment to 0.5.28's text
 ITEM_RE = re.compile(r"^[a-z][a-z0-9_]{0,63}$")
 PROMPT_RE = re.compile(r"^[a-z][a-z0-9_.]{0,95}$")
 RESOURCE_RE = re.compile(r"^[a-z][a-z0-9_.-]{0,63}$")
@@ -178,7 +180,13 @@ def decision_table_name(table, app_id):
         return True
     if table.startswith(TABLE_SOLUTION_PREFIX):
         # 0.5.17: the owner is the solution app; which scene a solution app serves is not the plugin's to check
-        return bool(SOLUTION_TABLE_RE.fullmatch(table)) and table_name(table)
+        # 0.5.30: a solution segment in the name must be the first segment of the owner's app id
+        segment = solution_segment(table)
+        return (
+            bool(SOLUTION_TABLE_RE.fullmatch(table))
+            and table_name(table)
+            and segment in (None, app_id.split("-")[0])
+        )
     for prefix, owner in POLICY_OWNERS.items():
         if table.startswith(prefix):
             rest = table[len(prefix) :]
@@ -467,6 +475,14 @@ def _owner(doc, code, decision_set=False):
         % (name, APP_TRIAGE),
         "owner.app_id",
     )
+    segment = solution_segment(name)
+    _need(
+        segment is None or segment == owner["app_id"].split("-")[0],
+        "STORED_TABLE_NAME",
+        "表名里的方案段 %s 要等于 owner.app_id 的第一段 %s：一个方案应用的表只能存在它自己的方案段下"
+        % (segment, owner["app_id"].split("-")[0]),
+        "table",
+    )
     table = _table(
         doc,
         # 0.5.22: a resource name takes the resource routing as one decision table, never a decision set; the set is
@@ -706,6 +722,13 @@ def _validate_resource(doc):
         doc,
         lambda t: format_name(t).endswith(TABLE_RESOURCE_SUFFIX),
         "资源目标表的表名以 .resource 结尾",
+    )
+    # 0.5.30: a name with a solution segment belongs to that solution app; a resource list has no owner to check
+    _need(
+        solution_segment(doc["table"]) is None,
+        "STORED_TABLE_NAME",
+        "带方案段的表名只存方案应用自己的决策表，不存资源目标表",
+        "table",
     )
     raw = doc.get("targets")
     _need(

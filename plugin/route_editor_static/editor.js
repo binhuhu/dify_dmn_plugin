@@ -108,9 +108,14 @@
     for (const f of ['issue_types', 'phases', 'scenes', 'solutions']) if (canon(base[f]) !== canon(d[f])) doc[f] = structuredClone(d[f]);
     return doc;
   }
-  const kindOf = t => t ? t.kind : 'NONE';
+  const SPLIT = 'SOLUTION_SPLIT', MAX_SPLIT = 4; // 0.5.31：一行按份额分给几个方案应用
+  const arms = t => t?.kind === SPLIT && Array.isArray(t.split) ? t.split : [];
+  const appsOf = t => !t ? [] : t.kind === 'SOLUTION_APP' ? [t.app_id] : arms(t).map(a => a.app_id);
+  const shareSum = t => arms(t).reduce((n, a) => n + (Number.isInteger(a.share) ? a.share : 0), 0);
+  const kindOf = t => !t ? 'NONE' : t.kind === SPLIT ? 'SOLUTION_APP' : t.kind;
   const notCurrent = s => s && s.status && s.status !== 'CURRENT' ? ' · ' + s.status : '';
   const label = (t, d) => !t ? '无方案' : t.kind === 'TRANSFER' ? '转安全' : t.kind === 'RESOURCE' ? '资源目标 · ' + t.resource_id
+    : t.kind === SPLIT ? '按份额分流 · ' + arms(t).map(a => (d.solutions[a.app_id]?.name || '未登记的应用') + ' · ' + String(a.app_id || '').slice(0, 8) + notCurrent(d.solutions[a.app_id]) + ' ' + a.share + '%').join(' / ')
     : (d.solutions[t.app_id]?.name || '未登记的应用') + ' · ' + String(t.app_id || '').slice(0, 8) + notCurrent(d.solutions[t.app_id]);
 
   // 草稿和某一版比：去向、方案登记、场景目录各变了什么。
@@ -134,6 +139,17 @@
       const sid = k.split('|')[0];
       if (!d.scenes[sid]) out.push([k, '场景 ' + sid + ' 不在场景目录里']);
       else if (t.kind === 'SOLUTION_APP' && !d.solutions[t.app_id]) out.push([k, sid + ' 指向未登记的应用 ' + t.app_id.slice(0, 8)]);
+      else if (t.kind === SPLIT) {
+        const ids = appsOf(t), sum = shareSum(t);
+        const missing = ids.find(id => !d.solutions[id]), parked = ids.find(id => d.solutions[id] && d.solutions[id].status && d.solutions[id].status !== 'CURRENT');
+        if (!isV3(d)) out.push([k, sid + ' 按份额分流要用 v3 路由表']);
+        else if (ids.some(id => !id)) out.push([k, sid + ' 的分流里有一路还没选应用']);
+        else if (missing) out.push([k, sid + ' 的分流指向未登记的应用 ' + missing.slice(0, 8)]);
+        else if (new Set(ids).size !== ids.length) out.push([k, sid + ' 的分流里同一个应用出现了两次']);
+        else if (parked) out.push([k, sid + ' 的分流里 ' + parked.slice(0, 8) + ' 不是 CURRENT：分流的每个应用都要是 CURRENT']);
+        else if (arms(t).some(a => !Number.isInteger(a.share) || a.share < 1 || a.share > 99)) out.push([k, sid + ' 的分流份额要是 1–99 的整数']);
+        else if (sum !== 100) out.push([k, sid + ' 的分流份额加起来是 ' + sum + '，要等于 100']);
+      }
     }
     return out;
   }
@@ -324,19 +340,33 @@
       const t = d.routes.get(key3(sid, v.issue_type, v.phase));
       if (v.domain && s.domain !== v.domain) return false;
       if (v.kind !== 'ALL' && kindOf(t) !== v.kind) return false;
-      return !f || (sid + ' ' + s.name + ' ' + (t?.app_id || '') + ' ' + (t ? label(t, d) : '')).toLowerCase().includes(f);
+      return !f || (sid + ' ' + s.name + ' ' + appsOf(t).join(' ') + ' ' + (t ? label(t, d) : '')).toLowerCase().includes(f);
     });
   }
   function targetCell(sid, t, d) {
     const k = key3(sid, state.view.issue_type, state.view.phase);
     const value = !t ? 'NONE' : t.kind === 'SOLUTION_APP' ? 'APP:' + t.app_id : t.kind;
+    const v3 = isV3(d);
     const opts = [opt('NONE', '无方案', value === 'NONE'), opt('TRANSFER', '转安全', value === 'TRANSFER'),
       ...Object.entries(d.solutions).map(([id, s]) => opt('APP:' + id, s.name + ' · ' + id.slice(0, 8) + notCurrent(s), value === 'APP:' + id))];
     if (t?.kind === 'SOLUTION_APP' && !d.solutions[t.app_id]) opts.push(opt(value, '未登记的应用 · ' + t.app_id.slice(0, 8), true));
 
+    if (v3 || t?.kind === SPLIT) opts.push(opt(SPLIT, '按份额分流…', value === SPLIT));
     if (t?.kind === 'RESOURCE') opts.push(opt('RESOURCE:' + t.resource_id, label(t, d), true));
     const box = [el('select', { 'data-k': k, 'data-f': 'target', 'aria-label': sid + ' 的去向' }, opts)];
     if (t?.kind === 'SOLUTION_APP') box.push(el('span', { cls: 're-app' }, el('code', { text: t.app_id }), ' ', appLink(t.app_id)));
+    if (t?.kind === SPLIT) {
+      const list = arms(t), sum = shareSum(t);
+      list.forEach((a, i) => box.push(el('div', { cls: 're-split' },
+        el('select', { 'data-k': k, 'data-f': 'split-app', 'data-i': String(i), 'aria-label': sid + ' 分流第 ' + (i + 1) + ' 路的应用' },
+          [opt('', '选应用…', !a.app_id), ...Object.entries(d.solutions).map(([id, s]) => opt(id, s.name + ' · ' + id.slice(0, 8) + notCurrent(s), a.app_id === id)),
+            ...(a.app_id && !d.solutions[a.app_id] ? [opt(a.app_id, '未登记的应用 · ' + a.app_id.slice(0, 8), true)] : [])]),
+        el('input', { type: 'number', min: '1', max: '99', step: '1', size: '3', value: a.share == null ? '' : String(a.share), 'data-k': k, 'data-f': 'split-share', 'data-i': String(i), 'aria-label': sid + ' 分流第 ' + (i + 1) + ' 路的份额（百分比）' }), ' %',
+        list.length > 2 ? el('button', { type: 'button', cls: 'link', 'data-act': 'split-del', 'data-k': k, 'data-i': String(i), text: '删这一路' }) : null,
+        a.app_id ? el('span', { cls: 're-app' }, ' ', appLink(a.app_id)) : null)));
+      box.push(el('span', { cls: 're-app' + (sum === 100 ? '' : ' re-bad'), text: '合计 ' + sum + '%' + (sum === 100 ? '' : '（要等于 100）') + ' · 没带分流键的请求都走第 1 路' }));
+      if (list.length < MAX_SPLIT) box.push(el('button', { type: 'button', cls: 'link', 'data-act': 'split-add', 'data-k': k, text: '加一路' }));
+    }
     return el('div', { cls: 're-target' }, box);
   }
   function changeList(c, d) {
@@ -389,7 +419,7 @@
       el('p', { cls: 're-muted', text: '显示 ' + rows.length + ' / ' + Object.keys(d.scenes).length + ' 个场景' })));
 
 
-    const used = {}; for (const t of d.routes.values()) if (t.kind === 'SOLUTION_APP') used[t.app_id] = (used[t.app_id] || 0) + 1;
+    const used = {}; for (const t of d.routes.values()) for (const id of appsOf(t)) if (id) used[id] = (used[id] || 0) + 1;
     const v3 = isV3(d);
     const head = v3 ? ['应用编号', '名称', '开始变量', '状态', '闸（GATED 必填）', '请求合同', '话题', '诉求', '路由', ''] : ['应用编号', '名称', '开始变量', '用到的路由', ''];
     const info = s => [['调用范围', s.invocation_scope], ['优先级', s.priority], ['方案包', s.package_id], ['交接', s.target_handoff]].filter(([, x]) => x != null).map(([k, x]) => k + ' ' + x).join(' · ') || '其余登记字段没写';
@@ -463,7 +493,7 @@
   }
   function paint() {
     const a = document.activeElement;
-    const focus = a && app.contains(a) ? (a.id ? '#' + a.id : a.dataset.k ? '[data-k="' + a.dataset.k + '"][data-f="' + a.dataset.f + '"]' : a.dataset.app ? '[data-app="' + a.dataset.app + '"][data-f="' + a.dataset.f + '"]' : null) : null;
+    const focus = a && app.contains(a) ? (a.id ? '#' + a.id : a.dataset.k ? '[data-k="' + a.dataset.k + '"][data-f="' + a.dataset.f + '"]' + (a.dataset.i ? '[data-i="' + a.dataset.i + '"]' : '') : a.dataset.app ? '[data-app="' + a.dataset.app + '"][data-f="' + a.dataset.f + '"]' : null) : null;
     app.replaceChildren(...view());
     if (focus) app.querySelector(focus)?.focus();
     if (state.errKey) app.querySelector('tr.re-error')?.scrollIntoView?.({ block: 'center' });
@@ -482,6 +512,8 @@
     else if (act === 'kind') { state.view.kind = b.dataset.v; paint(); }
     else if (act === 'reg' && d) addSolution();
     else if (act === 'upgrade' && d) { upgrade(d); state.confirming = false; state.msg = { cls: 'warn', text: '已升为 v3，还没保存：每个方案先当 CURRENT；CURRENT 要写请求合同，不调的改成 CANDIDATE / GATED（写闸）等。' }; paint(); }
+    else if (act === 'split-add' && d) { const t = d.routes.get(b.dataset.k); if (t?.kind === SPLIT && t.split.length < MAX_SPLIT) { t.split.push({ app_id: '', share: Math.max(0, 100 - shareSum(t)) || 1 }); state.confirming = false; paint(); } }
+    else if (act === 'split-del' && d) { const t = d.routes.get(b.dataset.k); if (t?.kind === SPLIT && t.split.length > 2) { t.split.splice(Number(b.dataset.i), 1); state.confirming = false; paint(); } }
     else if (act === 'unreg' && d) { delete d.solutions[b.dataset.v]; state.confirming = false; paint(); }
     else if (act === 'version') void loadVersion(Number(b.dataset.v));
     else if (act === 'import') importTable(app.querySelector('#re-import').value);
@@ -522,11 +554,18 @@
     }
     // 一项登记的文字改完（失焦 / 回车）：重画，改动计数和「检查改动并保存」跟上
     if (d && t.dataset.app && d.solutions[t.dataset.app]) { paint(); return; }
+    if (d && t.dataset.k && (t.dataset.f === 'split-app' || t.dataset.f === 'split-share')) {
+      const arm = arms(d.routes.get(t.dataset.k))[Number(t.dataset.i)];
+      if (arm) { if (t.dataset.f === 'split-app') arm.app_id = t.value; else arm.share = /^\d+$/.test(t.value.trim()) ? Number(t.value.trim()) : 0; }
+      if (state.errKey === t.dataset.k) state.errKey = null;
+      state.confirming = false; paint(); return;
+    }
     if (!d || t.dataset.f !== 'target' || !t.dataset.k) return;
     const k = t.dataset.k, val = t.value;
     if (val === 'NONE') d.routes.delete(k);
     else if (val === 'TRANSFER') d.routes.set(k, { kind: 'TRANSFER', to: 'SAFETY' });
     else if (val.startsWith('APP:')) d.routes.set(k, { kind: 'SOLUTION_APP', app_id: val.slice(4) });
+    else if (val === SPLIT) { const was = d.routes.get(k); if (was?.kind !== SPLIT) d.routes.set(k, { kind: SPLIT, split: [{ app_id: was?.kind === 'SOLUTION_APP' ? was.app_id : '', share: 50 }, { app_id: '', share: 50 }] }); }
     else if (val.startsWith('RESOURCE:')) d.routes.set(k, { kind: 'RESOURCE', resource_id: val.slice('RESOURCE:'.length) });
     if (state.errKey === k) state.errKey = null;
     state.confirming = false;

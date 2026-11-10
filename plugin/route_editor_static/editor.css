@@ -24,7 +24,7 @@ td input[data-f=scene_id]{width:110px}td select{max-width:220px}
 .re-target{display:flex;flex-direction:column;gap:4px;min-width:260px}.re-target select{width:100%;max-width:440px}
 .re-target textarea{min-height:2.4em;font-family:ui-monospace,Menlo,monospace;font-size:12px}
 .re-bad{color:var(--bad-fg);font-size:12px}
-.re-app{font-size:12px;color:var(--muted);overflow-wrap:anywhere}.re-app a{color:var(--blue)}
+.re-split{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:4px}.re-split input{width:4.5em}.re-bad{color:var(--bad-fg)}.re-app{font-size:12px;color:var(--muted);overflow-wrap:anywhere}.re-app a{color:var(--blue)}
 code{font-family:ui-monospace,Menlo,monospace;font-size:12px}
 details{margin:8px 0}summary{cursor:pointer;color:var(--blue)}
 .re-list{margin:0;padding-left:18px;font-size:13px}.re-list li{margin:3px 0;overflow-wrap:anywhere}

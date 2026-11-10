@@ -2,7 +2,7 @@
  * signs requests; a loopback server runs the actual Python endpoint/store. */
 const assert = require("node:assert/strict");
 const { expect } = require("@playwright/test");
-const { startEditorApi, first, TABLE, WRITER, KEY, APP_B, SCENE_B, SCENE_C } = require("./editor-harness.cjs");
+const { startEditorApi, first, TABLE, WRITER, KEY, APP_A, APP_B, SCENE_A, SCENE_B, SCENE_C } = require("./editor-harness.cjs");
 
 async function runEditorBrowser(browser) {
   const api = await startEditorApi();
@@ -146,6 +146,56 @@ async function runEditorBrowser(browser) {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.screenshot({ path: "/tmp/structure-viewer-editor-mobile.png", fullPage: true });
     checks.push("back/forward, tab identity restoration, no implicit write, mobile render");
+    // v0.5.31: exercise split edits through native WebCrypto and the real store.
+    // Keep this after the v2 history assertions, which intentionally pin versions.
+    const splitLive = first();
+    splitLive.schema = "dmn-json.route-table/v3";
+    for (const solution of Object.values(splitLive.solutions)) {
+      Object.assign(solution, { status: "CURRENT", request_contract: "场景方案调用/v4" });
+    }
+    splitLive.routes[0].target = { kind: "SOLUTION_SPLIT", split: [
+      { app_id: APP_A, share: 50 }, { app_id: APP_B, share: 50 },
+    ] };
+    const beforeSplit = (await snapshot()).doc.version;
+    await api.seed(splitLive, beforeSplit);
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await page.reload();
+    const share = (i) => page.locator(`[data-k="${SCENE_A}|COMPLAINT|STAGE_1"][data-f="split-share"][data-i="${i}"]`);
+    const setShare = async (i, value) => {
+      await share(i).fill(value);
+      await share(i).press("Tab"); // commit change/repaint before the next action
+    };
+    await expect(share(0)).toHaveValue("50");
+    const postsBeforeSplit = api.requests.filter((r) => r.method === "POST").length;
+    await setShare(0, "40");
+    await page.locator("#re-note").fill("Synthetic invalid split total");
+    await action("save").click();
+    await expect(page.locator(".re-status")).toContainText("要等于 100");
+    await expect(action("confirm")).toHaveCount(0);
+    assert.equal(api.requests.filter((r) => r.method === "POST").length, postsBeforeSplit);
+    assert.equal((await snapshot()).draft, null);
+    await setShare(1, "60");
+    await save("Synthetic 40/60 split draft");
+    await expect(page.locator(".re-status")).toContainText("已存草稿");
+    const splitSaved = await snapshot();
+    assert.equal(posts("draft").at(-1).status, 200);
+    assert.deepEqual(splitSaved.draft.doc.routes[0].target.split, [
+      { app_id: APP_A, share: 40 }, { app_id: APP_B, share: 60 },
+    ]);
+    assert.equal(splitSaved.doc.version, beforeSplit + 1);
+    assert.equal(splitSaved.doc.routes[0].target.split[0].share, 50);
+    await page.reload();
+    await expect(share(0)).toHaveValue("50"); // reload reads live, not the unpublished draft
+    await expect(page.locator(".re-confirm")).toContainText("Synthetic 40/60 split draft");
+    assert.deepEqual((await snapshot()).draft, splitSaved.draft);
+    await gate();
+    await action("publish").click();
+    await expect(page.locator(".re-status")).toContainText("已发布第 " + (beforeSplit + 2) + " 版");
+    await page.reload();
+    await expect(share(0)).toHaveValue("40");
+    await expect(share(1)).toHaveValue("60");
+    assert.equal((await snapshot()).draft, null);
+    checks.push("v3 split invalid-total no-write, signed draft/readback, reload and publish");
     assert.deepEqual(errors, []);
     assert.deepEqual(unexpected, []);
     console.log(JSON.stringify({ editor: "D14", nativeWebCrypto: true, realEndpoint: true, checks }));

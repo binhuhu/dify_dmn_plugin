@@ -37,6 +37,7 @@ from dmn_client.route_table import (
     _scene_shown,
     canon,
     digest,
+    target_apps,
 )
 from dmn_client.table_names import STANDARD, old_name, storage_name
 from dmn_client.vocabulary import declared, format_keys, unknown_keys
@@ -437,31 +438,20 @@ def invariants(doc):
     sols = doc.get("solutions") or {}
     broken, parked, routed, callable_rows, checked = [], [], set(), 0, 0
     for r in doc.get("routes") or []:
-        t = r.get("target") or {}
-        if t.get("kind") != "SOLUTION_APP":
+        apps = target_apps(r.get("target"))
+        if not apps:
             continue
         checked += 1
-        aid = t.get("app_id") if isinstance(t.get("app_id"), str) else ""
-        routed.add(aid)
-        s = sols.get(aid)
-        row = {
-            "scene": _scene_shown(r.get("scene_id")),
-            "issue_type": r.get("issue_type"),
-            "phase": r.get("phase"),
-            "app": aid[:8],
-            "status": (s or {}).get("status"),
-            "gate_code": (s or {}).get("gate_code"),
-        }
-        if s is None:
-            broken.append(dict(row, why="UNREGISTERED"))
-        elif s.get("status") == "CURRENT" and s.get("request_contract") in CALLABLE_CONTRACTS:
+        # 0.5.31: a split row counts once; it is callable when every app in it is, else reported for the first that is not
+        verdicts = [_app_verdict(r, a if isinstance(a, str) else "", sols) for a in apps]
+        routed.update(a if isinstance(a, str) else "" for a in apps)
+        bad = [v for v in verdicts if v[0] != "callable"]
+        if not bad:
             callable_rows += 1
-        elif s.get("status") == "CURRENT":
-            broken.append(dict(row, why="CONTRACT_NOT_BUILT"))
-        elif s.get("status") in PARKED and s.get("gate_code"):
-            parked.append(row)
+        elif bad[0][0] == "parked":
+            parked.append(bad[0][1])
         else:
-            broken.append(dict(row, why="NOT_CURRENT"))
+            broken.append(bad[0][1])
     unrouted = [
         a[:8] for a, s in sorted(sols.items()) if s.get("status") == "CURRENT" and a not in routed
     ]
@@ -472,6 +462,28 @@ def invariants(doc):
         "parked": parked,
         "current_not_routed": unrouted,
     }
+
+
+def _app_verdict(r, aid, sols):
+    """("callable" | "parked" | "broken", row) for one app of a solution row."""
+    s = sols.get(aid)
+    row = {
+        "scene": _scene_shown(r.get("scene_id")),
+        "issue_type": r.get("issue_type"),
+        "phase": r.get("phase"),
+        "app": aid[:8],
+        "status": (s or {}).get("status"),
+        "gate_code": (s or {}).get("gate_code"),
+    }
+    if s is None:
+        return "broken", dict(row, why="UNREGISTERED")
+    if s.get("status") == "CURRENT" and s.get("request_contract") in CALLABLE_CONTRACTS:
+        return "callable", row
+    if s.get("status") == "CURRENT":
+        return "broken", dict(row, why="CONTRACT_NOT_BUILT")
+    if s.get("status") in PARKED and s.get("gate_code"):
+        return "parked", row
+    return "broken", dict(row, why="NOT_CURRENT")
 
 
 # ── the entry ────────────────────────────────────────────────────────────────
