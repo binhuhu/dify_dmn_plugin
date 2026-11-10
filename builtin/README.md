@@ -1,4 +1,4 @@
-# JSON 决策工具 0.5.31（单人串行维护）
+# JSON 决策工具 0.5.32（单人串行维护）
 
 这是同一仓库的独立 JSON 安装包 `hu8627/dmn_json`。原有 `hu8627/dmn` 外部 XML 插件和其他已安装插件保留，不卸载、不替换。新建“内置 JSON 决策表 / evaluate_json_table”节点无需 Key、引擎地址或外部服务。现有外部工具仍通过原插件配置 Node 服务，未配置时返回 INVALID_CONFIGURATION。两个包的模型格式和语义不能互换。
 
@@ -6,7 +6,7 @@
 
 ## 节点决策与受控查询
 
-支持 execute_query 与 evaluate_decision；保留以下三个旧工具的语义。新节点合同、可信查询配置、参考宿主和未完成生产验收见 [RC说明](https://github.com/binhuhu/dify_dmn_plugin/blob/v0.5.31/docs/dsl-v0.4.md)。纯决策免 Key；受控查询无连接配置时 BLOCKED，不以 synthetic 冒充成功。
+支持 execute_query 与 evaluate_decision；保留以下三个旧工具的语义。新节点合同、可信查询配置、参考宿主和未完成生产验收见 [RC说明](https://github.com/binhuhu/dify_dmn_plugin/blob/v0.5.32/docs/dsl-v0.4.md)。纯决策免 Key；受控查询无连接配置时 BLOCKED，不以 synthetic 冒充成功。
 
 ## 保留 0.3.0 工具
 
@@ -36,7 +36,7 @@ AND 中 FALSE 优先于 UNKNOWN。FIRST 的已选规则之前存在 UNKNOWN 或 
 
 ## 构建与验收
 
-从仓库根目录运行 `python scripts/stage-builtin.py /tmp/dmn-json-0.5.31`，然后用已安装的官方 Dify CLI：`dify plugin package /tmp/dmn-json-0.5.31 -o hu8627-dmn_json-0.5.31.difypkg`。没有 CLI 时 staging 目录不是安装包，不用普通 zip 冒充 difypkg。不重试已拒绝的下载/API，不修改旧 Release。包未签名，遵循平台签名策略。
+从仓库根目录运行 `python scripts/stage-builtin.py /tmp/dmn-json-0.5.32`，然后用已安装的官方 Dify CLI：`dify plugin package /tmp/dmn-json-0.5.32 -o hu8627-dmn_json-0.5.32.difypkg`。没有 CLI 时 staging 目录不是安装包，不用普通 zip 冒充 difypkg。不重试已拒绝的下载/API，不修改旧 Release。包未签名，遵循平台签名策略。
 
 依赖沿用仓库固定 requirements.txt；首次安装仍需要平台正常解析 Python 依赖。免 Key/无外部决策服务指工具调用路径，不是离线安装保证。目标 UI 安装与真实调用仍需验收。
 
@@ -56,7 +56,9 @@ v2 表（`dmn-json.route-table/v2`）自带场景目录和方案登记，支持�
 
 0.5.29：对成功保存、草稿、发布、撤销和草稿删除尝试记录旁路归属，失败不改变业务写入结果；宿主 user_id 与 via 均不独立认证，只有 writer_verified 表示 HMAC 已核验。历史身份字段仅向钉定维护应用返回；撤销/删除记录为独立操作，不改原版本作者。详见 [0.5.29 发布说明](https://github.com/binhuhu/dify_dmn_plugin/blob/v0.5.29/docs/releases/v0.5.29.md)。
 
-0.5.31：v3 路由表的一行可以按份额分给 2–4 个方案应用，去向写 `{"kind":"SOLUTION_SPLIT","split":[{"app_id":"…","share":50},{"app_id":"…","share":50}]}`：每个应用都要已登记且是 CURRENT，份额是 1–99 的整数、合计 100。分流只对绑定了 `split_key` 参数的流程生效：决策节点的 `input_bindings` 加 `split_key` 并传工单号，插件对它取 sha256 得 0–99 的桶号，按份额的先后区间落到其中一个应用，同一个工单号每次去同一个应用；返回的仍是 `route_kind: SOLUTION_APP`，下游不用改。没绑 `split_key` 的流程、或绑了但这次没传工单号，都走第一个应用，运行记录的 `route_split` 写明是哪种。先改流程还是先改表都行：绑了 `split_key` 的流程读没有分流行的表照常工作（工单号收下、不起作用）；读同一张路由表的决策节点要么都绑、要么都不绑，否则报 `ROUTE_TABLE_SPLIT_BINDING`。没绑的流程读没有分流行的表，编译结果与 0.5.30 相同。路由编辑页的去向下拉加了「按份额分流」。
+0.5.32：v3 路由表的方案行可再挂一个试验方案和比例（`trial {app_id, share, note?}`，比例 0–100 的整数，0 = 挂着不放量，100 = 带分流键的进线全走试验方案；原去向和试验方案都须已登记且为 `CURRENT`，两者不能相同，转接、资源去向的行不能挂）。新求值存根格式 `routing-table/v5` 带可选分流键 `split_key`：按「分流键 + 行」确定性分流，结果多一个 `trial` 字段（落到哪一边、当时比例、有没有挂试验）；没带分流键不分流。既没有试验、也没有 `SOLUTION_SPLIT` 的普通表保持原语义；`routing-table/v2`–`v4` 不分流。**0.5.31 的按份额分流去向（`SOLUTION_SPLIT`）不再支持**：带这种行的表存、读都拒，升级前先改成方案应用去向。装回旧版前先清理当前表的试验段、调整失去路由的方案状态，并把流程换回旧格式；保留的含试验历史或草稿不能在旧版恢复或发布。见 [v0.5.32 发布说明](https://github.com/binhuhu/dify_dmn_plugin/blob/v0.5.32/docs/releases/v0.5.32.md)。
+
+0.5.31（已被 0.5.32 取代）：曾提供按份额分流的去向 `SOLUTION_SPLIT`（一行分给 2–4 个方案应用），**0.5.32 起不再支持**，由行上的试验方案取代；同版并入的方案层表名方案段（见 0.5.30）保留。见 [v0.5.31 发布说明](https://github.com/binhuhu/dify_dmn_plugin/blob/v0.5.31/docs/releases/v0.5.31.md)。
 
 0.5.30：方案层表名可在场景号后带方案段（方案应用编号的第一段，8 位小写十六进制），如 `solution.fact.feature.M_P_02_04_01.56d3c0c5`；带方案段的名字只收 `owner.app_id` 第一段与之相同的文档，同一场景的两个方案各存各的表、各有各的版本。不带方案段的名字行为不变；8 位十六进制的第五段一律读作方案段，不再能当分片名；表名仍限 64 个字符，带方案段后留给分片的字符相应变少。0.5.30 本身不含路由按份额分流。见 [v0.5.30 发布说明](https://github.com/binhuhu/dify_dmn_plugin/blob/v0.5.31/docs/releases/v0.5.30.md)。
 

@@ -37,7 +37,6 @@ from dmn_client.route_table import (
     _scene_shown,
     canon,
     digest,
-    target_apps,
 )
 from dmn_client.table_names import STANDARD, old_name, storage_name
 from dmn_client.vocabulary import declared, format_keys, unknown_keys
@@ -438,13 +437,17 @@ def invariants(doc):
     sols = doc.get("solutions") or {}
     broken, parked, routed, callable_rows, checked = [], [], set(), 0, 0
     for r in doc.get("routes") or []:
-        apps = target_apps(r.get("target"))
-        if not apps:
+        t = r.get("target") or {}
+        if t.get("kind") != "SOLUTION_APP":
             continue
         checked += 1
-        # 0.5.31: a split row counts once; it is callable when every app in it is, else reported for the first that is not
-        verdicts = [_app_verdict(r, a if isinstance(a, str) else "", sols) for a in apps]
-        routed.update(a if isinstance(a, str) else "" for a in apps)
+        apps = [t.get("app_id")]
+        if isinstance(r.get("trial"), dict):
+            apps.append(r["trial"].get("app_id"))
+        apps = [a if isinstance(a, str) else "" for a in apps]
+        routed.update(apps)
+        # Count a row once, and report it callable only when both possible destinations are callable.
+        verdicts = [_app_verdict(r, aid, sols) for aid in apps]
         bad = [v for v in verdicts if v[0] != "callable"]
         if not bad:
             callable_rows += 1
@@ -465,7 +468,7 @@ def invariants(doc):
 
 
 def _app_verdict(r, aid, sols):
-    """("callable" | "parked" | "broken", row) for one app of a solution row."""
+    """Return the existing invariant verdict for one possible destination of a solution row."""
     s = sols.get(aid)
     row = {
         "scene": _scene_shown(r.get("scene_id")),

@@ -23,6 +23,18 @@ FORMAT_V2 = "routing-table/v2"
 FORMAT_V3 = "routing-table/v3"
 SCHEMA_V3 = "dmn-json.route-table/v3"
 FORMAT_V4 = "routing-table/v4"
+# Trial share: a solution row of a v3 table may carry one trial {app_id, share, note?}. routing-table/v5 = v4 plus the
+# optional parameter split_key and the decision field trial; under v2–v4 stubs every row keeps its own target.
+FORMAT_V5 = "routing-table/v5"
+ROW_KEYS = {"scene_id", "issue_type", "phase", "target"}
+TRIAL_MIN_SHARE = 0  # percent: the trial stays attached and takes no traffic
+TRIAL_MAX_SHARE = 100  # percent: every call that carries a split key goes to the trial app
+TRIAL_NOTE_MAX = 200
+SPLIT_KEY = "split_key"
+SPLIT_SALT = "dmn-route-split/1"
+SPLIT_BUCKETS = 100
+PRIMARY_SIDE, TRIAL_SIDE = "PRIMARY", "TRIAL"
+NOT_ATTACHED, NO_SPLIT_KEY, SPLIT = "NOT_ATTACHED", "NO_SPLIT_KEY", "SPLIT"
 ROUTE_SCHEMAS = (SCHEMA_V2, SCHEMA_V3)
 SOLUTION_STATUS = ("CURRENT", "CANDIDATE", "GATED", "SHADOW", "RETIRED")
 CALLABLE = "CURRENT"
@@ -66,10 +78,6 @@ MAX_SCENES = 1024
 MAX_SOLUTIONS = 256
 IN_CHUNK = 128  # values per "in" condition (json-table bound)
 TRANSFER_TO = ("SAFETY",)
-SPLIT_KIND = "SOLUTION_SPLIT"  # 0.5.31: one row shared between solution apps by share
-MAX_SPLIT = 4
-SPLIT_BUCKETS = 100
-SPLIT_KEY = "split_key"  # the parameter a flow binds to take part in splitting (the ticket id)
 MAX_HISTORY = 50
 TABLE_RE = re.compile(r"^[a-z0-9][a-z0-9._-]{0,63}$")
 # 0.5.17 (DMN 2.0 §二): a solution-layer policy table is solution.<two segments>.<scene_id>[.<solution>][.<part>] (0.5.30 added <solution>). The scene id keeps its
@@ -419,103 +427,9 @@ def _validate_v1(doc):
     }
 
 
-def _split(t, solutions, path, v3):
-    """0.5.31: {"kind": "SOLUTION_SPLIT", "split": [{"app_id", "share"}, …]}: 2–MAX_SPLIT registered apps, each
-    CURRENT, no app twice, shares whole percents that add up to 100. The first app listed also takes every request
-    that comes without a split key."""
-    _need(
-        v3,
-        "ROUTE_TABLE_TARGET",
-        "按份额分流要用 v3 路由表（" + SCHEMA_V3 + "）",
-        path + ".kind",
-    )
-    _need(
-        set(t) == {"kind", "split"}
-        and type(t["split"]) is list
-        and 2 <= len(t["split"]) <= MAX_SPLIT,
-        "ROUTE_TABLE_TARGET",
-        "分流去向只写 kind / split，split 是 2–%d 项 {app_id, share}" % MAX_SPLIT,
-        path,
-    )
-    arms = []
-    for i, arm in enumerate(t["split"]):
-        p = "%s.split[%d]" % (path, i)
-        _need(
-            type(arm) is dict and set(arm) == {"app_id", "share"},
-            "ROUTE_TABLE_TARGET",
-            "分流的每一项只写 app_id / share",
-            p,
-        )
-        app, share = arm["app_id"], arm["share"]
-        _need(
-            type(app) is str and UUID_RE.match(app),
-            "ROUTE_TABLE_TARGET",
-            "方案应用编号格式不对",
-            p + ".app_id",
-        )
-        _need(
-            app in solutions,
-            "ROUTE_TABLE_UNREGISTERED_APP",
-            "方案应用 " + app + " 还没在「方案登记」里登记",
-            p + ".app_id",
-        )
-        _need(
-            app not in [a["app_id"] for a in arms],
-            "ROUTE_TABLE_TARGET",
-            "同一个应用在一行分流里只能出现一次：" + app[:8],
-            p + ".app_id",
-        )
-        _need(
-            type(share) is int and 1 <= share < SPLIT_BUCKETS,
-            "ROUTE_TABLE_TARGET",
-            "份额是 1–99 的整数（百分比）",
-            p + ".share",
-        )
-        status = solutions[app].get("status", CALLABLE)
-        _need(
-            status == CALLABLE,
-            "ROUTE_TABLE_SOLUTION_NOT_CALLABLE",
-            "分流里的应用 %s 在方案登记里是 %s，invoke_solution 调不到：分流的每个应用都要是 CURRENT"
-            % (app[:8], status),
-            p + ".app_id",
-        )
-        arms.append({"app_id": app, "share": share})
-    total = sum(a["share"] for a in arms)
-    _need(
-        total == SPLIT_BUCKETS,
-        "ROUTE_TABLE_TARGET",
-        "分流的份额加起来要等于 100（现在是 %d）" % total,
-        path + ".split",
-    )
-    return {"kind": SPLIT_KIND, "split": arms}
-
-
-def _app_path(doc, key, app):
-    """Where a row names app, under its target: app_id, or split[j].app_id for a split row."""
-    for r in doc.get("routes") or []:
-        if (_scene_key(r.get("scene_id")), r.get("issue_type"), r.get("phase")) == key:
-            apps = target_apps(r.get("target"))
-            if r["target"].get("kind") == SPLIT_KIND and app in apps:
-                return "split[%d].app_id" % apps.index(app)
-    return "app_id"
-
-
-def target_apps(target):
-    """The solution apps a route target names: one for SOLUTION_APP, each arm of a split, none otherwise."""
-    if not isinstance(target, dict):
-        return []
-    if target.get("kind") == "SOLUTION_APP":
-        return [target.get("app_id")]
-    if target.get("kind") == SPLIT_KIND and isinstance(target.get("split"), list):
-        return [a.get("app_id") for a in target["split"] if isinstance(a, dict)]
-    return []
-
-
-def _target_v2(t, solutions, path, resources=None, v3=False):
+def _target_v2(t, solutions, path, resources=None):
     _need(type(t) is dict, "ROUTE_TABLE_TARGET", "去向必须是对象", path)
     kind = t.get("kind")
-    if kind == SPLIT_KIND:
-        return _split(t, solutions, path, v3)
     if kind == "RESOURCE":
         _need(
             set(t) == {"kind", "resource_id"}
@@ -566,11 +480,105 @@ def _target_v2(t, solutions, path, resources=None, v3=False):
         "知识库路由不进这张表，留在侧栏配置（DMN 路由表只放方案和转安全）",
         path + ".kind",
     )
-    raise RouteTableError(
+    # 0.5.31 (published, superseded): {kind: SOLUTION_SPLIT, split: [{app_id, share}, ...]} shared one row between
+    # several apps. It is no longer read or stored; the row's target plus one trial replaces it.
+    _need(
+        kind != "SOLUTION_SPLIT",
         "ROUTE_TABLE_TARGET",
-        "去向只能是方案应用（SOLUTION_APP）、按份额分流（SOLUTION_SPLIT）、转接（TRANSFER）或资源（RESOURCE）",
+        "按份额分流的去向（SOLUTION_SPLIT，0.5.31）已不再支持：把这一行改成一个方案应用去向，"
+        "要分流就在行上挂一个试验方案（trial：应用 + 0–100 的比例）",
         path + ".kind",
     )
+    raise RouteTableError(
+        "ROUTE_TABLE_TARGET",
+        "去向只能是方案应用（SOLUTION_APP）、转接（TRANSFER）或资源（RESOURCE）",
+        path + ".kind",
+    )
+
+
+def _trial(t, target, solutions, v3, path):
+    """The trial of one solution row: {app_id, share, note?}. share percent of the row's traffic (by split key) goes
+    to the trial app, the rest to the row's target. Refused here, on every save and every read: more than one trial;
+    a row whose target is not a solution app; the row's own target as its trial; an app that is not registered or
+    not CURRENT; a row whose own target is not CURRENT (a trial compares two apps that can both be called); a share
+    outside TRIAL_MIN_SHARE–TRIAL_MAX_SHARE (0 = attached, no traffic; 100 = all keyed traffic)."""
+    _need(
+        type(t) is not list or len(t) <= 1,
+        "ROUTE_TABLE_TRIAL",
+        "一行最多挂一个试验方案（这一行写了 %d 个）" % (len(t) if type(t) is list else 0),
+        path,
+    )
+    _need(
+        type(t) is dict and {"app_id", "share"} <= set(t) <= {"app_id", "share", "note"},
+        "ROUTE_TABLE_TRIAL",
+        "试验写成一个对象：app_id（试验方案）/ share（比例）/ note（说明，可不写）；不挂试验就不写 trial",
+        path,
+    )
+    _need(
+        v3,
+        "ROUTE_TABLE_TRIAL",
+        "挂试验要 v3 路由表（方案登记带状态）：" + SCHEMA_V3,
+        path,
+    )
+    _need(
+        target["kind"] == "SOLUTION_APP",
+        "ROUTE_TABLE_TRIAL",
+        "只有去向是方案应用的行能挂试验，转接、资源去向的行不能",
+        path,
+    )
+    _need(
+        UUID_RE.fullmatch(target["app_id"]) is not None,
+        "ROUTE_TABLE_TRIAL",
+        "挂试验的原去向应用编号必须是完整编号，不能带首尾空白",
+        path,
+    )
+    app = t["app_id"]
+    _need(
+        type(app) is str and UUID_RE.fullmatch(app),
+        "ROUTE_TABLE_TRIAL",
+        "试验方案的应用编号格式不对",
+        path + ".app_id",
+    )
+    _need(
+        app in solutions,
+        "ROUTE_TABLE_UNREGISTERED_APP",
+        "试验方案 " + app + " 还没在「方案登记」里登记",
+        path + ".app_id",
+    )
+    _need(
+        app != target["app_id"],
+        "ROUTE_TABLE_TRIAL",
+        "试验方案不能和这一行的原去向是同一个应用",
+        path + ".app_id",
+    )
+    status = solutions[app].get("status", CALLABLE)
+    _need(
+        status == CALLABLE,
+        "ROUTE_TABLE_SOLUTION_NOT_CALLABLE",
+        "试验方案 %s 在方案登记里是 %s，invoke_solution 调不到：先把它转成 CURRENT（补齐请求合同），"
+        "或先把这一行的试验去掉" % (app[:8], status),
+        path + ".app_id",
+    )
+    primary = solutions[target["app_id"]].get("status", CALLABLE)
+    _need(
+        primary == CALLABLE,
+        "ROUTE_TABLE_TRIAL",
+        "这一行的原去向 %s 在方案登记里是 %s，不是 CURRENT：试验是拿两个都能调的方案来比，原去向挂起的行不能挂试验"
+        "（先去掉试验，或把原去向转成 CURRENT）" % (target["app_id"][:8], primary),
+        path,
+    )
+    share = t["share"]
+    _need(
+        type(share) is int and TRIAL_MIN_SHARE <= share <= TRIAL_MAX_SHARE,
+        "ROUTE_TABLE_TRIAL_SHARE",
+        "试验比例写 %d–%d 的整数（百分之几的进线走试验方案，其余走原去向，两边合计 100）"
+        % (TRIAL_MIN_SHARE, TRIAL_MAX_SHARE),
+        path + ".share",
+    )
+    out = {"app_id": app, "share": share}
+    if "note" in t:
+        out["note"] = _text(t["note"], TRIAL_NOTE_MAX, "试验说明", path + ".note")
+    return out
 
 
 def _name_inputs(s, p):
@@ -761,6 +769,19 @@ def _row_shown(key):
     return "%s · %s · %s" % (_scene_shown(key[0]), key[1], key[2])
 
 
+def routed_apps(doc):
+    """The apps some solution row points at: as its target, or as its trial (a trial app takes part of the row's
+    traffic, so it has a row)."""
+    out = set()
+    for r in doc.get("routes") or []:
+        if (r.get("target") or {}).get("kind") != "SOLUTION_APP":
+            continue
+        out.add(r["target"].get("app_id"))
+        if isinstance(r.get("trial"), dict):
+            out.add(r["trial"].get("app_id"))
+    return out
+
+
 def route_callability(doc):
     """Return what a route table leaves callable. invoke_solution calls only
     CURRENT, so a SOLUTION_APP row is callable iff its app is CURRENT in the registry (a v2 table reads every app as
@@ -768,24 +789,22 @@ def route_callability(doc):
     result reads the entry under the exact id while invoke_solution strips it and reads another, so such a "twin"
     could stand in either way. Returns (callable_keys, not_callable {key: (app_id, status)}, unrouted CURRENT apps); a
     key is (scene_id in its legacy spelling, issue_type, phase)."""
-    callable_keys, not_callable, named = set(), {}, set()
+    callable_keys, not_callable, named = set(), {}, routed_apps(doc)
     for r in doc.get("routes") or []:
-        apps = target_apps(r.get("target"))
-        if not apps:
+        target = r.get("target") or {}
+        if target.get("kind") != "SOLUTION_APP":
             continue
         key = (_scene_key(r.get("scene_id")), r.get("issue_type"), r.get("phase"))
-        # 0.5.31: a split row is callable only when every app in it is; the first that is not is the one reported
-        for app in apps:
-            named.add(app)
-            if not (isinstance(app, str) and app == app.strip()):
-                not_callable.setdefault(key, (app, ID_WHITESPACE))
-                continue
-            entry = solution_entry(doc, app)
-            status = entry["status"] if entry else None
-            if status != CALLABLE:
-                not_callable.setdefault(key, (app, status))
-        if key not in not_callable:
+        app = target.get("app_id")
+        if not (isinstance(app, str) and app == app.strip()):
+            not_callable[key] = (app, ID_WHITESPACE)
+            continue
+        entry = solution_entry(doc, app)
+        status = entry["status"] if entry else None
+        if status == CALLABLE:
             callable_keys.add(key)
+        else:
+            not_callable[key] = (app, status)
     unrouted = {
         app
         for app in (doc.get("solutions") or {})
@@ -800,7 +819,9 @@ def callability_gate(prev, clean, sent=None):
     (ROUTE_TABLE_SOLUTION_NOT_CALLABLE); a row whose solution was callable removed with nothing in its place
     (ROUTE_TABLE_SOLUTION_LOST; a transfer or resource target in its place is an explicit fallback and passes); a
     CURRENT app that some row named and no row names any more (ROUTE_TABLE_CURRENT_UNROUTED; an app no row named
-    before, such as a new registration, is left alone). What the replaced version already had is
+    before, such as a new registration, is left alone; a row names its target and its trial app alike, so ending the
+    only trial of an app that stays CURRENT is refused like removing its last row). A trial app that is not CURRENT
+    never gets here: validate_doc refuses it on every save (ROUTE_TABLE_SOLUTION_NOT_CALLABLE @routes[i].trial.app_id). What the replaced version already had is
     left alone (a parked GATED / SHADOW app, an app already unrouted), so only a save that makes things worse is
     refused and one that repairs them passes. The first v3 store (from v2 or nothing) is not compared, and a first
     store under a standard name is not either: it copies the old head unchanged (I12), so it cannot change callability. Paths index the
@@ -808,7 +829,7 @@ def callability_gate(prev, clean, sent=None):
     if clean.get("schema") != SCHEMA_V3 or not prev or prev.get("schema") != SCHEMA_V3:
         return
     was_ok, was_bad, _ = route_callability(prev)
-    was_named = {app for r in prev.get("routes") or [] for app in target_apps(r.get("target"))}
+    was_named = routed_apps(prev)
     _, bad, unrouted = route_callability(clean)
     index = {
         (_scene_key(r["scene_id"]), r["issue_type"], r["phase"]): i
@@ -846,7 +867,7 @@ def callability_gate(prev, clean, sent=None):
                 else status or "未登记",
                 more,
             ),
-            "routes[%d].target.%s" % (index[key], _app_path(clean, key, app)),
+            "routes[%d].target.app_id" % index[key],
         )
     lost = sorted((k for k in was_ok if k not in index), key=str)
     _need(
@@ -865,8 +886,9 @@ def callability_gate(prev, clean, sent=None):
     _need(
         not newly,
         "ROUTE_TABLE_CURRENT_UNROUTED",
-        "应用 %s 在方案登记里是 CURRENT，这次存完没有任何方案行指向它：要换下它，就在同一次存表里把它转成 CANDIDATE 或 "
-        "RETIRED；不然留一行指向它" % (newly[0][:8] if newly else ""),
+        "应用 %s 在方案登记里是 CURRENT，这次存完没有任何方案行指向它（原去向、试验方案都算指向）：要换下它或停掉它的试验，"
+        "就在同一次存表里把它转成 CANDIDATE 或 RETIRED；不然留一行指向它"
+        % (newly[0][:8] if newly else ""),
         "solutions.%s.status" % (newly[0] if newly else ""),
     )
 
@@ -943,9 +965,9 @@ def _validate_v2(doc, resources=None):
     for i, row in enumerate(routes):
         p = "routes[%d]" % i
         _need(
-            type(row) is dict and set(row) == {"scene_id", "issue_type", "phase", "target"},
+            type(row) is dict and set(row) - {"trial"} == ROW_KEYS,
             "ROUTE_TABLE_INVALID",
-            "每条路由 = scene_id / issue_type / phase / target",
+            "每条路由 = scene_id / issue_type / phase / target（方案行可再挂一个 trial）",
             p,
         )
         scene, issue_type, phase = row["scene_id"], row["issue_type"], row["phase"]
@@ -975,9 +997,11 @@ def _validate_v2(doc, resources=None):
                 "scene_id": scene,
                 "issue_type": issue_type,
                 "phase": phase,
-                "target": _target_v2(row["target"], solutions, p + ".target", resources, v3),
+                "target": _target_v2(row["target"], solutions, p + ".target", resources),
             }
         )
+        if "trial" in row:  # absent stays absent: a table without trials is stored as before
+            out[-1]["trial"] = _trial(row["trial"], out[-1]["target"], solutions, v3, p + ".trial")
         _need(
             out[-1]["target"]["kind"] != "RESOURCE" or resource_table is not None,
             "ROUTE_TABLE_RESOURCE_TABLE",
@@ -987,7 +1011,7 @@ def _validate_v2(doc, resources=None):
     out.sort(
         key=lambda r: (r["scene_id"], issue_types.index(r["issue_type"]), phases.index(r["phase"]))
     )
-    rules = _rule_count(out)
+    rules = sum(-(-len(v) // IN_CHUNK) for v in _groups(out, trial=True).values())
     _need(
         rules <= MAX_ROUTES,
         "ROUTE_TABLE_TOO_LARGE",
@@ -1162,6 +1186,15 @@ DATA_V3 = DATA_V2 + (
 )
 
 DATA_V4 = DATA_V3 + ("solution",)
+DATA_V5 = DATA_V4 + ("trial",)
+# what the trial side replaces in a row's result when the split lands on it
+TRIAL_SWAPS = ("app_id", "solution_name", "solution_inputs_json", "solution")
+SPLIT_PARAMETER = {
+    "allowed_quality": ["KNOWN", "UNKNOWN", "NOT_APPLICABLE"],
+    "nullable": True,
+    "record_required": False,
+    "type": "string",
+}
 
 
 def _data_v3(target, data, resources):
@@ -1188,110 +1221,38 @@ def _data_v3(target, data, resources):
     return out
 
 
-def _groups(routes):
-    """(target ref, issue_type, phase) -> sorted scenes; one decision rule per group (split every IN_CHUNK scenes)."""
+def _row_ref(row, trial=False):
+    """The result template of a row: its target's, and under routing-table/v5 (trial) its trial app and share too."""
+    ref = _ref_v2(row["target"])
+    if trial and "trial" in row:
+        ref += "|trial:%s:%d" % (row["trial"]["app_id"], row["trial"]["share"])
+    return ref
+
+
+def _groups(routes, trial=False):
+    """(row ref, issue_type, phase) -> sorted scenes; one decision rule per group (split every IN_CHUNK scenes)."""
     out = {}
     for row in routes:
-        if row["target"]["kind"] == SPLIT_KIND:
-            continue  # 0.5.31: split rows compile apart (_split_groups)
-        out.setdefault((_ref_v2(row["target"]), row["issue_type"], row["phase"]), []).append(
+        out.setdefault((_row_ref(row, trial), row["issue_type"], row["phase"]), []).append(
             row["scene_id"]
         )
     return {k: sorted(v) for k, v in sorted(out.items())}
 
 
-def _split_groups(routes):
-    """(canonical split, issue_type, phase) -> sorted scenes, for the split rows."""
-    out = {}
-    for row in routes:
-        if row["target"]["kind"] == SPLIT_KIND:
-            out.setdefault(
-                (canon(row["target"]["split"]), row["issue_type"], row["phase"]), []
-            ).append(row["scene_id"])
-    return {k: sorted(v) for k, v in sorted(out.items())}
-
-
-def _rule_count(routes):
-    """Decision rules a route list compiles to: one per group and IN_CHUNK scenes; a split group takes one per app
-    plus the rule for requests without a split key."""
-    chunks = lambda v: -(-len(v) // IN_CHUNK)  # noqa: E731
-    return sum(chunks(v) for v in _groups(routes).values()) + sum(
-        chunks(v) * (len(json.loads(k[0])) + 1) for k, v in _split_groups(routes).items()
-    )
-
-
-def split_bucket_of(key):
-    """0.5.31: the bucket (0–99) of a split key: the first 8 hex digits of sha256(key, surrounding whitespace
-    stripped, UTF-8) as a number, modulo 100. None when there is no usable key."""
-    if type(key) is not str or not key.strip():
-        return None
-    return int(hashlib.sha256(key.strip().encode()).hexdigest()[:8], 16) % SPLIT_BUCKETS
-
-
-def with_split_bucket(params):
-    """0.5.31: for a route table compiled with its split rows active (the flow binds split_key): put the bucket in
-    place of the key the caller passed, which is what the split rules read. Returns (params, report). Without a
-    usable key the record is dropped, and the rule for keyless requests sends the request to the first app."""
-    record = params.get(SPLIT_KEY)
-    key = record["value"] if record is not None and record["quality"] == "KNOWN" else None
-    bucket = split_bucket_of(key)
-    out = {k: v for k, v in params.items() if k != SPLIT_KEY}
-    if bucket is None:
-        return out, {"bound": True, "key_given": False, "bucket": None}
-    out[SPLIT_KEY] = {
-        "value": bucket,
-        "quality": "KNOWN",
-        "source_refs": list(record["source_refs"]),
-    }
-    return out, {"bound": True, "key_given": True, "bucket": bucket}
-
-
-def _binds_split_key(bundle, ref):
-    """Whether the flow takes part in splitting: every DECISION node that reads model ref binds split_key. A model
-    has one parameter list for all the nodes that read it, so nodes that disagree are refused here, by name."""
-    found = []
-    try:
-        for workflow in bundle["workflows"]:
-            for phase in workflow["phases"]:
-                for step in phase["steps"]:
-                    for node in step["graph"]["nodes"]:
-                        if node.get("model_ref") == ref:
-                            found.append(
-                                (
-                                    SPLIT_KEY in (node.get("input_bindings") or {}),
-                                    node.get("node_id"),
-                                )
-                            )
-    except (KeyError, TypeError, AttributeError):
-        return False  # a malformed bundle is refused later, by the node contract
-    bound = [n for b, n in found if b]
-    _need(
-        not bound or len(bound) == len(found),
-        "ROUTE_TABLE_SPLIT_BINDING",
-        "读同一张路由表的决策节点要么都绑 split_key、要么都不绑；现在没绑的节点：%s"
-        % "、".join(str(n) for b, n in found if not b),
-        "models." + ref,
-    )
-    return bool(bound)
-
-
-def compile_model_v2(version, doc, resources=None, content=None, split_bound=False):
-    """Compile model v2. 0.5.31: split rows are active only when the flow binds split_key (split_bound); otherwise
-    each compiles as a plain row to its first app, and the model is what a table without split rows gives."""
+def compile_model_v2(version, doc, resources=None, content=None, trial=False):
+    """Compile model v2. trial (routing-table/v5): a row with a trial gets a result of its own that also carries the
+    trial side, and the model takes the optional parameter split_key; settle_trial picks the side after selection.
+    Without trial a row's trial is not read: the model is the one the table compiles to with its trials removed."""
     _need(
         content is None or resources is not None, "ROUTE_TABLE_STUB_INVALID", "v4 要连资源一起编译"
     )
+    _need(not trial or content is not None, "ROUTE_TABLE_STUB_INVALID", "v5 要带方案登记块编译")
     fields = DATA_V2 if resources is None else DATA_V3 if content is None else DATA_V4
+    if trial:
+        fields = DATA_V5
     routes = [
         r for r in doc["routes"] if resources is not None or r["target"]["kind"] != "RESOURCE"
     ]
-    if not split_bound:
-        routes = [
-            dict(r, target={"kind": "SOLUTION_APP", "app_id": r["target"]["split"][0]["app_id"]})
-            if r["target"]["kind"] == SPLIT_KIND
-            else r
-            for r in routes
-        ]
     unregistered = {k: NULL for k in fields}
     unregistered["route_state"] = {"literal": "unregistered"}
     templates = {
@@ -1301,15 +1262,12 @@ def compile_model_v2(version, doc, resources=None, content=None, split_bound=Fal
             "state": "UNREGISTERED",
         }
     }
-    targets = {
-        _ref_v2(r["target"]): r["target"] for r in routes if r["target"]["kind"] != SPLIT_KIND
-    }
+    if trial:
+        unregistered["trial"] = {"literal": _trial_result(None, None)}
+    rows = {_row_ref(r, trial): r for r in routes}
     rules = []
-
-    def template(t):
-        ref = _ref_v2(t)
-        if ref in templates:
-            return ref
+    for (ref, issue_type, phase), scenes in _groups(routes, trial).items():
+        t = rows[ref]["target"]
         data = _data_v2(t, doc["solutions"])
         if resources is not None:
             data = _data_v3(t, data, resources)
@@ -1319,15 +1277,16 @@ def compile_model_v2(version, doc, resources=None, content=None, split_bound=Fal
                 if t["kind"] == "SOLUTION_APP"
                 else NULL
             )
-        templates[ref] = {
-            "actions": [{"intent_id": "control", "kind": "CONTROL", "route_ref": "routed"}],
-            "data": data,
-            "state": "ROUTED",
-        }
-        return ref
-
-    for (ref, issue_type, phase), scenes in _groups(routes).items():
-        template(targets[ref])
+        if trial:
+            data["trial"] = {"literal": _trial_template(doc, rows[ref], content)}
+        templates.setdefault(
+            ref,
+            {
+                "actions": [{"intent_id": "control", "kind": "CONTROL", "route_ref": "routed"}],
+                "data": data,
+                "state": "ROUTED",
+            },
+        )
         chunks = [scenes[i : i + IN_CHUNK] for i in range(0, len(scenes), IN_CHUNK)]
         for n, chunk in enumerate(chunks, 1):
             rules.append(
@@ -1346,94 +1305,92 @@ def compile_model_v2(version, doc, resources=None, content=None, split_bound=Fal
                     ],
                 }
             )
-    parameters = {k: dict(PARAMETER) for k in ("scene_id", "issue_type", "phase")}
-    # 0.5.31: split rows. Each compiles to the result of one of its apps, so what the caller reads (route_kind
-    # SOLUTION_APP, app_id, …) is what a plain solution row gives. The rules read the bucket, which the executor puts
-    # in place of the key (with_split_bucket). The rule for requests without a key comes first: a missing record
-    # makes the bucket rules UNKNOWN, and FIRST refuses an UNKNOWN before the selected rule.
-    split_groups = _split_groups(routes)
-    for (split_json, issue_type, phase), scenes in split_groups.items():
-        split = json.loads(split_json)
-        sig = digest(split)[:8]
-        chunks = [scenes[i : i + IN_CHUNK] for i in range(0, len(scenes), IN_CHUNK)]
-        for n, chunk in enumerate(chunks, 1):
-            tail = "#%d" % n if len(chunks) > 1 else ""
-
-            def rule(
-                app_id,
-                name,
-                extra,
-                chunk=chunk,
-                tail=tail,
-                issue_type=issue_type,
-                phase=phase,
-                sig=sig,
-            ):
-                ref = template({"kind": "SOLUTION_APP", "app_id": app_id})
-                return {
-                    "rule_id": "·".join([ref, issue_type, phase, "split:%s:%s" % (sig, name)])
-                    + tail,
-                    "output_template_ref": ref,
-                    "when": [
-                        {
-                            "op": "in",
-                            "path": ["parameters", "scene_id", "value"],
-                            "value": list(chunk),
-                        },
-                        {
-                            "op": "eq",
-                            "path": ["parameters", "issue_type", "value"],
-                            "value": issue_type,
-                        },
-                        {"op": "eq", "path": ["parameters", "phase", "value"], "value": phase},
-                    ]
-                    + extra,
-                }
-
-            rules.append(
-                rule(
-                    split[0]["app_id"],
-                    "no-key",
-                    [
-                        {
-                            "op": "exists",
-                            "path": ["parameters", SPLIT_KEY, "quality"],
-                            "value": False,
-                        }
-                    ],
-                )
-            )
-            lo = 0
-            for arm in split:
-                hi = lo + arm["share"]
-                rules.append(
-                    rule(
-                        arm["app_id"],
-                        "%02d-%02d" % (lo, hi - 1),
-                        [
-                            {"op": "gte", "path": ["parameters", SPLIT_KEY, "value"], "value": lo},
-                            {"op": "lt", "path": ["parameters", SPLIT_KEY, "value"], "value": hi},
-                        ],
-                    )
-                )
-                lo = hi
-    if split_bound:
-        parameters[SPLIT_KEY] = {
-            "allowed_quality": ["KNOWN", "UNKNOWN", "NOT_APPLICABLE", "CONFLICT"],
-            "nullable": True,
-            "record_required": False,
-            "type": "string",
-        }
     return {
         "profile": PROFILE,
         "version": version,
         "hit_policy": "FIRST",
         "on_no_match": "RESULT_TEMPLATE",
         "empty_template_ref": "unregistered",
-        "parameters": parameters,
+        "parameters": dict(
+            {k: dict(PARAMETER) for k in ("scene_id", "issue_type", "phase")},
+            **({SPLIT_KEY: copy.deepcopy(SPLIT_PARAMETER)} if trial else {}),
+        ),
         "result_templates": templates,
         "rules": rules,
     }
+
+
+def _trial_result(primary, trial, side=PRIMARY_SIDE, split=NOT_ATTACHED, bucket=None):
+    """The decision field trial of a routing-table/v5 result: whether the row carries a trial, which side this call
+    landed on, the share at the time, and why (split)."""
+    return {
+        "attached": trial is not None,
+        "side": side,
+        "share": trial["share"] if trial else None,
+        "split": split,
+        "bucket": bucket,
+        "primary_app_id": primary,
+        "trial_app_id": trial["app_id"] if trial else None,
+    }
+
+
+def _trial_template(doc, row, content):
+    """What a row's result carries before the split is settled: the settled shape for a row without a trial, and for
+    a row with one also the trial side's fields (swap), which settle_trial moves in or drops."""
+    t = row["target"]
+    primary = t["app_id"] if t["kind"] == "SOLUTION_APP" else None
+    if "trial" not in row:
+        return _trial_result(primary, None)
+    app = row["trial"]["app_id"]
+    s = doc["solutions"][app]
+    return dict(
+        _trial_result(primary, row["trial"], split=NO_SPLIT_KEY),
+        swap={
+            "app_id": app,
+            "solution_name": s["name"],
+            "solution_inputs_json": canon(s["inputs"]),
+            "solution": solution_block(doc, app, content),
+        },
+    )
+
+
+def split_bucket(split_key, scene_id, issue_type, phase):
+    """0–99 from the split key and the row (scene × issue type × phase), the same for the same input on every call,
+    process and version: sha256 over the canonical JSON list, first 8 bytes, modulo 100. The scene is read in its
+    identity spelling, so P_xx and M_P_xx land in the same bucket."""
+    seed = canon([SPLIT_SALT, split_key, _scene_key(scene_id), issue_type, phase])
+    return int.from_bytes(hashlib.sha256(seed.encode("utf-8")).digest()[:8], "big") % SPLIT_BUCKETS
+
+
+def settle_trial(data, params):
+    """Pick the side of a routing-table/v5 result (data: the rendered decision data; params: the parameter records
+    of the call). A row with a trial goes to the trial app when split_bucket < share, else stays on its target.
+    Without a usable split key (no record, not KNOWN, not a string, or blank) nothing is split: the row's own target,
+    and trial.split says NO_SPLIT_KEY. Returns the data with trial settled (no swap left in it)."""
+    out = dict(data)
+    trial = dict(out.get("trial") or _trial_result(out.get("app_id"), None))
+    swap = trial.pop("swap", None)
+    out["trial"] = trial
+    if swap is None:
+        return out
+    record = params.get(SPLIT_KEY) or {}
+    key = record.get("value") if record.get("quality") == "KNOWN" else None
+    if type(key) is not str or not key.strip():
+        return out
+    bucket = split_bucket(
+        key.strip(),
+        *((params.get(k) or {}).get("value") for k in ("scene_id", "issue_type", "phase")),
+    )
+    trial.update(split=SPLIT, bucket=bucket)
+    if bucket < trial["share"]:
+        trial["side"] = TRIAL_SIDE
+        out.update({k: swap[k] for k in TRIAL_SWAPS})
+    return out
+
+
+def trial_rows(doc):
+    """The rows of a route table that carry a trial."""
+    return [r for r in doc.get("routes") or [] if type(r) is dict and "trial" in r]
 
 
 def _stub_source(model):
@@ -1448,7 +1405,7 @@ def _stub_source(model):
         and type(src) is dict
         and set(src) == {"kind", "table", "format"}
         and src["kind"] == "PLUGIN_STORAGE"
-        and src["format"] in (FORMAT, FORMAT_V2, FORMAT_V3, FORMAT_V4)
+        and src["format"] in (FORMAT, FORMAT_V2, FORMAT_V3, FORMAT_V4, FORMAT_V5)
         and type(src["table"]) is str
         and TABLE_RE.match(src["table"])
     )
@@ -1483,7 +1440,7 @@ def materialize(bundle, load):
             "models." + ref,
         )
         clean = validate_doc(doc, validate_declaration=False)
-        v2 = src["format"] in (FORMAT_V2, FORMAT_V3, FORMAT_V4)
+        v2 = src["format"] in (FORMAT_V2, FORMAT_V3, FORMAT_V4, FORMAT_V5)
         _need(
             v2 == (clean["schema"] in ROUTE_SCHEMAS),
             "ROUTE_TABLE_FORMAT_MISMATCH",
@@ -1506,27 +1463,21 @@ def materialize(bundle, load):
         source.update(
             read_as(src["table"], doc.get("table"))
         )  # 0.5.20: an old name read after the first store
-        # 0.5.31: split rows take effect only for a flow that binds split_key; the source says which it was
-        # the binding alone decides what the model declares, so a bound flow keeps working on a table that has no
-        # split rows (before the first is added, after the last is removed, after a rollback)
-        bound = v2 and _binds_split_key(bundle, ref)
-        if bound:
-            source["split"] = "BOUND"
-        elif v2 and any(r["target"]["kind"] == SPLIT_KIND for r in clean["routes"]):
-            source["split"] = "NOT_BOUND"
-        if src["format"] in (FORMAT_V3, FORMAT_V4):
+        v5 = src["format"] == FORMAT_V5
+        if not v5 and trial_rows(clean):
+            # an older stub does not split: every row keeps its own target; say so where the caller reads the source
+            source["trials_ignored"] = len(trial_rows(clean))
+        if src["format"] in (FORMAT_V3, FORMAT_V4, FORMAT_V5):
             resources, source["resources"] = _resources(clean, load, "models." + ref)
-            v4 = src["format"] == FORMAT_V4
+            v4 = src["format"] in (FORMAT_V4, FORMAT_V5)
             out["models"][ref] = compile_model_v2(
-                model["version"], clean, resources, source["content_sha256"] if v4 else None, bound
+                model["version"], clean, resources, source["content_sha256"] if v4 else None, v5
             )
             if v4:
-                source["format"] = FORMAT_V4
+                source["format"] = src["format"]
         else:
-            out["models"][ref] = (
-                compile_model_v2(model["version"], clean, split_bound=bound)
-                if v2
-                else compile_model(model["version"], clean)
+            out["models"][ref] = (compile_model_v2 if v2 else compile_model)(
+                model["version"], clean
             )
         sources.append(source)
     return out, sources
