@@ -7,7 +7,7 @@ import re
 
 import rfc8785
 
-from dmn_client import declarations
+from dmn_client import capability_catalog, declarations
 from dmn_client.decision_executor import PROFILE
 from dmn_client.json_table import OPS, equal
 from dmn_client.route_table import (
@@ -48,6 +48,10 @@ FORMAT_SUPPLEMENT = "supplement-requirements/v1"
 FORMAT_SUPPLEMENT_V2 = "supplement-requirements/v2"
 FORMAT_RESOURCE = "resource-targets/v1"
 FORMAT_SCENE_TOPIC = "scene-topic/v1"
+# 2026-11-11 (提议，待 Brian 定): the capability table, one row per capability (dmn_client.capability_catalog)
+SCHEMA_CAPABILITY = capability_catalog.SCHEMA
+FORMAT_CAPABILITY = capability_catalog.FORMAT
+TABLE_CAPABILITY = capability_catalog.TABLE
 FORMATS = {
     FORMAT_DECISION: SCHEMA_DECISION,
     FORMAT_SUPPLEMENT: SCHEMA_SUPPLEMENT,
@@ -55,6 +59,7 @@ FORMATS = {
     FORMAT_RESOURCE: SCHEMA_RESOURCE,
     FORMAT_DECISION_SET: SCHEMA_DECISION_SET,
     FORMAT_SCENE_TOPIC: SCHEMA_SCENE_TOPIC,
+    FORMAT_CAPABILITY: SCHEMA_CAPABILITY,
 }
 SCHEMAS = tuple(FORMATS.values())
 KEYS = {
@@ -64,6 +69,7 @@ KEYS = {
     SCHEMA_SUPPLEMENT_V2: ("schema", "table", "scenes", "note", "declare"),
     SCHEMA_RESOURCE: ("schema", "table", "targets", "route_tables", "note", "declare"),
     SCHEMA_SCENE_TOPIC: ("schema", "table", "intent_types", "rows", "note", "declare"),
+    SCHEMA_CAPABILITY: capability_catalog.KEYS,
 }
 RESULT_SCHEMA = "dmn-json.stored-table-result/v1"
 CALL_STATUSES = ("SUCCEEDED", "NOT_REQUESTED", "NOT_FOUND", "BLOCKED", "FAILED")
@@ -82,6 +88,7 @@ HIT_POLICIES = ("UNIQUE", "FIRST", "COLLECT")
 # 0.5.15: a parameter of type "table" is the output of an earlier stored table (DMN 2.0 draft.10 表间衔接): its conditions
 # read the table state (path [parameters, p, state]) or one result key ([parameters, p, result, key]), never a value.
 TABLE_TYPE = "table"
+IN_SET = "in_set"  # 2026-11-11 (提议，待 Brian 定): a table parameter that reads a sibling model of the same decision set
 RESULT_KEY_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_]{0,63}$")
 MAX_SOURCE_REFS = 16
 MAX_SET_MODELS = 64
@@ -303,7 +310,7 @@ def _model(m, path):
         _need(type(name) is str and PARAM_RE.match(name), "DECISION_TABLE_INVALID", "参数名不对", p)
         _need(
             type(c) is dict
-            and set(c) - {"from_table"}
+            and set(c) - {"from_table", IN_SET}
             == {"type", "record_required", "nullable", "allowed_quality"}
             and (c["type"] in TYPES or c["type"] == TABLE_TYPE)
             and type(c["record_required"]) is bool
@@ -327,6 +334,14 @@ def _model(m, path):
             "DECISION_TABLE_INVALID",
             "from_table 只写在 table 参数上，是一张表的表名：这个参数只收那张表的回执",
             p + ".from_table",
+        )
+        # 2026-11-11 (提议，待 Brian 定): in_set: true marks a read of a sibling model of the same decision set; a model
+        # saved before has no such key (the key set above refused it), so its own-table parameters keep their meaning
+        _need(
+            IN_SET not in c or c[IN_SET] is True and "from_table" in c,
+            "DECISION_TABLE_INVALID",
+            "in_set 只写 true，且只写在带 from_table（本表表名）的 table 参数上：读同一张决策集里的另一个模型",
+            p + "." + IN_SET,
         )
         _need(
             c["type"] != TABLE_TYPE or c["nullable"] is False,
@@ -509,6 +524,13 @@ def _model_ref(ref, model, code, path):
 def _validate_decision(doc):
     clean_owner, table = _owner(doc, "DECISION_TABLE_INVALID")
     model = _model(doc.get("model"), "model")
+    marked = sorted(n for n, c in model["parameters"].items() if IN_SET in c)
+    _need(
+        not marked,
+        "DECISION_TABLE_INVALID",
+        "in_set 只用于决策集（读同一张表里的另一个模型）；决策表的参数不写",
+        "model.parameters.%s.%s" % (marked[0], IN_SET) if marked else "",
+    )
     ref = _model_ref(doc.get("model_ref"), model, "DECISION_TABLE_INVALID", "model_ref")
     return {
         "schema": SCHEMA_DECISION,
@@ -550,13 +572,102 @@ def _validate_decision_set(doc):
         model = _model(entry["model"], p + ".model")
         ref = _model_ref(entry["model_ref"], model, "DECISION_SET_INVALID", p + ".model_ref")
         models[key] = {"model_ref": ref, "model": json.loads(canon(model))}
-    return {
+    clean = {
         "schema": SCHEMA_DECISION_SET,
         "table": table,
         "owner": clean_owner,
         "models": models,
         "note": _note(doc),
     }
+    set_order(clean, list(models))  # in-set reads name a sibling model and form no cycle
+    _set_reads_agree(clean)
+    return clean
+
+
+def _set_reads_agree(doc):
+    """A name read in the set is the sibling model's result for every model of the set: evaluation does not take it
+    from the caller, so another model may not declare the same name as a parameter it is given (a fact, or a receipt of
+    another table)."""
+    reads = set_reads(doc)
+    own = storage_name(doc["table"])
+    for key, deps in reads.items():
+        for dep in deps:
+            c = doc["models"][key]["model"]["parameters"][dep]
+            p = "models.%s.model.parameters.%s" % (key, dep)
+            _need(
+                storage_name(c["from_table"]) == own,
+                "DECISION_SET_INVALID",
+                "标了 in_set 的参数读本表：from_table 要写本表表名 %s（写的是 %s）"
+                % (doc["table"], c["from_table"]),
+                p + ".from_table",
+            )
+            # the reader gets the sibling's first output (decision): a COLLECT sibling has several, so it is refused
+            _need(
+                doc["models"][dep]["model"]["hit_policy"] != "COLLECT",
+                "DECISION_SET_INVALID",
+                "模型 %s 读的同表模型 %s 是 COLLECT（可出多份）：同表互读只读 FIRST / UNIQUE 的模型"
+                % (key, dep),
+                p,
+            )
+    inner = {dep for deps in reads.values() for dep in deps}
+    for key, entry in doc["models"].items():
+        for name in sorted(inner & set(entry["model"]["parameters"])):
+            _need(
+                name in reads[key],
+                "DECISION_SET_INVALID",
+                "参数 %s 在本表别的模型里读的是同表模型 %s 的结果；模型 %s 也有这个参数，但不是读本表：同名参数要么都读本表，要么改名"
+                % (name, name, key),
+                "models.%s.model.parameters.%s" % (key, name),
+            )
+
+
+def set_reads(doc):
+    """In-set reads (2026-11-11): model key → the sibling models it reads. A table parameter marked in_set: true (its
+    from_table is the set's own table) reads the result of the model whose key is the parameter's name, evaluated
+    earlier in the same call. The marker and from_table are in the model, so part of content_sha256. A parameter without
+    the marker keeps 0.5.32's meaning, also when its from_table is this table (a receipt of it is refused)."""
+    return {
+        key: [name for name, c in entry["model"]["parameters"].items() if c.get(IN_SET) is True]
+        for key, entry in doc["models"].items()
+    }
+
+
+def set_order(doc, keys):
+    """The models to evaluate for keys, each after the siblings it reads. A read of a key the set does not have, of the
+    model itself, or around a cycle is refused (at save and again at evaluation)."""
+    reads, order, state = set_reads(doc), [], {}
+
+    def visit(key, trail):
+        if state.get(key) == "done":
+            return
+        _need(
+            state.get(key) != "open",
+            "DECISION_SET_INVALID",
+            "同表模型互读绕成了环：" + " → ".join(trail + [key])[:200],
+            "models." + key,
+        )
+        state[key] = "open"
+        for dep in reads[key]:
+            _need(
+                dep != key,
+                "DECISION_SET_INVALID",
+                "模型 %s 的参数 %s 标了 in_set，读的是自己：同表互读只能读另一个模型" % (key, dep),
+                "models.%s.model.parameters.%s" % (key, dep),
+            )
+            _need(
+                dep in doc["models"],
+                "DECISION_SET_INVALID",
+                "模型 %s 的参数 %s 标了 in_set：它读的是本表里叫这个名字的另一个模型，表里没有"
+                % (key, dep),
+                "models.%s.model.parameters.%s" % (key, dep),
+            )
+            visit(dep, trail + [key])
+        state[key] = "done"
+        order.append(key)
+
+    for key in keys:
+        visit(key, [])
+    return order
 
 
 def _validate_supplement(doc):
@@ -1189,6 +1300,15 @@ def validate(doc, *, validate_declaration=True):
     if schema == SCHEMA_SCENE_TOPIC:
         clean = _validate_scene_topic(doc)
         return declared(doc, clean) if validate_declaration else clean
+    if schema == SCHEMA_CAPABILITY:
+        clean = capability_catalog.validate(
+            doc,
+            lambda d: _table(
+                d, lambda t: t == TABLE_CAPABILITY, "能力表的表名只能是 " + TABLE_CAPABILITY
+            ),
+            _note,
+        )
+        return declared(doc, clean) if validate_declaration else clean
     raise RouteTableError("ROUTE_TABLE_INVALID", "不认识的表格式：" + str(schema)[:64], "schema")
 
 
@@ -1196,6 +1316,22 @@ def declared(doc, clean):
     """0.5.14: the table's declaration (dmn_client.declarations), checked against the clean content. Not part of
     content_sha256 and never read at evaluation (0.5.19: a table parameter's receipt source is the model's from_table); a
     document without one is stored exactly as before."""
+    # 2026-11-11 (提议): results naming a capability under a query -> fact name are the new shape; its checks live in its
+    # declaration (role SEARCH_CAPABILITY, STANDARD), so it cannot be saved without one
+    _need(
+        not new_search_shape(clean)
+        or type(doc.get("declare")) is dict
+        and doc["declare"].get("role") == declarations.SEARCH_CAPABILITY,
+        "TABLE_DECLARATION_INVALID",
+        (
+            "查询 → 事实表的结果写了 capability_id + bindings：这是新形状，要带声明（role = %s，stage = STANDARD）"
+            % declarations.SEARCH_CAPABILITY
+            if clean.get("schema") == SCHEMA_DECISION
+            else "查询 → 事实表的结果写了 capability_id + bindings：这是新形状，只能存成决策表"
+            "（decision-table/v1，COLLECT），不用决策集"
+        ),
+        "declare",
+    )
     if doc.get("declare") is None:
         # 0.5.22: a decision table under a resource name is the three-tier resource routing; its checks live in its
         # declaration (role RESOURCE), so it cannot be saved without one
@@ -1210,6 +1346,31 @@ def declared(doc, clean):
     return clean
 
 
+SEARCH_FACT_PREFIX = "solution.search.fact."
+
+
+def new_search_shape(clean):
+    """2026-11-11: a decision table or set under a query -> fact name with a result naming capability_id and bindings:
+    the new shape's call. A 0.5.28 result names fact_id (it may also say which capability gives the fact, never how to
+    bind its inputs) and stays the old shape, saved as before (adversarial review 3, H1). fact_id next to a call does not
+    make it old: the call's checks would be skipped (round 2, N1)."""
+    if clean.get("schema") not in (SCHEMA_DECISION, SCHEMA_DECISION_SET):
+        return False
+    if not storage_name(clean["table"]).startswith(SEARCH_FACT_PREFIX):
+        return False
+    models = (
+        [clean["model"]]
+        if clean["schema"] == SCHEMA_DECISION
+        else [m["model"] for m in clean["models"].values()]
+    )
+    for m in models:
+        for t in m["result_templates"].values():
+            literal = (t["data"].get("result") or {}).get("literal")
+            if type(literal) is dict and "capability_id" in literal and "bindings" in literal:
+                return True
+    return False
+
+
 def content_sha256(doc):
     schema = doc["schema"]
     if schema == SCHEMA_DECISION:
@@ -1220,6 +1381,8 @@ def content_sha256(doc):
         return digest({"scenes": doc["scenes"]})
     if schema == SCHEMA_SCENE_TOPIC:
         return digest({"intent_types": doc["intent_types"], "rows": doc["rows"]})
+    if schema == SCHEMA_CAPABILITY:
+        return capability_catalog.content_sha256(doc)
     return digest({"targets": doc["targets"]})
 
 
@@ -1238,6 +1401,8 @@ def rows(doc):
         return len(doc.get("targets", {}))
     if schema == SCHEMA_SCENE_TOPIC:
         return len(doc.get("rows", []))
+    if schema == SCHEMA_CAPABILITY:
+        return len(doc.get("capabilities", []))
     return len(doc.get("routes", []))
 
 
@@ -1682,7 +1847,7 @@ def evaluate_decision_table(doc, inputs, sources=None):
     return out
 
 
-def evaluate_decision_set(doc, inputs, sources=None):
+def evaluate_decision_set(doc, inputs, sources=None, source=None):
     """0.5.15 决策集求值: each model asked for carries its own call status (SUCCEEDED with its result, or BLOCKED / FAILED
     with an error and no state); only table- or input-level problems raise (the whole call fails). sources (0.5.19):
     model key → {table parameter → the table its receipt must come from}, from each model's hashed contract; a receipt from
@@ -1711,9 +1876,22 @@ def evaluate_decision_set(doc, inputs, sources=None):
     )
     given = inputs.get("parameters", {})
     _need(type(given) is dict, "INPUT_INVALID", "parameters 必须是对象", "parameters")
+    # in-set reads (2026-11-11): a model asked for brings the siblings it reads; they are evaluated first and reported too
+    reads = set_reads(doc)
+    order = set_order(doc, keys)
+    inner = {dep for k in order for dep in reads[k]}
+    passed = sorted(inner & set(given))
+    _need(
+        not passed,
+        "INPUT_INVALID",
+        "同表模型的结果由插件自己接，不要传：" + ", ".join(passed)[:200],
+        "parameters",
+    )
+    keys = order
     declared = set()
     for k in keys:
         declared |= set(doc["models"][k]["model"]["parameters"])
+    declared -= inner
     extra = sorted(set(given) - declared)
     _need(
         not extra or undeclared == "IGNORE",
@@ -1745,9 +1923,23 @@ def evaluate_decision_set(doc, inputs, sources=None):
         else:
             _plain_shape(r, name)
     models = {}
+    origin = dict(source) if type(source) is dict else {"table": doc["table"], "version": 1}
     for key in keys:
         entry = doc["models"][key]
         mine = {k: v for k, v in given.items() if k in entry["model"]["parameters"]}
+        for dep in reads[key]:  # the sibling's result, in the shape of this table's own receipt
+            mine[dep] = {
+                "from_table": {
+                    "schema_version": RESULT_SCHEMA,
+                    "status": "SUCCEEDED",
+                    "table": doc["table"],
+                    "format": FORMAT_DECISION_SET,
+                    "source": origin,
+                    "result": {"models": {dep: models[dep]}},
+                    "error": None,
+                },
+                "model": dep,
+            }
         try:
             result = evaluate_decision_table(
                 entry, {"parameters": mine, "missing": missing, "undeclared": "IGNORE"}
@@ -1897,6 +2089,15 @@ def evaluate_stored(
             "场景与话题表的表名只能是 " + TABLE_SCENE_TOPIC,
             "table",
         )
+        _need(
+            # one way, as the scene-topic table: another format read at this name keeps 0.5.32's answer (adversarial
+            # review 3, L1); a stored catalog and a table of another format never share the name (a save refuses a
+            # schema change)
+            fmt != FORMAT_CAPABILITY or table == TABLE_CAPABILITY,
+            "STORED_TABLE_NAME",
+            "能力表的表名只能是 " + TABLE_CAPABILITY,
+            "table",
+        )
         pin = _pin(version, content_sha256)
         if isinstance(inputs, str) and not inputs.strip():
             inputs = {}
@@ -1914,7 +2115,7 @@ def evaluate_stored(
             return out
         # 0.5.21: scoped to the new format; the others keep 0.5.20's path unchanged
         _need(
-            fmt != FORMAT_SCENE_TOPIC or type(doc) is dict,
+            fmt not in (FORMAT_SCENE_TOPIC, FORMAT_CAPABILITY) or type(doc) is dict,
             "ROUTE_TABLE_CORRUPT",
             "插件里的表 %s 不是一个 JSON 对象" % table,
             "table",
@@ -1952,7 +2153,7 @@ def evaluate_stored(
             out["result"] = evaluate_decision_table(clean, inputs, model_sources(clean["model"]))
         elif fmt == FORMAT_DECISION_SET:
             sources = {key: model_sources(m["model"]) for key, m in clean["models"].items()}
-            out["result"] = evaluate_decision_set(clean, inputs, sources)
+            out["result"] = evaluate_decision_set(clean, inputs, sources, out["source"])
         elif fmt in (FORMAT_SUPPLEMENT, FORMAT_SUPPLEMENT_V2):
             sid = inputs.get("scene_id")
             _need(
@@ -1964,6 +2165,8 @@ def evaluate_stored(
             out["result"] = supplement_row(clean, sid)
         elif fmt == FORMAT_SCENE_TOPIC:
             out["result"] = scene_topic_lookup(clean, inputs)
+        elif fmt == FORMAT_CAPABILITY:
+            out["result"] = capability_catalog.lookup(clean, inputs)
         else:
             rid = inputs.get("resource_id")
             _need(

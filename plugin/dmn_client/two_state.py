@@ -38,6 +38,8 @@ from dmn_client.route_table import (
     canon,
     digest,
 )
+from dmn_client.storage_care import CARE_OPS, PRUNE, USAGE, Watched, failed, prune, usage
+from dmn_client.storage_care import full as storage_full
 from dmn_client.table_names import STANDARD, old_name, storage_name
 from dmn_client.vocabulary import declared, format_keys, unknown_keys
 
@@ -106,6 +108,7 @@ STATUS = {
     "STORED_TABLE_DRAFT_MISSING": 409,
     "STORED_TABLE_WRITERS_APP_REJECTED": 403,
     "ROUTE_TABLE_VERSION_MISSING": 404,
+    "STORED_TABLE_PRUNE_PLAN_CHANGED": 409,
 }
 
 
@@ -351,6 +354,8 @@ class SignedMutation:
                 self.base.set(self.key, canon(self.record).encode("utf-8"))
                 self._owned()
             except Exception as exc:
+                if storage_full(self.base, exc):
+                    raise  # failed() answers 507; finish() still asks for a new signature
                 raise self._unavailable() from exc
             self.started = True
         else:
@@ -589,6 +594,8 @@ def run_entry(
     table = table or DEFAULT_TABLE
     vstr = "" if version is None else str(version)
     opened = open_mode(writers)
+    # which storage call failed is remembered for the answer; the platform's own words go to the log
+    storage = Watched(storage)
     try:
         if body is None or body == "":
             parsed, refused = {}, None
@@ -617,6 +624,25 @@ def run_entry(
             }
             return _record(storage, op, table, result, by, caller_app == MAINTENANCE_APP)
 
+        if op in CARE_OPS:
+            if refused:
+                return refused
+            if op == USAGE:
+                return 200, usage(storage, table)
+            rest = {k: v for k, v in parsed.items() if k != "writer"}
+            if parsed.get("plan_sha256") is None:
+                return 200, prune(storage, table, rest, now)  # the plan: a read
+            # carrying it out deletes: only the maintenance app, one at a time in this process, and in signed mode with
+            # a writer's signature. No request receipt: on full storage it could not be written, and the clean-up that
+            # makes room would be refused. A replay is refused anyway: the plan is worked out again and no longer holds
+            # once its keys are gone (a plan that deletes nothing changes nothing and leaves no operation record)
+            check_caller(storage, caller_app)
+            with _MUTATION_LOCK:
+                who = None
+                if not opened:
+                    parse_writers(writers)
+                    who = verify(writers, parsed.get("writer"), op, table, vstr, parsed, now())
+                return recorded((200, prune(storage, table, rest, now)), who)
         if op in DRAFT_OPS:
             if refused:
                 return refused
@@ -684,8 +710,8 @@ def run_entry(
                         )
                     except RouteTableError as exc:
                         result = error(_status(exc.code), exc.code, exc.message, exc.path)
-                    except Exception:
-                        result = error(503, "ROUTE_TABLE_UNAVAILABLE", "插件存储读写失败，稍后再试")
+                    except Exception as exc:
+                        result = failed(guarded, exc)
                     return recorded(guarded.finish(*result), who)
             who = verify(writers, parsed.get("writer"), op, table, vstr, parsed, now())
         return recorded(
@@ -693,8 +719,10 @@ def run_entry(
         )
     except RouteTableError as exc:
         return error(_status(exc.code), exc.code, exc.message, exc.path)
-    except Exception:  # storage backend failure: no detail, never echo content
-        return error(503, "ROUTE_TABLE_UNAVAILABLE", "插件存储读写失败，稍后再试")
+    except (
+        Exception
+    ) as exc:  # storage backend failure: never echo content; which call failed is said
+        return failed(storage, exc)
 
 
 def by_key(table, save_id):
@@ -748,7 +776,9 @@ def _record(storage, op, table, result, by, show_history=False):
     status, out = result
     if status != 200 or not isinstance(out, dict):
         return result
-    if op in ("undo", "draft_discard"):
+    if op in ("undo", "draft_discard") or (
+        op == PRUNE and out.get("applied") is True and out.get("keys", 0) > 0
+    ):
         operation = {
             "operation_id": uuid.uuid4().hex,
             "op": op,

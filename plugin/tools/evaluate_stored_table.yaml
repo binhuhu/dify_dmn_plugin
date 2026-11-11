@@ -10,9 +10,10 @@ description:
       P2 acceptance table or a TARGET / TRIAGE policy table (decision-table/v1, evaluated; decision-set/v1 for several models
       in one table, each with its own call status), the per-scene supplement requirements (supplement-requirements/v1 |
       supplement-requirements/v2), the resource-routing targets (resource-targets/v1) or the 定位 scene-topic catalog with its intent → issue type map
-      (scene-topic/v1, target.scene.topic, read by scene_id, topic, topic + intent or intent). Optional version / content_sha256
+      (scene-topic/v1, target.scene.topic, read by scene_id, topic, topic + intent or intent) or the capability table (capability-catalog/v1,
+      platform.capability.catalog, a proposal; read by capability_id, or listed by domain / entity / kind / face). Optional version / content_sha256
       pin the exact stored version (a missing pin fails, never falls back to the latest).
-    zh_Hans: 读插件工具存储里的一张表（与路由表同样存、带版本历史与乐观检查，不提供原子 CAS）：方案的 P2 受理表或定位 / 分诊的策略表（decision-table/v1，求值；一张表多个模型用 decision-set/v1，每个模型各带调用 status）、按场景的补充要求（supplement-requirements/v1 | supplement-requirements/v2）、资源路由目标（resource-targets/v1）或定位的场景与话题目录及诉求 → 问题类型对照（scene-topic/v1，target.scene.topic：按场景号、话题、话题 + 诉求或诉求查）。可选 version / content_sha256 钉住存储里的那一版（不在就失败，不回退最新版）。
+    zh_Hans: 读插件工具存储里的一张表（与路由表同样存、带版本历史与乐观检查，不提供原子 CAS）：方案的 P2 受理表或定位 / 分诊的策略表（decision-table/v1，求值；一张表多个模型用 decision-set/v1，每个模型各带调用 status）、按场景的补充要求（supplement-requirements/v1 | supplement-requirements/v2）、资源路由目标（resource-targets/v1）或定位的场景与话题目录及诉求 → 问题类型对照（scene-topic/v1，target.scene.topic：按场景号、话题、话题 + 诉求或诉求查），或能力表（capability-catalog/v1，platform.capability.catalog，提议：按能力号查一行，或按域、实体、能力类型、查询 / 动作筛列表）。可选 version / content_sha256 钉住存储里的那一版（不在就失败，不回退最新版）。
   llm: Read or evaluate one stored table of this plugin (P2 acceptance or policy table, decision set, supplement requirements, resource targets, scene-topic catalog). The legacy supplement-requirements/v1 reader also accepts v2 documents; inputs remain {scene_id}.
 parameters:
 - name: table
@@ -23,8 +24,8 @@ parameters:
     en_US: table
     zh_Hans: 表名
   human_description:
-    en_US: Stored table name (p2.<app_id>, target.<name> or target.<object>.<judgment>, triage.<name> or triage.<object>.<judgment>, solution.<search.fact|fact.feature|feature.reality|reality.strategy>.<scene_id>[.<solution>][.<part>] (since 0.5.30 <solution> is the first segment of the owning app id, 8 lower-case hex digits), triage.supplement.requirements, triage.dispatch.resource, target.scene.topic (scene-topic/v1); the old names target.scene_entity, triage.acceptance, supplement.requirements, dispatch.resource are read-only aliases during the transition). Empty = not requested.
-    zh_Hans: 存储表名（p2.<方案应用编号>、target.<名称> 或 target.<对象>.<判断>、triage.<名称> 或 triage.<对象>.<判断>、solution.<search.fact|fact.feature|feature.reality|reality.strategy>.<场景号>[.<方案段>][.<分片>]（0.5.30：方案段 = 方案应用编号的第一段，8 位小写十六进制）、triage.supplement.requirements、triage.dispatch.resource、target.scene.topic（scene-topic/v1）；旧名 target.scene_entity、triage.acceptance、supplement.requirements、dispatch.resource 是过渡期只读别名）；空 = 本次不读。
+    en_US: Stored table name (p2.<app_id>, target.<name> or target.<object>.<judgment>, triage.<name> or triage.<object>.<judgment>, solution.<search.fact|fact.feature|feature.reality|reality.strategy>.<scene_id>[.<solution>][.<part>] (since 0.5.30 <solution> is the first segment of the owning app id, 8 lower-case hex digits), triage.supplement.requirements, triage.dispatch.resource, target.scene.topic (scene-topic/v1), platform.capability.catalog (capability-catalog/v1, proposal); the old names target.scene_entity, triage.acceptance, supplement.requirements, dispatch.resource are read-only aliases during the transition). Empty = not requested.
+    zh_Hans: 存储表名（p2.<方案应用编号>、target.<名称> 或 target.<对象>.<判断>、triage.<名称> 或 triage.<对象>.<判断>、solution.<search.fact|fact.feature|feature.reality|reality.strategy>.<场景号>[.<方案段>][.<分片>]（0.5.30：方案段 = 方案应用编号的第一段，8 位小写十六进制）、triage.supplement.requirements、triage.dispatch.resource、target.scene.topic（scene-topic/v1）、platform.capability.catalog（capability-catalog/v1，提议）；旧名 target.scene_entity、triage.acceptance、supplement.requirements、dispatch.resource 是过渡期只读别名）；空 = 本次不读。
   llm_description: Stored table name; empty means not requested.
 - name: format
   type: string
@@ -34,8 +35,8 @@ parameters:
     en_US: format
     zh_Hans: 表格式
   human_description:
-    en_US: decision-table/v1 | decision-set/v1 | supplement-requirements/v1 | supplement-requirements/v2 | resource-targets/v1 | scene-topic/v1 (fixed in the workflow).
-    zh_Hans: decision-table/v1 / decision-set/v1 / supplement-requirements/v1 | supplement-requirements/v2 / resource-targets/v1 / scene-topic/v1（在流程里固定）。
+    en_US: decision-table/v1 | decision-set/v1 | supplement-requirements/v1 | supplement-requirements/v2 | resource-targets/v1 | scene-topic/v1 | capability-catalog/v1 (fixed in the workflow).
+    zh_Hans: decision-table/v1 / decision-set/v1 / supplement-requirements/v1 | supplement-requirements/v2 / resource-targets/v1 / scene-topic/v1 / capability-catalog/v1（在流程里固定）。
   llm_description: The table format, fixed by the workflow.
 - name: inputs_json
   type: any
@@ -48,8 +49,8 @@ parameters:
     en_US: 'decision-table/v1: {"parameters": {name: {quality, value, source_refs}}, "missing": "BLOCK"|"UNKNOWN", "undeclared": "REFUSE"|"IGNORE"};
       a table parameter takes {"from_table": <the upstream results>, "model": <model key, for a decision set>, "hit": <which output of a COLLECT receipt, from 0>};
       decision-set/v1: the same plus "models": [model keys] (absent = all); supplement-requirements/v1 | supplement-requirements/v2:
-      {"scene_id"}; resource-targets/v1: {"resource_id"}; scene-topic/v1: {"scene_id"} | {"topic"} | {"topic", "intent"} | {"intent"}. Object or JSON string.'
-    zh_Hans: 'decision-table/v1：{"parameters": {参数: {quality, value, source_refs}}, "missing": "BLOCK"|"UNKNOWN", "undeclared": "REFUSE"|"IGNORE"}；table 参数收 {"from_table": <上一张表的 results>, "model": <决策集的模型键>, "hit": <读 COLLECT 回执的第几份，从 0 起>}；decision-set/v1：同上再加 "models": [模型键]（不写 = 全部）；supplement-requirements/v1 | supplement-requirements/v2：{"scene_id"}；resource-targets/v1：{"resource_id"}；scene-topic/v1：{"scene_id"} | {"topic"} | {"topic", "intent"} | {"intent"}。对象或 JSON 字符串。'
+      {"scene_id"}; resource-targets/v1: {"resource_id"}; scene-topic/v1: {"scene_id"} | {"topic"} | {"topic", "intent"} | {"intent"}; capability-catalog/v1: {"capability_id"} | one to four of {"domain", "entity", "kind", "face"}. Object or JSON string.'
+    zh_Hans: 'decision-table/v1：{"parameters": {参数: {quality, value, source_refs}}, "missing": "BLOCK"|"UNKNOWN", "undeclared": "REFUSE"|"IGNORE"}；table 参数收 {"from_table": <上一张表的 results>, "model": <决策集的模型键>, "hit": <读 COLLECT 回执的第几份，从 0 起>}；decision-set/v1：同上再加 "models": [模型键]（不写 = 全部）；supplement-requirements/v1 | supplement-requirements/v2：{"scene_id"}；resource-targets/v1：{"resource_id"}；scene-topic/v1：{"scene_id"} | {"topic"} | {"topic", "intent"} | {"intent"}；capability-catalog/v1：{"capability_id"} | {"domain", "entity", "kind", "face"} 里的一到四个。对象或 JSON 字符串。'
   llm_description: Inputs for the table, object or JSON string.
 - name: version
   type: string

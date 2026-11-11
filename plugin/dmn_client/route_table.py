@@ -1698,6 +1698,16 @@ def _change(mark, now):
     return "%s → %s" % (mark[0], now[0] if now[0] != mark[0] else "另一轮的 " + now[0])
 
 
+class StorageWriteFailed(Exception):
+    """A save outside the five whose storage write failed, raised from the storage error. outcome: NOT_SAVED (what it
+    wrote is taken back), HALF_WRITTEN (its version key may be left without a head), UNKNOWN (the head write failed and
+    may have landed)."""
+
+    def __init__(self, table, version, outcome, save_id):
+        super().__init__("%s v%d: storage write failed (%s)" % (table, version, outcome))
+        self.table, self.version, self.outcome, self.save_id = table, version, outcome, save_id
+
+
 class StorageTables:
     """Route tables in Dify plugin storage (session.storage: set / get / exist; delete only to undo a first store)."""
 
@@ -2033,6 +2043,24 @@ class StorageTables:
 
         if clean["schema"] in ROUTE_SCHEMAS:
             self._one_state(clean)
+        decl = clean.get("declare") if isinstance(clean.get("declare"), dict) else {}
+        if (
+            clean["schema"] == stored_tables.SCHEMA_DECISION
+            and decl.get("role") == "SEARCH_CAPABILITY"
+        ):
+            # 2026-11-11 (提议): the new query -> fact shape is checked against the capability table version it pins
+            from dmn_client import search_plan  # noqa
+
+            pin = decl["capability_table"]
+            raw = self.find_content(pin["table"], pin["content_sha256"])
+            _need(
+                isinstance(raw, dict) and raw.get("schema") == stored_tables.SCHEMA_CAPABILITY,
+                "SEARCH_CAPABILITY_TABLE_MISSING",
+                "插件里没有内容摘要为 %s… 的能力表 %s：先存那一版能力表，或把声明里的摘要改成现有的一版"
+                % (pin["content_sha256"][:12], pin["table"]),
+                "declare.capability_table",
+            )
+            search_plan.check(clean, validate_doc(raw, validate_declaration=False))
         if clean["schema"] in ROUTE_SCHEMAS and clean.get("resource_table"):
             raw = self.load(clean["resource_table"])
             _need(
@@ -2136,6 +2164,7 @@ class StorageTables:
         gate_report=None,
         gate=None,
         schema_transition=None,
+        take_back=True,
     ):
         """Save. 0.5.20 (存表名即标准名, 迁移不变式): an old name saves as in 0.5.19 while its standard name is OLD, and is
         read-only from COPYING on (I9); a save under a standard name before its first store is the first store
@@ -2174,7 +2203,9 @@ class StorageTables:
             return self._save(
                 doc, expected_version, new_id, gate_report, gate, schema_transition, guard
             )
-        return self._save(doc, expected_version, new_id, gate_report, gate, schema_transition)
+        return self._save(
+            doc, expected_version, new_id, gate_report, gate, schema_transition, take_back=take_back
+        )
 
     def _references(self, raw):
         """Aliases are read interfaces, never persisted relationship identifiers: a reference names the name its table
@@ -2248,7 +2279,15 @@ class StorageTables:
         )
 
     def _save(
-        self, doc, expected_version, new_id, gate_report, gate, schema_transition, guard=None
+        self,
+        doc,
+        expected_version,
+        new_id,
+        gate_report,
+        gate,
+        schema_transition,
+        guard=None,
+        take_back=True,
     ):
         """An ordinary save (0.5.19's), with the first-record checks before its head and after it for the five
         (guard)."""
@@ -2314,15 +2353,40 @@ class StorageTables:
             clean["schema_transition"] = transition
         if report is not None:
             clean["gate_report_sha256"] = digest(report)
-            self.storage.set(self.gate_key(table, clean["save_id"]), canon(report).encode("utf-8"))
-        if clean["schema"] in ROUTE_SCHEMAS:
-            self._index(table)  # before the document: an index entry without its table is skipped
         raw = canon(clean).encode("utf-8")
-        self.storage.set(self.save_key(table, clean["save_id"]), raw)  # never overwritten
-        self.storage.set(
-            self.key(table, n), raw
-        )  # history before head: no head without its version
-        self.storage.set(self.key(table), raw)
+        head_tried = False
+        try:
+            if report is not None:
+                self.storage.set(
+                    self.gate_key(table, clean["save_id"]), canon(report).encode("utf-8")
+                )
+            if clean["schema"] in ROUTE_SCHEMAS:
+                self._index(
+                    table
+                )  # before the document: an index entry without its table is skipped
+            self.storage.set(self.save_key(table, clean["save_id"]), raw)  # never overwritten
+            self.storage.set(
+                self.key(table, n), raw
+            )  # history before head: no head without its version
+            head_tried = True
+            self.storage.set(self.key(table), raw)
+        except Exception as exc:
+            # Not for the five (guard): their first-store checks read exactly what a stopped save left. Not for an undo's
+            # reference fix (take_back False): its save id is the undo's, shared by its retries, so another retry's
+            # finished fix would look like this one's; the undo reports its own failure
+            if guard is not None or not take_back:
+                raise
+            # A failed head write may have landed (a host may store, then refuse in a later accounting step, and keep
+            # serving the old head from a cache): taking back its version could leave a head without its version.
+            # So only a save stopped before its head is taken back.
+            outcome = (
+                "UNKNOWN"
+                if head_tried
+                else self._unwind(table, n, clean["save_id"], report is not None)
+            )
+            if isinstance(exc, RouteTableError):
+                raise
+            raise StorageWriteFailed(table, n, outcome, clean["save_id"]) from exc
         try:
             for key in (self.key(table, n), self.key(table)):
                 back = self._read(key)
@@ -2349,6 +2413,26 @@ class StorageTables:
             return
         for key in (self.key(table), self.key(table, n)):
             self._delete_own(key, save_id)
+
+    def _unwind(self, table, n, save_id, with_gate):
+        """Take back what a save stopped before its head wrote: only this save's keys (the version key only while it
+        carries this save id), the copies by save id first and the version key last, as prune does, so that whatever
+        is left can still be found from the version key. NOT_SAVED when every one is gone; HALF_WRITTEN when one would
+        not go or cannot be checked. Best effort: a failure here never replaces the one that caused it."""
+        keys = [self.save_key(table, save_id)]
+        if with_gate:
+            keys.append(self.gate_key(table, save_id))
+        try:
+            for key in keys:
+                if self.storage.exist(key):
+                    self.storage.delete(key)
+            self._delete_own(self.key(table, n), save_id)
+            left = [k for k in keys if self.storage.exist(k)]
+            doc = self._read(self.key(table, n))
+        except Exception:
+            return "HALF_WRITTEN"
+        mine = isinstance(doc, dict) and doc.get("save_id") == save_id
+        return "HALF_WRITTEN" if left or mine else "NOT_SAVED"
 
     def _delete_own(self, key, save_id):
         """Delete key only if the document there carries save_id, read again just before the delete (no compare-and-
@@ -3018,7 +3102,7 @@ class StorageTables:
                 )
                 return {"table": head["table"], "version": v}
             self._delete_own(self.key(head["table"], v), x)
-        saved = self.save(body, head["version"], new_id=lambda: x)
+        saved = self.save(body, head["version"], new_id=lambda: x, take_back=False)
         return {"table": saved["table"], "version": saved["version"]}
 
     def _move_back(self, std, old, n, m, mine):

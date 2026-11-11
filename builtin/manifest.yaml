@@ -1,4 +1,4 @@
-version: 0.5.32
+version: 0.5.34
 type: plugin
 author: hu8627
 name: dmn_json
@@ -20,7 +20,7 @@ resource:
       enabled: true
     storage:
       enabled: true
-      size: 16777216
+      size: 1073741824
 plugins:
   tools:
   - provider/dmn.yaml

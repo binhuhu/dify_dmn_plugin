@@ -34,6 +34,7 @@ from dmn_client.route_table import DATA_V4, UUID_RE, RouteTableError, digest
 from dmn_client.scene_spelling import scene_state
 from dmn_client.table_names import storage_name
 
+SEARCH_CAPABILITY = "SEARCH_CAPABILITY"  # 2026-11-11, 提议，待 Brian 定
 DECISION_ROLES = (
     "SCENE_ENTITY",
     "ACCEPTANCE",
@@ -43,6 +44,9 @@ DECISION_ROLES = (
     "DISPOSAL_STATUS",  # 0.5.17 (DMN 2.0 R9): once per run, outcome + reason_code
     "SEARCH_FACT",  # 0.5.28: solution.search.fact, query -> facts; generic decision-set checks only (columns pending)
 )
+# 2026-11-11 (提议，待 Brian 定): SEARCH_CAPABILITY, the new query -> fact shape (one row per capability call,
+# dmn_client.search_plan), is not in DECISION_ROLES: only a decision table under a query -> fact name takes it, so every
+# other table keeps 0.5.32's role list and refusal text
 # 0.5.22: the three-tier resource routing is a decision table (role RESOURCE), only under a resource-targets name
 RESOURCE = "RESOURCE"
 ROLES_BY_SCHEMA = {
@@ -87,6 +91,9 @@ KEYS = {
     "texts",
     "coexist",  # 0.5.19: FEATURE_REALITY only
 }
+# 2026-11-11 (提议，待 Brian 定): SEARCH_CAPABILITY only — the capability table checked against, and the quantities a
+# request may give. Kept out of KEYS so every other table's refusal text stays 0.5.32's.
+SEARCH_KEYS = {"capability_table", "request_inputs"}
 SET_KEYS = {"stage", "role", "models"}
 MAX_SHADOWING = 100
 MAX_OVERLAP_CHECKS = 4096
@@ -137,6 +144,8 @@ CONCLUSION_KEYS = {
     "SEARCH_FACT": (
         "fact_id",
     ),  # 0.5.28: one rule per fact code (proposal until the standard fixes the columns)
+    # 2026-11-11 (提议): one rule per capability call — the capability and where each input comes from
+    "SEARCH_CAPABILITY": ("capability_id", "bindings"),
     # 0.5.22: a dotted key is a path into the result object
     "RESOURCE": ("tier1.pool", "tier2.skill_group", "tier2.priority", "tier3.pick"),
 }
@@ -385,16 +394,25 @@ def check(declare, clean, schema):
     resource = schema == DECISION and _resource_name(clean.get("table"))
     if resource:
         roles = (RESOURCE,)
+    # 2026-11-11: only a decision table under a query -> fact name takes the new shape's role; every refusal text of
+    # other tables (and of a wrong role there) stays 0.5.32's (adversarial review 3, round 2)
+    search = schema == DECISION and _named_role(clean.get("table")) == "SEARCH_FACT"
     if schema == DECISION_SET:
         return _set(declare, clean, roles)
+    new_role = type(declare) is dict and declare.get("role") == SEARCH_CAPABILITY
+    allowed = KEYS | (SEARCH_KEYS if new_role else set())
     _need(
-        type(declare) is dict and set(declare) <= KEYS,
-        "declare 只能有 " + " / ".join(sorted(KEYS)),
+        type(declare) is dict and set(declare) <= allowed,
+        "declare 只能有 " + " / ".join(sorted(allowed)),
         "",
     )
     out = {"stage": declare.get("stage"), "role": _declared_role(declare, clean)}
     _need(out["stage"] in STAGES, "stage 只能是 TRANSITION / STANDARD", ".stage")
-    _need(out["role"] in roles, "这种表的 role 只能是 " + " / ".join(roles), ".role")
+    _need(
+        out["role"] in roles or (search and out["role"] == SEARCH_CAPABILITY),
+        "这种表的 role 只能是 " + " / ".join(roles),
+        ".role",
+    )
     _need(
         out["stage"] == "TRANSITION" or schema == DECISION or out["role"] == "SCENE_TOPIC",
         "补充、资源去向、路由的标准输出由插件产出，声明先写 TRANSITION",
@@ -468,6 +486,12 @@ def check(declare, clean, schema):
         out["row_order_sha256"] = declare["row_order_sha256"]
     if "coexist" in declare:
         out["coexist"] = _coexist(declare["coexist"], out)
+    if out["role"] == SEARCH_CAPABILITY:
+        # 2026-11-11: before the generic decision checks, so a refusal names the new shape's rule first
+        from dmn_client import search_plan  # noqa
+
+        _need(out["stage"] == "STANDARD", "新形状的查询 → 事实表写 stage = STANDARD", ".stage")
+        out.update(search_plan.declaration(out, declare, clean["model"]))
     if schema == DECISION:
         _decision(out, clean["model"])
     elif out["role"] == "SUPPLEMENT":
@@ -564,11 +588,12 @@ def _declared_role(declare, clean):
 
 
 def _role_of_name(role, table):
-    """0.5.19: a solution-layer table name fixes the role of its declaration."""
+    """0.5.19: a solution-layer table name fixes the role of its declaration. 2026-11-11: a query -> fact name also takes
+    the new shape's role (SEARCH_CAPABILITY); a declaration that leaves role out keeps SEARCH_FACT."""
     for prefix, want in ROLE_BY_NAME:
         if type(table) is str and table.startswith(prefix):
             _need(
-                role == want,
+                role == want or (want, role) == ("SEARCH_FACT", SEARCH_CAPABILITY),
                 "表名 %s 是 %s 段的表，role 要写 %s（写的是 %s）"
                 % (table, prefix[:-1], want, role),
                 ".role",

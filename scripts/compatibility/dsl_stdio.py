@@ -45,7 +45,7 @@ def run(stage, output):
 
     try:
         manifest = receive(lambda item: item.get("type") == "plugin")
-        assert manifest["name"] == "dmn_json" and manifest["version"] == "0.5.32"
+        assert manifest["name"] == "dmn_json" and manifest["version"] == "0.5.34"
         count = 0
         for tool, case in (
             ("evaluate_decision", "ok"),

@@ -244,8 +244,12 @@ def run_op(storage, op, table=DEFAULT_TABLE, version=None, body=None, *, gate=No
     except RouteTableError as exc:
         status = 409 if exc.code in CONFLICT else 503 if exc.code in UNAVAILABLE else 400
         return error(status, exc.code, exc.message, exc.path)
-    except Exception:  # storage backend failure: no detail, never echo content
-        return error(503, "ROUTE_TABLE_UNAVAILABLE", "插件存储读写失败，稍后再试")
+    except (
+        Exception
+    ) as exc:  # storage backend failure: never echo content; which call failed is said
+        from dmn_client import storage_care  # noqa
+
+        return storage_care.failed(storage, exc)
 
 
 def _back_from_resource_decision(name, current, doc):

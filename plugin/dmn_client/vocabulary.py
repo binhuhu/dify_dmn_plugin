@@ -9,6 +9,7 @@ Also the top-level keys a save may carry (unknown_keys): a key that is neither t
 field the plugin itself writes into a stored version is unknown. The five delivery-chain tables refuse it; every other
 table still drops it but its 200 receipt names it (UNKNOWN_KEYS_DROPPED)."""
 
+from dmn_client import capability_catalog as CC
 from dmn_client import declarations as D
 from dmn_client import route_table as R
 from dmn_client import stored_tables as S
@@ -73,6 +74,7 @@ def declared():
         "tables": {
             "delivery_chain": {std: old for std, old in sorted(STANDARD.items())},
             "scene_topic": S.TABLE_SCENE_TOPIC,
+            "capability": S.TABLE_CAPABILITY,  # 2026-11-11, proposal
             "policy_owners": dict(S.POLICY_OWNERS),
             "prefixes": {
                 "target": S.TABLE_TARGET_PREFIX,
@@ -116,6 +118,12 @@ def declared():
             "gap_kinds": list(D.GAP_KINDS),
             "customer_forbidden_words": list(D.CUSTOMER_WORDS),
             "segments": list(D.SEGMENTS),
+            # 2026-11-11 (proposals, pending Brian): the capability table's closed sets and the new query -> fact role,
+            # which only a decision table under a query -> fact name takes
+            "capability_faces": list(CC.FACES),
+            "capability_kinds": list(CC.KINDS),
+            "capability_fact_types": list(CC.FACT_TYPES),
+            "search_capability_role": D.SEARCH_CAPABILITY,
         },
         "shapes": {
             "top_level_keys": {
@@ -135,6 +143,9 @@ def declared():
             "fixed_inputs": {k: list(v) for k, v in D.FIXED_INPUTS.items()},
             "declaration_keys": sorted(D.KEYS),
             "declaration_set_keys": sorted(D.SET_KEYS),
+            "declaration_search_keys": sorted(D.SEARCH_KEYS),  # 2026-11-11, SEARCH_CAPABILITY only
+            "capability_row_keys": list(CC.ROW_KEYS),
+            "capability_fact_keys": list(CC.FACT_KEYS),
             "scene_topic_row_keys": list(S.SCENE_TOPIC_ROW_KEYS),
             "scene_topic_domain_keys": list(S.SCENE_TOPIC_DOMAIN_KEYS),
             "solution_keys_v3": list(R.SOLUTION_KEYS_V3),
