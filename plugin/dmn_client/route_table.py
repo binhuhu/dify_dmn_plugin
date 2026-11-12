@@ -1889,9 +1889,22 @@ class StorageTables:
                 doc = self._read(self.key(again))
         return doc
 
-    def version(self, table, n):
+    def version(self, table, n, head=None):
         _need(type(n) is int and n >= 1, "ROUTE_TABLE_INVALID", "版本号必须是正整数", "version")
         self.key(table, n)
+        if storage_name(table) not in STANDARD:
+            # 0.5.35: a table outside the five, as R2 below for a standard name: its history ends at its head (a version
+            # key above it is half-written, never read), and the head is its own version when that key is gone (a
+            # clean-up that read a stale head took it for a half-written one). head: the head, when the caller has it
+            if head is None:
+                head = self._read(self.key(table))
+            if head is None:
+                return None  # no head yet (a first save stopped before it): every version key is half-written
+            if isinstance(head, dict) and type(head.get("version")) is int:
+                if n > head["version"]:
+                    return None
+                doc = self._read(self.key(table, n))
+                return head if doc is None and n == head["version"] else doc
         name = self.where(table, version=n)
         if name == table and old_name(table) is not None:
             # R2: the standard name's own history ends at its head; a version key above it is an orphan, never read
@@ -1929,7 +1942,7 @@ class StorageTables:
         if head is None or type(head.get("version")) is not int:
             return None
         for n in range(head["version"], max(0, head["version"] - MAX_HISTORY), -1):
-            doc = head if n == head["version"] else self.version(table, n)
+            doc = head if n == head["version"] else self.version(table, n, head=head)
             if doc is not None and doc.get("content_sha256") == sha:
                 return doc
         return None
@@ -1941,7 +1954,7 @@ class StorageTables:
             return []
         out = []
         for n in range(cur["version"], max(0, cur["version"] - MAX_HISTORY), -1):
-            doc = self.version(table, n)
+            doc = self.version(table, n, head=cur if storage_name(table) not in STANDARD else None)
             if doc is not None:
                 from dmn_client.stored_tables import rows  # noqa
 
@@ -2356,6 +2369,10 @@ class StorageTables:
         raw = canon(clean).encode("utf-8")
         head_tried = False
         try:
+            if guard is None and cur is not None and not self.storage.exist(self.key(table, have)):
+                # a head without its version key (a clean-up that read a stale head took the head's version for a
+                # half-written one): the version comes back from the head, the whole document, before the next one
+                self.storage.set(self.key(table, have), canon(cur).encode("utf-8"))
             if report is not None:
                 self.storage.set(
                     self.gate_key(table, clean["save_id"]), canon(report).encode("utf-8")

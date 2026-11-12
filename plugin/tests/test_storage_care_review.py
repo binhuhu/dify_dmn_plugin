@@ -10,11 +10,14 @@ from datetime import datetime, timedelta, timezone
 import pytest
 from test_route_table import FakeStorage
 from test_storage_care import (
+    LATER,
     REFUSAL,
     Capped,
     T,
     apply,
     call,
+    confirm_of,
+    head_save_id,
     keys_of,
     mine,
     plan_of,
@@ -240,7 +243,7 @@ def test_a_key_another_prune_removed_between_exist_and_delete_is_gone_not_a_fail
 
 def test_a_signed_prune_sent_again_is_refused_because_its_plan_no_longer_holds():
     s = store(Capped(), 3)
-    plan = call(s, "prune", {"keep": 1, "expected_version": 3}, writers=TWO)[1]
+    plan = call(s, "prune", {"keep": 1, "expected_version": 3}, writers=TWO, now=lambda: NOW)[1]
     body = signed(
         "prune", {"keep": 1, "expected_version": 3, "plan_sha256": plan["plan_sha256"]}, table=T
     )
@@ -419,7 +422,7 @@ def test_a_space_refusal_behind_a_later_failure_is_still_the_answer():
 def test_a_signed_prune_frees_space_when_storage_is_full():
     """No request receipt to write first: the clean-up that makes room runs on full storage."""
     s = store(Capped(), 3)
-    plan = call(s, "prune", {"keep": 1, "expected_version": 3}, writers=TWO)[1]
+    plan = call(s, "prune", {"keep": 1, "expected_version": 3}, writers=TWO, now=lambda: NOW)[1]
     s.cap = s.used + 100  # less than a request receipt
     body = {"keep": 1, "expected_version": 3, "plan_sha256": plan["plan_sha256"]}
     status, out = entry(s, "prune", body, table=T)
@@ -550,23 +553,28 @@ def test_a_prune_run_twice_never_deletes_a_version_saved_between_the_runs():
     s = store(Interleave())
     then = (datetime.now(timezone.utc) - timedelta(hours=1)).strftime("%Y-%m-%dT%H:%M:%SZ")
     s.data[HEAD + ":v2"] = canon(
-        dict(table_doc(), version=2, save_id="f" * 32, saved_at=then)
+        dict(
+            table_doc(), version=2, save_id="f" * 32, parent_save_id=head_save_id(s), saved_at=then
+        )
     ).encode()
     s.data["route-table:%s:s:%s" % (T, "f" * 32)] = b"copy"
     ask = {"keep": 1, "expected_version": 1, "half_written": True}
-    plan = call(s, "prune", ask)[1]
+    ask["confirm"] = confirm_of(call(s, "prune", ask, now=LATER)[1])
+    plan = call(s, "prune", ask, now=LATER)[1]
+    assert plan["keys"] == 1, plan
     body = dict(ask, plan_sha256=plan["plan_sha256"])
     other = FakeStorage()
     other.data = s.data
 
     def first_run_then_save():
-        assert call(other, "prune", body)[0] == 200
+        assert call(other, "prune", body, now=LATER)[0] == 200
         assert (
             call(other, "save", dict(table_doc("清完重存"), expected_version=1))[1]["version"] == 2
         )
 
-    s.at, s.hook = "route-table:%s:s:%s" % (T, "f" * 32), first_run_then_save
-    status, out = call(s, "prune", body)
+    # version 2 is looked at twice in the plan, then before and after its other keys: here, between those two checks
+    s.at, s.nth, s.hook = HEAD + ":v2", 4, first_run_then_save
+    status, out = call(s, "prune", body, now=LATER)
     assert status == 200 and out["skipped"] == [HEAD + ":v2"], out
     assert StorageTables(s).load(T)["version"] == 2 and HEAD + ":v2" in s.data
 
@@ -618,13 +626,17 @@ def test_a_503_that_may_have_left_a_half_version_says_what_to_do(outcome):
     s.data = dict(store(FakeStorage()).data)
     status, out = call(s, "save", dict(table_doc("第二次"), expected_version=1))
     assert status == 503 and out["storage_failure"]["outcome"] == outcome, out
-    assert (
-        out["error"]["message"] != "插件存储读写失败，稍后再试"
-        and "half_written" in out["error"]["message"]
-    )
+    message = out["error"]["message"]
+    assert message != "插件存储读写失败，稍后再试"
+    if outcome == "UNKNOWN":
+        # reading the old head back proves nothing while a host may still serve it: no clean-up on that ground
+        assert "并不能证明没写进去" in message and "不要改了内容再试" in message, message
+        assert "负责人" in message and "照原内容" in message, message
+    else:
+        assert "half_written" in message and "负责人" in message, message
 
 
-def test_a_503_that_left_nothing_keeps_the_old_words():
+def test_a_503_that_left_nothing_keeps_the_old_words_and_says_a_timed_out_write_may_land_later():
     class Timeout(FakeStorage):
         def set(self, key, val):
             if ":s:" in key:
@@ -635,7 +647,9 @@ def test_a_503_that_left_nothing_keeps_the_old_words():
     s.data = dict(store(FakeStorage()).data)
     status, out = call(s, "save", dict(table_doc("第二次"), expected_version=1))
     assert status == 503 and out["storage_failure"]["outcome"] == "NOT_SAVED", out
-    assert out["error"]["message"] == "插件存储读写失败，稍后再试"
+    message = out["error"]["message"]
+    assert message.startswith("插件存储读写失败，稍后再试"), message
+    assert "10 分钟" in message and "先读回" in message, message
 
 
 def test_a_first_store_on_full_storage_is_not_taken_back_and_converges():
@@ -680,7 +694,8 @@ def test_usage_of_a_table_never_stored_and_of_a_bad_name():
 
 
 def _half_written_v2(s, saved_at, save_id="f" * 32):
-    d = dict(json.loads(s.data[HEAD]), version=2, save_id=save_id, saved_at=saved_at)
+    head = json.loads(s.data[HEAD])
+    d = dict(head, version=2, save_id=save_id, parent_save_id=head["save_id"], saved_at=saved_at)
     s.data[HEAD + ":v2"] = canon(d).encode()
     s.data["route-table:%s:s:%s" % (T, save_id)] = canon(d).encode()
 
@@ -690,7 +705,9 @@ def test_a_signed_prune_is_refused_when_the_same_keys_come_back_saved_at_another
     s = store(Capped(), 1)
     _half_written_v2(s, (NOW - timedelta(hours=1)).strftime("%Y-%m-%dT%H:%M:%SZ"))
     ask = {"keep": 1, "expected_version": 1, "half_written": True}
+    ask["confirm"] = [{"version": 2, "save_id": "f" * 32}]
     plan = run_entry(s, "prune", T, None, json.dumps(ask), writers=TWO, now=lambda: NOW)[1]
+    assert plan["keys"] == 1, plan
     body = json.dumps(signed("prune", dict(ask, plan_sha256=plan["plan_sha256"]), table=T))
 
     def run():
@@ -699,7 +716,7 @@ def test_a_signed_prune_is_refused_when_the_same_keys_come_back_saved_at_another
         )
 
     assert run()[0] == 200 and HEAD + ":v2" not in s.data
-    _half_written_v2(s, (NOW - timedelta(minutes=30)).strftime("%Y-%m-%dT%H:%M:%SZ"))
+    _half_written_v2(s, (NOW - timedelta(minutes=90)).strftime("%Y-%m-%dT%H:%M:%SZ"))
     status, out = run()
     assert status == 409 and out["error"]["code"] == "STORED_TABLE_PRUNE_PLAN_CHANGED", out
     assert HEAD + ":v2" in s.data
@@ -760,13 +777,16 @@ def test_a_signed_prune_dated_ahead_is_not_applied_to_a_second_half_version():
     from test_v0524_two_state import AT
 
     s = store(Capped())
-    s.data[HEAD + ":v2"] = orphan(2, NOW - timedelta(hours=1), save_id="a" * 32)
+    parent = head_save_id(s)
+    s.data[HEAD + ":v2"] = orphan(2, NOW - timedelta(hours=2), save_id="a" * 32, parent=parent)
     ask = {"keep": 1, "expected_version": 1, "half_written": True}
+    ask["confirm"] = [{"version": 2, "save_id": "a" * 32}]
     first = NOW - timedelta(minutes=10)
     plan = _prune_at(s, ask, first)[1]
+    assert plan["keys"] == 1, plan
     body = signed("prune", dict(ask, plan_sha256=plan["plan_sha256"]), table=T, at=AT)
     assert _prune_at(s, body, first)[0] == 200 and HEAD + ":v2" not in s.data
-    s.data[HEAD + ":v2"] = orphan(2, first + timedelta(seconds=1), save_id="b" * 32)
+    s.data[HEAD + ":v2"] = orphan(2, NOW - timedelta(hours=2), save_id="b" * 32, parent=parent)
     status, out = _prune_at(s, body, NOW + timedelta(minutes=10))
     assert status == 409 and HEAD + ":v2" in s.data, out
 
@@ -802,14 +822,16 @@ def _undo_fix_left_half_written():
 @pytest.mark.parametrize("second_prune", [False, True])
 def test_a_half_version_an_undo_retry_makes_the_head_is_not_deleted(second_prune):
     """The undo's retry finishes its reference fix from the very version key prune is about to delete (same derived
-    save id), or a second prune clears it first and the retry saves the fix again: the head keeps its version key.
-    The copy by save id, which nothing outside the five reads, may go in that window."""
+    save id), or a second prune clears it first and the retry saves the fix again: the head keeps its version key."""
     s, resource, x = _undo_fix_left_half_written()
-    later = datetime.now(timezone.utc) + timedelta(minutes=11)
+    later = datetime.now(timezone.utc) + timedelta(hours=2)
     ask = {"keep": 1, "expected_version": 1, "half_written": True}
     other = FakeStorage()
     other.data = s.data
+    ask["confirm"] = confirm_of(_prune_at(other, ask, later, table="x.route", writers="OPEN")[1])
+    assert ask["confirm"] == [{"version": 2, "save_id": x}]
     plan = _prune_at(other, ask, later, table="x.route", writers="OPEN")[1]
+    assert plan["keys"] == 1, plan
     body = dict(ask, plan_sha256=plan["plan_sha256"])
 
     def meanwhile():
@@ -817,7 +839,8 @@ def test_a_half_version_an_undo_retry_makes_the_head_is_not_deleted(second_prune
             assert _prune_at(other, body, later, table="x.route", writers="OPEN")[0] == 200
         assert _undo(other, resource)[0] == 200
 
-    s.at_exist, s.nth, s.hook2 = "route-table:x.route:s:" + x, 2, meanwhile
+    # between the two checks of version 2 (it is looked at twice in the plan, then once per check)
+    s.at_exist, s.nth, s.hook2 = "route-table:x.route:v2", 4, meanwhile
     status, out = _prune_at(s, body, later, table="x.route", writers="OPEN")
     assert status == 200 and out["skipped"] == ["route-table:x.route:v2"], out
     head = json.loads(s.data["route-table:x.route"])
@@ -832,21 +855,26 @@ def test_a_half_version_replaced_by_another_saves_leftover_is_not_deleted():
     from test_storage_care import orphan
 
     s = _Interleave(store(FakeStorage()).data)
-    s.data[HEAD + ":v2"] = orphan(2, NOW - timedelta(hours=1), save_id="a" * 32)
+    parent = head_save_id(s)
+    s.data[HEAD + ":v2"] = orphan(2, NOW - timedelta(hours=1), save_id="a" * 32, parent=parent)
     s.data["route-table:%s:s:%s" % (T, "a" * 32)] = b"copy"
     later = NOW + timedelta(hours=2)  # the leftovers below are dated from NOW
     ask = {"keep": 1, "expected_version": 1, "half_written": True}
+    ask["confirm"] = [{"version": 2, "save_id": "a" * 32}]
     plan = _prune_at(s, ask, later, writers="OPEN")[1]
+    assert plan["keys"] == 1, plan
     body = dict(ask, plan_sha256=plan["plan_sha256"])
     other = FakeStorage()
     other.data = s.data
 
     def meanwhile():
         assert _prune_at(other, body, later, writers="OPEN")[0] == 200
-        other.data[HEAD + ":v2"] = orphan(2, NOW - timedelta(minutes=30), save_id="b" * 32)
+        other.data[HEAD + ":v2"] = orphan(
+            2, NOW - timedelta(minutes=30), save_id="b" * 32, parent=parent
+        )
 
-    # the 2nd look at the copy in this run: after it worked its plan out again and checked version 2, before it deletes
-    s.at_exist, s.nth, s.hook2 = "route-table:%s:s:%s" % (T, "a" * 32), 2, meanwhile
+    # after this run worked its plan out again (two looks at version 2) and its first check, before its second
+    s.at_exist, s.nth, s.hook2 = HEAD + ":v2", 4, meanwhile
     status, out = _prune_at(s, body, later, writers="OPEN")
     assert status == 200 and out["skipped"] == [HEAD + ":v2"], out
     assert json.loads(s.data[HEAD + ":v2"])["save_id"] == "b" * 32
@@ -855,19 +883,111 @@ def test_a_half_version_replaced_by_another_saves_leftover_is_not_deleted():
 # ── merged with the new-architecture line ─────────────────────────────────────
 
 
-def test_the_capability_table_is_not_pruned_and_says_why():
+def _save(storage, doc):
+    have = call(storage, "table", table=doc["table"])[1]["version"]
+    return call(storage, "save", dict(doc, expected_version=have), table=doc["table"])
+
+
+def _catalog(note="能力表", rename=None):
+    from capability_fixtures import catalog
+
+    d = catalog(note=note)
+    if rename:
+        d["capabilities"][0]["name"] = rename
+    return d
+
+
+def _clear_half_written(s, table, expected_version):
+    """As the release note's steps say: plan, name the half-written versions checked, plan again, run."""
+    ask = {"expected_version": expected_version, "keep": 1, "half_written": True}
+    later = datetime.now(timezone.utc) + timedelta(hours=2)
+    ask["confirm"] = confirm_of(_prune_at(s, ask, later, table=table, writers="OPEN")[1])
+    plan = _prune_at(s, ask, later, table=table, writers="OPEN")[1]
+    return _prune_at(
+        s, dict(ask, plan_sha256=plan["plan_sha256"]), later, table=table, writers="OPEN"
+    )
+
+
+def test_a_capability_tables_old_versions_are_kept():
+    from dmn_client.capability_catalog import TABLE
+
+    s = Capped()
+    for i in range(3):
+        assert (
+            _save(s, _catalog("第 %d 版" % (i + 1), rename=None if i == 0 else "预估（%d）" % i))[0]
+            == 200
+        )
+    before = dict(s.data)
+    status, plan = call(s, "prune", {"keep": 1, "expected_version": 3}, table=TABLE)
+    assert status == 200 and plan["keys"] == 0 and plan["versions"] == [], plan
+    assert "能力表" in plan["old_versions_kept"]
+    status, out = call(
+        s,
+        "prune",
+        {"keep": 1, "expected_version": 3, "plan_sha256": plan["plan_sha256"]},
+        table=TABLE,
+    )
+    assert status == 200 and s.data == before, out
+    u = call(s, "usage", table=TABLE)[1]
+    assert u["prunable"] is False and u["half_written_prunable"] is True
+
+
+def test_a_capability_table_stopped_at_its_head_is_cleared_and_saved_again():
+    """The head refused for space: the half-written version is above the head, where no content search looks, so
+    nothing pins it; clearing it as the answer says lets the table, and a query -> fact table pinning it, be saved."""
+    from search_fixtures import search_doc
+
+    from dmn_client.capability_catalog import TABLE
+
+    s = Capped()
+    status, out = _save(s, _catalog())
+    assert status == 200, out
+    raw = len(canon(dict(out["doc"])).encode("utf-8"))
+    s.cap = (
+        s.used + 2 * raw + 200
+    )  # the next version's copy by save id and its version key fit, its head does not
+    second = _catalog("第二版", rename="预估信息（改）")
+    status, out = _save(s, second)
+    assert status == 507 and out["storage_failure"]["outcome"] == "UNKNOWN", out
+    s.cap = 10**9
+    assert [h["version"] for h in call(s, "usage", table=TABLE)[1]["half_written"]] == [2]
+    status, out = _clear_half_written(s, TABLE, 1)
+    assert status == 200 and out["keys"] == 1, out  # its version key; the copy by save id stays
+    assert _save(s, second)[0] == 200
+    status, out = _save(s, search_doc(cat=second))
+    assert status == 200, out
+
+
+def test_another_kind_of_table_under_the_capability_tables_name_is_pruned_as_any():
+    """The capability table does not hold its name against other formats: a table there is judged by its head."""
     from dmn_client.capability_catalog import TABLE
 
     s = FakeStorage()
-    s.data = {
-        "route-table:" + TABLE: canon({"version": 3, "save_id": "c" * 32}).encode(),
-        "route-table:" + TABLE + ":v1": canon({"version": 1, "save_id": "a" * 32}).encode(),
-    }
-    before = dict(s.data)
-    status, out = call(s, "prune", {"keep": 1, "expected_version": 3}, table=TABLE)
-    assert status == 400 and out["error"]["code"] == "STORED_TABLE_PRUNE_NOT_SUPPORTED", out
-    assert "能力表" in out["error"]["message"] and s.data == before
-    assert call(s, "usage", table=TABLE)[1]["prunable"] is False
+    for n in (
+        1,
+        2,
+        3,
+    ):  # a route table (v1 format) stored under that name, written as storage holds it
+        d = canon(
+            {
+                "schema": "dmn-json.route-table/v1",
+                "table": TABLE,
+                "version": n,
+                "save_id": "%032d" % n,
+                "saved_at": "2026-01-0%dT00:00:00Z" % n,
+            }
+        ).encode()
+        s.data["route-table:%s:v%d" % (TABLE, n)] = d
+        s.data["route-table:%s:s:%032d" % (TABLE, n)] = d
+    s.data["route-table:" + TABLE] = d
+    u = call(s, "usage", table=TABLE)[1]
+    assert u["prunable"] is True
+    status, plan = call(s, "prune", {"keep": 1, "expected_version": 3}, table=TABLE)
+    assert (
+        status == 200
+        and [v["version"] for v in plan["versions"]] == [1, 2]
+        and "old_versions_kept" not in plan
+    )
 
 
 # ── release safety review ─────────────────────────────────────────────────────

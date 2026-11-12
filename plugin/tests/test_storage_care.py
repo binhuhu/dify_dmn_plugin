@@ -46,7 +46,7 @@ def table_doc(note="样例"):
     return dict(doc(T, m, declare(m, "FACT_FEATURE", FEATURE_OUT)), note=note)
 
 
-def call(storage, op, body=None, table=T, caller=MAINTENANCE_APP, writers="OPEN"):
+def call(storage, op, body=None, table=T, caller=MAINTENANCE_APP, writers="OPEN", now=None):
     return run_entry(
         storage,
         op,
@@ -55,7 +55,26 @@ def call(storage, op, body=None, table=T, caller=MAINTENANCE_APP, writers="OPEN"
         None if body is None else json.dumps(body, ensure_ascii=False),
         writers=writers,
         caller_app=caller,
+        **({"now": now} if now is not None else {}),
     )
+
+
+# nothing is deleted before it has been stored an hour: clean-ups here run two hours after the saves
+def LATER():
+    return datetime.now(timezone.utc) + timedelta(hours=2)
+
+
+def head_save_id(storage, table=T):
+    return StorageTables(storage).load(table)["save_id"]
+
+
+def confirm_of(plan):
+    """What the person in charge names after checking: every half-written version whose parent is the head."""
+    return [
+        {"version": h["version"], "save_id": h["save_id"]}
+        for h in plan["half_written"]
+        if h["child_of_head"]
+    ]
 
 
 def store(storage, times=1):
@@ -186,21 +205,20 @@ def test_a_refused_head_is_left_as_it_is_and_cleared_as_half_written_later():
     s.cap = 10**9
     stuck = call(s, "save", dict(table_doc("第二次"), expected_version=1))
     assert stuck[0] == 409, stuck
-    later = datetime.now(timezone.utc) + timedelta(minutes=11)
     ask = {"keep": 1, "expected_version": 1, "half_written": True}
-    plan = run_entry(s, "prune", T, None, json.dumps(ask), writers="OPEN", now=lambda: later)[1]
-    assert plan["keys"] == 2, plan  # version 2 and its copy by save id
-    status, out = run_entry(
-        s,
-        "prune",
-        T,
-        None,
-        json.dumps(dict(ask, plan_sha256=plan["plan_sha256"])),
-        writers="OPEN",
-        caller_app=MAINTENANCE_APP,
-        now=lambda: later,
-    )
+    plan = call(s, "prune", ask, now=LATER)[1]
+    # its parent is the head read here: it may be the real head behind a stale read, so it stays until named
+    assert plan["keys"] == 0 and plan["half_written"][0]["child_of_head"] is True, plan
+    assert "confirm" in plan["half_written"][0]["why_kept"]
+    ask["confirm"] = confirm_of(plan)
+    plan = call(s, "prune", ask, now=LATER)[1]
+    assert plan["keys"] == 1, plan  # its version key only; the copy by save id stays
+    status, out = call(s, "prune", dict(ask, plan_sha256=plan["plan_sha256"]), now=LATER)
     assert status == 200 and out["applied"] is True, out
+    sid = ask["confirm"][0]["save_id"]
+    assert "route-table:" + T + ":v2" not in s.data and "route-table:" + T + ":s:" + sid in s.data
+    kept = call(s, "saved", {"save_id": sid})
+    assert kept[0] == 200 and kept[1]["doc"]["note"] == "第二次", kept
     assert call(s, "save", dict(table_doc("第二次"), expected_version=1))[0] == 200
 
 
@@ -269,23 +287,34 @@ def test_usage_shows_a_half_written_version():
 # ── removing versions ─────────────────────────────────────────────────────────
 
 
-def orphan(n, at, save_id="f" * 32):
+def orphan(n, at, save_id="f" * 32, parent=None):
     return canon(
-        dict(table_doc(), version=n, save_id=save_id, saved_at=at.strftime(STAMP))
+        dict(
+            table_doc(),
+            version=n,
+            save_id=save_id,
+            parent_save_id=parent,
+            saved_at=at.strftime(STAMP),
+        )
     ).encode()
 
 
 def plan_of(s, keep=1, **kw):
     version = kw.pop("expected_version", call(s, "table")[1]["version"])
-    status, out = call(s, "prune", dict(keep=keep, expected_version=version, **kw))
+    now = kw.pop("now", LATER)
+    status, out = call(s, "prune", dict(keep=keep, expected_version=version, **kw), now=now)
     assert status == 200 and out["applied"] is False, out
     return out
 
 
 def apply(s, plan, keep=1, **kw):
     version = kw.pop("expected_version", plan["head_version"])
+    now = kw.pop("now", LATER)
     return call(
-        s, "prune", dict(keep=keep, expected_version=version, plan_sha256=plan["plan_sha256"], **kw)
+        s,
+        "prune",
+        dict(keep=keep, expected_version=version, plan_sha256=plan["plan_sha256"], **kw),
+        now=now,
     )
 
 
@@ -352,7 +381,7 @@ def test_pruning_makes_room_for_the_save_the_platform_refused():
     assert status == 200 and out["version"] == 6, out
 
 
-@pytest.mark.parametrize("keep", [0, -1, 1001, "2", 2.0, True, None])
+@pytest.mark.parametrize("keep", [0, -1, 100001, "2", 2.0, True, None])
 def test_keep_must_be_a_whole_number_from_one(keep):
     s = store(FakeStorage(), 2)
     status, out = call(s, "prune", {"keep": keep, "expected_version": 2})
@@ -417,7 +446,7 @@ def test_only_the_maintenance_app_deletes_but_anyone_may_see_the_plan():
 
 def test_signed_mode_deletes_only_with_a_writers_signature():
     s = store(Capped(), 3)
-    plan = call(s, "prune", {"keep": 1, "expected_version": 3}, writers=TWO)[1]
+    plan = call(s, "prune", {"keep": 1, "expected_version": 3}, writers=TWO, now=lambda: NOW)[1]
     body = {"keep": 1, "expected_version": 3, "plan_sha256": plan["plan_sha256"]}
     status, out = entry(s, "prune", body, table=T, sign_as=False)
     assert (
@@ -430,18 +459,26 @@ def test_signed_mode_deletes_only_with_a_writers_signature():
     assert out["operation_record"]["actor"]["writer_verified"] is True
 
 
-def test_a_half_written_version_goes_only_when_asked_and_only_when_old():
+def test_a_half_written_version_goes_only_when_asked_old_and_confirmed():
     s = store(Capped())
-    s.set("route-table:" + T + ":v2", orphan(2, datetime.now(timezone.utc) - timedelta(hours=1)))
+    two = orphan(2, datetime.now(timezone.utc) - timedelta(hours=1), parent=head_save_id(s))
+    s.set("route-table:" + T + ":v2", two)
     s.set("route-table:" + T + ":s:" + "f" * 32, b"copy")
     stuck = call(s, "save", dict(table_doc("卡住"), expected_version=1))
     assert stuck[0] == 409 and "第 2 版刚被别人存了" in stuck[1]["error"]["message"]
-    plan = plan_of(s)
-    assert plan["keys"] == 0 and [h["removable"] for h in plan["half_written"]] == [True]
     plan = plan_of(s, half_written=True)
-    assert plan["keys"] == 2
-    assert apply(s, plan, half_written=True)[0] == 200
-    assert sorted(s.deleted) == ["route-table:" + T + ":s:" + "f" * 32, "route-table:" + T + ":v2"]
+    assert plan["keys"] == 0 and [h["removable"] for h in plan["half_written"]] == [False]
+    confirm = [{"version": 2, "save_id": "f" * 32}]
+    assert confirm_of(plan) == confirm
+    plan = plan_of(s, confirm=confirm)
+    assert plan["keys"] == 0 and [h["removable"] for h in plan["half_written"]] == [True]
+    plan = plan_of(s, half_written=True, confirm=confirm)
+    assert plan["keys"] == 1
+    assert apply(s, plan, half_written=True)[0] == 409  # the confirmation is part of the plan
+    assert apply(s, plan, half_written=True, confirm=confirm)[0] == 200
+    assert (
+        s.deleted == ["route-table:" + T + ":v2"] and s.data["route-table:" + T + ":s:" + "f" * 32]
+    )
     assert call(s, "save", dict(table_doc("通了"), expected_version=1))[0] == 200
 
 
@@ -449,18 +486,48 @@ def test_a_half_written_table_that_never_got_a_head_is_cleared_at_version_zero()
     s = Capped()
     s.set("route-table:" + T + ":v1", orphan(1, datetime.now(timezone.utc) - timedelta(minutes=11)))
     plan = plan_of(s, half_written=True, expected_version=0)
-    assert apply(s, plan, half_written=True)[0] == 200
+    assert plan["keys"] == 0 and plan["half_written"][0]["child_of_head"] is True, plan
+    confirm = confirm_of(plan)
+    plan = plan_of(s, half_written=True, expected_version=0, confirm=confirm)
+    assert apply(s, plan, half_written=True, confirm=confirm)[0] == 200
     assert [k for k in keys_of(s) if ":operation:" not in k] == []
     assert call(s, "save", dict(table_doc(), expected_version=0))[0] == 200
 
 
-@pytest.mark.parametrize("age", [timedelta(0), timedelta(minutes=9, seconds=50)])
+@pytest.mark.parametrize("age", [timedelta(0), timedelta(minutes=59, seconds=50)])
 def test_a_young_half_written_version_may_be_a_save_in_flight_and_stays(age):
     s = store(Capped())
-    s.set("route-table:" + T + ":v2", orphan(2, datetime.now(timezone.utc) - age))
-    plan = plan_of(s, half_written=True)
+    now = datetime.now(timezone.utc)
+    s.set("route-table:" + T + ":v2", orphan(2, now - age, parent=head_save_id(s)))
+    confirm = [{"version": 2, "save_id": "f" * 32}]
+    plan = plan_of(s, half_written=True, confirm=confirm, now=lambda: now)
     assert plan["keys"] == 0 and plan["half_written"][0]["removable"] is False
-    assert apply(s, plan, half_written=True)[0] == 200 and s.deleted == []
+    assert "1 小时" in plan["half_written"][0]["why_kept"]
+    assert apply(s, plan, half_written=True, confirm=confirm, now=lambda: now)[0] == 200
+    assert s.deleted == []
+
+
+@pytest.mark.parametrize("age", [timedelta(0), timedelta(minutes=59, seconds=50)])
+def test_a_young_old_version_stays_too(age):
+    """The version after a head an instance may still hold: deleting it would let that instance's save pass."""
+    s = store(Capped(), 3)
+    now = datetime.now(timezone.utc) + age  # stored this long when the clean-up runs
+    plan = plan_of(s, keep=1, now=lambda: now)
+    assert plan["keys"] == 0 and [v["version"] for v in plan["kept_young"]] == [1, 2], plan
+    assert apply(s, plan, keep=1, now=lambda: now)[0] == 200 and s.deleted == []
+
+
+def test_a_half_written_version_whose_parent_is_not_the_head_is_never_deleted():
+    """Its parent is another save: the head read may have been put back (saves crossing, a write landing late) and
+    this version may be one that succeeded. Naming it does not help."""
+    s = store(Capped())
+    at = datetime.now(timezone.utc) - timedelta(hours=3)
+    s.set("route-table:" + T + ":v2", orphan(2, at, parent="e" * 32))
+    confirm = [{"version": 2, "save_id": "f" * 32}]
+    plan = plan_of(s, half_written=True, confirm=confirm)
+    assert plan["keys"] == 0 and plan["half_written"][0]["child_of_head"] is False, plan
+    assert "父版不是读到的头版" in plan["half_written"][0]["why_kept"]
+    assert apply(s, plan, half_written=True, confirm=confirm)[0] == 200 and s.deleted == []
 
 
 def test_a_half_written_version_without_a_readable_time_stays():

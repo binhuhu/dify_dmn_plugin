@@ -38,7 +38,17 @@ from dmn_client.route_table import (
     canon,
     digest,
 )
-from dmn_client.storage_care import CARE_OPS, PRUNE, USAGE, Watched, failed, prune, usage
+from dmn_client.storage_care import (
+    CARE_OPS,
+    PRUNE,
+    SAVED,
+    USAGE,
+    Watched,
+    failed,
+    prune,
+    saved,
+    usage,
+)
 from dmn_client.storage_care import full as storage_full
 from dmn_client.table_names import STANDARD, old_name, storage_name
 from dmn_client.vocabulary import declared, format_keys, unknown_keys
@@ -109,6 +119,7 @@ STATUS = {
     "STORED_TABLE_WRITERS_APP_REJECTED": 403,
     "ROUTE_TABLE_VERSION_MISSING": 404,
     "STORED_TABLE_PRUNE_PLAN_CHANGED": 409,
+    "STORED_TABLE_SAVED_INVALID": 400,
 }
 
 
@@ -629,6 +640,10 @@ def run_entry(
                 return refused
             if op == USAGE:
                 return 200, usage(storage, table)
+            if op == SAVED:
+                return 200, saved(
+                    storage, table, {k: v for k, v in parsed.items() if k != "writer"}
+                )
             rest = {k: v for k, v in parsed.items() if k != "writer"}
             if parsed.get("plan_sha256") is None:
                 return 200, prune(storage, table, rest, now)  # the plan: a read
@@ -818,11 +833,17 @@ def _record(storage, op, table, result, by, show_history=False):
         return status, dict(out, saved_by=by, metadata_status=state)
     if op == "history" and show_history and isinstance(out.get("versions"), list):
         vs = []
+        tables = StorageTables(storage)
+        try:
+            # read once: the version reads below for a table outside the five each need the head
+            head = tables.load(table, pinned=True) if storage_name(table) not in FIVE else None
+        except Exception:
+            head = None
         for v in out["versions"]:
             item = v
             try:
                 if isinstance(v, dict) and type(v.get("version")) is int:
-                    doc = StorageTables(storage).version(table, v["version"])
+                    doc = tables.version(table, v["version"], head=head)
                     sid = doc.get("save_id") if isinstance(doc, dict) else None
                     if isinstance(sid, str) and sid:
                         rec = _provenance(storage, doc.get("table") or table, sid)

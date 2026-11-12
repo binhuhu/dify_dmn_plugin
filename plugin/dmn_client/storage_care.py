@@ -7,20 +7,28 @@ plugin cannot ask how much is left. So:
   which call it was and whether the platform refused it for space (STORED_TABLE_STORAGE_FULL), instead of one
   sentence for everything. The platform's own words go to the plugin log only, never into an answer.
 - usage(table) reads what one table holds: every version key, its size and how many copies it has.
-- prune(table) deletes versions below the newest `keep`, and (asked) a half-written version above the head. It is two
-  calls: the first returns the plan and its digest, the second carries the digest and deletes exactly that plan.
+- prune(table) deletes versions below the newest `keep` once stored an hour, and (asked) the version key of a
+  half-written version above the head, only when it is an hour old, its parent is the head read here and the request
+  names it (confirm). It is two calls: the first returns the plan and its digest, the second carries the digest and
+  deletes exactly that plan.
+- saved(table) reads the copy kept under a save id: a version key removed by mistake can be saved again from it.
+
+A version above the head read here may be the real head behind an old cached read, or one that succeeded before saves
+crossing put the head back: the plugin cannot tell, which is why such a version needs naming and keeps its copy.
 
 The five delivery-chain tables are not pruned: their history is release evidence and the first-store undo walks it.
-Nor is the capability table: query -> fact tables pin one of its versions by content digest, and the plugin cannot
-list every table to find which versions are pinned.
+Nor are the old versions of a capability table: query -> fact tables pin one of its versions by content digest, and
+the plugin cannot list every table to find which versions are pinned. What is above its head is cleared by the same
+rule as any table's: only when the head read is the real one and no saves crossed can nothing pin it.
 """
 
 import hashlib
 import json
 import logging
+import re
 from datetime import datetime, timedelta, timezone
 
-from dmn_client.capability_catalog import TABLE as CAPABILITY_TABLE
+from dmn_client.capability_catalog import SCHEMA as CAPABILITY_SCHEMA
 from dmn_client.route_table import (
     STAMP,
     RouteTableError,
@@ -38,18 +46,20 @@ UNAVAILABLE_TEXT = "插件存储读写失败，稍后再试"
 # A refused write says what it left behind when the save knows (StorageWriteFailed.outcome), and how to make room:
 # op=usage shows what a table holds, op=prune removes old versions of tables outside the five.
 ROOM = (
-    "腾空间：op=usage 看各表占用，op=prune 清理方案层表的旧版次（交付链五张表不能清理），"
+    "腾空间：op=usage 看各表占用，op=prune 清理方案层表的旧版次（交付链五张表不能清理；能力表的旧版次不清理），"
     "或请平台放宽这个插件的存储上限"
 )
 # What a stopped save left, said the same whatever stopped it; a refusal for space adds how to make room.
 LEFT = {
     "NOT_SAVED": "这次没有存，表还是存之前的样子。照原版本号重存（空间满时先腾出空间）；若报「第 %(version)d 版刚被别人存了」，"
-    "就是留了半截，按写到一半收拾（存满 10 分钟后 op=usage 看 half_written，op=prune 加 half_written: true）",
-    "HALF_WRITTEN": "这次没有存，但收回时出错，可能留下了写到一半的第 %(version)d 版或几份零散副本。存满 10 分钟后用 "
-    "op=usage 看有没有 half_written，有就用 op=prune 加 half_written: true 收拾，再重存",
+    "说明留了半截：照原内容重存不会成功，请负责人按说明核实后处理（op=usage 看 half_written）",
+    "HALF_WRITTEN": "这次没有存，但收回时出错，可能留下了写到一半的第 %(version)d 版或几份零散副本。"
+    "请负责人按说明核实后处理（op=usage 看 half_written），不要反复重存",
     "UNKNOWN": "第 %(version)d 版的头版写入失败，但可能已经写进去，而一段时间里读到的可能还是旧头版。先不要重存、"
-    "不要收拾：等宿主缓存过期后再读回这张表，头版的存表号（save_id）以 %(save_id)s 开头就是这次存上了；"
-    "仍是上一版才是写到一半，那时再用 op=prune 加 half_written: true 收拾它、重存",
+    "不要收拾：读回这张表，头版的存表号（save_id）以 %(save_id)s 开头就是这次存上了。"
+    "读回仍是上一版，并不能证明没写进去（宿主可能还在给旧头版）：这时重存会被拒（「第 %(version)d 版刚被别人存了」），"
+    "不要改了内容再试。等读回的头版变了再定；过了宿主读缓存的时长仍是上一版，请负责人按说明核实后处理"
+    "（op=usage 看 half_written）。核实、收拾之后再存，照原内容存",
 }
 FULL_TEXT = {
     **{k: "平台给插件的存储空间用完了。先" + ROOM + "。然后：" + v for k, v in LEFT.items()},
@@ -58,7 +68,13 @@ FULL_TEXT = {
     + "（签名模式下连签名使用记录都写不下时，草稿删除、发布、撤销都做不了：保留 SIGNED 签名校验，"
     "经批准用 op=prune 腾出空间，或请平台放宽存储上限后再核对、重试）",
 }
-OTHER_TEXT = {k: "插件存储读写失败。" + v for k, v in LEFT.items() if k != "NOT_SAVED"}
+OTHER_TEXT = {
+    **{k: "插件存储读写失败。" + v for k, v in LEFT.items() if k != "NOT_SAVED"},
+    # a write that timed out may still land: the daemon finishes it after the plugin's call has given up
+    "NOT_SAVED": UNAVAILABLE_TEXT
+    + "：这次没有存上，但若是超时，写入可能在 10 分钟内晚到。过 10 分钟先读回这张表，再照原版本号重存；"
+    "报「第 %(version)d 版刚被别人存了」就请负责人按说明核实后处理（op=usage 看 half_written）",
+}
 # What the open-source plugin daemon says when a write would pass the plugin's storage cap. Matching is by words,
 # lower case; a platform that words it differently is reported as OTHER with its own words, never guessed FULL.
 FULL_MARKS = (
@@ -69,13 +85,18 @@ FULL_MARKS = (
     "no space left",
 )
 PLATFORM_TEXT_MAX = 200
-USAGE, PRUNE = "usage", "prune"
-CARE_OPS = (USAGE, PRUNE)
+USAGE, PRUNE, SAVED = "usage", "prune", "saved"
+CARE_OPS = (USAGE, PRUNE, SAVED)
 ORPHAN_SCAN = 3  # version keys looked for above the head
-ORPHAN_MIN_AGE = timedelta(
-    minutes=10
-)  # a younger one may be a save between its version and its head
-MAX_KEEP = 1000
+# Nothing is deleted before it has been stored this long. Upstream plugin daemon 0.5.1 keeps a read in a shared Redis
+# cache for 5 minutes and may finish a write after the plugin's call has timed out (SDK 250 s, daemon 600 s by
+# default): an hour is more than six times either. It assumes the host behaves so (not confirmed for AgentHub).
+CLEAN_MIN_AGE = timedelta(hours=1)
+ORPHAN_MIN_AGE = CLEAN_MIN_AGE
+SAVE_ID_RE = re.compile(r"[0-9a-f]{32}")
+MAX_KEEP = (
+    100000  # at least any head version: keep = the head's version clears half-written versions only
+)
 SIDECARS = (
     "s",
     "g",
@@ -242,10 +263,25 @@ def _version_entry(storage, table, n):
     return {
         "version": n,
         "save_id": sid,
+        "parent_save_id": _sid(doc.get("parent_save_id")) if isinstance(doc, dict) else None,
         "saved_at": doc.get("saved_at") if isinstance(doc, dict) else None,
         "bytes": size,
         "keys": keys,
     }
+
+
+def _saved_time(entry):
+    try:
+        return datetime.strptime(entry["saved_at"], STAMP).replace(tzinfo=timezone.utc)
+    except (TypeError, ValueError):
+        return None
+
+
+def _old_enough(entry, now):
+    at = _saved_time(entry)
+    if at is None:
+        return False  # no readable time: not provably old
+    return now - at >= CLEAN_MIN_AGE
 
 
 def _head(storage, table):
@@ -265,19 +301,73 @@ def _head(storage, table):
     return doc, n
 
 
-def _orphans(storage, table, have, now):
+KEPT_FIVE = "交付链表：头版之上的版次不清理"
+KEPT_YOUNG = "还没存满 1 小时：可能是正在存的那一版，或宿主还在给旧值"
+KEPT_NO_TIME = "读不出存表时间：看不出它存了多久，插件不清理它"
+KEPT_ROLLED_BACK = (
+    "它的父版不是读到的头版：头版可能被拨回过（几次存表交错，或写入晚到），这一版可能回过成功。"
+    "插件不清理它；表因此存不进时，见说明的已知限制"
+)
+KEPT_ANSWERED_OK = "插件记过这一版的存表回了成功（有谁存的记录）：它当过头版，不是存到一半的，读到的头版多半是旧值。插件不清理它"
+KEPT_WAS_HEAD = "有版次以它为父版：它当过头版，不是存到一半的，读到的头版是旧值。插件不清理它，等读回的头版变了再看"
+KEPT_UNNAMEABLE = "它没有 32 位存表号，没法在 confirm 里写明：插件不清理它"
+KEPT_UNCONFIRMED = (
+    "它的父版正是读到的头版：可能是存到一半的，也可能是已经写进去的真头版、而读到的头版是旧缓存，插件分不清。"
+    "要删，须在 confirm 里写明负责人核过的 {version, save_id}"
+)
+
+
+def _orphans(storage, table, have, head, now, confirmed=()):
+    """Version keys above the head. Only one whose parent is the head read here, that nothing shows was ever a head,
+    stored for CLEAN_MIN_AGE and named in confirmed (as {version, save_id}) is removable; why_kept says why any other
+    is not. Shown was a head: a save answered 200 for it (its who-saved record, written only then), or another version
+    above the head names it as parent (some save read it as the head, so the head read here is old)."""
+    head_sid = _sid(head.get("save_id")) if isinstance(head, dict) else None
+    found = [
+        e
+        for e in (
+            _version_entry(storage, table, n) for n in range(have + 1, have + 1 + ORPHAN_SCAN)
+        )
+        if e is not None
+    ]
+    parents = {e["parent_save_id"] for e in found if e["parent_save_id"]}
     out = []
-    for n in range(have + 1, have + 1 + ORPHAN_SCAN):
-        e = _version_entry(storage, table, n)
-        if e is None:
-            continue
-        try:
-            at = datetime.strptime(e["saved_at"], STAMP).replace(tzinfo=timezone.utc)
-            old = now - at >= ORPHAN_MIN_AGE
-        except (TypeError, ValueError):
-            old = False  # no readable time: not provably abandoned
-        out.append(dict(e, removable=old))
+    for e in found:
+        sid = _sid(e["save_id"])
+        child = e["parent_save_id"] == head_sid
+        answered = sid is not None and _sidecar(table, "by", sid) in e["keys"]
+        if storage_name(table) in STANDARD:
+            why = KEPT_FIVE
+        elif not child:
+            why = KEPT_ROLLED_BACK
+        elif answered:
+            why = KEPT_ANSWERED_OK
+        elif sid is not None and sid in parents:
+            why = KEPT_WAS_HEAD
+        elif not _old_enough(e, now):
+            why = KEPT_YOUNG if _saved_time(e) is not None else KEPT_NO_TIME
+        elif not (isinstance(sid, str) and SAVE_ID_RE.fullmatch(sid)):
+            why = KEPT_UNNAMEABLE
+        elif {"version": e["version"], "save_id": sid} not in confirmed:
+            why = KEPT_UNCONFIRMED
+        else:
+            why = None
+        out.append(
+            dict(
+                e,
+                child_of_head=child,
+                answered_ok=answered,
+                has_copy=sid is not None and _sidecar(table, "s", sid) in e["keys"],
+                removable=why is None,
+                **({"why_kept": why} if why else {}),
+            )
+        )
     return out
+
+
+def _pinned_versions(doc):
+    """Whether this table's versions below the head may be pinned by other tables: a capability table."""
+    return isinstance(doc, dict) and doc.get("schema") == CAPABILITY_SCHEMA
 
 
 def _table_keys(table):
@@ -291,7 +381,7 @@ def usage(storage, table):
     """Read-only. The keys under this name exactly as stored (an old name and its standard name are asked apart)."""
     doc, have = _head(storage, table)
     versions = [e for e in (_version_entry(storage, table, n) for n in range(1, have + 1)) if e]
-    orphans = _orphans(storage, table, have, datetime.now(timezone.utc))
+    orphans = _orphans(storage, table, have, doc, datetime.now(timezone.utc))
     head = _size(storage, StorageTables.key(table)) if doc is not None else None
     head_bytes = len(head) if head is not None else 0
     # the five's draft and first-store record, when there (other tables have neither)
@@ -312,19 +402,33 @@ def usage(storage, table):
         "bytes": head_bytes
         + sum(e["bytes"] for e in versions + orphans)
         + sum(len(b) for b in extra),
-        "prunable": storage_name(table) not in STANDARD and table != CAPABILITY_TABLE,
+        # old versions: not the five's, not a capability table's (pinned); half-written ones: any table but the five
+        "prunable": storage_name(table) not in STANDARD and not _pinned_versions(doc),
+        "half_written_prunable": storage_name(table) not in STANDARD,
     }
 
 
 # ── removing versions ────────────────────────────────────────────────────────
 
 
-def _plan(storage, table, keep, with_orphans, now):
+def _plan(storage, table, keep, with_orphans, now, confirmed=()):
     doc, have = _head(storage, table)
-    gone = [e for e in (_version_entry(storage, table, n) for n in range(1, have - keep + 1)) if e]
-    orphans = _orphans(storage, table, have, now)
+    # a capability table's old versions stay (other tables pin them); only what is above its head may go
+    top = 0 if _pinned_versions(doc) else have - keep
+    listed = [e for e in (_version_entry(storage, table, n) for n in range(1, top + 1)) if e]
+    # an old version goes only once stored for CLEAN_MIN_AGE: deleting the one after a head an instance may still hold
+    # would let that instance's save pass the "version taken" check and overwrite the head
+    gone = [e for e in listed if _old_enough(e, now)]
+    young = [e for e in listed if not _old_enough(e, now)]
+    orphans = _orphans(storage, table, have, doc, now, confirmed)
     half = [e for e in orphans if e["removable"]] if with_orphans else []
-    delete = [k for e in gone + half for k in e["keys"]]
+    head_sid = _sid(doc.get("save_id")) if isinstance(doc, dict) else None
+    # a half-written version loses its version key only (the one key that blocks the next save); the copy by save id
+    # and its other records stay, so a mistaken removal can be read back (op=saved) and saved again
+    groups = [(e["keys"], _sid(e["save_id"]), False) for e in gone] + [
+        ([e["keys"][-1]], _sid(e["save_id"]), True) for e in half
+    ]
+    delete = [k for keys, _, _ in groups for k in keys]
     core = {
         "table": table,
         "head_version": have,
@@ -333,6 +437,7 @@ def _plan(storage, table, keep, with_orphans, now):
         # the keys alone could come back the same (a derived save id): which save each version is, and when it was
         # saved, tell them apart
         "saved": [[e["version"], _sid(e["save_id"]), e["saved_at"]] for e in gone + half],
+        "confirmed": sorted([c["version"], c["save_id"]] for c in confirmed),
     }
     return (
         {
@@ -340,12 +445,30 @@ def _plan(storage, table, keep, with_orphans, now):
             "head_version": have,
             "keep": keep,
             "versions": [{k: v for k, v in e.items() if k != "keys"} for e in gone],
+            **(
+                {
+                    "kept_young": [
+                        {"version": e["version"], "saved_at": e["saved_at"]} for e in young
+                    ]
+                }
+                if young
+                else {}
+            ),
             "half_written": [{k: v for k, v in e.items() if k != "keys"} for e in orphans],
             "keys": len(delete),
-            "bytes": sum(e["bytes"] for e in gone + half),
+            "bytes": sum(e["bytes"] for e in gone)
+            + sum(len(_size(storage, e["keys"][-1]) or b"") for e in half),
             "plan_sha256": hashlib.sha256(canon(core).encode("utf-8")).hexdigest(),
+            **(
+                {
+                    "old_versions_kept": "能力表的旧版次被查询 → 事实表按内容摘要钉着，不清理；只收拾头版之上的半截版次"
+                }
+                if _pinned_versions(doc)
+                else {}
+            ),
         },
-        [(e["keys"], _sid(e["save_id"]), e in half) for e in gone + half],
+        groups,
+        head_sid,
     )
 
 
@@ -364,25 +487,22 @@ def _sid(value):
 
 
 def prune(storage, table, body, now=lambda: datetime.now(timezone.utc)):
-    """body: {expected_version, keep, half_written?: bool, plan_sha256?}. Without plan_sha256: the plan, nothing
-    deleted. With it: the plan is worked out again and deleted only if it is still that plan. A version's other keys go
-    before its version key, so a run that stops half way is finished by planning and running again."""
+    """body: {expected_version, keep, half_written?: bool, confirm?: [{version, save_id}], plan_sha256?}. Without
+    plan_sha256: the plan, nothing deleted. With it: the plan is worked out again and deleted only if it is still that
+    plan. Old versions go once stored for CLEAN_MIN_AGE, their other keys before their version key, so a run that stops
+    half way is finished by planning and running again. A half-written version goes only when its parent is the head
+    read here, it is old enough, and confirm names it; and then only its version key goes."""
     _need(
         storage_name(table) not in STANDARD,
         "STORED_TABLE_PRUNE_NOT_SUPPORTED",
         "%s 是交付链表：它的历史是放行依据，首存撤销也要读它，不清理旧版次" % table,
         "table",
     )
-    _need(
-        table != CAPABILITY_TABLE,
-        "STORED_TABLE_PRUNE_NOT_SUPPORTED",
-        "%s 是能力表：查询 → 事实表按内容摘要钉着它的某一版，插件找不全哪些版次正被引用，不清理旧版次"
-        % table,
-        "table",
-    )
     StorageTables.key(table)
     body = body if isinstance(body, dict) else {}
-    extra = sorted(set(body) - {"expected_version", "keep", "half_written", "plan_sha256"})
+    extra = sorted(
+        set(body) - {"expected_version", "keep", "half_written", "plan_sha256", "confirm"}
+    )
     _need(not extra, "STORED_TABLE_PRUNE_INVALID", "清理请求里不认识的键：" + "、".join(extra), "")
     keep, sha, half = body.get("keep"), body.get("plan_sha256"), body.get("half_written", False)
     _need(
@@ -403,7 +523,22 @@ def prune(storage, table, body, now=lambda: datetime.now(timezone.utc)):
         "plan_sha256 写上一次返回的计划摘要",
         "plan_sha256",
     )
-    plan, groups = _plan(storage, table, keep, half, now())
+    confirm = body.get("confirm", [])
+    _need(
+        type(confirm) is list
+        and all(
+            type(c) is dict
+            and set(c) == {"version", "save_id"}
+            and type(c["version"]) is int
+            and type(c["save_id"]) is str
+            and SAVE_ID_RE.fullmatch(c["save_id"])
+            for c in confirm
+        ),
+        "STORED_TABLE_PRUNE_INVALID",
+        'confirm 写成 [{"version": 版本号, "save_id": 32 位存表号}]：负责人核过、确认不是真头版的半截版次',
+        "confirm",
+    )
+    plan, groups, head_sid = _plan(storage, table, keep, half, now(), confirm)
     _need(
         type(body.get("expected_version")) is int
         and body["expected_version"] == plan["head_version"],
@@ -420,14 +555,18 @@ def prune(storage, table, body, now=lambda: datetime.now(timezone.utc)):
         "清理计划和上次看到的不一样了（表被存过，或上次清到一半）：按这次返回的计划重新确认",
         "plan_sha256",
     )
-    skipped = []
 
     def still(version_key, save_id, half_written):
-        """Still the save the plan saw, and (a half-written one) not the head by now: an undo's retry may finish its
-        reference fix from this very version key."""
-        return _saved_by(storage, version_key) == save_id and not (
-            half_written and _head(storage, table)[1] != plan["head_version"]
-        )
+        """Still the save the plan saw, and (a half-written one) the head still the very one the plan judged it by
+        (version and save id): an undo's retry may finish its reference fix from this version key, and another head
+        of the same version makes it a version whose parent is not the head."""
+        if _saved_by(storage, version_key) != save_id:
+            return False
+        if not half_written:
+            return True
+        head, have = _head(storage, table)
+        sid = _sid(head.get("save_id")) if isinstance(head, dict) else None
+        return have == plan["head_version"] and sid == head_sid
 
     def gone(key):
         if storage.exist(key):
@@ -454,3 +593,19 @@ def prune(storage, table, body, now=lambda: datetime.now(timezone.utc)):
             continue
         gone(version_key)
     return dict(plan, applied=True, **({"skipped": skipped} if skipped else {}))
+
+
+def saved(storage, table, body):
+    """Read-only: the copy kept under a save id ({"save_id": 32 hex}), whatever became of its version key; None when
+    there is none. The way back for a version removed by mistake: read it, then save it again."""
+    StorageTables.key(table)
+    body = body if isinstance(body, dict) else {}
+    sid = body.get("save_id")
+    _need(
+        set(body) == {"save_id"} and type(sid) is str and SAVE_ID_RE.fullmatch(sid),
+        "STORED_TABLE_SAVED_INVALID",
+        'op=saved 写 {"save_id": 32 位存表号}（在清理的操作记录、usage 的 half_written、或回包的 storage_failure 里）',
+        "save_id",
+    )
+    doc = StorageTables(storage)._read(_sidecar(table, "s", sid))
+    return {"table": table, "save_id": sid, "doc": doc}
