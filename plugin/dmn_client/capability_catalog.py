@@ -1,5 +1,4 @@
-"""能力表 capability-catalog/v1 (2026-11-11, Brian「是不是我们需要一个能力(API)dmn表，类似场景一样需要有域标签（一级）
-实体标签 能力（列表 详情类似）」). 提议，待 Brian 定: the schema name dmn-json.capability-catalog/v1, the format name
+"""能力表 capability-catalog/v1：按域、实体和能力类型描述可调用能力。 提议，由项目维护者确认: the schema name dmn-json.capability-catalog/v1, the format name
 capability-catalog/v1, the one table name platform.capability.catalog, the face / kind codes and every field name below.
 
 One row per capability, read by its key (like the scene-topic table): which domain (level one) and entity it serves,
@@ -20,9 +19,9 @@ import re
 
 from dmn_client.route_table import RouteTableError, digest
 
-SCHEMA = "dmn-json.capability-catalog/v1"  # 提议，待 Brian 定
-FORMAT = "capability-catalog/v1"  # 提议，待 Brian 定
-TABLE = "platform.capability.catalog"  # 提议，待 Brian 定
+SCHEMA = "dmn-json.capability-catalog/v1"  # 提议，由项目维护者确认
+FORMAT = "capability-catalog/v1"  # 提议，由项目维护者确认
+TABLE = "platform.capability.catalog"  # 提议，由项目维护者确认
 KEYS = ("schema", "table", "capabilities", "note", "declare")
 
 FACES = ("QUERY", "ACTION")  # 2026-11-11: actions are registered, not called (callable = false)

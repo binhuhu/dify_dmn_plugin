@@ -1,5 +1,5 @@
-"""新结构的查询 → 事实表 (2026-11-11, Brian「search 到 fact 输入不应该是查询维度和能力 输出才是 fact结果嘛是不是和api类似」).
-提议，待 Brian 定: the role name SEARCH_CAPABILITY, the declaration keys capability_table / request_inputs, the result keys
+"""查询策略将请求参数映射到能力调用，并将查询结果映射为事实。
+提议，由项目维护者确认: the role name SEARCH_CAPABILITY, the declaration keys capability_table / request_inputs, the result keys
 capability_id / bindings / facts and the error codes SEARCH_TABLE_INVALID / SEARCH_CAPABILITY_TABLE_MISSING.
 
 The table is an ordinary decision table (dmn-json.decision-table/v1) with hit policy COLLECT under a solution.search.fact.

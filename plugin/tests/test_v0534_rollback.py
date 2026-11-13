@@ -166,7 +166,7 @@ def test_new_constructs_are_not_rollback_compatible(old_plugin, kind):
             table, fmt, inputs = (
                 SEARCH_TABLE,
                 "decision-table/v1",
-                {"parameters": records(coupon_id="C1"), "missing": "UNKNOWN"},
+                {"parameters": records(copy_key="C1"), "missing": "UNKNOWN"},
             )
     if doc:
         st.save(doc, 0)

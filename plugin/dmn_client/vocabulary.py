@@ -118,7 +118,7 @@ def declared():
             "gap_kinds": list(D.GAP_KINDS),
             "customer_forbidden_words": list(D.CUSTOMER_WORDS),
             "segments": list(D.SEGMENTS),
-            # 2026-11-11 (proposals, pending Brian): the capability table's closed sets and the new query -> fact role,
+            # 2026-11-11 (proposals, pending maintainer review): the capability table's closed sets and the new query -> fact role,
             # which only a decision table under a query -> fact name takes
             "capability_faces": list(CC.FACES),
             "capability_kinds": list(CC.KINDS),

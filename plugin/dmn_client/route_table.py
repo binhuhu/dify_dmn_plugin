@@ -5,7 +5,7 @@ import hashlib
 import json
 import re
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from dmn_client.scene_id import (  # noqa: F401
     CANONICAL_PATTERN,
@@ -79,6 +79,11 @@ MAX_SOLUTIONS = 256
 IN_CHUNK = 128  # values per "in" condition (json-table bound)
 TRANSFER_TO = ("SAFETY",)
 MAX_HISTORY = 50
+# 0.5.36: a version left above the head by saves crossing (its parent is not the head) is numbered past once it has
+# been stored this long: the same wait as storage care's clean-up (storage_care.CLEAN_MIN_AGE), for the same reasons
+# (a read cache, writes that land late). At most SKIP_MAX such versions are passed in one save.
+SETTLED_AGE = timedelta(hours=1)
+SKIP_MAX = 3
 TABLE_RE = re.compile(r"^[a-z0-9][a-z0-9._-]{0,63}$")
 # 0.5.17 (DMN 2.0 §二): a solution-layer policy table is solution.<two segments>.<scene_id>[.<solution>][.<part>] (0.5.30 added <solution>). The scene id keeps its
 # canonical spelling (M_P_02_04_01), so this is the one storable name outside TABLE_RE; <part> is lower case, up to 24.
@@ -1698,14 +1703,44 @@ def _change(mark, now):
     return "%s → %s" % (mark[0], now[0] if now[0] != mark[0] else "另一轮的 " + now[0])
 
 
+def _passed(skipped):
+    """0.5.36: the versions a save numbered past, said before why it was refused."""
+    return (
+        "跳过了第 %s 版（几次存表交错后留在头版之上的版次）之后，"
+        % "、".join(str(s["version"]) for s in skipped)
+        if skipped
+        else ""
+    )
+
+
+def _taken_text(n, skipped, settles, stuck=False):
+    """0.5.36: why version n is taken. The first words stay 0.5.19's. stuck: after numbering past, the version in the way
+    can never be passed (the limit, or a version that is not a settled leftover); one saved on the head read may just
+    be the next head, so that refusal keeps 0.5.19's advice."""
+    passed = _passed(skipped)
+    if settles is not None:
+        return passed + (
+            "第 %d 版刚被别人存了：它是几次存表交错后留在头版之上的版次（父版不是你读到的头版），"
+            "存满 1 小时后（%s 起）存表会跳过它往上编号，到时再存" % (n, settles)
+        )
+    if skipped and stuck:
+        return passed + (
+            "第 %d 版刚被别人存了：这一版存表跳不过去（一连超过 %d 版，或它读不出、没写父版或存表时间）。"
+            "重存也一样，请负责人按插件存储照看的说明处理（op=usage 看 half_written）"
+            % (n, SKIP_MAX)
+        )
+    return passed + "第 %d 版刚被别人存了：载入最新版、保留你的改动后再存" % n
+
+
 class StorageWriteFailed(Exception):
     """A save outside the five whose storage write failed, raised from the storage error. outcome: NOT_SAVED (what it
     wrote is taken back), HALF_WRITTEN (its version key may be left without a head), UNKNOWN (the head write failed and
     may have landed)."""
 
-    def __init__(self, table, version, outcome, save_id):
+    def __init__(self, table, version, outcome, save_id, skipped=()):
         super().__init__("%s v%d: storage write failed (%s)" % (table, version, outcome))
         self.table, self.version, self.outcome, self.save_id = table, version, outcome, save_id
+        self.skipped = list(skipped)  # 0.5.36: versions this save numbered past
 
 
 class StorageTables:
@@ -1790,7 +1825,8 @@ class StorageTables:
         _need(
             back == target,
             "STORED_TABLE_IN_PROGRESS",
-            "表 %s 的首存状态同时被另一个操作写了：这次没有生效，读最新状态后再来" % table,
+            "表 %s 的首存状态写入已尝试，但读回不一致，不能确认最终状态：先读回核对首存状态，不要直接重试"
+            % table,
             "table",
         )
         return target
@@ -1953,8 +1989,18 @@ class StorageTables:
         if cur is None:
             return []
         out = []
-        for n in range(cur["version"], max(0, cur["version"] - MAX_HISTORY), -1):
-            doc = self.version(table, n, head=cur if storage_name(table) not in STANDARD else None)
+        # 0.5.36: outside the five, a version off the head's parent chain (a later save numbered past it, or a sibling
+        # that wrote a chain member's number) is marked off_chain
+        five = storage_name(table) in STANDARD
+        numbers = list(range(cur["version"], max(0, cur["version"] - MAX_HISTORY), -1))
+        links = {}
+        for n in numbers:
+            doc = self.version(table, n, head=None if five else cur)
+            links[n] = (
+                {"save_id": doc.get("save_id"), "parent_save_id": doc.get("parent_save_id")}
+                if isinstance(doc, dict)
+                else None
+            )
             if doc is not None:
                 from dmn_client.stored_tables import rows  # noqa
 
@@ -1983,6 +2029,11 @@ class StorageTables:
                         **self._published(doc),
                     }
                 )
+        if not five:
+            gaps = self.chain_gaps(table, cur, numbers[-1], links)
+            for entry in out:
+                if entry["version"] in gaps:
+                    entry["off_chain"] = True
         return out
 
     @staticmethod
@@ -2336,16 +2387,24 @@ class StorageTables:
         transition = supplement_transition_of(cur, clean, schema_transition)
         _need(clean["note"].strip() != "", "ROUTE_TABLE_NOTE_REQUIRED", "写一句改动说明", "note")
         n = have + 1
+        skipped = []
         if guard is not None:
             # I19 before the version check, under both names: from that check to its head a save makes 0.5.19's
             # storage calls exactly, and a save it stops has written nothing. A state change after it is caught after
             # the head (I20; a copy also by its own old-head checks, I11)
             self._before_head(guard, table, n)
         # T1: 0.5.19's guard under every name: a version key that exists is another save's (or a crash's orphan)
+        taken = self.storage.exist(self.key(table, n))
+        if taken and guard is None and take_back:
+            # 0.5.36: unless it is a version saves crossing left above the head (only looked at when taken)
+            n, skipped, settles, stuck = self._skip_stranded(table, cur, n)
+            taken = not skipped or self.storage.exist(self.key(table, n))
+        else:
+            settles, stuck = None, False
         _need(
-            not self.storage.exist(self.key(table, n)),
+            not taken,
             "ROUTE_TABLE_STALE",
-            "第 %d 版刚被别人存了：载入最新版、保留你的改动后再存" % n,
+            _taken_text(n, skipped, settles, stuck),
             "expected_version",
         )
         content = content_sha256(clean)
@@ -2403,14 +2462,15 @@ class StorageTables:
             )
             if isinstance(exc, RouteTableError):
                 raise
-            raise StorageWriteFailed(table, n, outcome, clean["save_id"]) from exc
+            raise StorageWriteFailed(table, n, outcome, clean["save_id"], skipped) from exc
         try:
             for key in (self.key(table, n), self.key(table)):
                 back = self._read(key)
                 _need(
                     back is not None and back.get("save_id") == clean["save_id"],
                     "ROUTE_TABLE_RACE",
-                    "同一时刻有人也存了第 %d 版，你这次没有生效（另存为 %s）：载入最新版、保留你的改动后再存"
+                    _passed(skipped)
+                    + "第 %d 版写入已尝试，但读回不一致，不能确认最终状态（保存标识 %s）：先读回核对当前头版和保存副本，保留你的改动，不要直接重试"
                     % (n, clean["save_id"][:12]),
                     "expected_version",
                 )
@@ -2420,7 +2480,131 @@ class StorageTables:
             if guard is not None and guard[2] == "standard":
                 self._withdraw(guard[0], table, n, clean["save_id"])
             raise
+        self.skipped = skipped
         return clean
+
+    def _skip_stranded(self, table, cur, n):
+        """0.5.36: (the version number to save as, the versions numbered past). Storage has no conditional write, so
+        saves crossing can leave a version above the head that was answered 200 and whose parent is not the head (the
+        head was put back by a slower save). No save could ever pass it, and deleting it would reuse its number. A save
+        numbers past it instead: it stays where it is, readable by version, by content digest and by save id.
+
+        Passed only when all hold: the head read has a version key that is this very save, or none (the save writes it
+        back); the version above names a parent and it is not the head read; it has been stored SETTLED_AGE. A version
+        whose parent is the head read is never passed: it is another save on this head, in flight, or the real head
+        behind an old read, and numbering past it would drop its changes from the new head."""
+        if cur is None:
+            return n, [], None, False
+        head_sid = cur.get("save_id")
+        if not isinstance(head_sid, str) or not head_sid:
+            return n, [], None, False
+        try:
+            own = self._read(self.key(table, cur["version"]))
+        except RouteTableError:
+            return n, [], None, False
+        if own is not None and (not isinstance(own, dict) or own.get("save_id") != head_sid):
+            # two saves wrote this version number, the head is one and its version key the other: the same version on
+            # the same parent, and the head's own copy by save id is there. The head read is still what it says
+            sibling = (
+                isinstance(own, dict)
+                and own.get("version") == cur.get("version")
+                and own.get("parent_save_id") == cur.get("parent_save_id")
+                and self.storage.exist(self.save_key(table, head_sid))
+            )
+            if not sibling:
+                return n, [], None, False
+        # stuck: the version in the way can never be passed (the limit, or one that is not a settled leftover); one
+        # saved on the head read is not stuck: it may be another save in flight or the real head behind an old read
+        skipped, settles, stuck = [], None, False
+        for _ in range(SKIP_MAX):
+            key = self.key(table, n)
+            if not self.storage.exist(key):
+                break
+            try:
+                above = self._read(key)
+            except RouteTableError:
+                stuck = True
+                break  # unreadable: refused as any taken version number, as before
+            if not isinstance(above, dict) or above.get("version") != n:
+                stuck = True
+                break
+            sid, parent = above.get("save_id"), above.get("parent_save_id")
+            if not (isinstance(sid, str) and sid and isinstance(parent, str) and parent):
+                stuck = True
+                break
+            if parent == head_sid or sid == head_sid:
+                break
+            try:
+                at = datetime.strptime(above.get("saved_at"), STAMP).replace(tzinfo=timezone.utc)
+            except (TypeError, ValueError):
+                stuck = True
+                break
+            if self.now() - at < SETTLED_AGE:
+                settles = (at + SETTLED_AGE).strftime(
+                    STAMP
+                )  # a leftover of saves crossing, not settled yet
+                break
+            skipped.append(
+                {
+                    "version": n,
+                    "save_id": sid,
+                    "parent_save_id": parent,
+                    "saved_at": above["saved_at"],
+                }
+            )
+            n += 1
+        else:
+            stuck = True  # SKIP_MAX passed: whatever is next is past the limit
+        return n, skipped, settles, stuck
+
+    def chain_gaps(self, table, head, low=1, docs=None):
+        """0.5.36: the version numbers from the head's version - 1 down to low whose version key is not on the head's
+        parent chain, followed down by parent_save_id: a version a later save numbered past, or a sibling that wrote a
+        chain member's number. docs: {version: document or None}, the version keys already read (None: gone or
+        unreadable); others are read here.
+
+        Where the key at a number is not the chain's member (off the chain, gone or unreadable), the member may still be
+        under its copy by save id at that number: the chain goes on from its parent. Otherwise the walk goes on looking
+        for the same member further down, so a version kept off the chain stays off it after clean-up removed the chain
+        members around it; a chain member under a gone key only makes everything below it count as off the chain, which
+        keeps more. The walk stops, counting the rest as on the chain, only where the chain names no parent: tables saved
+        before parents were recorded clean up as before."""
+        off, copies = set(), {}
+        top = head.get("version") if isinstance(head, dict) else None
+        if type(top) is not int:
+            return off
+        expected = head.get("parent_save_id")
+
+        def doc_at(k):
+            if docs is not None and k in docs:
+                return docs[k]
+            try:
+                return self._read(self.key(table, k))
+            except RouteTableError:
+                return None
+
+        def copy_of(sid):
+            if sid not in copies:
+                try:
+                    copies[sid] = self._read(self.save_key(table, sid))
+                except RouteTableError:
+                    copies[sid] = None
+            return copies[sid]
+
+        for k in range(top - 1, max(low, 1) - 1, -1):
+            if not (isinstance(expected, str) and expected):
+                break
+            d = doc_at(k)
+            sid = d.get("save_id") if isinstance(d, dict) else None
+            if isinstance(sid, str) and sid:
+                if sid == expected:
+                    expected = d.get("parent_save_id")
+                    continue
+                off.add(k)
+            mine = copy_of(expected)
+            if isinstance(mine, dict) and mine.get("version") == k:
+                expected = mine.get("parent_save_id")
+        return off
 
     def _withdraw(self, std, table, n, save_id):
         """R3: a standard-name head (and version) this save wrote after a whole undo is deleted again, so no physical
@@ -2616,7 +2800,8 @@ class StorageTables:
             _need(
                 back is not None and back.get("save_id") == x,
                 "ROUTE_TABLE_RACE",
-                "同一时刻有人也写了 %s 第 %d 版，这次首存没有完成：重发同一个首存请求" % (table, v),
+                "%s 第 %d 版首存写入已尝试，但读回不一致，不能确认最终状态：先读回核对首存状态、头版和保存副本，不要直接重试"
+                % (table, v),
                 "expected_version",
             )
         self._unmoved(table, mine, record, old, prior)
@@ -3032,9 +3217,15 @@ class StorageTables:
                 and left.get("save_id") == _fix_id(owner, name),
                 "ROUTE_TABLE_STALE",
                 "撤销没有动手（一个键都没写）：%s 头版第 %d 版之上有 %s，是一次存表在版本键和头版之间中断留下的残留，"
-                "不是这次撤销的。撤销要给 %s 存一版把引用改回旧名，会被它挡住；这张表现在和 0.5.19 一样，下一次存表也是 "
-                "ROUTE_TABLE_STALE。先在插件存储里删掉这个键（见 v0.5.20 发布说明「回滚」），再撤销"
-                % (name, head["version"], key, name),
+                "不是这次撤销的。撤销要给 %s 存一版把引用改回旧名，会被它挡住。先处理它再撤销："
+                % (name, head["version"], key, name)
+                + (
+                    "先在插件存储里删掉这个键（见 v0.5.20 发布说明「回滚」）"
+                    if storage_name(name) in STANDARD or owner is not None
+                    else "它若是几次存表交错后留下的（父版不是头版、存满 1 小时），正常存一次 %s，存表会跳过它往上编号；"
+                    "否则按插件存储照看的说明，op=usage 看 half_written、负责人核实后用 op=prune 收拾"
+                    % name
+                ),
                 "table",
             )
         return {"fix": fix}

@@ -221,8 +221,20 @@ def run_op(storage, op, table=DEFAULT_TABLE, version=None, body=None, *, gate=No
                 schema_transition=body.get("schema_transition"),
                 **({"new_id": new_id} if new_id is not None else {}),
             )
+            skipped = list(getattr(tables, "skipped", None) or [])
             warned = declarations.warnings(saved, current if isinstance(current, dict) else None)
             warned = warned + _after_save(tables, saved)
+            if skipped:
+                warned.append(
+                    {
+                        "code": "STORED_TABLE_VERSIONS_SKIPPED",
+                        "versions": [s["version"] for s in skipped],
+                        "message": "第 %s 版是几次存表交错后留在头版之上的版次（父版不是头版，可能回过成功），"
+                        "插件不清理也不覆盖它：这次跳过它，存成第 %d 版。它的内容还在原来的版本号上，"
+                        "按版本号、按内容摘要、按存表号都读得到"
+                        % ("、".join(str(s["version"]) for s in skipped), saved["version"]),
+                    }
+                )
             if dropped:
                 warned.append(
                     {
@@ -239,6 +251,8 @@ def run_op(storage, op, table=DEFAULT_TABLE, version=None, body=None, *, gate=No
                 **({"warnings": warned} if warned else {}),
                 # 0.5.20: the first store under a standard name names the version it copied
                 **({"supersedes": saved["supersedes"]} if "supersedes" in saved else {}),
+                # 0.5.36: versions left above the head by saves crossing, numbered past by this save
+                **({"skipped_versions": skipped} if skipped else {}),
             }
         return error(404, "NOT_FOUND", "接口不存在")
     except RouteTableError as exc:

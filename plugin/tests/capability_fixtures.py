@@ -1,7 +1,8 @@
-"""券方案（场景 M_P_02_04_01）用到的六个查询能力和一个动作能力，写成能力表（2026-11-11，提议格式）。
+"""Entirely fictional public-library catalog for capability-contract tests.
 
-取自现网券查询应用的入参声明与取数登记（orderId / passengerId / estimate / couponId / batchId 这些入参，券详情、券批次是
-「多请求」= 对每张券、每个批次各查一次）。地址与凭据不进表：call_ref 只写登记名。事实号、域码是样例写法，待 Brian 定。
+No production schema, service registration, response, or business record is an input.
+The example models loans, reservations, physical book copies and editions. Legacy Python
+constant names remain import-compatible; their values and all documents are synthetic.
 """
 
 import copy
@@ -21,150 +22,157 @@ def fact(fact_id, name, field, type_="string", unit=None, obj=None, alternate_of
     return out
 
 
-ORDER = "illum-resource__1089"
-BILL = "cashier__getBillResult"
-ESTIMATE = "bill-data__getEstimateInfo"
-PACKAGE = "gocoupon__getAllCoupons"
-COUPON = "gocoupon__getCoupon"
-BATCH = "gocoupon__getBatch"
-SEND = "gocoupon__sendCoupon"
+ORDER = "lending__lookupLoan"
+BILL = "reading__loanStatistics"
+ESTIMATE = "reservation__lookupHold"
+PACKAGE = "library__listLoans"
+COUPON = "library__lookupCopy"
+BATCH = "library__lookupEdition"
+SEND = "library__notifyAvailability"
 
 CAPABILITIES = [
     {
         "capability_id": ESTIMATE,
-        "name": "预估信息",
-        "domain": "PRICING",
-        "entity": "estimate",
+        "name": "预约排队信息",
+        "domain": "RESERVATION",
+        "entity": "reservation",
         "face": "QUERY",
         "kind": "DETAIL",
-        "inputs": {"estimateId": {"required": True}},
+        "inputs": {"reservationKey": {"required": True}},
         "facts": [
-            fact("ESTIMATE.coupon_amount", "预估券抵扣", "data.coupon_info.amount", "number", "元"),
-            fact("ESTIMATE.coupon_id", "预估用券", "data.coupon_info.coupon_id"),
+            fact("RESERVATION.wait_days", "预计等待天数", "reservation.wait.days", "number", "天"),
+            fact("RESERVATION.copy_key", "预约的馆藏副本", "reservation.target.copy_key"),
             fact(
-                "PASSENGER.pid", "乘客号", "data.passenger_id", obj="passenger", alternate_of=ORDER
+                "MEMBER.key",
+                "读者编号",
+                "reservation.holder.member_key",
+                obj="member",
+                alternate_of=ORDER,
             ),
         ],
         "fan_out": None,
-        "call_ref": "registry:bill-data/getEstimateInfo",
+        "call_ref": "registry:reservation/lookupHold",
     },
     {
         "capability_id": BILL,
-        "name": "账单结果",
-        "domain": "PAYMENT",
-        "entity": "bill",
+        "name": "借阅统计",
+        "domain": "READING",
+        "entity": "circulation",
         "face": "QUERY",
         "kind": "DETAIL",
-        "inputs": {"orderId": {"required": True}, "passengerId": {"required": True}},
+        "inputs": {"loanKey": {"required": True}, "memberKey": {"required": True}},
         "facts": [
-            fact("BILL.pay_status", "支付状态", "data.pay_status", "integer"),
+            fact("CIRCULATION.overdue_code", "逾期分类", "circulation.overdue.code", "integer"),
             fact(
-                "BILL.real_pay_amount",
-                "实付金额",
-                "data.passenger_bill_real_pay_amount",
-                "number",
-                "元",
+                "CIRCULATION.loan_days", "借阅时长", "circulation.metrics.loan_days", "number", "天"
             ),
             fact(
-                "BILL.coupon_deduct_amount",
-                "券抵扣金额",
-                "data.coupon_deduct_amount",
+                "CIRCULATION.renewals",
+                "续借次数",
+                "circulation.metrics.renewal_count",
                 "number",
-                "元",
+                "次",
             ),
         ],
         "fan_out": None,
-        "call_ref": "registry:cashier/getBillResult",
+        "call_ref": "registry:reading/loanStatistics",
     },
     {
         "capability_id": PACKAGE,
-        "name": "券包",
-        "domain": "MARKETING",
-        "entity": "coupon",
+        "name": "读者借阅清单",
+        "domain": "LIBRARY",
+        "entity": "book_copy",
         "face": "QUERY",
         "kind": "LIST",
-        "inputs": {"passengerId": {"required": True}, "status": {"required": False}},
+        "inputs": {"memberKey": {"required": True}, "shelfCode": {"required": False}},
         "facts": [
             fact(
-                "COUPON_PACKAGE.coupon_ids",
-                "券包里的券号",
-                "info[*].coupon_id",
+                "BORROWED_COPIES.copy_keys",
+                "已借馆藏编号",
+                "loans.entries[*].copy_key",
                 "array",
-                obj="coupon",
+                obj="book_copy",
             ),
-            fact("COUPON_PACKAGE.count", "券包券数", "total", "integer", "张", obj="coupon"),
+            fact(
+                "BORROWED_COPIES.count",
+                "已借副本数量",
+                "loans.summary.item_count",
+                "integer",
+                "册",
+                obj="book_copy",
+            ),
         ],
         "fan_out": None,
-        "call_ref": "registry:gocoupon/getAllCoupons",
+        "call_ref": "registry:library/listLoans",
     },
     {
         "capability_id": BATCH,
-        "name": "券批次",
-        "domain": "MARKETING",
-        "entity": "coupon_batch",
+        "name": "图书版本资料",
+        "domain": "LIBRARY",
+        "entity": "edition",
         "face": "QUERY",
         "kind": "DETAIL",
-        "inputs": {"batchId": {"required": True}},
+        "inputs": {"editionKey": {"required": True}},
         "facts": [
-            fact("BATCH.name", "批次名", "info.name", obj="coupon_batch"),
-            fact("BATCH.rule_text", "批次规则", "info.rule_desc", obj="coupon_batch"),
+            fact("EDITION.title", "图书标题", "edition.bibliography.title", obj="edition"),
+            fact("EDITION.loan_policy", "借阅规则", "edition.lending.policy_text", obj="edition"),
         ],
-        "fan_out": {"input": "batchId", "max": 20},
-        "call_ref": "registry:gocoupon/getBatch",
+        "fan_out": {"input": "editionKey", "max": 12},
+        "call_ref": "registry:library/lookupEdition",
     },
     {
         "capability_id": COUPON,
-        "name": "券详情",
-        "domain": "MARKETING",
-        "entity": "coupon",
+        "name": "馆藏副本详情",
+        "domain": "LIBRARY",
+        "entity": "book_copy",
         "face": "QUERY",
         "kind": "DETAIL",
-        "inputs": {"couponId": {"required": True}},
+        "inputs": {"copyKey": {"required": True}},
         "facts": [
-            fact("COUPON.batch_id", "批次号", "info.batchid"),
-            fact("COUPON.status", "券状态", "info.status", "integer"),
-            fact("COUPON.order_id", "券关联订单", "info.orderid"),
-            fact("COUPON.amount", "券面额", "info.amount", "number", "元"),
+            fact("BOOK_COPY.edition_key", "所属图书版本", "copy.edition.key"),
+            fact("BOOK_COPY.availability_code", "可借状态", "copy.availability.code", "integer"),
+            fact("BOOK_COPY.loan_key", "关联借阅记录", "copy.checkout.loan_key"),
+            fact("BOOK_COPY.mass_grams", "馆藏重量", "copy.physical.mass_grams", "number", "克"),
             fact(
-                "PASSENGER.pid", "乘客号", "info.passenger_id", obj="passenger", alternate_of=ORDER
+                "MEMBER.key", "读者编号", "copy.holder.member_key", obj="member", alternate_of=ORDER
             ),
         ],
-        "fan_out": {"input": "couponId", "max": 20},
-        "call_ref": "registry:gocoupon/getCoupon",
+        "fan_out": {"input": "copyKey", "max": 12},
+        "call_ref": "registry:library/lookupCopy",
     },
     {
         "capability_id": SEND,
-        "name": "补发券",
-        "domain": "MARKETING",
-        "entity": "coupon",
+        "name": "通知图书可借",
+        "domain": "LIBRARY",
+        "entity": "book_copy",
         "face": "ACTION",
         "kind": None,
-        "inputs": {"passengerId": {"required": True}, "batchId": {"required": True}},
+        "inputs": {"memberKey": {"required": True}, "editionKey": {"required": True}},
         "facts": [],
         "fan_out": None,
-        "call_ref": "registry:gocoupon/sendCoupon",
+        "call_ref": "registry:library/notifyAvailability",
     },
     {
         "capability_id": ORDER,
-        "name": "订单详情",
-        "domain": "ORDER",
-        "entity": "order",
+        "name": "借阅记录详情",
+        "domain": "LENDING",
+        "entity": "loan",
         "face": "QUERY",
         "kind": "DETAIL",
-        "inputs": {"orderId": {"required": True}},
+        "inputs": {"loanKey": {"required": True}},
         "facts": [
-            fact("ORDER.status", "订单状态", "data.order_status", "integer"),
-            fact("ORDER.product_id", "产品线", "data.product_id"),
-            fact("ORDER.total_fee", "订单金额", "data.total_fee", "number", "元"),
-            fact("PASSENGER.pid", "乘客号", "data.passenger_id", obj="passenger"),
+            fact("LOAN.state_code", "借阅阶段", "loan.progress.state_code", "integer"),
+            fact("LOAN.category_code", "馆藏分类", "loan.category.code"),
+            fact("LOAN.duration_days", "借阅期限", "loan.duration.days", "number", "天"),
+            fact("MEMBER.key", "读者编号", "loan.borrower.member_key", obj="member"),
         ],
         "fan_out": None,
-        "call_ref": "registry:illum-resource/1089",
+        "call_ref": "registry:lending/lookupLoan",
     },
 ]
 
 
-def catalog(rows=None, note="能力表样例：券方案用到的能力"):
+def catalog(rows=None, note="虚构图书馆能力表示例"):
     rows = copy.deepcopy(CAPABILITIES if rows is None else rows)
     return {
         "schema": "dmn-json.capability-catalog/v1",

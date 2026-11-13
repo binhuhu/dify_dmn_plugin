@@ -1,7 +1,6 @@
-"""新结构的查询 → 事实表（2026-11-11，提议：role SEARCH_CAPABILITY，待 Brian 定）。
+"""Library-loan query graph: typed bindings, COLLECT rounds and rejection coverage.
 
-一行一个能力调用：条件问哪些量已知 → 调哪个能力（capability_id）、入参从哪来（bindings）、要哪些事实（facts，不写 = 全部）。
-COLLECT：同时成立的行都生效。插件只求一轮；一轮一轮反复求、真正去调能力是流程里「查询执行」节点的事。
+All service names, facts, response paths and records are fictional.
 """
 
 import copy
@@ -18,10 +17,10 @@ from dmn_client.stored_tables import FORMAT_DECISION, validate
 KNOWN = lambda v: {"quality": "KNOWN", "value": v, "source_refs": ["test"]}  # noqa: E731
 GONE = {"quality": "UNKNOWN", "value": None, "source_refs": ["test"]}
 
-COUPON_FACTS = {
-    "COUPON.batch_id": KNOWN("B1"),
-    "COUPON.order_id": KNOWN("O9"),
-    "PASSENGER.pid": KNOWN("P1"),
+COPY_FACTS = {
+    "BOOK_COPY.edition_key": KNOWN("B1"),
+    "BOOK_COPY.loan_key": KNOWN("O9"),
+    "MEMBER.key": KNOWN("P1"),
 }
 
 
@@ -53,7 +52,7 @@ def test_save_needs_the_pinned_capability_table():
     assert err.value.code == "SEARCH_CAPABILITY_TABLE_MISSING"
     save(st, catalog())
     other = catalog()
-    other["capabilities"][0]["name"] = "预估信息（改）"
+    other["capabilities"][0]["name"] = "预约信息（改）"
     with pytest.raises(RouteTableError) as err:
         save(st, search_doc(cat=other))  # pins a version that is not stored
     assert err.value.code == "SEARCH_CAPABILITY_TABLE_MISSING"
@@ -62,9 +61,9 @@ def test_save_needs_the_pinned_capability_table():
 
 def test_save_runs_the_capability_table_checks():
     st = store(catalog())
-    send = call(SEND, {"passengerId": "PASSENGER.pid", "batchId": "COUPON.batch_id"})
+    send = call(SEND, {"memberKey": "MEMBER.key", "editionKey": "BOOK_COPY.edition_key"})
     rows = rows_with(
-        "S_BATCH", when=[known("PASSENGER.pid"), known("COUPON.batch_id")], result=send
+        "S_EDITION", when=[known("MEMBER.key"), known("BOOK_COPY.edition_key")], result=send
     )
     with pytest.raises(RouteTableError) as err:
         save(st, search_doc(rows))
@@ -75,65 +74,65 @@ def test_save_runs_the_capability_table_checks():
 def test_an_older_capability_table_version_still_counts_by_its_digest():
     st = store(catalog())
     newer = catalog()
-    newer["capabilities"][0]["name"] = "预估信息（新）"
+    newer["capabilities"][0]["name"] = "预约信息（新）"
     save(st, dict(newer, note="第二版"))
     save(st, search_doc())  # pins version 1 by content digest
 
 
-# ── rounds (the coupon solution: only a coupon, coupon + order, coupon + estimate) ──
+# ── rounds (library queries: copy only, copy + loan, copy + reservation) ──
 
 
-def test_only_a_coupon():
+def test_only_a_book_copy():
     st = stored()
-    first, _ = held(st, {"coupon_id": KNOWN("C1")})
-    assert first == ["S_COUPON"]
-    second, out = held(st, dict({"coupon_id": KNOWN("C1")}, **COUPON_FACTS))
-    assert second == ["S_COUPON", "S_BATCH", "S_ORDER_OF_COUPON", "S_PACKAGE"]
+    first, _ = held(st, {"copy_key": KNOWN("C1")})
+    assert first == ["S_COPY"]
+    second, out = held(st, dict({"copy_key": KNOWN("C1")}, **COPY_FACTS))
+    assert second == ["S_COPY", "S_EDITION", "S_LOAN_OF_COPY", "S_BORROWED"]
     calls = {d["rule_id"]: d["data"]["result"] for d in out["result"]["decisions"]}
-    assert calls["S_ORDER_OF_COUPON"]["capability_id"] == ORDER
-    assert calls["S_ORDER_OF_COUPON"]["bindings"] == {"orderId": "COUPON.order_id"}
-    assert calls["S_PACKAGE"]["facts"] == ["COUPON_PACKAGE.count"]
-    assert "facts" not in calls["S_BATCH"]  # all the capability gives
+    assert calls["S_LOAN_OF_COPY"]["capability_id"] == ORDER
+    assert calls["S_LOAN_OF_COPY"]["bindings"] == {"loanKey": "BOOK_COPY.loan_key"}
+    assert calls["S_BORROWED"]["facts"] == ["BORROWED_COPIES.count"]
+    assert "facts" not in calls["S_EDITION"]  # all the capability gives
 
 
-def test_a_coupon_and_an_order():
+def test_a_copy_and_a_loan():
     st = stored()
-    first, _ = held(st, {"coupon_id": KNOWN("C1"), "order_id": KNOWN("O1")})
-    assert first == ["S_COUPON", "S_ORDER"]
-    second, out = held(
-        st, dict({"coupon_id": KNOWN("C1"), "order_id": KNOWN("O1")}, **COUPON_FACTS)
-    )
+    first, _ = held(st, {"copy_key": KNOWN("C1"), "loan_key": KNOWN("O1")})
+    assert first == ["S_COPY", "S_LOAN"]
+    second, out = held(st, dict({"copy_key": KNOWN("C1"), "loan_key": KNOWN("O1")}, **COPY_FACTS))
     assert second == [
-        "S_COUPON",
-        "S_BATCH",
-        "S_ORDER",
-        "S_BILL",
-        "S_PACKAGE",
-    ]  # the request's order, not the coupon's
-    bill = next(d["data"]["result"] for d in out["result"]["decisions"] if d["rule_id"] == "S_BILL")
+        "S_COPY",
+        "S_EDITION",
+        "S_LOAN",
+        "S_CIRCULATION",
+        "S_BORROWED",
+    ]  # the request's loan, not the copy's
+    bill = next(
+        d["data"]["result"] for d in out["result"]["decisions"] if d["rule_id"] == "S_CIRCULATION"
+    )
     assert (bill["capability_id"], bill["bindings"]) == (
         BILL,
-        {"orderId": "order_id", "passengerId": "PASSENGER.pid"},
+        {"loanKey": "loan_key", "memberKey": "MEMBER.key"},
     )
 
 
-def test_a_coupon_and_an_estimate():
+def test_a_copy_and_a_reservation():
     st = stored()
-    first, _ = held(st, {"coupon_id": KNOWN("C1"), "estimate_id": KNOWN("E1")})
-    assert first == ["S_COUPON", "S_ESTIMATE"]
+    first, _ = held(st, {"copy_key": KNOWN("C1"), "reservation_key": KNOWN("E1")})
+    assert first == ["S_COPY", "S_RESERVATION"]
     second, _ = held(
-        st, dict({"coupon_id": KNOWN("C1"), "estimate_id": KNOWN("E1")}, **COUPON_FACTS)
+        st, dict({"copy_key": KNOWN("C1"), "reservation_key": KNOWN("E1")}, **COPY_FACTS)
     )
-    assert second == ["S_COUPON", "S_BATCH", "S_ORDER_OF_COUPON", "S_ESTIMATE", "S_PACKAGE"]
+    assert second == ["S_COPY", "S_EDITION", "S_LOAN_OF_COPY", "S_RESERVATION", "S_BORROWED"]
 
 
 def test_a_quantity_not_obtained_does_not_block_the_round():
     st = stored()
-    # the coupon detail gave a batch but no order (absent) and the passenger came back unknown
+    # the copy detail gave an edition but no loan (absent) and the member came back unknown
     got, out = held(
-        st, {"coupon_id": KNOWN("C1"), "COUPON.batch_id": KNOWN("B1"), "PASSENGER.pid": GONE}
+        st, {"copy_key": KNOWN("C1"), "BOOK_COPY.edition_key": KNOWN("B1"), "MEMBER.key": GONE}
     )
-    assert got == ["S_COUPON", "S_BATCH"]
+    assert got == ["S_COPY", "S_EDITION"]
     assert "INDETERMINATE" not in str(out)
     nothing, out = held(st, {})
     assert nothing == [] and out["result"]["decision"]["state"] == "NO_MATCH"
@@ -141,15 +140,15 @@ def test_a_quantity_not_obtained_does_not_block_the_round():
 
 def test_without_missing_unknown_an_absent_quantity_blocks():
     # the plugin's three-valued rule, unchanged: the query-execution node passes missing = UNKNOWN
-    out = ev(stored(), TABLE, FORMAT_DECISION, {"parameters": {"coupon_id": KNOWN("C1")}})
+    out = ev(stored(), TABLE, FORMAT_DECISION, {"parameters": {"copy_key": KNOWN("C1")}})
     assert (out["status"], out["error"]["code"]) == ("BLOCKED", "INDETERMINATE_MATCH")
 
 
 def test_the_round_is_the_plugins_ordinary_collect_evaluation():
     st = stored()
-    _, out = held(st, {"coupon_id": KNOWN("C1")})
+    _, out = held(st, {"copy_key": KNOWN("C1")})
     assert out["result"]["hit_policy"] == "COLLECT" and out["result"]["selected_rule_ids"] == [
-        "S_COUPON"
+        "S_COPY"
     ]
 
 
@@ -259,17 +258,17 @@ def test_request_inputs_are_parameters():
 )
 def test_every_quantity_may_be_unknown(change, word):
     doc = search_doc()
-    change(doc["model"]["parameters"]["COUPON.batch_id"])
+    change(doc["model"]["parameters"]["BOOK_COPY.edition_key"])
     refused(doc, word=word)
 
 
 def test_sources_say_request_or_fact():
     doc = search_doc()
-    doc["declare"]["parameters"]["coupon_id"]["source"] = "fact:coupon_id"
-    refused(doc, word="request:coupon_id")
+    doc["declare"]["parameters"]["copy_key"]["source"] = "fact:copy_key"
+    refused(doc, word="request:copy_key")
     doc = search_doc()
-    doc["declare"]["parameters"]["PASSENGER.pid"]["source"] = "request:PASSENGER.pid"
-    refused(doc, word="fact:PASSENGER.pid")
+    doc["declare"]["parameters"]["MEMBER.key"]["source"] = "request:MEMBER.key"
+    refused(doc, word="fact:MEMBER.key")
 
 
 def rows_with(rid, when=None, result=None):
@@ -281,24 +280,28 @@ def rows_with(rid, when=None, result=None):
 
 def test_a_row_names_a_capability_and_binds_known_quantities():
     refused(
-        search_doc(rows_with("S_BATCH", result={"actions": [], "capability_id": COUPON})),
+        search_doc(rows_with("S_EDITION", result={"actions": [], "capability_id": COUPON})),
         word="bindings",
     )
     refused(
-        search_doc(rows_with("S_BATCH", result=call(COUPON, {"couponId": "ticket"}))),
+        search_doc(rows_with("S_EDITION", result=call(COUPON, {"copyKey": "ticket"}))),
         word="不是表的参数",
     )
     refused(
         search_doc(
-            rows_with("S_COUPON", result=dict(call(COUPON, {"couponId": "coupon_id"}), facts=[]))
+            rows_with("S_COPY", result=dict(call(COUPON, {"copyKey": "copy_key"}), facts=[]))
         ),
         word="facts",
     )
-    bad = call(COUPON, {"couponId": "coupon_id"}, ["COUPON.status", "COUPON.status"])
-    refused(search_doc(rows_with("S_COUPON", result=bad)), word="facts")
+    bad = call(
+        COUPON,
+        {"copyKey": "copy_key"},
+        ["BOOK_COPY.availability_code", "BOOK_COPY.availability_code"],
+    )
+    refused(search_doc(rows_with("S_COPY", result=bad)), word="facts")
     refused(
         search_doc(
-            rows_with("S_COUPON", result=dict(call(COUPON, {"couponId": "coupon_id"}), url="x"))
+            rows_with("S_COPY", result=dict(call(COUPON, {"copyKey": "copy_key"}), url="x"))
         ),
         word="result",
     )
@@ -306,32 +309,34 @@ def test_a_row_names_a_capability_and_binds_known_quantities():
 
 def test_a_rows_state_is_pass():
     doc = search_doc()
-    doc["model"]["result_templates"]["T_S_BATCH"]["state"] = "CONFLICT"
+    doc["model"]["result_templates"]["T_S_EDITION"]["state"] = "CONFLICT"
     doc["declare"]["states"]["CONFLICT"] = "冲突"
     refused(doc, word="PASS")
 
 
 def test_a_binding_source_is_asked_known_in_its_conditions():
-    e = refused(search_doc(rows_with("S_BATCH", when=[known("coupon_id")])), word="COUPON.batch_id")
-    assert e.path == "model.rules.S_BATCH.when"
+    e = refused(
+        search_doc(rows_with("S_EDITION", when=[known("copy_key")])), word="BOOK_COPY.edition_key"
+    )
+    assert e.path == "model.rules.S_EDITION.when"
 
 
 def test_a_value_condition_is_guarded_by_known():
     loose = [
-        known("COUPON.batch_id"),
-        {"path": ["parameters", "order_id", "value"], "op": "eq", "value": "O1"},
+        known("BOOK_COPY.edition_key"),
+        {"path": ["parameters", "loan_key", "value"], "op": "eq", "value": "O1"},
     ]
-    refused(search_doc(rows_with("S_BATCH", when=loose)), word="卡住")
-    guarded = loose + [known("order_id")]
-    validate(search_doc(rows_with("S_BATCH", when=guarded)))
+    refused(search_doc(rows_with("S_EDITION", when=loose)), word="卡住")
+    guarded = loose + [known("loan_key")]
+    validate(search_doc(rows_with("S_EDITION", when=guarded)))
 
 
 def test_when_any_combinations_each_bind_known():
     doc = search_doc()
-    rule = next(r for r in doc["model"]["rules"] if r["rule_id"] == "S_ORDER_OF_COUPON")
-    rule["when_any"] = [rule.pop("when"), [known("coupon_id")]]
-    e = refused(doc, word="COUPON.order_id")
-    assert e.path == "model.rules.S_ORDER_OF_COUPON.when_any[1]"
+    rule = next(r for r in doc["model"]["rules"] if r["rule_id"] == "S_LOAN_OF_COPY")
+    rule["when_any"] = [rule.pop("when"), [known("copy_key")]]
+    e = refused(doc, word="BOOK_COPY.loan_key")
+    assert e.path == "model.rules.S_LOAN_OF_COPY.when_any[1]"
 
 
 # ── save refusals against the capability table ───────────────────────────────
@@ -361,83 +366,93 @@ def test_the_pin_is_the_catalogs_digest():
 def test_a_row_calls_a_registered_query_capability():
     catalog_refused(
         search_doc(
-            rows_with("S_BATCH", result=call("gocoupon__nope", {"batchId": "COUPON.batch_id"}))
+            rows_with(
+                "S_EDITION",
+                result=call("library__missingOperation", {"editionKey": "BOOK_COPY.edition_key"}),
+            )
         ),
         "不在能力表里",
     )
-    send = call(SEND, {"passengerId": "PASSENGER.pid", "batchId": "COUPON.batch_id"})
-    when = [known("PASSENGER.pid"), known("COUPON.batch_id")]
-    catalog_refused(search_doc(rows_with("S_BATCH", when=when, result=send)), "动作")
+    send = call(SEND, {"memberKey": "MEMBER.key", "editionKey": "BOOK_COPY.edition_key"})
+    when = [known("MEMBER.key"), known("BOOK_COPY.edition_key")]
+    catalog_refused(search_doc(rows_with("S_EDITION", when=when, result=send)), "动作")
 
 
 def test_bindings_use_the_registered_input_names():
     catalog_refused(
-        search_doc(rows_with("S_COUPON", result=call(COUPON, {"coupon": "coupon_id"}))), "没有入参"
+        search_doc(rows_with("S_COPY", result=call(COUPON, {"book_copy": "copy_key"}))), "没有入参"
     )
-    when = [known("order_id")]
+    when = [known("loan_key")]
     catalog_refused(
-        search_doc(rows_with("S_BILL", when=when, result=call(BILL, {"orderId": "order_id"}))),
+        search_doc(
+            rows_with("S_CIRCULATION", when=when, result=call(BILL, {"loanKey": "loan_key"}))
+        ),
         "必填入参没绑",
     )
-    # an optional input may stay unbound (券包 status)
+    # an optional input may stay unbound (借阅清单 shelfCode)
     against(search_doc())
 
 
 def test_wanted_facts_are_given_by_the_capability():
-    bad = call(PACKAGE, {"passengerId": "PASSENGER.pid"}, ["COUPON.status"])
-    catalog_refused(search_doc(rows_with("S_PACKAGE", result=bad)), "不出这些事实")
+    bad = call(PACKAGE, {"memberKey": "MEMBER.key"}, ["BOOK_COPY.availability_code"])
+    catalog_refused(search_doc(rows_with("S_BORROWED", result=bad)), "不出这些事实")
 
 
 def test_every_quantity_is_a_request_input_or_a_registered_fact():
     doc = search_doc()
-    doc["model"]["parameters"]["ORDER.city"] = copy.deepcopy(doc["model"]["parameters"]["order_id"])
-    doc["declare"]["parameters"]["ORDER.city"] = {"name": "城市", "source": "fact:ORDER.city"}
+    doc["model"]["parameters"]["LOAN.branch_code"] = copy.deepcopy(
+        doc["model"]["parameters"]["loan_key"]
+    )
+    doc["declare"]["parameters"]["LOAN.branch_code"] = {
+        "name": "分馆",
+        "source": "fact:LOAN.branch_code",
+    }
     catalog_refused(doc, "不是能力表里")
 
 
 def add_param(doc, name, type_="string"):
     doc["model"]["parameters"][name] = dict(
-        copy.deepcopy(doc["model"]["parameters"]["order_id"]), type=type_
+        copy.deepcopy(doc["model"]["parameters"]["loan_key"]), type=type_
     )
     doc["declare"]["parameters"][name] = {"name": "量", "source": "fact:" + name}
 
 
 def test_a_row_that_can_never_hold_is_refused_with_what_it_lacks():
-    # the package row asks only for the count, so the coupon ids are never obtained
+    # the borrowed-list row asks only for the count, so the copy keys are never obtained
     rows = copy.deepcopy(ROWS)
-    rows["S_COUPON_OF_PACKAGE"] = (
-        [known("COUPON_PACKAGE.coupon_ids")],
-        call(COUPON, {"couponId": "COUPON_PACKAGE.coupon_ids"}),
-        "券包里的券逐张查",
+    rows["S_COPY_FROM_LOANS"] = (
+        [known("BORROWED_COPIES.copy_keys")],
+        call(COUPON, {"copyKey": "BORROWED_COPIES.copy_keys"}),
+        "清单中的馆藏逐册查",
     )
     doc = search_doc(rows)
-    add_param(doc, "COUPON_PACKAGE.coupon_ids", "array")
+    add_param(doc, "BORROWED_COPIES.copy_keys", "array")
     e = catalog_refused(doc, "永远成立不了")
-    assert "S_COUPON_OF_PACKAGE" in e.message and "COUPON_PACKAGE.coupon_ids" in e.message
-    assert e.path == "model.rules.S_COUPON_OF_PACKAGE"
-    # asking the package row for all its facts makes it reachable
-    rows["S_PACKAGE"] = (
-        rows["S_PACKAGE"][0],
-        call(PACKAGE, {"passengerId": "PASSENGER.pid"}),
-        rows["S_PACKAGE"][2],
+    assert "S_COPY_FROM_LOANS" in e.message and "BORROWED_COPIES.copy_keys" in e.message
+    assert e.path == "model.rules.S_COPY_FROM_LOANS"
+    # asking the borrowed-list row for all its facts makes it reachable
+    rows["S_BORROWED"] = (
+        rows["S_BORROWED"][0],
+        call(PACKAGE, {"memberKey": "MEMBER.key"}),
+        rows["S_BORROWED"][2],
     )
     doc = search_doc(rows)
-    add_param(doc, "COUPON_PACKAGE.coupon_ids", "array")
+    add_param(doc, "BORROWED_COPIES.copy_keys", "array")
     against(doc)
 
 
 def test_rows_that_only_feed_each_other_are_unreachable():
     rows = {
-        "S_A": ([known("BATCH.name")], call(COUPON, {"couponId": "BATCH.name"}), "互等"),
+        "S_A": ([known("EDITION.title")], call(COUPON, {"copyKey": "EDITION.title"}), "互等"),
         "S_B": (
-            [known("COUPON.batch_id")],
-            call("gocoupon__getBatch", {"batchId": "COUPON.batch_id"}),
+            [known("BOOK_COPY.edition_key")],
+            call("library__lookupEdition", {"editionKey": "BOOK_COPY.edition_key"}),
             "互等",
         ),
-        "S_ORDER": ROWS["S_ORDER"],
+        "S_LOAN": ROWS["S_LOAN"],
     }
     doc = search_doc(rows)
-    add_param(doc, "BATCH.name")
+    add_param(doc, "EDITION.title")
     e = catalog_refused(doc, "永远成立不了")
     assert "S_A" in e.message
 
@@ -479,7 +494,7 @@ def old_shape_doc(declare=None, as_set=False, extra=None):
                         {"actions": [], "fact_id": fact, "capability_id": COUPON}, **(extra or {})
                     )
                 },
-                "note": {"literal": "券记录"},
+                "note": {"literal": "馆藏记录"},
             },
         }
 
@@ -491,7 +506,7 @@ def old_shape_doc(declare=None, as_set=False, extra=None):
     }
     m = model(
         [rule("R_FOUND", "T_FOUND", cond("found", "eq", True))],
-        {"T_FOUND": t("PASS", "COUPON_RECORD"), "NONE_T": t("NO_MATCH", "COUPON_RECORD")},
+        {"T_FOUND": t("PASS", "BOOK_COPY_RECORD"), "NONE_T": t("NO_MATCH", "BOOK_COPY_RECORD")},
         {"found": p},
         hit="UNIQUE",
     )
@@ -513,7 +528,7 @@ def test_an_old_shape_naming_its_capability_saves_as_before():
     transition = {
         "stage": "TRANSITION",
         "role": "SEARCH_FACT",
-        "parameters": {"found": {"name": "券记录在", "source": "fact:found"}},
+        "parameters": {"found": {"name": "馆藏记录在", "source": "fact:found"}},
         "outputs": {
             "result": {"type": "object", "name": "事实（fact_id + capability_id）"},
             "note": {"type": "string", "name": "说明"},
@@ -525,18 +540,18 @@ def test_an_old_shape_naming_its_capability_saves_as_before():
     st = store(old_shape_doc())
     save(st, dict(old_shape_doc(), note="只改说明"))
     # but a call (capability_id + bindings) is the new shape whatever else is written next to it (round 2, N1)
-    for fact in (None, "COUPON_RECORD"):
-        doc = old_shape_doc(extra={"bindings": {"couponId": "found"}})
+    for fact in (None, "BOOK_COPY_RECORD"):
+        doc = old_shape_doc(extra={"bindings": {"copyKey": "found"}})
         for t in doc["model"]["result_templates"].values():
             t["data"]["result"]["literal"]["fact_id"] = fact
         refused(doc, word="新形状")
     refused(
-        old_shape_doc(as_set=True, extra={"bindings": {"couponId": "found"}}), word="只能存成决策表"
+        old_shape_doc(as_set=True, extra={"bindings": {"copyKey": "found"}}), word="只能存成决策表"
     )
 
 
 def test_bindings_without_a_capability_is_not_the_new_shape():
-    doc = old_shape_doc(extra={"bindings": {"couponId": "found"}})
+    doc = old_shape_doc(extra={"bindings": {"copyKey": "found"}})
     for t in doc["model"]["result_templates"].values():
         del t["data"]["result"]["literal"]["capability_id"]
     validate(doc)  # no call named: saved as in 0.5.32
@@ -569,47 +584,51 @@ def test_a_new_shape_decision_set_is_told_to_be_a_decision_table():
 )
 def test_an_ordering_condition_that_could_block_is_refused(param, literal):
     rows = rows_with(
-        "S_BATCH",
+        "S_EDITION",
         when=[
-            known("COUPON.batch_id"),
-            {"path": ["parameters", "COUPON.batch_id", "value"], "op": "gt", "value": literal},
+            known("BOOK_COPY.edition_key"),
+            {
+                "path": ["parameters", "BOOK_COPY.edition_key", "value"],
+                "op": "gt",
+                "value": literal,
+            },
         ],
     )
     doc = search_doc(rows)
-    doc["model"]["parameters"]["COUPON.batch_id"].update(param)
+    doc["model"]["parameters"]["BOOK_COPY.edition_key"].update(param)
     e = refused(doc, word="大小比较")
-    assert e.path == "model.rules.S_BATCH.when"
+    assert e.path == "model.rules.S_EDITION.when"
 
 
 def test_a_safe_ordering_condition_saves_and_never_blocks():
     rows = rows_with(
-        "S_BATCH",
+        "S_EDITION",
         when=[
-            known("COUPON.batch_id"),
-            {"path": ["parameters", "COUPON.batch_id", "value"], "op": "gt", "value": "B0"},
+            known("BOOK_COPY.edition_key"),
+            {"path": ["parameters", "BOOK_COPY.edition_key", "value"], "op": "gt", "value": "B0"},
         ],
     )
     doc = search_doc(rows)
-    doc["model"]["parameters"]["COUPON.batch_id"]["nullable"] = False
+    doc["model"]["parameters"]["BOOK_COPY.edition_key"]["nullable"] = False
     st = store(catalog(), doc)
-    assert held(st, {"coupon_id": KNOWN("C1"), "COUPON.batch_id": GONE})[0] == ["S_COUPON"]
-    assert held(st, {"coupon_id": KNOWN("C1"), "COUPON.batch_id": KNOWN("B1")})[0] == [
-        "S_COUPON",
-        "S_BATCH",
+    assert held(st, {"copy_key": KNOWN("C1"), "BOOK_COPY.edition_key": GONE})[0] == ["S_COPY"]
+    assert held(st, {"copy_key": KNOWN("C1"), "BOOK_COPY.edition_key": KNOWN("B1")})[0] == [
+        "S_COPY",
+        "S_EDITION",
     ]
 
 
 def test_a_quantitys_type_is_the_registered_facts_type():
     doc = search_doc()
-    doc["model"]["parameters"]["COUPON.batch_id"]["type"] = "integer"
+    doc["model"]["parameters"]["BOOK_COPY.edition_key"]["type"] = "integer"
     e = catalog_refused(doc, "类型")
-    assert e.path == "model.parameters.COUPON.batch_id.type"
+    assert e.path == "model.parameters.BOOK_COPY.edition_key.type"
 
 
 def test_the_no_match_template_names_no_capability():
     doc = search_doc()
     doc["model"]["result_templates"]["T_NONE"]["data"]["result"]["literal"] = call(
-        SEND, {"passengerId": "PASSENGER.pid"}
+        SEND, {"memberKey": "MEMBER.key"}
     )
     e = refused(doc, word="一行没中")
     assert e.path == "model.result_templates.T_NONE"
@@ -620,8 +639,8 @@ def test_model_faults_name_the_model():
     doc["model"]["hit_policy"] = "UNIQUE"
     assert refused(doc).path == "model.hit_policy"
     doc = search_doc()
-    doc["model"]["parameters"]["coupon_id"]["record_required"] = True
-    assert refused(doc).path == "model.parameters.coupon_id"
+    doc["model"]["parameters"]["copy_key"]["record_required"] = True
+    assert refused(doc).path == "model.parameters.copy_key"
 
 
 def test_other_tables_keep_the_declaration_key_refusal_text():
@@ -668,8 +687,8 @@ def test_a_wrong_role_on_a_query_to_fact_name_lists_the_old_roles():
 @pytest.mark.parametrize("op, value", [("gt", 0), ("lt", "KNOWN"), ("gte", 1)])
 def test_a_quality_condition_takes_no_ordering(op, value):
     when = [
-        known("coupon_id"),
-        {"path": ["parameters", "coupon_id", "quality"], "op": op, "value": value},
+        known("copy_key"),
+        {"path": ["parameters", "copy_key", "quality"], "op": op, "value": value},
     ]
-    e = refused(search_doc(rows_with("S_COUPON", when=when)), word="quality 只用")
-    assert e.path == "model.rules.S_COUPON.when"
+    e = refused(search_doc(rows_with("S_COPY", when=when)), word="quality 只用")
+    assert e.path == "model.rules.S_COPY.when"

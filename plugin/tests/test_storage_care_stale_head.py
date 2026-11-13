@@ -585,3 +585,38 @@ def test_the_full_answer_never_suggests_clearing_above_the_head_to_make_room():
     assert "半截" not in ROOM
     unknown = FULL_TEXT["UNKNOWN"]
     assert "并不能证明没写进去" in unknown and "不要改了内容再试" in unknown
+
+
+def test_a_confirmation_naming_the_right_version_with_another_save_id_deletes_nothing():
+    s = store(FakeStorage())
+    _above(s, 2, StorageTables(s).load(T)["save_id"], "f" * 32, "半截")
+    ask = {"expected_version": 1, "keep": 1, "half_written": True}
+    ask["confirm"] = [{"version": 2, "save_id": "e" * 32}]
+    plan = call(s, "prune", ask, now=_later)[1]
+    assert plan["keys"] == 0 and plan["half_written"][0]["removable"] is False, plan
+    assert call(s, "prune", dict(ask, plan_sha256=plan["plan_sha256"]), now=_later)[0] == 200
+    assert HEAD + ":v2" in s.data
+
+
+def test_reading_a_save_by_its_id_refuses_a_copy_that_is_not_that_save():
+    s = FakeStorage()
+    out = call(s, "save", dict(table_doc("第一版"), expected_version=0))[1]
+    sid = out["doc"]["save_id"]
+    d = json.loads(s.data["%s:s:%s" % (HEAD, sid)])
+    s.data["%s:s:%s" % (HEAD, sid)] = canon(dict(d, save_id="e" * 32)).encode()
+    status, got = call(s, "saved", {"save_id": sid})
+    assert status != 200 and got["error"]["code"] == "ROUTE_TABLE_CORRUPT", got
+    s.data["%s:s:%s" % (HEAD, sid)] = canon(
+        dict(d, table="solution.fact.feature.M_P_09_09_09")
+    ).encode()
+    assert call(s, "saved", {"save_id": sid})[1]["error"]["code"] == "ROUTE_TABLE_CORRUPT"
+
+
+def test_a_save_that_did_not_land_says_to_save_the_same_content_again():
+    from dmn_client.storage_care import FULL_TEXT, OTHER_TEXT
+
+    assert (
+        "照原内容、原版本号重存" in OTHER_TEXT["NOT_SAVED"]
+        and "改了内容再存" in OTHER_TEXT["NOT_SAVED"]
+    )
+    assert "照原内容、原版本号重存" in FULL_TEXT["NOT_SAVED"]

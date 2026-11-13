@@ -34,7 +34,7 @@ from dmn_client.route_table import DATA_V4, UUID_RE, RouteTableError, digest
 from dmn_client.scene_spelling import scene_state
 from dmn_client.table_names import storage_name
 
-SEARCH_CAPABILITY = "SEARCH_CAPABILITY"  # 2026-11-11, 提议，待 Brian 定
+SEARCH_CAPABILITY = "SEARCH_CAPABILITY"  # 2026-11-11, 提议，由项目维护者确认
 DECISION_ROLES = (
     "SCENE_ENTITY",
     "ACCEPTANCE",
@@ -44,7 +44,7 @@ DECISION_ROLES = (
     "DISPOSAL_STATUS",  # 0.5.17 (DMN 2.0 R9): once per run, outcome + reason_code
     "SEARCH_FACT",  # 0.5.28: solution.search.fact, query -> facts; generic decision-set checks only (columns pending)
 )
-# 2026-11-11 (提议，待 Brian 定): SEARCH_CAPABILITY, the new query -> fact shape (one row per capability call,
+# 2026-11-11 (提议，由项目维护者确认): SEARCH_CAPABILITY, the new query -> fact shape (one row per capability call,
 # dmn_client.search_plan), is not in DECISION_ROLES: only a decision table under a query -> fact name takes it, so every
 # other table keeps 0.5.32's role list and refusal text
 # 0.5.22: the three-tier resource routing is a decision table (role RESOURCE), only under a resource-targets name
@@ -91,7 +91,7 @@ KEYS = {
     "texts",
     "coexist",  # 0.5.19: FEATURE_REALITY only
 }
-# 2026-11-11 (提议，待 Brian 定): SEARCH_CAPABILITY only — the capability table checked against, and the quantities a
+# 2026-11-11 (提议，由项目维护者确认): SEARCH_CAPABILITY only — the capability table checked against, and the quantities a
 # request may give. Kept out of KEYS so every other table's refusal text stays 0.5.32's.
 SEARCH_KEYS = {"capability_table", "request_inputs"}
 SET_KEYS = {"stage", "role", "models"}

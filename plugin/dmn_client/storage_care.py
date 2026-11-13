@@ -30,6 +30,7 @@ from datetime import datetime, timedelta, timezone
 
 from dmn_client.capability_catalog import SCHEMA as CAPABILITY_SCHEMA
 from dmn_client.route_table import (
+    SKIP_MAX,
     STAMP,
     RouteTableError,
     StorageTables,
@@ -51,7 +52,7 @@ ROOM = (
 )
 # What a stopped save left, said the same whatever stopped it; a refusal for space adds how to make room.
 LEFT = {
-    "NOT_SAVED": "这次没有存，表还是存之前的样子。照原版本号重存（空间满时先腾出空间）；若报「第 %(version)d 版刚被别人存了」，"
+    "NOT_SAVED": "这次没有存，表还是存之前的样子。照原内容、原版本号重存（空间满时先腾出空间）；若报「第 %(version)d 版刚被别人存了」，"
     "说明留了半截：照原内容重存不会成功，请负责人按说明核实后处理（op=usage 看 half_written）",
     "HALF_WRITTEN": "这次没有存，但收回时出错，可能留下了写到一半的第 %(version)d 版或几份零散副本。"
     "请负责人按说明核实后处理（op=usage 看 half_written），不要反复重存",
@@ -72,7 +73,8 @@ OTHER_TEXT = {
     **{k: "插件存储读写失败。" + v for k, v in LEFT.items() if k != "NOT_SAVED"},
     # a write that timed out may still land: the daemon finishes it after the plugin's call has given up
     "NOT_SAVED": UNAVAILABLE_TEXT
-    + "：这次没有存上，但若是超时，写入可能在 10 分钟内晚到。过 10 分钟先读回这张表，再照原版本号重存；"
+    + "：这次没有存上，但若是超时，写入可能在 10 分钟内晚到。过 10 分钟先读回这张表，再照原内容、原版本号重存"
+    "（改了内容再存，晚到的写入会把这一版的版本号那份换成没存成的那次）；"
     "报「第 %(version)d 版刚被别人存了」就请负责人按说明核实后处理（op=usage 看 half_written）",
 }
 # What the open-source plugin daemon says when a write would pass the plugin's storage cap. Matching is by words,
@@ -87,7 +89,8 @@ FULL_MARKS = (
 PLATFORM_TEXT_MAX = 200
 USAGE, PRUNE, SAVED = "usage", "prune", "saved"
 CARE_OPS = (USAGE, PRUNE, SAVED)
-ORPHAN_SCAN = 3  # version keys looked for above the head
+# version keys looked for above the head: one past the furthest a save numbering past leftovers can write
+ORPHAN_SCAN = SKIP_MAX + 1
 # Nothing is deleted before it has been stored this long. Upstream plugin daemon 0.5.1 keeps a read in a shared Redis
 # cache for 5 minutes and may finish a write after the plugin's call has timed out (SDK 250 s, daemon 600 s by
 # default): an hour is more than six times either. It assumes the host behaves so (not confirmed for AgentHub).
@@ -197,6 +200,9 @@ def failed(storage, exc):
     if saved is not None:
         shown.update(outcome=saved.outcome, version=saved.version, save_id=saved.save_id)
         facts = {"version": saved.version, "save_id": saved.save_id[:12]}
+        passed = [s["version"] for s in getattr(saved, "skipped", None) or []]
+        if passed:
+            shown["skipped_versions"] = passed
     if info["kind"] != "FULL":
         # NOT_SAVED keeps every earlier version's words: try again later is right then
         text = (
@@ -208,8 +214,14 @@ def failed(storage, exc):
     else:
         text = FULL_TEXT[saved.outcome if saved is not None else None]
         code, status = FULL_CODE, 507
+    message = text % facts if facts else text
+    if shown.get("skipped_versions"):
+        message += (
+            "（这次存表跳过了第 %s 版：几次存表交错后留在头版之上的版次，它们原样留在原来的版本号上）"
+            % "、".join(str(v) for v in shown["skipped_versions"])
+        )
     return status, {
-        "error": {"code": code, "message": text % facts if facts else text, "path": ""},
+        "error": {"code": code, "message": message, "path": ""},
         "storage_failure": shown,
     }
 
@@ -233,19 +245,29 @@ def _size(storage, key):
         raise
 
 
-def _version_entry(storage, table, n):
-    """One version key and the keys stored under its save id, with what each holds, or None. The copy by save id was
-    written from the version key's bytes, so it is counted at that size without reading it again."""
-    key = StorageTables.key(table, n)
-    raw = _size(storage, key)
+def _meta(raw):
+    """What the walk and the plan keep of a version key's bytes: (their length, {save_id, parent_save_id, saved_at}, or
+    None when unreadable); None when the key is not there. The bytes themselves are not kept."""
     if raw is None:
         return None
-    try:
-        doc = json.loads(raw.decode("utf-8"))
-    except (ValueError, UnicodeDecodeError):
-        doc = None  # unreadable: still a key that holds bytes, listed without a save id
+    doc = _decoded(raw)
+    keep = ("save_id", "parent_save_id", "saved_at")
+    return len(raw), ({k: doc.get(k) for k in keep} if doc is not None else None)
+
+
+def _version_entry(storage, table, n, meta=False):
+    """One version key and the keys stored under its save id, with what each holds, or None. The copy by save id was
+    written from the version key's bytes, so it is counted at that size without reading it again. meta: what _meta
+    kept of the version key when it was already read (None: not there)."""
+    key = StorageTables.key(table, n)
+    meta = _meta(_size(storage, key)) if meta is False else meta
+    if meta is None:
+        return None
+    length, doc = (
+        meta  # doc None: unreadable, still a key that holds bytes, listed without a save id
+    )
     sid = doc.get("save_id") if isinstance(doc, dict) else None
-    keys, size = [key], len(raw)
+    keys, size = [key], length
     if isinstance(sid, str) and sid:
         side = []
         for kind in SIDECARS:
@@ -253,7 +275,7 @@ def _version_entry(storage, table, n):
             if kind == "s":
                 if storage.exist(k):
                     side.append(k)
-                    size += len(raw)
+                    size += length
                 continue
             held = _size(storage, k)
             if held is not None:
@@ -275,6 +297,14 @@ def _saved_time(entry):
         return datetime.strptime(entry["saved_at"], STAMP).replace(tzinfo=timezone.utc)
     except (TypeError, ValueError):
         return None
+
+
+def _decoded(raw):
+    try:
+        doc = json.loads(raw.decode("utf-8")) if raw is not None else None
+    except (ValueError, UnicodeDecodeError):
+        return None
+    return doc if isinstance(doc, dict) else None
 
 
 def _old_enough(entry, now):
@@ -306,7 +336,8 @@ KEPT_YOUNG = "还没存满 1 小时：可能是正在存的那一版，或宿主
 KEPT_NO_TIME = "读不出存表时间：看不出它存了多久，插件不清理它"
 KEPT_ROLLED_BACK = (
     "它的父版不是读到的头版：头版可能被拨回过（几次存表交错，或写入晚到），这一版可能回过成功。"
-    "插件不清理它；表因此存不进时，见说明的已知限制"
+    "插件不清理它。存满 1 小时后，下一次存表在读到的头版前后一致时会跳过它往上编号（一次最多 %d 版），它留在原来的版本号上；"
+    "跳不过时这张表存不进，见说明的已知限制" % SKIP_MAX
 )
 KEPT_ANSWERED_OK = "插件记过这一版的存表回了成功（有谁存的记录）：它当过头版，不是存到一半的，读到的头版多半是旧值。插件不清理它"
 KEPT_WAS_HEAD = "有版次以它为父版：它当过头版，不是存到一半的，读到的头版是旧值。插件不清理它，等读回的头版变了再看"
@@ -415,11 +446,37 @@ def _plan(storage, table, keep, with_orphans, now, confirmed=()):
     doc, have = _head(storage, table)
     # a capability table's old versions stay (other tables pin them); only what is above its head may go
     top = 0 if _pinned_versions(doc) else have - keep
-    listed = [e for e in (_version_entry(storage, table, n) for n in range(1, top + 1)) if e]
+    # 0.5.36: a version off the head's parent chain (a later save numbered past it, or a sibling that wrote a chain
+    # member's number) was answered 200, may be pinned, and nothing below the head is built on it: it stays. keep
+    # counts the head and the versions on its chain
+    # every version below the head is read once, for the walk and for the plan; only its length and three fields stay
+    metas = (
+        {k: _meta(_size(storage, StorageTables.key(table, k))) for k in range(have - 1, 0, -1)}
+        if top > 0
+        else {}
+    )
+    off = (
+        StorageTables(storage).chain_gaps(
+            table, doc, 1, {k: (m[1] if m else None) for k, m in metas.items()}
+        )
+        if top > 0
+        else set()
+    )
+    chain = [n for n in range(have - 1, 0, -1) if n not in off]
+    old = sorted(chain[keep - 1 :]) if top > 0 else []
+    listed = [e for e in (_version_entry(storage, table, n, metas[n]) for n in old) if e]
+    kept_off = [e for e in (_version_entry(storage, table, n, metas[n]) for n in sorted(off)) if e]
     # an old version goes only once stored for CLEAN_MIN_AGE: deleting the one after a head an instance may still hold
-    # would let that instance's save pass the "version taken" check and overwrite the head
-    gone = [e for e in listed if _old_enough(e, now)]
-    young = [e for e in listed if not _old_enough(e, now)]
+    # would let that instance's save pass the "version taken" check and overwrite the head. 0.5.36: they go from the
+    # oldest up and stop at the first one not old enough, so no chain member is removed above one that stays (the walk
+    # could not link past it); one without a readable time is never removed and does not stop the others
+    gone, young, stopped = [], [], False
+    for e in listed:
+        if not stopped and _old_enough(e, now):
+            gone.append(e)
+        else:
+            stopped = stopped or _saved_time(e) is not None
+            young.append(e)
     orphans = _orphans(storage, table, have, doc, now, confirmed)
     half = [e for e in orphans if e["removable"]] if with_orphans else []
     head_sid = _sid(doc.get("save_id")) if isinstance(doc, dict) else None
@@ -454,6 +511,20 @@ def _plan(storage, table, keep, with_orphans, now, confirmed=()):
                 if young
                 else {}
             ),
+            **(
+                {
+                    "kept_off_chain": [
+                        {
+                            "version": e["version"],
+                            "save_id": e["save_id"],
+                            "why_kept": KEPT_OFF_CHAIN,
+                        }
+                        for e in kept_off
+                    ]
+                }
+                if kept_off
+                else {}
+            ),
             "half_written": [{k: v for k, v in e.items() if k != "keys"} for e in orphans],
             "keys": len(delete),
             "bytes": sum(e["bytes"] for e in gone)
@@ -470,6 +541,12 @@ def _plan(storage, table, keep, with_orphans, now, confirmed=()):
         groups,
         head_sid,
     )
+
+
+KEPT_OFF_CHAIN = (
+    "不在头版的父版链上：后来的存表跳过了它，或同一版本号被另一次存表写过。它可能回过成功、可能有流程钉着，"
+    "头版的父版链上没有它的改动：插件不清理它"
+)
 
 
 def _saved_by(storage, key):
@@ -608,4 +685,16 @@ def saved(storage, table, body):
         "save_id",
     )
     doc = StorageTables(storage)._read(_sidecar(table, "s", sid))
+    # 0.5.36: what is stored under that key must be that save of this table, or it is not handed back as it
+    _need(
+        doc is None
+        or (
+            isinstance(doc, dict)
+            and doc.get("save_id") == sid
+            and storage_name(doc.get("table") or "") == storage_name(table)
+        ),
+        "ROUTE_TABLE_CORRUPT",
+        "按存表号 %s 存的那份不是这张表的这次存表：不读回，先查明" % sid[:12],
+        "save_id",
+    )
     return {"table": table, "save_id": sid, "doc": doc}

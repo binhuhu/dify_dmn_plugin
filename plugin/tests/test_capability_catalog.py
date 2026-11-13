@@ -1,5 +1,4 @@
-"""能力表 capability-catalog/v1（2026-11-11，提议格式，待 Brian 定）：一行一个能力，按能力号查一行，或按域 / 实体 / 能力类型 /
-查询或动作筛一串。动作能力登记在表里，但暂时不能调用（callable = false）。"""
+"""Capability catalog contract checks using an independently invented library domain."""
 
 import copy
 
@@ -63,20 +62,22 @@ def test_capability_ids_are_unique_and_ascending():
 
 def test_a_fact_given_twice_needs_an_explicit_alternative():
     doc = catalog()
-    del row(doc, COUPON)["facts"][-1]["alternate_of"]  # PASSENGER.pid from coupon detail, unmarked
+    del row(doc, COUPON)["facts"][-1]["alternate_of"]  # MEMBER.key from copy detail, unmarked
     e = refused(doc, word="alternate_of")
-    assert "PASSENGER.pid" in e.message
+    assert "MEMBER.key" in e.message
 
 
 def test_an_alternative_names_the_primary_source():
     doc = catalog()
-    row(doc, COUPON)["facts"][-1]["alternate_of"] = BATCH  # the primary is the order detail
+    row(doc, COUPON)["facts"][-1]["alternate_of"] = BATCH  # the primary is the loan detail
     refused(doc, word="主来源")
     doc = catalog()
     row(doc, COUPON)["facts"][-1]["alternate_of"] = COUPON
     refused(doc, word="不是自己")
     doc = catalog()
-    row(doc, COUPON)["facts"][0]["alternate_of"] = ORDER  # COUPON.batch_id has no primary anywhere
+    row(doc, COUPON)["facts"][0]["alternate_of"] = (
+        ORDER  # BOOK_COPY.edition_key has no primary anywhere
+    )
     refused(doc, word="主来源")
 
 
@@ -95,7 +96,7 @@ def test_one_capability_names_a_fact_once():
 
 def test_fan_out_names_an_input_of_the_row():
     doc = catalog()
-    row(doc, COUPON)["fan_out"]["input"] = "couponIds"
+    row(doc, COUPON)["fan_out"]["input"] = "copyKeys"
     p = "capabilities[%d].fan_out.input" % [r["capability_id"] for r in doc["capabilities"]].index(
         COUPON
     )
@@ -114,8 +115,8 @@ def test_fan_out_names_an_input_of_the_row():
         ("face", "WRITE", "face"),
         ("kind", "PAGE", "kind"),
         ("kind", None, "kind"),  # a query has a kind
-        ("domain", "pricing", "domain"),
-        ("entity", "Order", "entity"),
+        ("domain", "reservation", "domain"),
+        ("entity", "Loan", "entity"),
     ],
 )
 def test_codes_are_in_their_closed_sets(key, value, word):
@@ -129,7 +130,7 @@ def test_fact_types_and_units_are_in_their_sets():
     row(doc, ORDER)["facts"][0]["type"] = "money"
     refused(doc, word="type")
     doc = catalog()
-    row(doc, ORDER)["facts"][0]["unit"] = "人 民 币"
+    row(doc, ORDER)["facts"][0]["unit"] = "借 阅 天"
     refused(doc, word="unit")
 
 
@@ -154,30 +155,30 @@ def test_a_query_gives_facts():
     "ref",
     [
         "http://10.0.0.1:8000/x",
-        "registry:10.65.128.103/bill",
+        "registry:192.0.2.10/loan",
         "gateway:host:8000/x",
         "registry:x?token=abc",
         "registry:x#secret",
         "registry:x/password",
-        "{{#env.CASHIER_ES_URL#}}",
+        "{{#env.EXAMPLE_SERVICE_URL#}}",
         # adversarial review 3, M2
-        "gocoupon.intra.example.com/api/coupon/get",
-        "api.example.com:8443#getCoupon",
+        "service.example.com/api/library/get",
+        "api.example.com:8443#lookupCopy",
         "api.example.com:8443@x",
         "fe80::1",
-        "ops@db-master.internal",
+        "ops@db.example.invalid",
         "ak:LTAI5tAbCdEfGh12/sk:ZyXwVu98",
         "registry:ak/LTAI5tAbCdEfGh12",
         "AKIAIOSFODNN7EXAMPLE",
         "jwt:eyJhbGciOi.eyJzdWIiOi.sig",
-        "registry:gocoupon/jwt.eyJhbGciOi",
+        "registry:example-service/jwt.eyJhbGciOi",
         "pwd:hunter2",
         "registry:svc/pwd",
-        "registry:gocoupon/getCoupon?x=1",
-        "registry:gocoupon/a/b",
+        "registry:example-service/lookupCopy?x=1",
+        "registry:example-service/a/b",
         # round 2, N3
         "registry:proxy/10.0.0.1",
-        "registry:http/gocoupon.intra.example.com",
+        "registry:http/service.example.com",
         "registry:svc/api_key.AbCdEf123456",
         "registry:svc/secretKey-Zx9",
         "registry:aliyun/LTAI5tAbCdEfGh12Ij34",
@@ -196,7 +197,7 @@ def test_the_call_reference_holds_no_address_or_credential(ref):
 @pytest.mark.parametrize(
     "ref",
     [
-        "registry:illum-resource/1089",
+        "registry:lending/lookupLoan",
         "registry:svc/getDetail.v2",
         "registry:tokenizer/split",
         "registry:secretary/schedule",
@@ -204,7 +205,7 @@ def test_the_call_reference_holds_no_address_or_credential(ref):
         "registry:ak-gateway/route",
         "registry:token-service/introspect",
         "registry:risk/sig-check",
-        "registry:gocoupon/getAllCouponsByStatus",
+        "registry:library/listLoansByShelf",
     ],
 )
 def test_a_registration_reference_saves(ref):
@@ -213,7 +214,7 @@ def test_a_registration_reference_saves(ref):
     validate(doc)
 
 
-@pytest.mark.parametrize("bad", [["couponId"], {"couponId": 1}, 7])
+@pytest.mark.parametrize("bad", [["copyKey"], {"copyKey": 1}, 7])
 def test_a_malformed_fan_out_input_is_refused_not_a_crash(bad):
     doc = catalog()
     row(doc, COUPON)["fan_out"]["input"] = bad
@@ -222,7 +223,7 @@ def test_a_malformed_fan_out_input_is_refused_not_a_crash(bad):
 
 def test_input_specs_are_exact():
     doc = catalog()
-    row(doc, ORDER)["inputs"]["orderId"] = {"required": "yes"}
+    row(doc, ORDER)["inputs"]["loanKey"] = {"required": "yes"}
     refused(doc, word="required")
     doc = catalog()
     row(doc, ORDER)["inputs"] = {}
@@ -250,7 +251,7 @@ def test_read_one_row_by_capability_id():
     assert out["status"] == "SUCCEEDED"
     res = out["result"]
     assert (res["query"], res["state"], res["callable"]) == ("CAPABILITY", "PASS", True)
-    assert res["row"]["fan_out"] == {"input": "couponId", "max": 20}
+    assert res["row"]["fan_out"] == {"input": "copyKey", "max": 12}
     miss = read({"capability_id": "nope__x"})["result"]
     assert (miss["state"], miss["row"], miss["callable"]) == ("NO_MATCH", None, None)
 
@@ -261,18 +262,18 @@ def test_an_action_reads_as_not_callable():
 
 
 def test_list_by_domain_entity_kind_and_face():
-    res = read({"domain": "MARKETING"})["result"]
+    res = read({"domain": "LIBRARY"})["result"]
     assert [r["capability_id"] for r in res["rows"]] == [
-        "gocoupon__getAllCoupons",
-        BATCH,
+        "library__listLoans",
         COUPON,
+        BATCH,
         SEND,
     ]
-    res = read({"domain": "MARKETING", "entity": "coupon", "kind": "DETAIL"})["result"]
+    res = read({"domain": "LIBRARY", "entity": "book_copy", "kind": "DETAIL"})["result"]
     assert (res["count"], [r["capability_id"] for r in res["rows"]]) == (1, [COUPON])
     res = read({"face": "ACTION"})["result"]
     assert [(r["capability_id"], r["callable"]) for r in res["rows"]] == [(SEND, False)]
-    res = read({"entity": "driver"})["result"]
+    res = read({"entity": "librarian"})["result"]
     assert (res["state"], res["count"], res["rows"]) == ("NO_MATCH", 0, [])
 
 
@@ -283,7 +284,7 @@ def test_list_by_domain_entity_kind_and_face():
         {"kind": "PAGE"},
         {"face": "query"},
         {"domain": "x y"},
-        {"capability_id": COUPON, "domain": "MARKETING"},
+        {"capability_id": COUPON, "domain": "LIBRARY"},
         {"other": 1},
     ],
 )
@@ -315,5 +316,17 @@ def test_lookup_hands_out_copies_of_the_clean_document():
 
     clean = validate(catalog())
     capability_catalog.lookup(clean, {"capability_id": ORDER})["row"]["facts"].clear()
-    capability_catalog.lookup(clean, {"domain": "ORDER"})["rows"][0]["inputs"].clear()
+    capability_catalog.lookup(clean, {"domain": "LENDING"})["rows"][0]["inputs"].clear()
     assert row(clean, ORDER)["facts"] and row(clean, ORDER)["inputs"]
+
+
+def test_fixture_uses_only_the_invented_library_contract():
+    rows = catalog()["capabilities"]
+    services = {"lending", "reading", "reservation", "library"}
+    response_roots = {"loan", "circulation", "reservation", "loans", "edition", "copy"}
+    assert len(rows) == 7
+    assert {r["domain"] for r in rows} == {"LENDING", "READING", "RESERVATION", "LIBRARY"}
+    for r in rows:
+        assert r["call_ref"].split(":", 1)[1].split("/", 1)[0] in services
+        assert r["capability_id"].split("__", 1)[0] in services
+        assert all(f["field"].split(".", 1)[0] in response_roots for f in r["facts"])
