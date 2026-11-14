@@ -333,12 +333,14 @@ def test_a_version_without_a_readable_time_is_never_deleted():
         "confirm": [{"version": 4, "save_id": "f" * 32}],
     }
     plan = call(s, "prune", ask, now=later)[1]
-    assert [v["version"] for v in plan["versions"]] == [2], plan
-    assert [v["version"] for v in plan["kept_young"]] == [1], plan
+    # 0.5.36: old versions go from the oldest up and stop at the first one that stays, so version 2 stays above version
+    # 1 (removing it would leave a gap the chain walk cannot link past)
+    assert plan["versions"] == [], plan
+    assert [v["version"] for v in plan["kept_young"]] == [1, 2], plan
     assert plan["half_written"][0]["removable"] is False, plan
     assert call(s, "prune", dict(ask, plan_sha256=plan["plan_sha256"]), now=later)[0] == 200
-    assert "route-table:%s:v1" % T in s.data and "route-table:%s:v4" % T in s.data
-    assert "route-table:%s:v2" % T not in s.data
+    assert all("route-table:%s:v%d" % (T, n) in s.data for n in (1, 2, 4))
+    assert all("off_chain" not in h for h in call(s, "history")[1]["versions"])
 
 
 def test_a_save_answered_not_in_effect_whose_head_landed_leaves_nothing_to_clean_away():

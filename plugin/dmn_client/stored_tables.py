@@ -105,6 +105,10 @@ MAX_ITEMS = 16
 MAX_TARGETS = 256
 # 0.5.21 (⓪ 场景与话题): one row per scene, keyed by its M_ scene id; the only name is target.scene.topic, owned by 定位
 TABLE_SCENE_TOPIC = "target.scene.topic"
+# 2026-11-14 (提议，待 Brian 定): one more name may hold a scene-topic table, for trials: no workflow reads it, the
+# scene bundle never writes it, and a compatibility manifest names it explicitly
+TABLE_SCENE_TOPIC_TRIAL = "trial.scene.topic"
+SCENE_TOPIC_TABLES = (TABLE_SCENE_TOPIC, TABLE_SCENE_TOPIC_TRIAL)
 # 0.5.21: the issue types the TRIAGE workflow routes by; a new type is a plugin change, not a table edit
 ISSUE_TYPES = ("COMPLAINT", "CONSULT", "FEEDBACK")
 ISSUE_TYPE_KEYS = ("label", "panel", "marker", "weight", "associate_entity")
@@ -1160,8 +1164,8 @@ def _scene_topic_row(row, p, intents, topics, prev_scene):
 def _validate_scene_topic(doc):
     table = _table(
         doc,
-        lambda t: t == TABLE_SCENE_TOPIC,
-        "场景与话题表的表名只能是 " + TABLE_SCENE_TOPIC,
+        lambda t: t in SCENE_TOPIC_TABLES,
+        "场景与话题表的表名只能是 " + " 或试验用的 ".join(SCENE_TOPIC_TABLES),
     )
     intent_types = _intent_types(doc.get("intent_types"))
     raw = doc.get("rows")
@@ -2084,9 +2088,9 @@ def evaluate_stored(
             return out
         _need(table_name(table), "ROUTE_TABLE_INVALID", "表名格式不对", "table")
         _need(
-            fmt != FORMAT_SCENE_TOPIC or table == TABLE_SCENE_TOPIC,
+            fmt != FORMAT_SCENE_TOPIC or table in SCENE_TOPIC_TABLES,
             "STORED_TABLE_NAME",
-            "场景与话题表的表名只能是 " + TABLE_SCENE_TOPIC,
+            "场景与话题表的表名只能是 " + " 或试验用的 ".join(SCENE_TOPIC_TABLES),
             "table",
         )
         _need(

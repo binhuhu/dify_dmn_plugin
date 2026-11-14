@@ -2554,8 +2554,18 @@ class StorageTables:
             )
             n += 1
         else:
-            stuck = True  # SKIP_MAX passed: whatever is next is past the limit
+            # SKIP_MAX passed: whatever is next is past the limit, unless it is another save on the head read, which may
+            # simply be the next head (reload and save again)
+            stuck = not self._on_head_read(table, n, head_sid)
         return n, skipped, settles, stuck
+
+    def _on_head_read(self, table, n, head_sid):
+        """0.5.36: whether version n is a save on the head read (its parent is that head, or it is that head)."""
+        try:
+            d = self._read(self.key(table, n))
+        except RouteTableError:
+            return False
+        return isinstance(d, dict) and head_sid in (d.get("parent_save_id"), d.get("save_id"))
 
     def chain_gaps(self, table, head, low=1, docs=None):
         """0.5.36: the version numbers from the head's version - 1 down to low whose version key is not on the head's
@@ -2584,11 +2594,17 @@ class StorageTables:
                 return None
 
         def copy_of(sid):
+            # only the version and parent of a chain member's copy are kept, never the document
             if sid not in copies:
                 try:
-                    copies[sid] = self._read(self.save_key(table, sid))
+                    d = self._read(self.save_key(table, sid))
                 except RouteTableError:
-                    copies[sid] = None
+                    d = None
+                copies[sid] = (
+                    {"version": d.get("version"), "parent_save_id": d.get("parent_save_id")}
+                    if isinstance(d, dict)
+                    else None
+                )
             return copies[sid]
 
         for k in range(top - 1, max(low, 1) - 1, -1):

@@ -1,0 +1,74 @@
+identity:
+  name: scene_bundle
+  author: hu8627
+  label:
+    en_US: scene_bundle
+    zh_Hans: 建场景整包
+description:
+  human:
+    en_US: One scene's rows in the six scene tables (scene and topic, scene entity, supplement requirements, scene
+      establishment, acceptance conditions, route), checked as a whole and written sequentially with best-effort compensating rollback, not atomically. check and status are
+      reads; save stores a draft of the bundle; publish writes the six tables, probes the new scene once and records
+      the result. Writes count only inside the route-table maintenance app.
+    zh_Hans: 一个场景在六张表（场景与话题、场景关联实体、补充要求、场景成立、受理条件、路由方案）里的行，整包校验，逐表写入；失败时尝试补偿回滚，并非原子事务，可能留下部分结果。check、status 只读；save 存整包草稿；publish 写六张表、对新场景拨测一轮并把结果写回。写入只在「路由表维护」应用里算数。
+  llm: Check, draft, publish or roll back one scene's rows across the six scene tables as one bundle.
+parameters:
+- name: op
+  type: string
+  required: true
+  form: llm
+  label:
+    en_US: op
+    zh_Hans: 操作
+  human_description:
+    en_US: check (compose, gate and dry-run every table's save; nothing stored) | status (the scene's bundle draft, its last publish and where each table stands) | save (check, then store the bundle draft; body carries expected_draft) | discard (body {draft_id}) | publish (body {draft_id}, in signed mode also release_ref and gate_report over the draft's bundle_sha256) | rollback (body {bundle_id}; saves the previous content back to each table this publish wrote)
+    zh_Hans: check（合成、过整包闸、把每张表的整次存表试跑一遍；什么都不存）/ status（这个场景的整包草稿、上一次发布、各表现在的位置）/ save（先 check，再存整包草稿；请求带 expected_draft）/ discard（请求 {draft_id}）/ publish（请求 {draft_id}；签名模式另带 release_ref 和核这份草稿 bundle_sha256 的 gate_report）/ rollback（请求 {bundle_id}：把这次发布写过的每张表存回原内容）
+  llm_description: check, status, save, discard, publish or rollback.
+- name: scene_id
+  type: string
+  required: true
+  form: llm
+  label:
+    en_US: scene_id
+    zh_Hans: 场景编号
+  human_description:
+    en_US: The scene id in M_ spelling, e.g. M_P_01_01_01.
+    zh_Hans: 场景编号，M_ 写法，如 M_P_01_01_01。
+  llm_description: Scene id in M_ spelling.
+- name: body_json
+  type: string
+  required: false
+  form: llm
+  label:
+    en_US: body_json
+    zh_Hans: 请求内容
+  human_description:
+    en_US: "For check and save: the bundle (schema dmn-json.scene-bundle/v1, scene_id, intent CREATE or UPDATE, the six parts scene_topic / scene_entity / supplement / establishment / acceptance / routes, expected_versions). For discard, publish and rollback: the small request named under op."
+    zh_Hans: check、save：整包（schema dmn-json.scene-bundle/v1、scene_id、intent CREATE 或 UPDATE、六个键 scene_topic / scene_entity / supplement / establishment / acceptance / routes、expected_versions）。discard、publish、rollback：操作一栏写的那个小请求。
+  llm_description: The bundle, or the small request of discard / publish / rollback.
+- name: writers
+  type: string
+  required: false
+  form: form
+  label:
+    en_US: Writers
+    zh_Hans: 写手登记
+  human_description:
+    en_US: The same registry as the route_table_store node of the maintenance app (empty or OPEN = open mode). A writer of kind AGENT may save and discard a bundle draft, never publish or roll back.
+    zh_Hans: 和维护应用里 route_table_store 节点同一份登记（留空或 OPEN = 开放模式）。种类为 AGENT 的写手能存、能删整包草稿，不能发布、不能回滚。
+output_schema:
+  type: object
+  properties:
+    status_code:
+      type: number
+    result_json:
+      type: string
+    result:
+      type: object
+  required:
+  - status_code
+  - result_json
+  - result
+extra:
+  python:
+    source: tools/scene_bundle.py

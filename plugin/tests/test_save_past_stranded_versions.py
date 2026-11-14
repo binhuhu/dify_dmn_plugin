@@ -796,3 +796,60 @@ def test_first_record_stale_read_back_warns_after_the_record_was_written():
     message = str(exc.value)
     assert "不能确认最终状态" in message and "不要直接重试" in message
     assert "没有生效" not in message
+
+
+def test_past_the_limit_a_save_on_the_head_read_keeps_the_reload_advice():
+    """Three leftovers passed and the fourth number holds another save on the very head read: that may be the next
+    head, so the answer is 0.5.19's "reload and save again", not "a retry will not help"."""
+    s, c = _crossed()
+    _age(s, T, 3)
+    prev = c
+    for n in range(4, 3 + SKIP_MAX):
+        d = dict(prev, version=n, save_id=("%x" % n) * 32, parent_save_id=prev["save_id"])
+        s.data["%s:v%d" % (HEAD, n)] = canon(d).encode()
+        _age(s, T, n)
+        prev = d
+    b = json.loads(s.data[HEAD])
+    nxt = 3 + SKIP_MAX
+    on_head = dict(b, version=nxt, save_id="e" * 32, parent_save_id=b["save_id"])
+    s.data["%s:v%d" % (HEAD, nxt)] = canon(on_head).encode()
+    status, out = call(s, "save", dict(table_doc("E"), expected_version=2))
+    message = out["error"]["message"]
+    assert status == 409 and "第 %d 版刚被别人存了" % nxt in message, out
+    assert "载入最新版、保留你的改动后再存" in message and "跳不过去" not in message, message
+
+
+def test_the_walk_keeps_only_version_and_parent_of_the_copies_it_looks_at():
+    """Many versions off the chain, each between chain members whose copy the walk reads: the plan's memory stays near
+    one version's, not the sum of the copies."""
+    import tracemalloc
+
+    s = store(FakeStorage())
+    big = (
+        "x" * 400_000
+    )  # 20 copies of this, kept whole, would be about 9 MB; version and parent only, about 1 MB
+    head = StorageTables(s).load(T)
+    parent = head["save_id"]
+    n = 2
+    for i in range(20):
+        member = dict(
+            head, version=n, save_id=("%031x" % (2 * i + 1)) + "a", parent_save_id=parent, note=big
+        )
+        sibling = dict(member, save_id="%032x" % (1000 + i), note="")
+        s.data["%s:v%d" % (HEAD, n)] = canon(
+            sibling
+        ).encode()  # a sibling's key at the member's number
+        s.data["%s:s:%s" % (HEAD, member["save_id"])] = canon(
+            member
+        ).encode()  # the member's own copy
+        _age(s, T, n)
+        parent, n = member["save_id"], n + 1
+    top = dict(head, version=n, save_id="c" * 32, parent_save_id=parent)
+    s.data[HEAD] = canon(top).encode()
+    s.data["%s:v%d" % (HEAD, n)] = canon(top).encode()
+    tracemalloc.start()
+    plan = call(s, "prune", {"expected_version": n, "keep": 1}, now=_later)[1]
+    peak = tracemalloc.get_traced_memory()[1]
+    tracemalloc.stop()
+    assert len(plan["kept_off_chain"]) == 20, plan
+    assert peak < 4_000_000, peak

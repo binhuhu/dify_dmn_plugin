@@ -1,4 +1,4 @@
-# JSON 决策工具 0.5.36（单人串行维护）
+# JSON 决策工具 0.5.37（单人串行维护）
 
 这是同一仓库的独立 JSON 安装包 `hu8627/dmn_json`。原有 `hu8627/dmn` 外部 XML 插件和其他已安装插件保留，不卸载、不替换。新建“内置 JSON 决策表 / evaluate_json_table”节点无需 Key、引擎地址或外部服务。现有外部工具仍通过原插件配置 Node 服务，未配置时返回 INVALID_CONFIGURATION。两个包的模型格式和语义不能互换。
 
@@ -36,7 +36,7 @@ AND 中 FALSE 优先于 UNKNOWN。FIRST 的已选规则之前存在 UNKNOWN 或 
 
 ## 构建与验收
 
-从仓库根目录运行 `python scripts/stage-builtin.py /tmp/dmn-json-0.5.36`，然后用已安装的官方 Dify CLI：`dify plugin package /tmp/dmn-json-0.5.36 -o hu8627-dmn_json-0.5.36.difypkg`。没有 CLI 时 staging 目录不是安装包，不用普通 zip 冒充 difypkg。不重试已拒绝的下载/API，不修改旧 Release。包未签名，遵循平台签名策略。
+从仓库根目录运行 `python scripts/stage-builtin.py /tmp/dmn-json-0.5.37`，然后用已安装的官方 Dify CLI：`dify plugin package /tmp/dmn-json-0.5.37 -o hu8627-dmn_json-0.5.37.difypkg`。没有 CLI 时 staging 目录不是安装包，不用普通 zip 冒充 difypkg。不重试已拒绝的下载/API，不修改旧 Release。包未签名，遵循平台签名策略。
 
 依赖沿用仓库固定 requirements.txt；首次安装仍需要平台正常解析 Python 依赖。免 Key/无外部决策服务指工具调用路径，不是离线安装保证。目标 UI 安装与真实调用仍需验收。
 
@@ -55,6 +55,8 @@ v2 表（`dmn-json.route-table/v2`）自带场景目录和方案登记，支持�
 0.5.28：写手登记留空（默认）或只写一个词 OPEN = 开放模式：不要签名，五张表重新直接存，能在 AgentHub 里运行维护应用的人都能写（写入五张表仍只认维护应用；带签名的请求和编辑端点不收；插件不记改动人）；缺失或仅注释也算 OPEN，误删全部写手会自动开放。宿主 Web App/API 若允许匿名调用，调用者同样可能修改五张表；登记里有写手 = 签名模式，同 0.5.24–0.5.27。方案层四张表名 `solution.search.fact` / `fact.feature` / `feature.reality` / `reality.strategy` + `.<场景号>`，声明可不写 role（表名即角色）；旧名 `disposal.strategy` / `disposal.status` 照收。见 [0.5.28 发布说明](https://github.com/binhuhu/dify_dmn_plugin/blob/v0.5.29/docs/releases/v0.5.28.md)。
 
 0.5.29：对成功保存、草稿、发布、撤销和草稿删除尝试记录旁路归属，失败不改变业务写入结果；宿主 user_id 与 via 均不独立认证，只有 writer_verified 表示 HMAC 已核验。历史身份字段仅向钉定维护应用返回；撤销/删除记录为独立操作，不改原版本作者。详见 [0.5.29 发布说明](https://github.com/binhuhu/dify_dmn_plugin/blob/v0.5.29/docs/releases/v0.5.29.md)。
+
+0.5.37（候选，未发布）：资源去向的执行者加「用户自助」（`SELF_SERVICE`，挑法 `SELF_ENTRY` 带入口应用 `entry_app_id`）；写手登记加只进草稿的 `AGENT`，签名模式下场景与话题表、受理条件表的直接存也要写手签名，存表与发布的回执带一行台账行 `ledger_row`，另有只读的 `op=ledger`；建场景整包写入（新工具 `scene_bundle`，也挂在 `route_table_store` 的 `bundle_*` 上：一个场景在六张表里的行一次核对、存草稿、发布、回滚，不是事务）；只读的 `op=catalog`（从头版现算的轻目录：问题类型对照，可选场景名单，带来源表版次与摘要）。默认仍是开放模式，开放模式下原有操作与 0.5.36 相同；存储键与原有表的格式不变。详见 [v0.5.37](../docs/releases/v0.5.37.md)。
 
 0.5.36（候选，未发布）：几次存表交错后留在头版之上的版次（父版不是头版、可能回过成功）不再让表一直存不进：存满 1 小时后，五张交付链表以外的表存表时跳过它往上编号（一次最多 3 版；头版读得前后一致才跳；父版正是读到的头版的那一版不跳），被跳过的那一版原样留在原号上，按版本号、历史、按内容摘要、按存表号都读得到，回包写明跳过了哪几版。清理旧版次不删不在头版父版链上的版次，`keep` 只数链上的版次；历史标出 `off_chain`。用量和清理多看一个版本号。存表没存成时回包说照原内容重存；按存表号读回会核对是不是这张表的这次存表。见 [v0.5.36](../docs/releases/v0.5.36.md)。
 

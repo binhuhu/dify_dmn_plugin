@@ -7,9 +7,11 @@ import json
 
 from dify_plugin import Tool
 
+from dmn_client.catalog import OP as CATALOG
 from dmn_client.route_store import CHECK, OPS, UNDO, error
+from dmn_client.scene_bundle import OPS as BUNDLE_OPS
 from dmn_client.storage_care import CARE_OPS
-from dmn_client.two_state import DRAFT_OPS, VOCABULARY, WRITERS_OPS, run_entry
+from dmn_client.two_state import DRAFT_OPS, LEDGER, VOCABULARY, WRITERS_OPS, run_entry
 
 
 class RouteTableStoreTool(Tool):
@@ -22,12 +24,28 @@ class RouteTableStoreTool(Tool):
             and op != VOCABULARY
             and op not in WRITERS_OPS
             and op not in CARE_OPS
+            and op not in BUNDLE_OPS
+            and op != LEDGER
+            and op != CATALOG
         ):
             status, body = error(
                 400,
                 "ROUTE_STORE_OP_INVALID",
                 "op 只能是 "
-                + " / ".join((*OPS, UNDO, CHECK, *DRAFT_OPS, VOCABULARY, *WRITERS_OPS, *CARE_OPS)),
+                + " / ".join(
+                    (
+                        *OPS,
+                        UNDO,
+                        CHECK,
+                        *DRAFT_OPS,
+                        VOCABULARY,
+                        *WRITERS_OPS,
+                        *CARE_OPS,
+                        LEDGER,
+                        CATALOG,
+                        *BUNDLE_OPS,
+                    )
+                ),
             )
         else:
             status, body = run_entry(

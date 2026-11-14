@@ -152,8 +152,15 @@ CONCLUSION_KEYS = {
 # 0.5.22: the three-tier resource routing result
 RESOURCE_RESULT_KEYS = ("tier1", "tier2", "tier3", "gap", "actions")
 RESOURCE_STATES = ("PASS", "UNKNOWN")
-RESOURCE_EXECUTORS = ("HUMAN", "AI")
-RESOURCE_PICKS = ("QUEUE", "LAST_AGENT", "AGENT_APP")
+# Self-service routing: user self-service is a third executor, not a kind of AI. tier1.pool's SELF
+# stays "own staff"; the executor is spelled SELF_SERVICE so the two never read alike. Its pick is SELF_ENTRY (the
+# self-service entry, with the app behind it in entry_app_id), and no other executor takes that pick.
+RESOURCE_SELF_SERVICE = "SELF_SERVICE"
+RESOURCE_SELF_ENTRY = "SELF_ENTRY"
+RESOURCE_EXECUTORS = ("HUMAN", "AI", RESOURCE_SELF_SERVICE)
+RESOURCE_PICKS = ("QUEUE", "LAST_AGENT", "AGENT_APP", RESOURCE_SELF_ENTRY)
+# the app a pick names: AGENT_APP the agent app, SELF_ENTRY the app behind the self-service entry
+RESOURCE_PICK_APP = {"AGENT_APP": "agent_app_id", RESOURCE_SELF_ENTRY: "entry_app_id"}
 RESOURCE_GAP = {"code": "RESOURCE_TO_CONFIRM", "owner": "SYSTEM", "kind": "CONFIRM"}
 # a person's id never goes into a routing table: tier3 says how to pick, not whom
 PERSON_ID_RE = re.compile(
@@ -1101,7 +1108,7 @@ def _resource_result(result, state, p):
     _code(t1["pool"], "tier1.pool", q + ".tier1.pool")
     _need(
         t1["executor"] in RESOURCE_EXECUTORS,
-        "tier1.executor 只能是 HUMAN / AI",
+        "tier1.executor 只能是 " + " / ".join(RESOURCE_EXECUTORS),
         q + ".tier1.executor",
     )
     if "split" in t1:
@@ -1145,12 +1152,19 @@ def _resource_result(result, state, p):
     )
     _need(
         t2["executor"] in RESOURCE_EXECUTORS,
-        "tier2.executor 只能是 HUMAN / AI",
+        "tier2.executor 只能是 " + " / ".join(RESOURCE_EXECUTORS),
+        q + ".tier2.executor",
+    )
+    # user self-service is one executor down all three tiers: it is not a pool's traffic handed to a human or AI group
+    selfs = [t1["executor"] == RESOURCE_SELF_SERVICE, t2["executor"] == RESOURCE_SELF_SERVICE]
+    _need(
+        selfs[0] == selfs[1],
+        "用户自助（SELF_SERVICE）一级、二级的 executor 要一致：自助不和人、AI 混在一条去向里",
         q + ".tier2.executor",
     )
     _need(
-        type(t3) is dict and "pick" in t3 and set(t3) <= {"pick", "agent_app_id"},
-        "tier3 = pick（+ agent_app_id）",
+        type(t3) is dict and "pick" in t3 and set(t3) <= {"pick", *RESOURCE_PICK_APP.values()},
+        "tier3 = pick（+ agent_app_id / entry_app_id）",
         q + ".tier3",
     )
     _need(
@@ -1159,16 +1173,27 @@ def _resource_result(result, state, p):
         q + ".tier3.pick",
     )
     _need(
+        (t3["pick"] == RESOURCE_SELF_ENTRY) == selfs[0],
+        "用户自助（SELF_SERVICE）的挑法只能是 SELF_ENTRY，别的执行者不用 SELF_ENTRY",
+        q + ".tier3.pick",
+    )
+    _need(
         (t3["pick"] == "AGENT_APP") == ("agent_app_id" in t3),
         "tier3.pick = AGENT_APP 要写 agent_app_id，别的挑法不写",
         q + ".tier3.agent_app_id",
     )
-    if "agent_app_id" in t3:
-        _need(
-            type(t3["agent_app_id"]) is str and UUID_RE.fullmatch(t3["agent_app_id"]) is not None,
-            "agent_app_id 是 AgentHub 应用编号",
-            q + ".tier3.agent_app_id",
-        )
+    _need(
+        (t3["pick"] == RESOURCE_SELF_ENTRY) == ("entry_app_id" in t3),
+        "tier3.pick = SELF_ENTRY 要写 entry_app_id（自助入口背后的应用），别的挑法不写",
+        q + ".tier3.entry_app_id",
+    )
+    for key in RESOURCE_PICK_APP.values():
+        if key in t3:
+            _need(
+                type(t3[key]) is str and UUID_RE.fullmatch(t3[key]) is not None,
+                key + " 是 AgentHub 应用编号",
+                q + ".tier3." + key,
+            )
     # K5 / §五 RESOURCE: codes complete → PASS, no gap; codes missing → UNKNOWN with the one fixed gap. The gap is part
     # of the conclusion (conclusion_of), so it follows from the state and never tells two rules' conclusions apart.
     if state == "PASS":

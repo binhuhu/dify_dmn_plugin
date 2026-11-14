@@ -468,15 +468,11 @@ def _plan(storage, table, keep, with_orphans, now, confirmed=()):
     kept_off = [e for e in (_version_entry(storage, table, n, metas[n]) for n in sorted(off)) if e]
     # an old version goes only once stored for CLEAN_MIN_AGE: deleting the one after a head an instance may still hold
     # would let that instance's save pass the "version taken" check and overwrite the head. 0.5.36: they go from the
-    # oldest up and stop at the first one not old enough, so no chain member is removed above one that stays (the walk
-    # could not link past it); one without a readable time is never removed and does not stop the others
-    gone, young, stopped = [], [], False
+    # oldest up and stop at the first one that stays (not old enough, or no readable time), so no chain member is ever
+    # removed above one that stays: the walk could not link past it and would call the one below off the chain
+    gone, young = [], []
     for e in listed:
-        if not stopped and _old_enough(e, now):
-            gone.append(e)
-        else:
-            stopped = stopped or _saved_time(e) is not None
-            young.append(e)
+        (gone if not young and _old_enough(e, now) else young).append(e)
     orphans = _orphans(storage, table, have, doc, now, confirmed)
     half = [e for e in orphans if e["removable"]] if with_orphans else []
     head_sid = _sid(doc.get("save_id")) if isinstance(doc, dict) else None

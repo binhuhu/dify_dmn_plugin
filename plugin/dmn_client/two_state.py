@@ -24,6 +24,7 @@ from datetime import datetime, timedelta, timezone
 
 import rfc8785
 
+from dmn_client import catalog, scene_bundle
 from dmn_client.client import EngineError, json_object
 from dmn_client.route_store import CONFLICT, DEFAULT_TABLE, MAX_REQUEST, UNAVAILABLE, error, run_op
 from dmn_client.route_table import (
@@ -50,6 +51,7 @@ from dmn_client.storage_care import (
     usage,
 )
 from dmn_client.storage_care import full as storage_full
+from dmn_client.stored_tables import TABLE_SCENE_TOPIC
 from dmn_client.table_names import STANDARD, old_name, storage_name
 from dmn_client.vocabulary import declared, format_keys, unknown_keys
 
@@ -59,7 +61,16 @@ FIVE = frozenset(
 DRAFT_SCHEMA = "dmn-json.draft/v1"
 PUBLISH_SCHEMA = "dmn-json.publish-record/v1"
 SIG_PREFIX = "dmn-store-sig/1"
-KINDS = ("PERSON", "SESSION", "SCRIPT", "APP")
+# 2026-11-13: AGENT is a registered writer that only drafts. It may store a draft of one of the five, a scene bundle
+# draft, and discard a draft; it may not publish, undo, clean up, roll a bundle back, or save a scene table directly.
+AGENT = "AGENT"
+KINDS = ("PERSON", "SESSION", "SCRIPT", "APP", AGENT)
+AGENT_REFUSED = ("publish", "undo", "save", PRUNE, *scene_bundle.AGENT_REFUSED)
+# 2026-11-13: the two tables a scene needs that are not among the five (they have no draft and no publish). In signed
+# mode a save of either carries a writer's signature, so every write to the six tables of a scene names its writer; in
+# open mode they are saved as before.
+SCENE_SIGNED = frozenset((TABLE_SCENE_TOPIC, scene_bundle.TABLE_ISSUE_ACCEPTANCE))
+LEDGER = "ledger"  # a read: one ledger row per stored version of a table
 MIN_KEY = 24
 FRESH = timedelta(minutes=10)
 # used with fullmatch: no trailing newline, ASCII digits only
@@ -120,6 +131,9 @@ STATUS = {
     "ROUTE_TABLE_VERSION_MISSING": 404,
     "STORED_TABLE_PRUNE_PLAN_CHANGED": 409,
     "STORED_TABLE_SAVED_INVALID": 400,
+    "STORED_TABLE_AGENT_DRAFT_ONLY": 403,
+    **scene_bundle.STATUS,
+    **catalog.STATUS,
 }
 
 
@@ -635,6 +649,21 @@ def run_entry(
             }
             return _record(storage, op, table, result, by, caller_app == MAINTENANCE_APP)
 
+        if op in scene_bundle.OPS:
+            if refused:
+                return refused
+            return _bundle(
+                storage, op, table, parsed, writers, opened, now, new_id, caller_app, caller_user
+            )
+        if op == catalog.OP:
+            # a read like op=table: any app that may run this tool; the table parameter is not read
+            if refused:
+                return refused
+            # a signed read carries a writer, as op=table may: it is not part of the catalog request
+            return catalog.read(storage, {k: v for k, v in parsed.items() if k != "writer"})
+        if op == LEDGER:
+            check_caller(storage, caller_app)
+            return 200, ledger(storage, table)
         if op in CARE_OPS:
             if refused:
                 return refused
@@ -657,6 +686,7 @@ def run_entry(
                 if not opened:
                     parse_writers(writers)
                     who = verify(writers, parsed.get("writer"), op, table, vstr, parsed, now())
+                    _agent_may(who, op)
                 return recorded((200, prune(storage, table, rest, now)), who)
         if op in DRAFT_OPS:
             if refused:
@@ -684,6 +714,13 @@ def run_entry(
         if op == "writers":
             return 200, _writers_read(storage, writers, caller_app)
         need = has_writer or (op in SIGNED_ON_FIVE and is_five(table)) or op in DRAFT_OPS[1:]
+        scene_save = (
+            op == "save"
+            and isinstance(parsed, dict)
+            and isinstance(parsed.get("table"), str)
+            and storage_name(parsed.get("table")) in SCENE_SIGNED
+        )
+        need = need or (scene_save and not opened)
         who = None
         if opened:
             if refused and (op in DRAFT_OPS[1:] or op in SIGNED_ON_FIVE):
@@ -718,6 +755,10 @@ def run_entry(
                 with _MUTATION_LOCK:
                     # A signature may expire while waiting for an earlier write.
                     who = verify(writers, parsed.get("writer"), op, table, vstr, parsed, now())
+                    # an agent's direct save is refused for the tables of a scene; any other table it saves as any
+                    # writer does (those tables have no draft to stop at)
+                    if op != "save" or scene_save:
+                        _agent_may(who, op)
                     guarded = SignedMutation(storage, op, table, vstr, parsed, now)
                     try:
                         result = _dispatch(
@@ -830,7 +871,11 @@ def _record(storage, op, table, result, by, show_history=False):
             # Conflicting/unreadable records must not be replaced or attributed to
             # the current caller, even when the underlying operation succeeded.
             return status, dict(out, saved_by=None, metadata_status="unavailable")
-        return status, dict(out, saved_by=by, metadata_status=state)
+        out = dict(out, saved_by=by, metadata_status=state)
+        if op in ("save", "publish"):
+            # 2026-11-13: the ledger row of this save, ready to append (the public STORED_TABLE row keys)
+            out["ledger_row"] = ledger_row(out["doc"], by, out.get("published"))
+        return status, out
     if op == "history" and show_history and isinstance(out.get("versions"), list):
         vs = []
         tables = StorageTables(storage)
@@ -1196,7 +1241,7 @@ def _delete_own_draft(storage, tables, key, draft):
 
 
 def _writers_read(storage, writers, caller_app):
-    """What the pinned app and its registry are, never a key: an install check, and 81's."""
+    """What the pinned app and its registry are, never a key: an installation check."""
     pinned = pinned_app(storage)
     out = {
         "pinned_app": pinned,
@@ -1215,3 +1260,171 @@ def _writers_read(storage, writers, caller_app):
         except RouteTableError as exc:
             out["registry_error"] = exc.code
     return out
+
+
+# ── writers that only draft, the ledger, the scene bundle ────────────────────
+
+
+def _agent_may(who, op):
+    _need(
+        not (isinstance(who, dict) and who.get("kind") == AGENT and op in AGENT_REFUSED),
+        "STORED_TABLE_AGENT_DRAFT_ONLY",
+        "写手 %s 登记的种类是 AGENT：只进草稿（存草稿、存整包草稿、删草稿），这一步要由登记为人或脚本的写手来做"
+        % (who or {}).get("id"),
+        "writer",
+    )
+
+
+def ledger_row(doc, by, published=None):
+    """One ledger row for one stored version, using the public STORED_TABLE row keys. What the plugin cannot know (the
+    release approval, the surface the save came through) is left to whoever appends the row."""
+    published = published if isinstance(published, dict) else {}
+    by = by if isinstance(by, dict) else {}
+    writer = published.get("publisher") or by.get("writer")
+    if isinstance(writer, str):
+        # a direct save's record keeps the writer's id only; the kind is not recorded there
+        writer = {"id": writer, "kind": None}
+    return {
+        "kind": "STORED_TABLE",
+        "table": doc.get("table"),
+        "schema": doc.get("schema"),
+        "version": doc.get("version"),
+        "save_id": doc.get("save_id"),
+        "parent_save_id": doc.get("parent_save_id"),
+        "content_sha256": doc.get("content_sha256"),
+        "saved_at": doc.get("saved_at"),
+        "gate_report_sha256": doc.get("gate_report_sha256"),
+        "writer": writer,
+        "writer_verified": bool(by.get("writer_verified")) or bool(published.get("publisher")),
+        "draft_writer": published.get("draft_writer"),
+        "release_ref": published.get("release_ref"),
+        "user": by.get("user"),
+        "user_verified": False,
+        "via": by.get("via"),
+    }
+
+
+def ledger(storage, table):
+    """op=ledger: a ledger row for each stored version of a table the history still lists, newest first. A version
+    stored without a writer (open mode) says so: writer null, writer_verified false."""
+    tables = StorageTables(storage)
+    head = tables.load(table, pinned=True)
+    rows = []
+    if head is not None:
+        chain = None if storage_name(table) in FIVE else head
+        for entry in tables.history(table):
+            doc = tables.version(table, entry["version"], head=chain)
+            if not isinstance(doc, dict):
+                continue
+            try:
+                by = _provenance(storage, doc.get("table") or table, doc.get("save_id") or "-")
+            except Exception:
+                by = None
+            published = {
+                "publisher": entry.get("writer"),
+                "release_ref": entry.get("release_ref"),
+                "draft_writer": entry.get("draft_writer"),
+            }
+            row = ledger_row(doc, by, published)
+            row["recorded"] = by is not None or bool(entry.get("writer"))
+            rows.append(row)
+    return {"table": table, "rows": rows}
+
+
+def _release_ref_ok(ref):
+    return isinstance(ref, str) and ref == ref.strip() and bool(RELEASE_REF_RE.match(ref))
+
+
+def _bundle_publish_record(
+    storage, tables, clean, save_id, version, content, who, origin, ref, report, now
+):
+    """The publish record of one of the five written by a scene bundle: the same record a publish of the table's own
+    draft leaves, so history and 81 read who published it and under which release line."""
+    record = {
+        "schema": PUBLISH_SCHEMA,
+        "table": clean["table"],
+        "save_id": save_id,
+        "version": version,
+        "content_sha256": content,
+        "publisher": who,
+        "draft": {"draft_id": origin["draft_id"], "writer": origin.get("writer"), "saved_at": None},
+        "release_ref": ref,
+        "gate_report_sha256": digest(report) if report is not None else None,
+        "gate_status": report.get("gate_status") if report is not None else None,
+        "approval_ref": report.get("approval_ref") if report is not None else None,
+        "invariants_before": None,
+        "invariants_after": invariants(clean),
+        "published_at": now().strftime(STAMP),
+        "scene_bundle": origin["bundle_id"],
+    }
+    storage.set(tables.publish_key(clean["table"], save_id), canon(record).encode("utf-8"))
+
+
+WRITER_KEYS = ("author", "publisher", "rolled_back_by")
+
+
+def _without_writers(value):
+    if isinstance(value, dict):
+        return {k: _without_writers(v) for k, v in value.items() if k not in WRITER_KEYS}
+    if isinstance(value, list):
+        return [_without_writers(v) for v in value]
+    return value
+
+
+def _bundle(storage, op, sid, parsed, writers, opened, now, new_id, caller_app, caller_user):
+    """The scene bundle operations. Reads need nothing; a write counts only from the pinned maintenance app, one at a
+    time in this process, and in signed mode with a writer's signature over (op, scene id, body)."""
+    rest = {k: v for k, v in parsed.items() if k != "writer"}
+    ctx = {
+        "who": None,
+        "user": caller_user,
+        "signed": not opened,
+        "now": now,
+        "new_id": new_id,
+        "overlay": DryRun,
+        "release_ref_ok": _release_ref_ok,
+        "publish_record": lambda *a: _bundle_publish_record(*a, now),
+        "provenance": lambda doc: None,
+    }
+
+    def provenance(doc):
+        # who wrote this version, as a direct save records it: the ledger and history read it for all six tables,
+        # and for the versions an undo or a rollback saves back
+        if isinstance(doc, dict) and type(doc.get("save_id")) is str and doc["save_id"]:
+            who = ctx["who"]
+            _persist_metadata(
+                storage,
+                by_key(doc["table"], doc["save_id"]),
+                {
+                    "user": _context_text(caller_user),
+                    "user_verified": False,
+                    "via": "app",
+                    "via_verified": False,
+                    "writer": (who or {}).get("id"),
+                    "writer_verified": bool(who),
+                },
+            )
+
+    ctx["provenance"] = provenance
+    if op in scene_bundle.READS:
+        status, out = scene_bundle.run(storage, op, sid, rest, ctx)
+        if caller_app != MAINTENANCE_APP and status == 200 and isinstance(out, dict):
+            # 0.5.29's rule for history: who wrote what is shown in the maintenance app only
+            out = _without_writers(out)
+        return status, out
+    check_caller(storage, caller_app)
+    with _MUTATION_LOCK:
+        if opened:
+            return scene_bundle.run(storage, op, sid, rest, ctx)
+        parse_writers(writers)
+        who = verify(writers, parsed.get("writer"), op, sid, "", parsed, now())
+        _agent_may(who, op)
+        ctx["who"] = who
+        guarded = SignedMutation(storage, op, sid, "", parsed, now)
+        try:
+            result = scene_bundle.run(guarded, op, sid, rest, ctx)
+        except RouteTableError as exc:
+            result = error(_status(exc.code), exc.code, exc.message, exc.path)
+        except Exception as exc:
+            result = failed(guarded, exc)
+        return guarded.finish(*result)
