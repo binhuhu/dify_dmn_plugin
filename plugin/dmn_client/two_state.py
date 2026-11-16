@@ -52,7 +52,7 @@ from dmn_client.storage_care import (
 )
 from dmn_client.storage_care import full as storage_full
 from dmn_client.stored_tables import TABLE_SCENE_TOPIC
-from dmn_client.table_names import STANDARD, old_name, storage_name
+from dmn_client.table_names import STANDARD, delivery_name, old_name, storage_name
 from dmn_client.vocabulary import declared, format_keys, unknown_keys
 
 FIVE = frozenset(
@@ -282,7 +282,8 @@ def request_key(op, table, version, body):
     """A digest of the verified signed message, not its HMAC or the writer's secret.
 
     Keep receipts outside the table namespace: undo and draft deletion must not remove
-    them. The exact table spelling is signed; changing it requires a new signature.
+    them. The table is signed as it was sent; the receipt is keyed by the stored name, so one signed request cannot
+    be replayed under the other spelling of the same table.
     """
     writer = body["writer"]
     raw = message(op, table, version, body_sha256(body), writer["id"], writer["at"])
@@ -616,7 +617,10 @@ def run_entry(
         op == VOCABULARY
     ):  # 0.5.24 (AQE-E-02): a read of the declared value sets and shapes; no table, no body
         return 200, declared()
-    table = table or DEFAULT_TABLE
+    # 2026-11-16: support.<name> is the table <name>. A writer signs the table as it was sent, so the signature is
+    # checked against that spelling (third review M2); every rule and every key uses the stored name.
+    sent = table or DEFAULT_TABLE
+    table = delivery_name(sent)
     vstr = "" if version is None else str(version)
     opened = open_mode(writers)
     # which storage call failed is remembered for the answer; the platform's own words go to the log
@@ -685,7 +689,7 @@ def run_entry(
                 who = None
                 if not opened:
                     parse_writers(writers)
-                    who = verify(writers, parsed.get("writer"), op, table, vstr, parsed, now())
+                    who = verify(writers, parsed.get("writer"), op, sent, vstr, parsed, now())
                     _agent_may(who, op)
                 return recorded((200, prune(storage, table, rest, now)), who)
         if op in DRAFT_OPS:
@@ -708,7 +712,7 @@ def run_entry(
                 400,
                 "STORED_TABLE_PUBLISH_REQUIRED",
                 "%s 是交付链表，0.5.24 起不直接存成生效版：先存草稿（draft_save），带闸报告和发布窗再发布（publish）"
-                % parsed["table"],
+                % delivery_name(parsed["table"]),
                 "table",
             )
         if op == "writers":
@@ -754,7 +758,7 @@ def run_entry(
             if op in SIGNED_MUTATIONS:
                 with _MUTATION_LOCK:
                     # A signature may expire while waiting for an earlier write.
-                    who = verify(writers, parsed.get("writer"), op, table, vstr, parsed, now())
+                    who = verify(writers, parsed.get("writer"), op, sent, vstr, parsed, now())
                     # an agent's direct save is refused for the tables of a scene; any other table it saves as any
                     # writer does (those tables have no draft to stop at)
                     if op != "save" or scene_save:
@@ -769,7 +773,7 @@ def run_entry(
                     except Exception as exc:
                         result = failed(guarded, exc)
                     return recorded(guarded.finish(*result), who)
-            who = verify(writers, parsed.get("writer"), op, table, vstr, parsed, now())
+            who = verify(writers, parsed.get("writer"), op, sent, vstr, parsed, now())
         return recorded(
             _dispatch(storage, op, table, version, body, parsed, has_writer, who, now, new_id), who
         )
@@ -941,7 +945,9 @@ def _draft_save(storage, table, rest, who, now, new_id):
         # review round 2 (adv 中-2): a rollback request carries only these; content keys or anything else would be
         # ignored silently, so they are refused
         extra = sorted(
-            f for f in rest if f not in ROLLBACK_KEYS and not (f == "table" and rest[f] == table)
+            f
+            for f in rest
+            if f not in ROLLBACK_KEYS and not (f == "table" and delivery_name(rest[f]) == table)
         )
         _need(
             not extra,
@@ -992,11 +998,15 @@ def _draft_save(storage, table, rest, who, now, new_id):
     )
     _inside_five(body)
     _need(
-        body.get("table") == table,
+        delivery_name(body.get("table")) == table,
         "STORED_TABLE_DRAFT_TABLE_MISMATCH",
         "草稿存在它自己的表名下：请求里的 table 是 %s，表参数是 %s" % (body.get("table"), table),
         "table",
     )
+    if (
+        body.get("table") != table
+    ):  # spelled in full: the draft keeps the stored name (third review M3)
+        body = dict(body, table=table)
     # the whole 0.5.23 save on a dry run: the draft is refused exactly as the save would be, and nothing is written
     status, out = run_op(DryRun(storage), "save", None, None, json.dumps(body, ensure_ascii=False))
     if status != 200:

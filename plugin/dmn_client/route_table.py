@@ -14,7 +14,16 @@ from dmn_client.scene_id import (  # noqa: F401
     by_scene,
     is_scene,
 )
-from dmn_client.table_names import STANDARD, alias_of, old_name, read_as, storage_name
+from dmn_client.table_names import (
+    REFERENCE_RULE,
+    STANDARD,
+    alias_of,
+    delivery_name,
+    full_spelled,
+    old_name,
+    read_as,
+    storage_name,
+)
 
 SCHEMA = "dmn-json.route-table/v1"
 FORMAT = "admission-routing-table/v1"
@@ -310,13 +319,23 @@ def validate_doc(doc, resources=None, *, validate_declaration=True):
 
 
 def _route_table_name(doc):
-    from dmn_client.stored_tables import reserved_name  # noqa
+    from dmn_client.stored_tables import handle_prefixed, reserved_name, task_prefixed  # noqa
 
-    table = doc.get("table")
+    table = delivery_name(doc.get("table"))  # 2026-11-16: named in full, it is the table it spells
     _need(
         type(table) is str and TABLE_RE.match(table),
         "ROUTE_TABLE_INVALID",
         "路由表名格式不对",
+        "table",
+    )
+    # 2026-11-16: a name kept for the task types' tables is told so, in its own sentence; the sentence below, pinned
+    # byte for byte by earlier versions' receipts, is unchanged for every other reserved name
+    _need(
+        not task_prefixed(table),
+        "STORED_TABLE_NAME",
+        "handle. 开头的名字留给交付处理流程的决策表（handle.<对象>.<判断>），路由表不能用"
+        if handle_prefixed(table)
+        else "<任务类型>.<流程>. 开头的名字留给各任务类型的表，路由表不能用",
         "table",
     )
     _need(
@@ -913,6 +932,15 @@ def _validate_v2(doc, resources=None):
         "resource_table = 资源目标表名（以 .resource 结尾）",
         "resource_table",
     )
+    # 2026-11-16 (fourth review H1): a name INSIDE a document that refers to another table is the stored name. A full
+    # spelling here was accepted and stored as written; undo then missed the reference and an earlier plugin version
+    # could no longer compile the route table. Refused, in its own sentence.
+    _need(
+        not full_spelled(resource_table),
+        "ROUTE_TABLE_INVALID",
+        REFERENCE_RULE % (resource_table, delivery_name(resource_table)),
+        "resource_table",
+    )
     raw_scenes = doc.get("scenes")
     _need(
         type(raw_scenes) is dict and 0 < len(raw_scenes) <= MAX_SCENES,
@@ -1437,7 +1465,8 @@ def materialize(bundle, load):
             "存储路由表的模型只能写 profile / version / source（PLUGIN_STORAGE）",
             "models." + ref,
         )
-        doc = load(src["table"])
+        # 2026-11-16 (third review H2): a stub may name a delivery table in full; it is the table it spells
+        doc = load(delivery_name(src["table"]))
         _need(
             doc is not None,
             "ROUTE_TABLE_MISSING",
@@ -1460,13 +1489,15 @@ def materialize(bundle, load):
         source = {
             "model_ref": ref,
             "kind": "PLUGIN_STORAGE",
-            "table": src["table"],
+            "table": delivery_name(
+                src["table"]
+            ),  # 2026-11-16 (fourth review L1): the stored name, as every answer
             "version": doc.get("version"),
             "saved_at": doc.get("saved_at"),
             "content_sha256": content_sha256(clean),
         }
         source.update(
-            read_as(src["table"], doc.get("table"))
+            read_as(delivery_name(src["table"]), doc.get("table"))
         )  # 0.5.20: an old name read after the first store
         v5 = src["format"] == FORMAT_V5
         if not v5 and trial_rows(clean):
@@ -1749,8 +1780,12 @@ class StorageTables:
     def __init__(self, storage, now=lambda: datetime.now(timezone.utc)):
         self.storage, self.now = storage, now
 
+    # 2026-11-16 (third review H1 / H2): every key is built from the name the table is stored under. A delivery name
+    # spelled in full (support.<name>) that reaches this class by any road - a save body, a stub's source.table, a direct
+    # call - is the table <name>: it can never get keys of its own.
     @staticmethod
     def key(table, version=None):
+        table = delivery_name(table)
         _need(
             table_name(table),
             "ROUTE_TABLE_INVALID",
@@ -1763,7 +1798,7 @@ class StorageTables:
     @staticmethod
     def first_key(table):
         """0.5.20: the first record of a standard name (its first-store state)."""
-        return "route-table:" + table + ":first"
+        return "route-table:" + delivery_name(table) + ":first"
 
     def _read(self, key):
         try:
@@ -1835,6 +1870,7 @@ class StorageTables:
         """(state, record) of a standard name for reads and for a writer's start. A NEW record storage does not bear out
         (its head gone, or the old head moved past the copied version: judged by the head's version, I22) raises
         STORED_TABLE_UNAVAILABLE."""
+        table = delivery_name(table)
         mark, rec = self._record(table)
         if rec is not None and rec["state"] == NEW:
             n = rec["old_head_version"]
@@ -1857,6 +1893,7 @@ class StorageTables:
     def old_orphans(self, table):
         """I22: the old name's version keys above its head (left by a save that died before its head), probed up to
         MAX_HISTORY above it, as standard_keys (plugin storage cannot list keys)."""
+        table = delivery_name(table)
         old = old_name(storage_name(table))
         head = self._read(self.key(old))
         h = head["version"] if isinstance(head, dict) and type(head.get("version")) is int else 0
@@ -1882,6 +1919,7 @@ class StorageTables:
           collision check when there is no record); after it its own, but for versions below the first stored one,
           which stay the old name's (I1, I2).
         - Any other name: itself."""
+        table = delivery_name(table)
         std = alias_of(table)
         if std is not None:
             if pinned or version is not None:
@@ -1901,7 +1939,7 @@ class StorageTables:
     def _alias_collision_check(self, table, version=None):
         # 0.5.13: with no first record, a table of its own under a standard name is not one this plugin wrote
         # (0.5.19's refusal, unchanged)
-        physical = "route-table:" + table
+        physical = "route-table:" + delivery_name(table)
         _need(
             not self.storage.exist(physical)
             and (version is None or not self.storage.exist(physical + ":v%d" % version)),
@@ -1916,6 +1954,7 @@ class StorageTables:
     def load(self, table, pinned=False):
         """The table's current document (pinned: the head of the history a version pin on this name refers to). A read
         that lost its document to an undo deleting the standard name's head asks again (I23: never neither name)."""
+        table = delivery_name(table)
         self.key(table)
         name = self.where(table, pinned=pinned)
         doc = self._read(self.key(name))
@@ -1926,6 +1965,7 @@ class StorageTables:
         return doc
 
     def version(self, table, n, head=None):
+        table = delivery_name(table)
         _need(type(n) is int and n >= 1, "ROUTE_TABLE_INVALID", "版本号必须是正整数", "version")
         self.key(table, n)
         if storage_name(table) not in STANDARD:
@@ -1958,6 +1998,7 @@ class StorageTables:
         """0.5.20 (I4, I27): the version whose content_sha256 is sha. Once a standard name is read from its own storage,
         both names search its own last MAX_HISTORY versions, then the old name's last MAX_HISTORY; before, the name's own
         chain as 0.5.19. None when it is not there."""
+        table = delivery_name(table)
         std = alias_of(table) or (table if old_name(table) is not None else None)
         if std is not None:
             st, rec = self.state(std)
@@ -1985,6 +2026,7 @@ class StorageTables:
 
     def history(self, table):
         """The history a version pin on this name refers to: a standard name's one chain (I5), an old name's own."""
+        table = delivery_name(table)
         cur = self.load(table, pinned=True)
         if cur is None:
             return []
@@ -2039,7 +2081,7 @@ class StorageTables:
     @staticmethod
     def publish_key(table, save_id):
         """0.5.24 (D14): the record of the publish that wrote the version with save_id. Never read by a reader."""
-        return "route-table:" + table + ":p:" + save_id
+        return "route-table:" + delivery_name(table) + ":p:" + save_id
 
     def _published(self, doc):
         table, save_id = doc.get("table"), doc.get("save_id")
@@ -2099,7 +2141,7 @@ class StorageTables:
 
     @staticmethod
     def gate_key(table, save_id):
-        return "route-table:" + table + ":g:" + save_id
+        return "route-table:" + delivery_name(table) + ":g:" + save_id
 
     def _cross_check(self, clean):
         """cross check."""
@@ -2218,7 +2260,7 @@ class StorageTables:
 
     @staticmethod
     def save_key(table, save_id):
-        return "route-table:" + table + ":s:" + save_id
+        return "route-table:" + delivery_name(table) + ":s:" + save_id
 
     def save(
         self,
@@ -2235,6 +2277,10 @@ class StorageTables:
         (_first_store); after it, an ordinary save that numbers on from the copied version (I1). Every save of the five
         re-reads the first record before writing its head and after (I19, I20)."""
         raw = doc if isinstance(doc, dict) else {}
+        if isinstance(raw.get("table"), str) and delivery_name(raw["table"]) != raw["table"]:
+            doc = raw = dict(
+                raw, table=delivery_name(raw["table"])
+            )  # the stored name, whoever called
         name = raw.get("table")
         std = alias_of(name)
         if std is not None:
@@ -2968,6 +3014,7 @@ class StorageTables:
         (a resource table's route_tables with old names); the standard name's head deleted (reads go to the old name),
         its other keys, an old-name version key above the head (an orphan) and the index entry it added; last the record
         as OLD (kept: its epoch keeps growing, I18). The same request again at any point finishes it."""
+        table = delivery_name(table)
         std = storage_name(table)
         old = old_name(std)
         _need(old is not None, "ROUTE_TABLE_INVALID", "只有五张策略表有首存可撤销", "table")
@@ -3164,6 +3211,7 @@ class StorageTables:
     def standard_keys(self, table):
         """R3: the physical keys under a standard name that 0.5.19's collision check would see (its head and version
         keys; the first record, save records and gate reports it never reads). [] after a clean undo."""
+        table = delivery_name(table)
         std = storage_name(table)
         old = old_name(std)
         _need(old is not None, "ROUTE_TABLE_INVALID", "只有五张策略表有标准名", "table")

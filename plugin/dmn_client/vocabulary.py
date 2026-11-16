@@ -14,7 +14,7 @@ from dmn_client import declarations as D
 from dmn_client import route_table as R
 from dmn_client import stored_tables as S
 from dmn_client.route_table import canon, digest
-from dmn_client.table_names import STANDARD
+from dmn_client.table_names import STANDARD, full_name
 
 SCHEMA = "dmn-json.vocabulary/v1"
 
@@ -79,10 +79,20 @@ def declared():
             "prefixes": {
                 "target": S.TABLE_TARGET_PREFIX,
                 "triage": S.TABLE_TRIAGE_PREFIX,
+                "handle": S.TABLE_HANDLE_PREFIX,  # 2026-11-16: delivery's handle workflow
                 "solution": S.TABLE_SOLUTION_PREFIX,
                 "supplement": S.TABLE_SUPPLEMENT_PREFIX,
                 "p2": S.TABLE_P2_PREFIX,
                 "resource_suffix": S.TABLE_RESOURCE_SUFFIX,
+            },
+            # 2026-11-16: <task type>.<workflow>.<object>.<judgment>; the first task type (support = delivery) keeps the
+            # names above, the others spell all four segments; <task type>.triage.<object>.resource is the routing
+            "task_types": list(S.TASK_TYPES),
+            "task_workflows": list(S.TASK_WORKFLOWS),
+            # delivery's tables spelled in full (task type first): full spelling → the name the table is stored under
+            "full_names": {
+                full_name(n): n
+                for n in sorted([*STANDARD, S.TABLE_SCENE_TOPIC, "triage.issue.acceptance"])
             },
         },
         "values": {

@@ -38,7 +38,7 @@ from dmn_client.route_table import (
     _need,
     canon,
 )
-from dmn_client.table_names import STANDARD, storage_name
+from dmn_client.table_names import STANDARD, delivery_name, storage_name
 
 LOG = logging.getLogger(__name__)
 FULL_CODE = "STORED_TABLE_STORAGE_FULL"
@@ -230,7 +230,7 @@ def failed(storage, exc):
 
 
 def _sidecar(table, kind, save_id):
-    return "route-table:" + table + ":" + kind + ":" + save_id
+    return "route-table:" + delivery_name(table) + ":" + kind + ":" + save_id
 
 
 def _size(storage, key):
@@ -404,7 +404,7 @@ def _pinned_versions(doc):
 def _table_keys(table):
     std = storage_name(table)
     return ["route-table:" + std + ":draft"] + (
-        ["route-table:" + table + ":first"] if table in STANDARD else []
+        ["route-table:" + std + ":first"] if delivery_name(table) in STANDARD else []
     )
 
 

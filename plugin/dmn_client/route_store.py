@@ -15,7 +15,7 @@ from dmn_client.route_table import (
 )
 from dmn_client.scene_spelling import respell, table_spelling
 from dmn_client.stored_tables import KEYS, SCHEMA_DECISION, resource_decision_name
-from dmn_client.table_names import old_name, read_names
+from dmn_client.table_names import delivery_name, old_name, read_names
 from dmn_client.vocabulary import ROUTE_V1_KEYS, ROUTE_V2_KEYS, unknown_keys
 
 OPS = ("table", "history", "version", "save")
@@ -71,7 +71,7 @@ def run_op(storage, op, table=DEFAULT_TABLE, version=None, body=None, *, gate=No
     0.5.24: gate / new_id pass through to StorageTables.save (publish writes its record from gate, keyed by new_id).
     run_op is the engine; the tool and the endpoint call two_state.run_entry, which adds drafts, publish and writers."""
     tables = StorageTables(storage)
-    table = table or DEFAULT_TABLE
+    table = delivery_name(table or DEFAULT_TABLE)  # 2026-11-16: support.<name> is the table <name>
     try:
         # 0.5.20 (存表名即标准名): a standard name before its first store says alias_of, as 0.5.19 did; an old name read
         # after it gets the standard name's table ({table: <standard>, read_as: <old>}); history and version read the
@@ -143,6 +143,10 @@ def run_op(storage, op, table=DEFAULT_TABLE, version=None, body=None, *, gate=No
                 body
             )  # 0.5.24 (AQE-E-02): still dropped here, but never silently
             doc = {k: body.get(k) for k in keys}
+            # 2026-11-16 (third review H1 / M1): the request's own table name is turned into the stored name here, before
+            # the baseline is read and before the save; nothing below ever sees the full spelling
+            if isinstance(doc.get("table"), str):
+                doc["table"] = delivery_name(doc["table"])
             if doc.get("resource_table") is None:
                 doc.pop("resource_table", None)
             sized = _sizes(doc)

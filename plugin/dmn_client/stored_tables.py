@@ -31,7 +31,15 @@ from dmn_client.route_table import (
 from dmn_client.scene_id import CANONICAL, by_scene, identity_key, is_scene, spelling
 from dmn_client.scene_spelling import scene_state
 from dmn_client.supplement_associations import validate_associations
-from dmn_client.table_names import alias_of, format_name, read_names, storage_name
+from dmn_client.table_names import (
+    REFERENCE_RULE,
+    alias_of,
+    delivery_name,
+    format_name,
+    full_spelled,
+    read_names,
+    storage_name,
+)
 
 SCHEMA_DECISION = "dmn-json.decision-table/v1"
 SCHEMA_DECISION_SET = "dmn-json.decision-set/v1"
@@ -141,6 +149,9 @@ TABLE_RESOURCE_SUFFIX = ".resource"
 TABLE_TARGET_PREFIX = "target."
 TABLE_TRIAGE_PREFIX = "triage."
 TABLE_SOLUTION_PREFIX = "solution."
+# 2026-11-16 (Brian「补进去」): delivery's handle workflow, the fourth of the four every task type has. Its tables are
+# handle.<object>.<judgment> (support.handle.<object>.<judgment> with the task type left out, as target. and triage. are)
+TABLE_HANDLE_PREFIX = "handle."
 APP_TARGET = "56d3c0c5-4d41-4454-99ab-e3a6db6aa66c"  # 定位 TARGET
 APP_TRIAGE = "0f34962a-e380-45e1-8b35-fc64b5651776"
 
@@ -150,10 +161,55 @@ POLICY_NAME_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{0,47}$")
 # by its grammar alone (at most 64 characters in all, as every table name); which names exist is decided outside this
 # plugin. Names bound to another format keep it.
 POLICY_STANDARD_NAME_RE = re.compile(r"[a-z][a-z0-9_]{0,31}\.[a-z][a-z0-9_]{0,31}")
+# 2026-11-16: one standard structure for every top-level task type (Brian「定成七类」), named as he ruled on 10-30
+# (bus 20261030-0130「定三段命名」: process first, then workflow) joined with 11-02's five names (<流程>.<对象>.<判断>):
+#     <task type>.<workflow>.<object>.<judgment>            Brian 11-16「对，四段」
+# The task types' English names are Brian's (11-16): support (交付), monitoring, quality, annotation, iteration, evaluation,
+# rollout. Delivery's (support's) tables keep the names they are stored under (target. / triage. / solution., and
+# handle. for its handle workflow): those are the same names with the task type left out, and are not renamed here.
+# A table of another task type spells all four segments: the task type
+# is one of TASK_TYPES but support, the workflow one of the four every task type has: trigger (why a task of this type
+# is opened and on what — Brian 11-16「顶层设计上每个流程的第一步都应该是trigger」「定位太偏向于交付流程的称谓了」;
+# delivery's own trigger workflow is the one named target), triage (accept and route), solution, handle. What follows
+# obeys delivery's rule: <object>.<judgment> as in a standard name, and <task type>.triage.<object>.resource is the
+# three-tier resource routing (role RESOURCE), decision format only; .resource under another workflow is not a name.
+# The owner is the workflow app that reads the table; which app that is is not this plugin's to check until the task
+# type's workflows are registered (10-30: the owner follows the (task type, workflow) registry).
+TASK_TYPES = (
+    "support",
+    "monitoring",
+    "quality",
+    "annotation",
+    "iteration",
+    "evaluation",
+    "rollout",
+)
+TASK_WORKFLOWS = ("trigger", "triage", "solution", "handle")
+# Names kept for the task types' tables, whatever follows: <task type>.<workflow>. for the six, and support.<workflow>.
+# (delivery spelled with its task type; "target" too, delivery's own name for its trigger) so that nothing else settles
+# there before delivery's names are spelled in full (second review: support.* was free for a route table).
+# handle. alone is kept the same way: it is support.handle. with the task type left out, and holds only the decision
+# tables of delivery's handle workflow (delivery_handle_name). target. / triage. / solution., delivery's other three,
+# are kept by reserved_name's older clauses, which carry their own histories (triage.dispatch.route is a route table).
+TASK_PREFIX_RE = re.compile(
+    r"(?:(?:%s)\.(?:%s)|%s\.(?:%s|target)|%s)\."
+    % (
+        "|".join(TASK_TYPES[1:]),
+        "|".join(TASK_WORKFLOWS),
+        TASK_TYPES[0],
+        "|".join(TASK_WORKFLOWS),
+        TABLE_HANDLE_PREFIX[:-1],
+    )
+)
+TASK_NAME_RE = re.compile(
+    r"(?P<task>%s)\.(?P<workflow>%s)\.(?P<object>[a-z][a-z0-9_]{0,31})\.(?P<judgment>[a-z][a-z0-9_]{0,31})"
+    % ("|".join(TASK_TYPES[1:]), "|".join(TASK_WORKFLOWS))
+)
 DECISION_NAME_RULE = (
-    "决策表的表名只能是四种之一：p2.<方案应用编号>（owner.app_id = 该方案应用）、"
+    "决策表的表名只能是六种之一：p2.<方案应用编号>（owner.app_id = 该方案应用）、"
     "target.<名称> 或 target.<对象>.<判断>（owner.app_id = 定位 TARGET " + APP_TARGET + "）、"
     "triage.<名称> 或 triage.<对象>.<判断>（owner.app_id = 分诊 TRIAGE " + APP_TRIAGE + "）、"
+    "handle.<对象>.<判断>（交付的处理流程；owner.app_id = 读这张表的流程应用）、"
     "solution.<search.fact|fact.feature|feature.reality|reality.strategy>.<场景号>[.<方案段>][.<分片>]"
     "（旧名 disposal.strategy / disposal.status 照收）"
     "或多场景共用的 solution.disposal.status.shared"
@@ -161,8 +217,14 @@ DECISION_NAME_RULE = (
     "分片小写字母开头，只含小写字母、数字、_，最多 24 个字符）；"
     "<名称> 小写字母或数字开头，只含小写字母、数字、_、-，最多 48 个字符；"
     "<对象>、<判断> 小写字母开头，只含小写字母、数字、_，各最多 32 个字符，全名最多 64 个字符；"
-    "三段名里 target.scene.topic（场景与话题表）和末段为 resource 的名字（资源去向表）不作决策表名"
-)  # 0.5.30 adds the solution segment to 0.5.28's text
+    "三段名里 target.scene.topic（场景与话题表）和末段为 resource 的名字（资源去向表）不作决策表名；"
+    "交付以外的任务类型写四段 <任务类型>.<流程>.<对象>.<判断>（owner.app_id = 读这张表的流程应用；任务类型 = "
+    + " / ".join(TASK_TYPES[1:])
+    + "，流程 = "
+    + " / ".join(TASK_WORKFLOWS)
+    + "，<对象>、<判断> 同上）；"
+    "其中 <任务类型>.triage.<对象>.resource 是资源去向：和交付同一套三级决策表（role = RESOURCE），只收决策表"
+)  # 0.5.30 adds the solution segment to 0.5.28's text; 2026-11-16 adds the task-type names and delivery's handle.
 ITEM_RE = re.compile(r"^[a-z][a-z0-9_]{0,63}$")
 PROMPT_RE = re.compile(r"^[a-z][a-z0-9_.]{0,95}$")
 RESOURCE_RE = re.compile(r"^[a-z][a-z0-9_.-]{0,63}$")
@@ -170,12 +232,61 @@ PARAM_RE = re.compile(r"^[^\s/]{1,128}$")
 MODEL_REF_RE = re.compile(r"^[A-Za-z0-9_.:-]{1,96}@[A-Za-z0-9_.:-]{1,32}$")
 
 
+def task_name_parts(table):
+    """2026-11-16: (task type, workflow, object, judgment) of a four-segment name of a task type other than delivery, or
+    None."""
+    m = TASK_NAME_RE.fullmatch(table) if type(table) is str and table_name(table) else None
+    return (m["task"], m["workflow"], m["object"], m["judgment"]) if m else None
+
+
+def task_resource_name(table):
+    """2026-11-16: <task type>.triage.<object>.resource, the three-tier resource routing of a task type other than
+    delivery (the same rule as delivery's triage.<object>.resource)."""
+    parts = task_name_parts(table)
+    return parts is not None and parts[1] == "triage" and parts[3] == "resource"
+
+
+def task_table_name(table):
+    """2026-11-16: a four-segment name that holds a decision table or decision set of a task type other than delivery:
+    not the routing (its own rule) and not a .resource name under another workflow."""
+    parts = task_name_parts(table)
+    return parts is not None and parts[3] != "resource"
+
+
+def task_prefixed(table):
+    """2026-11-16: a name under <task type>.<workflow>. — kept for that task type's decision tables and routing. A name
+    under handle. is one too: delivery's handle workflow, written without its task type."""
+    return type(table) is str and TASK_PREFIX_RE.match(table) is not None
+
+
+def delivery_handle_name(table):
+    """2026-11-16: handle.<object>.<judgment>, a decision table (or decision set) of delivery's handle workflow — the
+    name the other task types write <task type>.handle.<object>.<judgment>, with the task type left out. Object and
+    judgment as in every standard name. Not a name ending in .resource: only triage routes to resources."""
+    if type(table) is not str or not table.startswith(TABLE_HANDLE_PREFIX):
+        return False
+    return (
+        POLICY_STANDARD_NAME_RE.fullmatch(table[len(TABLE_HANDLE_PREFIX) :]) is not None
+        and bool(table_name(table))
+        and not table.endswith(TABLE_RESOURCE_SUFFIX)
+    )
+
+
+def handle_prefixed(table):
+    """A name under handle.: kept for delivery's handle workflow. A refusal of such a name says so in its own sentence
+    (the name carries no task type, so the sentence for <task type>.<workflow>. would not describe it)."""
+    return type(table) is str and table.startswith(TABLE_HANDLE_PREFIX)
+
+
 def reserved_name(table):
     """Names bound to a stored-table schema; a route table may not take them."""
     # 0.5.20: a standard name follows its old name (triage.dispatch.route is a route table)
     table = format_name(table)
     return (
-        table.startswith(TABLE_P2_PREFIX)
+        # every name under <task type>.<workflow>. is kept for that task type's tables, whatever follows (review: a
+        # trailing newline passed a whole-name match and TABLE_RE)
+        task_prefixed(table)
+        or table.startswith(TABLE_P2_PREFIX)
         or table.startswith(TABLE_SUPPLEMENT_PREFIX)
         or table.endswith(TABLE_RESOURCE_SUFFIX)
         or table.startswith(tuple(POLICY_OWNERS))
@@ -188,6 +299,12 @@ def decision_table_name(table, app_id):
     # 0.5.20: target.scene.entity / triage.scene.acceptance take their old names' rule
     table = format_name(table)
     if table == TABLE_P2_PREFIX + app_id:
+        return True
+    if task_table_name(table):
+        return True  # any owner: the app that reads it (see TASK_TYPES)
+    if delivery_handle_name(table):
+        # any owner, as for the other task types' tables: delivery's handle workflow has no registered app yet (target.
+        # and triage. below are bound to theirs). Bind it here once it is registered.
         return True
     if table.startswith(TABLE_SOLUTION_PREFIX):
         # 0.5.17: the owner is the solution app; which scene a solution app serves is not the plugin's to check
@@ -211,7 +328,7 @@ def decision_table_name(table, app_id):
                 return True
             break
     # 0.5.22: a resource-targets name may hold the three-tier resource routing as a decision table, owned by TRIAGE
-    return resource_decision_name(table) and app_id == APP_TRIAGE
+    return task_resource_name(table) or (resource_decision_name(table) and app_id == APP_TRIAGE)
 
 
 def resource_decision_name(table):
@@ -222,6 +339,8 @@ def resource_decision_name(table):
     (any role, owner by prefix); a solution-layer .resource shard keeps its own rule."""
     if type(table) is not str:
         return False
+    if task_resource_name(table):
+        return True  # 2026-11-16: the same routing for another task type
     table = storage_name(table)
     rest = table[len(TABLE_TRIAGE_PREFIX) :]
     return (
@@ -233,7 +352,8 @@ def resource_decision_name(table):
 
 
 def _table(doc, ok, message):
-    table = doc.get("table")
+    # 2026-11-16: a delivery table named in full (support.<name>) is the table <name>; the stored document keeps <name>
+    table = delivery_name(doc.get("table"))
     _need(table_name(table), "ROUTE_TABLE_INVALID", "表名格式不对", "table")
     _need(ok(table), "STORED_TABLE_NAME", message, "table")
     return table
@@ -337,6 +457,13 @@ def _model(m, path):
             and bool(table_name(c["from_table"]) or alias_of(c["from_table"])),
             "DECISION_TABLE_INVALID",
             "from_table 只写在 table 参数上，是一张表的表名：这个参数只收那张表的回执",
+            p + ".from_table",
+        )
+        # 2026-11-16 (fourth review L2, the same class as H1): it is part of content_sha256, so it is the stored name
+        _need(
+            not full_spelled(c.get("from_table")),
+            "DECISION_TABLE_INVALID",
+            REFERENCE_RULE % (c.get("from_table"), delivery_name(c.get("from_table"))),
             p + ".from_table",
         )
         # 2026-11-11 (提议，待 Brian 定): in_set: true marks a read of a sibling model of the same decision set; a model
@@ -488,6 +615,7 @@ def _owner(doc, code, decision_set=False):
         # told so (0.5.21 refused it with the name rule, whose last clause no longer holds for these names)
         decision_set
         or not (table_name(name) and resource_decision_name(name))
+        or task_resource_name(name)  # another task type's routing belongs to the app that reads it
         or owner["app_id"] == APP_TRIAGE,
         "STORED_TABLE_NAME",
         "%s 是资源去向名：这里的决策表是分诊的资源去向（role = RESOURCE），owner.app_id 写分诊 TRIAGE %s"
@@ -833,6 +961,18 @@ def _entry(e, kind, path):
 
 
 def _validate_resource(doc):
+    # 2026-11-16: no target list under a task type's names. The routing there is the decision format only (the list is
+    # delivery's legacy), and .resource under another workflow is not a name at all (second review: only the exact
+    # routing name was refused, so a list could still settle under e.g. <task type>.handle.<x>.resource).
+    named = delivery_name(doc.get("table"))
+    _need(
+        not task_prefixed(named),
+        "STORED_TABLE_NAME",
+        "handle. 开头的名字留给交付处理流程的决策表，不收目标清单：交付的资源去向写 triage.<对象>.resource"
+        if handle_prefixed(named)
+        else "<任务类型>.<流程>. 开头的名字不收目标清单：资源去向写 <任务类型>.triage.<对象>.resource 的三级决策表（role = RESOURCE）",
+        "table",
+    )
     table = _table(
         doc,
         lambda t: format_name(t).endswith(TABLE_RESOURCE_SUFFIX),
@@ -895,6 +1035,19 @@ def _validate_resource(doc):
             )
             transfers[t["entry"]["to"]] = rid
     rt = doc.get("route_tables")
+    # 2026-11-16 (fourth review H1): references are stored names; a full spelling is refused in its own sentence
+    # (fifth review L1) only a name of the right shape is echoed; anything else is the shape refusal below
+    spelled = (
+        [x for x in rt if type(x) is str and TABLE_RE.fullmatch(x) and full_spelled(x)]
+        if type(rt) is list
+        else []
+    )
+    _need(
+        not spelled,
+        "RESOURCE_TABLE_INVALID",
+        REFERENCE_RULE % (spelled[0], delivery_name(spelled[0])) if spelled else "",
+        "route_tables",
+    )
     _need(
         type(rt) is list
         and 0 < len(rt) <= 8
@@ -2064,9 +2217,12 @@ def evaluate_stored(
     load_version=None,
     find_content=None,
 ):
-    """The evaluate_stored_table tool. load(table) -> stored doc or None; load_version(table, n) -> that stored version
+    """2026-11-16: a delivery table may be named in full (support.<name>); it is evaluated as <name>.
+
+    The evaluate_stored_table tool. load(table) -> stored doc or None; load_version(table, n) -> that stored version
     or None (needed for a pin); find_content(table, sha) (0.5.20) -> the version a content pin finds or None (default:
     the last versions of load's head). Never raises: errors are in the envelope."""
+    table = delivery_name(table)
     out = {
         "schema_version": RESULT_SCHEMA,
         "status": "FAILED",

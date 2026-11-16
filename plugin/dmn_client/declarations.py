@@ -32,7 +32,7 @@ from dmn_client import scene_id
 from dmn_client.json_table import MISSING, condition, equal
 from dmn_client.route_table import DATA_V4, UUID_RE, RouteTableError, digest
 from dmn_client.scene_spelling import scene_state
-from dmn_client.table_names import storage_name
+from dmn_client.table_names import REFERENCE_RULE, delivery_name, full_spelled, storage_name
 
 SEARCH_CAPABILITY = "SEARCH_CAPABILITY"  # 2026-11-11, 提议，由项目维护者确认
 DECISION_ROLES = (
@@ -226,6 +226,18 @@ def _named_map(value, path, label, entry):
     return out
 
 
+def _stored_source(src, path):
+    """2026-11-16 (fifth and sixth reviews): a declared source table:<name> is stored with the document, so the name is
+    the stored name, not the full spelling. Every declared source goes through here: a parameter of any type, in any
+    kind of table, and a text slot."""
+    declared = src[len("table:") :] if type(src) is str and src.startswith("table:") else None
+    _need(
+        not full_spelled(declared),
+        REFERENCE_RULE % ("table:%s" % declared, "table:%s" % delivery_name(declared)),
+        path + ".source",
+    )
+
+
 def _parameter(v, path, stage="TRANSITION"):
     # 0.5.19: a STANDARD parameter may give its stored unit
     unit = stage == "STANDARD"
@@ -241,6 +253,7 @@ def _parameter(v, path, stage="TRANSITION"):
         "source = fact: / feature: / calc: / table: / request: 开头",
         path + ".source",
     )
+    _stored_source(src, path)
     out["source"] = src
     if "domain" in v:
         d = v["domain"]
@@ -550,6 +563,7 @@ def _texts_declare(v):
                 "source = fact: / feature: / calc: / table: / request: 开头",
                 p + ".source",
             )
+            _stored_source(spec["source"], p)
             one = {"source": spec["source"]}
             if "format" in spec:
                 one["format"] = _text(spec["format"], 40, "槽位格式", p + ".format")

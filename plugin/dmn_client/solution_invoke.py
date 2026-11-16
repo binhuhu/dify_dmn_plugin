@@ -10,7 +10,7 @@ from dmn_client.route_table import (
     solution_entry,
     validate_doc,
 )
-from dmn_client.table_names import read_as
+from dmn_client.table_names import delivery_name, read_as
 
 MAX_INPUTS_BYTES = 1024 * 1024
 MAX_MESSAGE = 300
@@ -65,6 +65,7 @@ def invoke_solution(app_id, inputs_json, table, load, invoke):
     if type(app_id) is not str or not UUID_RE.match(app_id.strip()):
         return _receipt("REJECTED", "SOLUTION_APP_ID_INVALID", "app_id 不是 AgentHub 应用编号")
     app_id = app_id.strip()
+    table = delivery_name(table)  # 2026-11-16: support.<name> is the table <name>
     try:
         doc = load(table)
     except RouteTableError as exc:
