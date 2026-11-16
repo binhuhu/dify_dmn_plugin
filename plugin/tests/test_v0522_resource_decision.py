@@ -845,11 +845,13 @@ def test_the_role_list_refusal_of_other_decision_tables_is_unchanged():
 
 OUTPUT_RULE_0521 = "输出 = type + name（+ values / names）"
 DECISION_NAME_RULE_0521 = (
-    "决策表的表名只能是四种之一：p2.<方案应用编号>（owner.app_id = 该方案应用）、"
+    # 2026-11-16: six kinds: the task-type names and delivery's handle.<object>.<judgment> (test_task_type_names.py)
+    "决策表的表名只能是六种之一：p2.<方案应用编号>（owner.app_id = 该方案应用）、"
     "target.<名称> 或 target.<对象>.<判断>（owner.app_id = 定位 TARGET " + APP_TARGET + "）、"
     "triage.<名称> 或 triage.<对象>.<判断>（owner.app_id = 分诊 TRIAGE " + APP_TRIAGE + "）、"
     # 0.5.28: the solution layer's four names (legacy disposal.strategy / disposal.status still taken)
     # 0.5.30: the solution segment
+    "handle.<对象>.<判断>（交付的处理流程；owner.app_id = 读这张表的流程应用）、"
     "solution.<search.fact|fact.feature|feature.reality|reality.strategy>.<场景号>[.<方案段>][.<分片>]"
     "（旧名 disposal.strategy / disposal.status 照收）"
     "或多场景共用的 solution.disposal.status.shared"
@@ -857,7 +859,11 @@ DECISION_NAME_RULE_0521 = (
     "分片小写字母开头，只含小写字母、数字、_，最多 24 个字符）；"
     "<名称> 小写字母或数字开头，只含小写字母、数字、_、-，最多 48 个字符；"
     "<对象>、<判断> 小写字母开头，只含小写字母、数字、_，各最多 32 个字符，全名最多 64 个字符；"
-    "三段名里 target.scene.topic（场景与话题表）和末段为 resource 的名字（资源去向表）不作决策表名"
+    "三段名里 target.scene.topic（场景与话题表）和末段为 resource 的名字（资源去向表）不作决策表名；"
+    "交付以外的任务类型写四段 <任务类型>.<流程>.<对象>.<判断>（owner.app_id = 读这张表的流程应用；任务类型 = "
+    "monitoring / quality / annotation / iteration / evaluation / rollout，流程 = "
+    "trigger / triage / solution / handle，<对象>、<判断> 同上）；"
+    "其中 <任务类型>.triage.<对象>.resource 是资源去向：和交付同一套三级决策表（role = RESOURCE），只收决策表"
 )
 
 
