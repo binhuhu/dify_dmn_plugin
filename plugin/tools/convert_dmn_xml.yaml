@@ -1,0 +1,90 @@
+identity:
+  name: convert_dmn_xml
+  author: hu8627
+  label:
+    en_US: convert_dmn_xml
+    zh_Hans: 标准 DMN XML 转换
+description:
+  human:
+    en_US: Convert one standard DMN decision table (XML, cells in a FEEL subset) into the decision model this plugin
+      stores and evaluates, or a stored model into DMN 1.3 XML a standard modeler opens. Local; saves nothing and
+      evaluates nothing - save the model with route_table_store as before.
+    zh_Hans: 把一张标准 DMN 决策表（XML，单元格用 FEEL 子集）转成本插件存和求值的决策模型，或把存着的模型转成标准建模工具能打开的 DMN 1.3 XML；一份有多个决策的 XML 对应一个决策集。本地转换，不存表、不求值——存表照旧走路由表存取。
+  llm: Convert between standard DMN XML (one decision table, FEEL subset cells) and this plugin's stored decision model.
+    Inspect results.status; FAILED carries error.code / message / path. Nothing is saved or evaluated.
+parameters:
+- name: direction
+  type: string
+  required: true
+  form: form
+  label:
+    en_US: direction
+    zh_Hans: 方向
+  human_description:
+    en_US: import (DMN XML to model) or export (model to DMN XML).
+    zh_Hans: import（XML 转模型）或 export（模型转 XML）。
+  llm_description: import or export.
+- name: dmn_xml
+  type: string
+  required: false
+  form: llm
+  label:
+    en_US: dmn_xml
+    zh_Hans: DMN XML
+  human_description:
+    en_US: For import. One DMN 1.2-1.5 document, at most 1 MiB; no DTD, entity declaration or processing instruction.
+      Hit policy UNIQUE / FIRST / COLLECT (no aggregation). Input cells - literals, comparisons, intervals, lists,
+      not(...), null, "-". Output cells - literals only.
+    zh_Hans: 导入用。一份 DMN 1.2–1.5 文档，不超过 1 MiB；不收 DTD、实体声明和处理指令。命中策略 UNIQUE / FIRST / COLLECT（不带聚合）。输入格：字面量、比较、区间、列表、not(...)、null、-。输出格只收字面量。
+  llm_description: DMN XML to import; reviewed text, never a URL or file path.
+- name: model_json
+  type: any
+  required: false
+  form: llm
+  label:
+    en_US: model_json
+    zh_Hans: 模型
+  human_description:
+    en_US: For export. A decision model, or a stored decision-table document (its model is taken); object or JSON
+      string, at most 1 MiB.
+    zh_Hans: 导出用。一个决策模型、一份存着的决策表文档（取其中的 model），或一份决策集文档（每个模型一个决策）；对象或 JSON 字符串，不超过 1 MiB。
+  llm_description: The decision model (or decision-table document) to export.
+- name: decision_id
+  type: string
+  required: false
+  form: form
+  label:
+    en_US: decision_id
+    zh_Hans: 决策 id
+  human_description:
+    en_US: Import - which decision to read when the document has several. Export - the id written (default decision).
+    zh_Hans: 导入：文档里有多个决策时只读这一个（不填则整份当决策集）。导出单个模型：写出的决策 id（默认 decision）。
+  llm_description: Decision id; optional.
+- name: name
+  type: string
+  required: false
+  form: form
+  label:
+    en_US: name
+    zh_Hans: 决策名称
+  human_description:
+    en_US: Export only - the decision's display name (default the decision id).
+    zh_Hans: 只用于导出：决策的显示名（默认同决策 id）。
+  llm_description: Display name for export; optional.
+output_schema:
+  type: object
+  properties:
+    results:
+      type: object
+      description: Conversion result. Inspect status before using model or dmn_xml.
+    status:
+      type: string
+    dmn_xml:
+      type: string
+    model_json:
+      type: string
+  required:
+  - results
+extra:
+  python:
+    source: tools/convert_dmn_xml.py

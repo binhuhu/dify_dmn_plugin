@@ -8,10 +8,18 @@ import json
 from dify_plugin import Tool
 
 from dmn_client.catalog import OP as CATALOG
+from dmn_client.catalog import SCENE_OP as SCENE_CATALOG
 from dmn_client.route_store import CHECK, OPS, UNDO, error
 from dmn_client.scene_bundle import OPS as BUNDLE_OPS
 from dmn_client.storage_care import CARE_OPS
-from dmn_client.two_state import DRAFT_OPS, LEDGER, VOCABULARY, WRITERS_OPS, run_entry
+from dmn_client.two_state import (
+    CAPABILITY_VOCABULARY,
+    DRAFT_OPS,
+    LEDGER,
+    VOCABULARY,
+    WRITERS_OPS,
+    run_entry,
+)
 
 
 class RouteTableStoreTool(Tool):
@@ -27,7 +35,11 @@ class RouteTableStoreTool(Tool):
             and op not in BUNDLE_OPS
             and op != LEDGER
             and op != CATALOG
+            and op != CAPABILITY_VOCABULARY
+            and op != SCENE_CATALOG
         ):
+            # the list is 0.5.38's, word for word (coordination ruling 152: an old call answers as it did);
+            # capability_vocabulary and scene_catalog (2026-11-18) are named in the op parameter's description
             status, body = error(
                 400,
                 "ROUTE_STORE_OP_INVALID",

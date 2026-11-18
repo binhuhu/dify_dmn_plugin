@@ -21,8 +21,8 @@ parameters:
     en_US: op
     zh_Hans: 操作
   human_description:
-    en_US: check (compose, gate and dry-run every table's save; nothing stored) | status (the scene's bundle draft, its last publish and where each table stands) | save (check, then store the bundle draft; body carries expected_draft) | discard (body {draft_id}) | publish (body {draft_id}, in signed mode also release_ref and gate_report over the draft's bundle_sha256) | rollback (body {bundle_id}; saves the previous content back to each table this publish wrote)
-    zh_Hans: check（合成、过整包闸、把每张表的整次存表试跑一遍；什么都不存）/ status（这个场景的整包草稿、上一次发布、各表现在的位置）/ save（先 check，再存整包草稿；请求带 expected_draft）/ discard（请求 {draft_id}）/ publish（请求 {draft_id}；签名模式另带 release_ref 和核这份草稿 bundle_sha256 的 gate_report）/ rollback（请求 {bundle_id}：把这次发布写过的每张表存回原内容）
+    en_US: check (compose, gate and dry-run every table's save; nothing stored) | status (the scene's bundle draft, its last publish and where each table stands) | save (check, then store the bundle draft; body carries expected_draft) | discard (body {draft_id}) | publish (body {draft_id}, in signed mode also release_ref and gate_report over the draft's bundle_sha256) | rollback (body {bundle_id}; saves the previous content back to each table this publish wrote). Since 2026-11-18 publish and rollback write the scene-topic table, which takes only a controlled entry's signed writes (body entry {id, at, sig}; controlled_tables.json); check, status, save and discard are as before
+    zh_Hans: check（合成、过整包闸、把每张表的整次存表试跑一遍；什么都不存）/ status（这个场景的整包草稿、上一次发布、各表现在的位置）/ save（先 check，再存整包草稿；请求带 expected_draft）/ discard（请求 {draft_id}）/ publish（请求 {draft_id}；签名模式另带 release_ref 和核这份草稿 bundle_sha256 的 gate_report）/ rollback（请求 {bundle_id}：把这次发布写过的每张表存回原内容）。2026-11-18：publish、rollback 会写场景与话题表，这张表只收受控入口签名的写入（请求带 entry {id, at, sig}；见 controlled_tables.json）；check、status、save、discard 照旧
   llm_description: check, status, save, discard, publish or rollback.
 - name: scene_id
   type: string
