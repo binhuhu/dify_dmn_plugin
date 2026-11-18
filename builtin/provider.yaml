@@ -21,6 +21,7 @@ tools:
 - tools/route_table_store.yaml
 - tools/evaluate_stored_table.yaml
 - tools/scene_bundle.yaml
+- tools/convert_dmn_xml.yaml
 extra:
   python:
     source: provider/dmn.py
