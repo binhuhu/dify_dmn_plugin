@@ -74,7 +74,9 @@ def declared():
         "tables": {
             "delivery_chain": {std: old for std, old in sorted(STANDARD.items())},
             "scene_topic": S.TABLE_SCENE_TOPIC,
-            "capability": S.TABLE_CAPABILITY,  # 2026-11-11, proposal
+            # the name 0.5.38 answered (coordination ruling 161): since 2026-11-18 (Brian 00:49「表名也改成四段吧」) a
+            # read-only alias of target.capability.catalog, which op=capability_vocabulary names
+            "capability": CC.OLD_TABLE,
             "policy_owners": dict(S.POLICY_OWNERS),
             "prefixes": {
                 "target": S.TABLE_TARGET_PREFIX,
@@ -128,11 +130,13 @@ def declared():
             "gap_kinds": list(D.GAP_KINDS),
             "customer_forbidden_words": list(D.CUSTOMER_WORDS),
             "segments": list(D.SEGMENTS),
-            # 2026-11-11 (proposals, pending maintainer review): the capability table's closed sets and the new query -> fact role,
-            # which only a decision table under a query -> fact name takes
+            # 2026-11-11: the capability table's closed sets and the new query -> fact role, which only a decision table under
+            # a query -> fact name takes (the table's format decided 2026-11-17, its name 2026-11-18; the role is still a proposal)
             "capability_faces": list(CC.FACES),
             "capability_kinds": list(CC.KINDS),
             "capability_fact_types": list(CC.FACT_TYPES),
+            # 2026-11-18 (coordination rulings 152, 161): this read answers byte for byte what 0.5.38 answered; the new
+            # table name and the new row form's codes are op=capability_vocabulary's (capability_declared below)
             "search_capability_role": D.SEARCH_CAPABILITY,
         },
         "shapes": {
@@ -160,6 +164,74 @@ def declared():
             "scene_topic_domain_keys": list(S.SCENE_TOPIC_DOMAIN_KEYS),
             "solution_keys_v3": list(R.SOLUTION_KEYS_V3),
             "gap_keys": sorted(D.GAP_KEYS),
+        },
+    }
+    canon(doc)  # JSON-shaped, or this raises
+    return dict(doc, content_sha256=digest(doc))
+
+
+CAPABILITY_SCHEMA = "dmn-json.capability-vocabulary/v1"
+
+
+def capability_declared():
+    """2026-11-18 (coordination ruling 161): the capability table's own declaration, read with
+    route_table_store op=capability_vocabulary: its names (Brian 00:49「表名也改成四段吧」), the row forms' keys, the
+    spellings a kind code and a business mode code are checked against (the values are the tables', Brian 11-17 23:59
+    「这个不要这么纠结吧，我们是在策略表里面配置」), and the closed sets of how a capability is served. As declared(): every
+    value is the object the validators use, not a copy."""
+    doc = {
+        "schema": CAPABILITY_SCHEMA,
+        "tables": {
+            "full": "support." + CC.TABLE,
+            "stored": CC.TABLE,
+            "read_only_alias": CC.OLD_TABLE,
+            "format": CC.FORMAT,
+            "document_schema": CC.SCHEMA,
+        },
+        "shapes": {
+            "top_level_keys": list(CC.KEYS),
+            "row_keys": list(CC.ROW_KEYS),
+            # the new row form: these two in every row (entity is then the result entity), and at most note, service
+            "row_keys_new_form": list(CC.MODE_KEYS),
+            "row_optional_keys_new_form": list(CC.NEW_OPTIONAL_KEYS),
+            "row_optional_keys_0538_form": list(CC.OLD_OPTIONAL_KEYS),
+            "fact_keys": list(CC.FACT_KEYS),
+            "service_keys": list(CC.SERVICE_KEYS),
+            "list_filters": list(CC.LIST_FILTERS),
+            "list_filters_new_form": list(CC.MODE_FILTERS),
+        },
+        "spellings": {
+            "entity_kind": CC.KIND_RE.pattern,  # entity, subject_entity, facts[].object in the new row form
+            "business_mode": CC.MODE_RE.pattern,
+            "role": CC.ROLE_RE.pattern,  # 2026-11-18 (coordination ruling 219): the roles column
+            "not_a_kind": CC.NO_OBJECT,  # the scene-entity table's "no core object"
+            "entity_0538_form": CC.ENTITY_RE.pattern,
+        },
+        "values": {
+            "faces": list(CC.FACES),
+            "kinds": list(CC.KINDS),
+            "fact_types": list(CC.FACT_TYPES),
+            "service_purposes": list(CC.PURPOSES),
+            "service_provider_kinds": list(CC.PROVIDER_KINDS),
+            "service_channels": list(CC.CHANNELS),
+            "service_channel_status": list(CC.CHANNEL_STATUS),
+            "service_callers": list(CC.CALLERS),
+            "service_paging": list(CC.PAGING),
+            "service_completeness": list(CC.COMPLETENESS),
+            "service_on_failure": list(CC.ON_FAILURE),
+            "service_read_when": list(CC.READ_WHEN),
+            "service_batches": list(CC.BATCHES),
+            "service_invalidating_events": list(CC.INVALIDATING_EVENTS),
+            "service_readers": list(CC.READERS),
+        },
+        "limits": {
+            "capabilities": CC.MAX_CAPABILITIES,
+            "inputs": CC.MAX_INPUTS,
+            "facts": CC.MAX_FACTS,
+            "fan_out": CC.MAX_FAN_OUT,
+            "page_size": CC.MAX_PAGE,
+            "timeout_ms": CC.MAX_TIMEOUT_MS,
+            "valid_for_s": CC.MAX_VALID_S,
         },
     }
     canon(doc)  # JSON-shaped, or this raises

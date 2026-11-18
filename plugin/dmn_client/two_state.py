@@ -24,7 +24,7 @@ from datetime import datetime, timedelta, timezone
 
 import rfc8785
 
-from dmn_client import catalog, scene_bundle
+from dmn_client import catalog, controlled, scene_bundle
 from dmn_client.client import EngineError, json_object
 from dmn_client.route_store import CONFLICT, DEFAULT_TABLE, MAX_REQUEST, UNAVAILABLE, error, run_op
 from dmn_client.route_table import (
@@ -53,7 +53,7 @@ from dmn_client.storage_care import (
 from dmn_client.storage_care import full as storage_full
 from dmn_client.stored_tables import TABLE_SCENE_TOPIC
 from dmn_client.table_names import STANDARD, delivery_name, old_name, storage_name
-from dmn_client.vocabulary import declared, format_keys, unknown_keys
+from dmn_client.vocabulary import capability_declared, declared, format_keys, unknown_keys
 
 FIVE = frozenset(
     STANDARD
@@ -94,6 +94,9 @@ ROLLBACK_KEYS = (
     "scene_spelling_rollback",  # 0.5.25: a version rollback across the M_ spelling is explicit too
 )
 VOCABULARY = "vocabulary"
+# 2026-11-18 (coordination ruling 161): the capability table's declaration (its names, row forms, spellings, the closed
+# sets of how a capability is served), a read of its own so that op=vocabulary answers what 0.5.38 answered
+CAPABILITY_VOCABULARY = "capability_vocabulary"
 SIGNED_ON_FIVE = ("draft_save", "draft_discard", "publish", "undo")
 SIGNED_MUTATIONS = (*SIGNED_ON_FIVE, "save")
 REQUEST_SCHEMA = "dmn-json.signed-request/v1"
@@ -134,6 +137,7 @@ STATUS = {
     "STORED_TABLE_AGENT_DRAFT_ONLY": 403,
     **scene_bundle.STATUS,
     **catalog.STATUS,
+    **controlled.STATUS,
 }
 
 
@@ -305,14 +309,19 @@ class SignedMutation:
     some interleavings, but cannot replace external serialization of signed mutations.
     """
 
+    FIELD = "writer"
+    SCHEMA = REQUEST_SCHEMA
+    REPLAYED = "STORED_TABLE_WRITER_REPLAYED"
+    EXPIRED = "STORED_TABLE_WRITER_EXPIRED"
+
     def __init__(self, storage, op, table, version, body, now):
         self.base, self.now = storage, now
-        self.key = request_key(op, table, version, body)
-        self.at = datetime.strptime(body["writer"]["at"], STAMP).replace(tzinfo=timezone.utc)
+        self.key = self.request_key(op, table, version, body)
+        self.at = datetime.strptime(body[self.FIELD]["at"], STAMP).replace(tzinfo=timezone.utc)
         self.record = {
-            "schema": REQUEST_SCHEMA,
+            "schema": self.SCHEMA,
             "request_sha256": self.key.rsplit(":", 1)[1],
-            "signed_at": body["writer"]["at"],
+            "signed_at": body[self.FIELD]["at"],
             "expires_at": (self.at + FRESH).strftime(STAMP),
             "owner": uuid.uuid4().hex,
             "state": "pending",
@@ -321,11 +330,14 @@ class SignedMutation:
         self._unused()
 
     @staticmethod
-    def _unavailable():
+    def request_key(op, table, version, body):
+        return request_key(op, table, version, body)
+
+    def _unavailable(self):
         return RouteTableError(
             "STORED_TABLE_REPLAY_UNAVAILABLE",
             "签名使用记录无法确认，已停止写入：读取当前状态后用新时间重新签名",
-            "writer",
+            self.FIELD,
         )
 
     def _read(self):
@@ -355,9 +367,9 @@ class SignedMutation:
     def _unused(self):
         _need(
             self._read() is None,
-            "STORED_TABLE_WRITER_REPLAYED",
+            self.REPLAYED,
             "这个签名请求已被使用或执行结果尚未确认：读取当前状态后用新时间重新签名",
-            "writer",
+            self.FIELD,
         )
 
     def _owned(self):
@@ -370,9 +382,9 @@ class SignedMutation:
             # Recheck after validation and any lock wait, before even writing a receipt.
             _need(
                 abs(self.now() - self.at) <= FRESH,
-                "STORED_TABLE_WRITER_EXPIRED",
+                self.EXPIRED,
                 "签名时间离插件现在超过 10 分钟：按现在的时间重签",
-                "writer.at",
+                self.FIELD + ".at",
             )
             self._unused()
             self.claim_attempted = True
@@ -426,6 +438,20 @@ class SignedMutation:
                 retry_requires_new_signature=True,
             )
         return status, out
+
+
+class EntryMutation(SignedMutation):
+    """2026-11-18: a request a controlled entry signed is taken once, as a writer's is (the same receipt rules, its own
+    key space and codes)."""
+
+    FIELD = "entry"
+    SCHEMA = "dmn-json.entry-request/v1"
+    REPLAYED = controlled.REPLAYED
+    EXPIRED = controlled.EXPIRED
+
+    @staticmethod
+    def request_key(op, table, version, body):
+        return controlled.request_key(op, table, version, body)
 
 
 # ── a storage nothing is written to ──────────────────────────────────────────
@@ -598,6 +624,31 @@ def open_mode(writers):
     return lines == [] or lines == [OPEN_WORD]
 
 
+# 2026-11-18 (coordination rulings 215, 216): the operations that change what a controlled table holds. A scene bundle
+# always writes the scene-topic row; prune with a plan digest deletes versions; publish and undo change one of the five.
+BUNDLE_WRITES = ("bundle_publish", "bundle_rollback")
+
+
+def controlled_target(op, table, body):
+    """The stored name of the controlled table this call would write, or None: then nothing here looks at the call
+    and it goes on exactly as before."""
+    if op == "save":
+        parsed, refused = _parse(body) if body not in (None, "") else ({}, None)
+        name = parsed.get("table") if refused is None else None
+        return storage_name(name) if controlled.listed(name) else None
+    if op == PRUNE and controlled.listed(table or DEFAULT_TABLE):
+        parsed, refused = _parse(body) if body not in (None, "") else ({}, None)
+        if refused is None and parsed.get("plan_sha256") is not None:
+            return storage_name(table)
+        return None
+    if op in BUNDLE_WRITES:
+        hit = [t for t in scene_bundle.TABLES.values() if controlled.listed(t)]
+        return hit[-1] if hit else None
+    if op in ("publish", "undo") and is_five(table) and controlled.listed(table):
+        return storage_name(table)
+    return None
+
+
 def run_entry(
     storage,
     op,
@@ -610,15 +661,77 @@ def run_entry(
     caller_app=None,
     caller_user=None,
 ):
-    """The tool's and the endpoint's way in. Every other table, and every unsigned read, is run_op exactly as 0.5.23
+    """The tool's and the endpoint's way in. 2026-11-18: a write to a controlled table (controlled_tables.json) needs a
+    controlled entry's signature, whatever the mode, and comes only from the pinned maintenance app; it is then run as
+    any other call with the entry taken off the body, and the request is taken once. Every other call is as before."""
+    try:
+        target = controlled_target(op, table, body)
+    except Exception:  # whatever reading the body raises, the call below answers as before
+        target = None
+    if target is None:
+        return _run_entry(
+            storage, op, table, version, body, writers, now, new_id, caller_app, caller_user
+        )
+    sent = table or DEFAULT_TABLE
+    vstr = "" if version is None else str(version)
+    storage = Watched(storage)
+    try:
+        parsed, refused = _parse(body) if body not in (None, "") else ({}, None)
+        if refused:
+            return refused
+        if "entry" not in parsed:
+            controlled.required(target)
+        check_caller(storage, caller_app)
+        who = controlled.verify(parsed["entry"], op, sent, vstr, parsed, now())
+        rest = {k: v for k, v in parsed.items() if k != "entry"}
+        forward = json.dumps(rest, ensure_ascii=False) if body not in (None, "") else body
+        with _MUTATION_LOCK:
+            guarded = EntryMutation(storage, op, sent, vstr, parsed, now)
+            result = _run_entry(
+                guarded,
+                op,
+                table,
+                version,
+                forward,
+                writers,
+                now,
+                new_id,
+                caller_app,
+                caller_user,
+                entry=who,
+            )
+            return guarded.finish(*result)
+    except RouteTableError as exc:
+        return error(_status(exc.code), exc.code, exc.message, exc.path)
+    except Exception as exc:  # storage backend failure: never echo content
+        return failed(storage, exc)
+
+
+def _run_entry(
+    storage,
+    op,
+    table=DEFAULT_TABLE,
+    version=None,
+    body=None,
+    writers=None,
+    now=lambda: datetime.now(timezone.utc),
+    new_id=lambda: uuid.uuid4().hex,
+    caller_app=None,
+    caller_user=None,
+    entry=None,
+):
+    """The tool's and the endpoint's way in (before 2026-11-18, run_entry itself). Every other table, and every unsigned read, is run_op exactly as 0.5.23
     answers it. On the five: save is refused (draft, then publish); draft_save / draft_discard / publish / undo need a
     writer's signature. A request that carries a writer is checked whatever the table and the operation."""
     if (
         op == VOCABULARY
     ):  # 0.5.24 (AQE-E-02): a read of the declared value sets and shapes; no table, no body
         return 200, declared()
+    if op == CAPABILITY_VOCABULARY:  # no table, no body
+        return 200, capability_declared()
     # 2026-11-16: support.<name> is the table <name>. A writer signs the table as it was sent, so the signature is
     # checked against that spelling (third review M2); every rule and every key uses the stored name.
+    named = table  # op=scene_catalog: a table parameter left empty is the scene-topic table, not DEFAULT_TABLE
     sent = table or DEFAULT_TABLE
     table = delivery_name(sent)
     vstr = "" if version is None else str(version)
@@ -651,13 +764,25 @@ def run_entry(
                 "writer": (who or {}).get("id"),
                 "writer_verified": bool(who),
             }
+            if entry is not None:  # 2026-11-18: a controlled entry's write says which entry
+                by["entry"], by["entry_verified"] = entry["id"], True
             return _record(storage, op, table, result, by, caller_app == MAINTENANCE_APP)
 
         if op in scene_bundle.OPS:
             if refused:
                 return refused
             return _bundle(
-                storage, op, table, parsed, writers, opened, now, new_id, caller_app, caller_user
+                storage,
+                op,
+                table,
+                parsed,
+                writers,
+                opened,
+                now,
+                new_id,
+                caller_app,
+                caller_user,
+                entry=entry,
             )
         if op == catalog.OP:
             # a read like op=table: any app that may run this tool; the table parameter is not read
@@ -665,6 +790,17 @@ def run_entry(
                 return refused
             # a signed read carries a writer, as op=table may: it is not part of the catalog request
             return catalog.read(storage, {k: v for k, v in parsed.items() if k != "writer"})
+        if op == catalog.SCENE_OP:
+            # 2026-11-18 (coordination ruling 196): a read like op=catalog, for any app; the table parameter names the
+            # scene-topic table (empty: target.scene.topic), the version parameter a version (empty: the head)
+            if refused:
+                return refused
+            return catalog.scenes_read(
+                storage,
+                delivery_name(named) if named else None,
+                version,
+                {k: v for k, v in parsed.items() if k != "writer"},
+            )
         if op == LEDGER:
             check_caller(storage, caller_app)
             return 200, ledger(storage, table)
@@ -1311,6 +1447,12 @@ def ledger_row(doc, by, published=None):
         "user": by.get("user"),
         "user_verified": False,
         "via": by.get("via"),
+        # 2026-11-18: a version a controlled entry wrote says which entry; no other row changes
+        **(
+            {"entry": by["entry"], "entry_verified": by.get("entry_verified") is True}
+            if "entry" in by
+            else {}
+        ),
     }
 
 
@@ -1381,7 +1523,9 @@ def _without_writers(value):
     return value
 
 
-def _bundle(storage, op, sid, parsed, writers, opened, now, new_id, caller_app, caller_user):
+def _bundle(
+    storage, op, sid, parsed, writers, opened, now, new_id, caller_app, caller_user, entry=None
+):
     """The scene bundle operations. Reads need nothing; a write counts only from the pinned maintenance app, one at a
     time in this process, and in signed mode with a writer's signature over (op, scene id, body)."""
     rest = {k: v for k, v in parsed.items() if k != "writer"}
@@ -1402,18 +1546,17 @@ def _bundle(storage, op, sid, parsed, writers, opened, now, new_id, caller_app, 
         # and for the versions an undo or a rollback saves back
         if isinstance(doc, dict) and type(doc.get("save_id")) is str and doc["save_id"]:
             who = ctx["who"]
-            _persist_metadata(
-                storage,
-                by_key(doc["table"], doc["save_id"]),
-                {
-                    "user": _context_text(caller_user),
-                    "user_verified": False,
-                    "via": "app",
-                    "via_verified": False,
-                    "writer": (who or {}).get("id"),
-                    "writer_verified": bool(who),
-                },
-            )
+            by = {
+                "user": _context_text(caller_user),
+                "user_verified": False,
+                "via": "app",
+                "via_verified": False,
+                "writer": (who or {}).get("id"),
+                "writer_verified": bool(who),
+            }
+            if entry is not None:  # 2026-11-18: a controlled entry's write says which entry
+                by["entry"], by["entry_verified"] = entry["id"], True
+            _persist_metadata(storage, by_key(doc["table"], doc["save_id"]), by)
 
     ctx["provenance"] = provenance
     if op in scene_bundle.READS:

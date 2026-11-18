@@ -56,7 +56,9 @@ FORMAT_SUPPLEMENT = "supplement-requirements/v1"
 FORMAT_SUPPLEMENT_V2 = "supplement-requirements/v2"
 FORMAT_RESOURCE = "resource-targets/v1"
 FORMAT_SCENE_TOPIC = "scene-topic/v1"
-# 2026-11-11 (提议，待 Brian 定): the capability table, one row per capability (dmn_client.capability_catalog)
+# 2026-11-11: the capability table, one row per capability (dmn_client.capability_catalog); format decided 2026-11-17
+# (Brian 22:32「按推荐」). Name (Brian 2026-11-18 00:49「表名也改成四段吧」): target.capability.catalog (support.target.capability.catalog
+# in full); platform.capability.catalog is a read-only alias, taken in a document and at a read, never saved under
 SCHEMA_CAPABILITY = capability_catalog.SCHEMA
 FORMAT_CAPABILITY = capability_catalog.FORMAT
 TABLE_CAPABILITY = capability_catalog.TABLE
@@ -1461,7 +1463,7 @@ def validate(doc, *, validate_declaration=True):
         clean = capability_catalog.validate(
             doc,
             lambda d: _table(
-                d, lambda t: t == TABLE_CAPABILITY, "能力表的表名只能是 " + TABLE_CAPABILITY
+                d, lambda t: t in capability_catalog.TABLES, capability_catalog.NAME_RULE
             ),
             _note,
         )
@@ -2253,9 +2255,9 @@ def evaluate_stored(
             # one way, as the scene-topic table: another format read at this name keeps 0.5.32's answer (adversarial
             # review 3, L1); a stored catalog and a table of another format never share the name (a save refuses a
             # schema change)
-            fmt != FORMAT_CAPABILITY or table == TABLE_CAPABILITY,
+            fmt != FORMAT_CAPABILITY or table in capability_catalog.TABLES,
             "STORED_TABLE_NAME",
-            "能力表的表名只能是 " + TABLE_CAPABILITY,
+            capability_catalog.NAME_RULE,
             "table",
         )
         pin = _pin(version, content_sha256)

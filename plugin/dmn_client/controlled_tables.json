@@ -1,0 +1,17 @@
+{
+  "schema": "dmn-json.controlled-tables/v1",
+  "note": "存表分两类（Brian 11-18 10:01「除了场景表，其他都是策略配置」，bus 20261118-1001；另见 bus 20261118-0728，协调定 197、215、216）：场景与话题表是场景目录与场景定义的正本，只收受控入口写；其余存表都是策略配置，团队在开放模式下照常直接配，能力表也在内。本文件随插件发布：开放模式改不了它，应用配置也改不了它，改它要出一版插件。",
+  "tables": [
+    {
+      "table": "target.scene.topic",
+      "full_name": "support.target.scene.topic",
+      "why": "场景目录与场景定义的正本",
+      "ruled": "bus 20261118-0702、20261118-0728、20261118-1001；协调定 197、215、216"
+    }
+  ],
+  "not_listed": "试验表 trial.scene.topic 不受限（协调定 215）：它不是正本，现网没有流程读它，整包也不写它。要它也受限，在 tables 里照上面加一行 {\"table\": \"trial.scene.topic\", \"why\": …} 即可，代码不用改。",
+  "entries": [
+    {"id": "ops-store-entry", "alg": "RS256", "n": "cc9e453a437dd11da2b302c4c073c17d8b88857bac8a446ae01444169835eedcc6a6f323388a60a427ae0fc3d2dd0db22b00387978599e1d3683a06c9fa5e895dc1a95f8d947811fe9b9212a7f83f9d374223f34fcd52ed831d6bd0132d0cbcc7be6119f7d5d87cf574424ff48847342d9e67e058160dee1d604966eedf2fd3bb8e07e012a1d22e6dde672f25b16dc2ae25de636fd4c6b4ca9bcd1196efe8183bdc3ae85d6397d29b3854dba9333b363e50f9b6edf75b89668d34812d93e5d58515f64961d84b01d1f6659832c2426143e49af2057740dab72abc6739cfeb7763579187440f142566f42f19579c46b52f970aafbf187caa80916c0e03763bdf645c6a41d01e3fea2c9289b5de98f86cb887702fae3119e249af36c941500f8c8f762529e91be232113580355769a96ec910bc7137e897f54106337fcb215f58c375afc7315eca5149b4c326066d85510c58f3b5405325a5d0c280db9fc09ba64cf0ebc7f1f9f1f931a42e8cac4924f6d7ce3e947008a79c44712819c5469b60b", "e": 65537, "fp": "99182a0408fdc268", "note": "81 存表入口（OPS_STORE_ENTRY）的入口公钥；私钥只在入口本机（0600），不进任何仓、请求、日志"}
+  ],
+  "entries_note": "受控入口的公钥，一行 {id, alg: \"RS256\", n: 模数小写十六进制, e: 65537, fp: 指纹, note}。现在只有 81 存表入口 ops-store-entry（指纹 99182a0408fdc268，Brian 11-18 生成，协调核过）：装上后场景与话题表只收它签名的写入。换钥、撤钥都要出一版插件。签名格式见 docs/releases/v0.5.40.md 第十节。"
+}

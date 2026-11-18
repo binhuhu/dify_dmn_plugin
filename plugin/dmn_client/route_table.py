@@ -15,7 +15,10 @@ from dmn_client.scene_id import (  # noqa: F401
     is_scene,
 )
 from dmn_client.table_names import (
+    CAPABILITY_OLD_NAME,
+    CAPABILITY_TABLE,
     REFERENCE_RULE,
+    SCENE_ENTITY_TABLE,
     STANDARD,
     alias_of,
     delivery_name,
@@ -26,6 +29,8 @@ from dmn_client.table_names import (
 )
 
 SCHEMA = "dmn-json.route-table/v1"
+# 2026-11-18: a kind the scene-entity table names has no row in the capability table (either save refuses)
+KIND_NOT_SERVED = "ENTITY_KIND_NOT_IN_CAPABILITY_TABLE"
 FORMAT = "admission-routing-table/v1"
 SCHEMA_V2 = "dmn-json.route-table/v2"
 FORMAT_V2 = "routing-table/v2"
@@ -1918,8 +1923,22 @@ class StorageTables:
         - A standard name: before its first store and while copying, its old name's (0.5.19's alias read, with its
           collision check when there is no record); after it its own, but for versions below the first stored one,
           which stay the old name's (I1, I2).
+        - 2026-11-18: the capability table's old name, platform.capability.catalog (a read-only alias): unpinned, the
+          new name's table once that holds one; pinned or a version pin, and before, its own (what 0.5.38 stored there).
+          A table of another format under the old name (0.5.38 let a route table take any free name) stays its own.
         - Any other name: itself."""
         table = delivery_name(table)
+        if table == CAPABILITY_OLD_NAME:
+            from dmn_client.capability_catalog import SCHEMA as CAPABILITY_SCHEMA  # noqa
+
+            if pinned or version is not None:
+                return table
+            own = self._read(self.key(table))
+            if own is not None and not (
+                isinstance(own, dict) and own.get("schema") == CAPABILITY_SCHEMA
+            ):
+                return table
+            return CAPABILITY_TABLE if self._read(self.key(CAPABILITY_TABLE)) is not None else table
         std = alias_of(table)
         if std is not None:
             if pinned or version is not None:
@@ -1997,8 +2016,11 @@ class StorageTables:
     def find_content(self, table, sha):
         """0.5.20 (I4, I27): the version whose content_sha256 is sha. Once a standard name is read from its own storage,
         both names search its own last MAX_HISTORY versions, then the old name's last MAX_HISTORY; before, the name's own
-        chain as 0.5.19. None when it is not there."""
+        chain as 0.5.19. None when it is not there. 2026-11-18: a pin on the capability table's old name finds the
+        version under the new name, then under the old name (what 0.5.38 stored there)."""
         table = delivery_name(table)
+        if table == CAPABILITY_OLD_NAME:
+            return self.find_content(CAPABILITY_TABLE, sha) or self._find_own(table, sha)
         std = alias_of(table) or (table if old_name(table) is not None else None)
         if std is not None:
             st, rec = self.state(std)
@@ -2015,7 +2037,11 @@ class StorageTables:
                         if doc is not None and doc.get("content_sha256") == sha:
                             return doc
                 return None
-        head = self.load(table)
+        return self._find_own(table, sha)
+
+    def _find_own(self, table, sha):
+        """find_content in the name's own chain (0.5.19's search; the capability table's old name: its own storage)."""
+        head = self.load(table, pinned=table == CAPABILITY_OLD_NAME)
         if head is None or type(head.get("version")) is not int:
             return None
         for n in range(head["version"], max(0, head["version"] - MAX_HISTORY), -1):
@@ -2256,6 +2282,64 @@ class StorageTables:
                     "RESOURCE_TABLE_IN_USE",
                     "路由表 %s 还在用这些目标：%s" % (name, ", ".join(used)[:200]),
                     "targets",
+                )
+        if clean["schema"] == stored_tables.SCHEMA_CAPABILITY:
+            self._capability_save(clean)
+        elif (
+            clean["schema"] in (stored_tables.SCHEMA_DECISION, stored_tables.SCHEMA_DECISION_SET)
+            and storage_name(clean["table"]) == SCENE_ENTITY_TABLE
+        ):
+            self._scene_kinds_served(clean)
+
+    def _capability_save(self, clean):
+        """2026-11-18: what a save of the capability table checks beyond its document (a read takes a table 0.5.38 stored,
+        as 0.5.38 did). The old name is read-only (Brian 11-18 00:49「表名也改成四段吧」); a new save is in the new row form
+        (coordination ruling 150: business modes, subject and result entity filled); every entity kind the stored
+        scene-entity table names has a row (the kinds that exist are the capability table's result entities)."""
+        from dmn_client import capability_catalog as CC  # noqa
+
+        _need(
+            clean["table"] != CC.OLD_TABLE,
+            "STORED_TABLE_ALIAS_READ_ONLY",
+            "%s 是能力表的旧名，只读（照读，不再新存）：存表用 %s（全名 support.%s）"
+            % (CC.OLD_TABLE, CC.TABLE, CC.TABLE),
+            "table",
+        )
+        _need(
+            CC.moded(clean),
+            "CAPABILITY_TABLE_INVALID",
+            "新存的能力表每行写 business_modes（适用业务模式）、roles（适用角色）与 subject_entity（查询主体实体），entity 写结果实体的种类码："
+            "0.5.38 存下的旧行形照读、照求值，不再新存",
+            "capabilities[0]",
+        )
+        scene = self.load(SCENE_ENTITY_TABLE)
+        missing = sorted({k for _, k in CC.scene_kinds(scene)} - CC.result_kinds(clean))
+        if missing:
+            raise RouteTableError(
+                KIND_NOT_SERVED,
+                "场景关联实体表（第 %s 版）用到的种类 %s 在这一版能力表里没有行：每一类至少写一行（没接通的照实标），"
+                "或先改场景关联实体表" % (scene.get("version"), " / ".join(missing)),
+                "capabilities",
+            )
+
+    def _scene_kinds_served(self, clean):
+        """2026-11-18 (coordination ruling 150): each entity kind the scene-entity table names has a row in the capability
+        table, once that is stored in the new row form. Before, nothing is checked (as before); a table 0.5.38 stored
+        names no kinds."""
+        from dmn_client import capability_catalog as CC  # noqa
+
+        stored = self.load(CC.TABLE)
+        kinds = CC.result_kinds(stored)
+        if kinds is None:
+            return
+        for path, kind in CC.scene_kinds(clean):
+            if kind not in kinds:
+                raise RouteTableError(
+                    KIND_NOT_SERVED,
+                    "场景关联实体表用到的种类 %s 在能力表（第 %s 版）里没有行：先在能力表里加这一类的行（没接通的照实标），"
+                    "再存这张表；能力表现有的种类：%s"
+                    % (kind, stored.get("version"), " / ".join(sorted(kinds))),
+                    path,
                 )
 
     @staticmethod

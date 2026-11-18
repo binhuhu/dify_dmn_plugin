@@ -46,6 +46,18 @@ def full_spelled(table):
 
 REFERENCE_RULE = "表里引用别的表要写存表名，不写 support. 开头的全名：%s 写成 %s"
 
+# 2026-11-18 (Brian 00:49「表名也改成四段吧」): the capability table is a delivery table under the locate workflow,
+# support.target.capability.catalog in full, stored as target.capability.catalog. The name it had until then,
+# platform.capability.catalog, is a read-only alias: a document or a pin that names it is taken as before (a published
+# app still pins it), a read of it reads the table under the new name once that is stored (its own storage before:
+# what 0.5.38 stored there, read as 0.5.38 read it), and nothing is saved under it any more. Not one of the five: no
+# first-store migration, no drafts.
+CAPABILITY_TABLE = "target.capability.catalog"
+CAPABILITY_OLD_NAME = "platform.capability.catalog"
+SCENE_ENTITY_TABLE = (
+    "target.scene.entity"  # 场景关联实体表: its entity kinds have rows in the capability table
+)
+
 
 def full_name(table):
     """The full spelling of a delivery name (task type first), or None for a name that is not under delivery's
@@ -91,7 +103,10 @@ def read_as(requested, got):
 
 def read_names(requested, got):
     """The names a read receipt carries: before its first store a standard name reads its old name's table and says so
-    as 0.5.19 did ({alias_of: <old>}); an old name read after it, read_as; else {}."""
+    as 0.5.19 did ({alias_of: <old>}); an old name read after it, read_as; else {}. 2026-11-18: the capability table's
+    old name read when the new name holds the table says read_as too."""
+    if requested == CAPABILITY_OLD_NAME:
+        return {"table": CAPABILITY_TABLE, "read_as": requested} if got == CAPABILITY_TABLE else {}
     old = old_name(requested)
     if old is not None:
         return {} if got == requested else {"alias_of": old}

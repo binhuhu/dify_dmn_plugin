@@ -92,14 +92,17 @@ def declaration(out, declare, model):
         "model.hit_policy",
     )
     pin = declare.get("capability_table")
+    # 2026-11-18 (Brian 00:49「表名也改成四段吧」): the pin names the stored name target.capability.catalog; a pin on the old
+    # name platform.capability.catalog (a read-only alias, which a published app pins) is taken as before. A reference
+    # names the stored name, never the full spelling support.target.capability.catalog
     _need(
         type(pin) is dict
         and set(pin) == {"table", "content_sha256"}
-        and pin["table"] == capability_catalog.TABLE
+        and pin["table"] in capability_catalog.TABLES
         and type(pin["content_sha256"]) is str
         and HEX64.match(pin["content_sha256"]) is not None,
-        "capability_table = {table: %s, content_sha256: 那一版能力表的内容摘要}"
-        % capability_catalog.TABLE,
+        "capability_table = {table: %s（旧名 %s 照收）, content_sha256: 那一版能力表的内容摘要}"
+        % capability_catalog.TABLES,
         ".capability_table",
     )
     req = declare.get("request_inputs")
@@ -215,22 +218,29 @@ def declaration(out, declare, model):
     return {"capability_table": dict(pin), "request_inputs": list(req)}
 
 
-def _gives(row, result):
-    return list(result["facts"]) if "facts" in result else [f["fact_id"] for f in row["facts"]]
+def _gives(rows, result):
+    """The facts a call gives: the ones it wants, or every fact its capability gives in each of its rows (one row, or one per
+    set of business mode x role combinations): the intersection, whatever the session's business mode and role."""
+    if "facts" in result:
+        return list(result["facts"])
+    each = [{f["fact_id"] for f in r["facts"]} for r in rows]
+    return [f["fact_id"] for f in rows[0]["facts"] if all(f["fact_id"] in e for e in each)]
 
 
 def check(clean, catalog):
     """The new shape against the capability table it names (catalog: a clean capability-catalog/v1 document whose content
     is the declared pin): each row calls a query capability of the table, binds its inputs by their registered names
     (every required one), wants facts it gives; every quantity is a request input or a registered fact; and every row
-    can hold, starting from the request inputs, round after round. Raises SEARCH_TABLE_INVALID."""
+    can hold, starting from the request inputs, round after round. A capability id with several rows (one per set of
+    business mode x role combinations: business modes 2026-11-17, roles 2026-11-18) holds for a call only when the call
+    holds against each of them: a plan names no business mode and no role. Raises SEARCH_TABLE_INVALID."""
     decl, model = clean["declare"], clean["model"]
     _fail(
         capability_catalog.content_sha256(catalog) == decl["capability_table"]["content_sha256"],
         "能力表的内容摘要和声明里钉的不一致",
         "declare.capability_table.content_sha256",
     )
-    rows = capability_catalog.by_id(catalog)
+    rows = capability_catalog.rows_by_id(catalog)
     registered = {f["fact_id"] for r in catalog["capabilities"] for f in r["facts"]}
     req = set(decl["request_inputs"])
     types = {f["fact_id"]: f["type"] for r in catalog["capabilities"] for f in r["facts"]}
@@ -252,43 +262,47 @@ def check(clean, catalog):
         rid = rule["rule_id"]
         result = _result(model["result_templates"][rule["output_template_ref"]])
         p = "model.result_templates.%s.data.result.literal" % rule["output_template_ref"][:64]
-        row = rows.get(result["capability_id"])
+        of_id = rows.get(result["capability_id"], [])
         _fail(
-            row is not None,
+            bool(of_id),
             "规则 %s 的能力 %s 不在能力表里" % (rid, result["capability_id"]),
             p + ".capability_id",
         )
-        _fail(
-            capability_catalog.callable_row(row),
-            "规则 %s 的能力 %s 是动作（ACTION）：动作能力暂时不能调用"
-            % (rid, row["capability_id"]),
-            p + ".capability_id",
-        )
-        extra = sorted(set(result["bindings"]) - set(row["inputs"]))
-        _fail(
-            not extra,
-            "规则 %s：能力 %s 没有入参 %s" % (rid, row["capability_id"], ", ".join(extra)[:120]),
-            p + ".bindings",
-        )
-        need = sorted(
-            k for k, v in row["inputs"].items() if v["required"] and k not in result["bindings"]
-        )
-        _fail(
-            not need,
-            "规则 %s：能力 %s 的必填入参没绑：%s"
-            % (rid, row["capability_id"], ", ".join(need)[:120]),
-            p + ".bindings",
-        )
-        if "facts" in result:
-            have = {f["fact_id"] for f in row["facts"]}
-            bad = sorted(set(result["facts"]) - have)
-            _fail(
-                not bad,
-                "规则 %s：能力 %s 不出这些事实：%s"
-                % (rid, row["capability_id"], ", ".join(bad)[:120]),
-                p + ".facts",
+        for row in of_id:
+            where = row["capability_id"] + (
+                "（业务模式 %s × 角色 %s）"
+                % (" / ".join(row["business_modes"]), " / ".join(row["roles"]))
+                if len(of_id) > 1
+                else ""
             )
-        calls[rid] = (rule, _gives(row, result))
+            _fail(
+                capability_catalog.callable_row(row),
+                "规则 %s 的能力 %s 是动作（ACTION）：动作能力暂时不能调用" % (rid, where),
+                p + ".capability_id",
+            )
+            extra = sorted(set(result["bindings"]) - set(row["inputs"]))
+            _fail(
+                not extra,
+                "规则 %s：能力 %s 没有入参 %s" % (rid, where, ", ".join(extra)[:120]),
+                p + ".bindings",
+            )
+            need = sorted(
+                k for k, v in row["inputs"].items() if v["required"] and k not in result["bindings"]
+            )
+            _fail(
+                not need,
+                "规则 %s：能力 %s 的必填入参没绑：%s" % (rid, where, ", ".join(need)[:120]),
+                p + ".bindings",
+            )
+            if "facts" in result:
+                have = {f["fact_id"] for f in row["facts"]}
+                bad = sorted(set(result["facts"]) - have)
+                _fail(
+                    not bad,
+                    "规则 %s：能力 %s 不出这些事实：%s" % (rid, where, ", ".join(bad)[:120]),
+                    p + ".facts",
+                )
+        calls[rid] = (rule, _gives(of_id, result))
     reachable(calls, req)
 
 
