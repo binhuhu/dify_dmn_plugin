@@ -13,6 +13,7 @@ from test_scene_bundle import (
     published,
     run,
     signed,
+    toy_controlled_entry,  # noqa: F401 (autouse: bundle writes are signed as the toy controlled entry)
     versions,
     where,
 )

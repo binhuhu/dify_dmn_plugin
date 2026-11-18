@@ -8,6 +8,7 @@ from pathlib import Path
 
 import pytest
 import yaml
+from controlled_fixtures import signed_body, toy_entry
 from scene_bundle_fixtures import NEW, OLD_SCENE, T, bundle, scene_is, seed, topic_row
 from test_route_table import KEY, WRITER, WRITERS, FakeStorage
 
@@ -29,7 +30,20 @@ REF = "SYNTHETIC-RELEASE-LINE-7"
 KINDS = {p[0]: p[2] for p in PARTS}
 
 
-def run(storage, op, body=None, sid=NEW, app=MAINTENANCE_APP, **kw):
+@pytest.fixture(autouse=True)
+def toy_controlled_entry(monkeypatch):
+    """2026-11-18: a bundle publish or rollback writes the scene-topic table, which takes only a controlled entry's
+    writes; these tests publish as the toy entry (run adds its signature). What happens without one is tested in
+    test_controlled_tables."""
+    toy_entry(monkeypatch)
+
+
+BUNDLE_WRITES = ("bundle_publish", "bundle_rollback")
+
+
+def run(storage, op, body=None, sid=NEW, app=MAINTENANCE_APP, entry=True, **kw):
+    if entry and op in BUNDLE_WRITES and isinstance(body, dict) and "entry" not in body:
+        body = signed_body(op, sid, "", body)
     return run_entry(
         storage,
         op,

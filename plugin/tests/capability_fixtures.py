@@ -172,11 +172,49 @@ CAPABILITIES = [
 ]
 
 
-def catalog(rows=None, note="虚构图书馆能力表示例"):
+def legacy_catalog(rows=None, note="虚构图书馆能力表示例"):
+    """The fixture as 0.5.38 took it: its row form (no business modes, lower-case entity codes) under the name the table
+    had then. A save stores this form no more; a read of what 0.5.38 stored, and validation, are 0.5.38's."""
     rows = copy.deepcopy(CAPABILITIES if rows is None else rows)
     return {
         "schema": "dmn-json.capability-catalog/v1",
         "table": "platform.capability.catalog",
+        "capabilities": sorted(rows, key=lambda r: r["capability_id"]),
+        "note": note,
+    }
+
+
+# the new row form (2026-11-17): who each capability queries by; every row applies to the one business mode M
+SUBJECTS = {
+    ESTIMATE: "RESERVATION",
+    BILL: "LOAN",
+    PACKAGE: "MEMBER",
+    BATCH: "EDITION",
+    COUPON: "BOOK_COPY",
+    SEND: "MEMBER",
+    ORDER: "LOAN",
+}
+
+
+def moded_row(row, modes=("M",), roles=("P",)):
+    """A 0.5.38 row in the new row form: business modes, roles (2026-11-18), the subject entity, entity and facts' objects
+    as kind codes. P is only a toy role code."""
+    out = copy.deepcopy(row)
+    out["entity"] = out["entity"].upper()
+    for f in out["facts"]:
+        f["object"] = f["object"].upper()
+    out["business_modes"] = list(modes)
+    out["roles"] = list(roles)
+    out["subject_entity"] = SUBJECTS.get(out["capability_id"], "MEMBER")
+    return out
+
+
+def catalog(rows=None, note="虚构图书馆能力表示例"):
+    """The library fixture as a table is saved now: the new row form, under target.capability.catalog."""
+    rows = [moded_row(r) for r in (CAPABILITIES if rows is None else rows)]
+    return {
+        "schema": "dmn-json.capability-catalog/v1",
+        "table": "target.capability.catalog",
         "capabilities": sorted(rows, key=lambda r: r["capability_id"]),
         "note": note,
     }

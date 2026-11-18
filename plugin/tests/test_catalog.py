@@ -8,6 +8,7 @@ from scene_bundle_fixtures import seed
 from test_route_table import FakeStorage
 
 from dmn_client import catalog
+from dmn_client.route_store import run_op
 from dmn_client.route_table import StorageTables, digest
 from dmn_client.two_state import run_entry
 
@@ -101,13 +102,14 @@ def test_a_new_version_of_the_table_changes_the_catalog_version():
         if k in head
     }
     doc["note"] = "second version, same intent types"
-    status, saved = run_entry(
+    # 2026-11-18: the scene-topic table takes only a controlled entry's writes (test_controlled_tables); the engine
+    # stores the second version here, which is what the catalog reads
+    status, saved = run_op(
         storage,
         "save",
         TOPIC,
         None,
         json.dumps({**doc, "expected_version": head["version"]}, ensure_ascii=False),
-        caller_app=OTHER_APP,
     )
     assert status == 200, saved
     second = read(storage)[1]

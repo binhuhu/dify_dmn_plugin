@@ -5,6 +5,7 @@ import json
 from datetime import datetime, timezone
 
 import pytest
+from controlled_fixtures import signed_body, toy_entry
 from scene_bundle_fixtures import acceptance_doc, seed
 from test_route_table import KEY, WRITER, WRITERS, FakeStorage
 from test_v0521_scene_topic import doc as topic_doc
@@ -30,11 +31,15 @@ OTHER_APP = "00000000-0000-4000-8000-0000000000aa"
 REF = "SYNTHETIC-RELEASE-LINE-7"
 
 
-def entry(storage, op, body=None, table="dispatch.route", writers=REGISTRY, who=None, app=None):
+def entry(
+    storage, op, body=None, table="dispatch.route", writers=REGISTRY, who=None, app=None, ent=False
+):
     if who is not None:
         writer, key = who
         body = dict(body)
         body["writer"] = {"id": writer, "at": AT, "sig": sign(key, op, table, "", body, writer, AT)}
+    if ent:  # 2026-11-18: signed by the toy controlled entry too (the scene-topic table needs it)
+        body = signed_body(op, table, "", body)
     return run_entry(
         storage,
         op,
@@ -124,41 +129,74 @@ def test_the_two_names():
 
 
 @pytest.mark.parametrize("n", [0, 1])
-def test_signed_mode_wants_a_writer_on_a_save_of_a_scene_table(n):
+def test_signed_mode_wants_a_writer_on_a_save_of_a_scene_table(n, monkeypatch):
+    """2026-11-18: the scene-topic table (n = 0) is a controlled table: without a controlled entry's signature it is
+    refused before anything else; with one, signed mode's writer rules hold as before."""
+    toy_entry(monkeypatch)
     table, doc = scene_tables()[n]
+    ent = n == 0
     storage = FakeStorage()
     body = dict(doc, expected_version=0)
-    status, out = entry(storage, "save", body, table=table)
+    if ent:
+        for who in (None, PERSON):
+            status, out = entry(storage, "save", body, table=table, who=who)
+            assert (status, out["error"]["code"]) == (403, "STORED_TABLE_CONTROLLED_ENTRY_REQUIRED")
+    status, out = entry(storage, "save", body, table=table, ent=ent)
     assert (status, out["error"]["code"]) == (401, "STORED_TABLE_WRITER_REQUIRED")
-    status, out = entry(storage, "save", body, table=table, who=ROBOT)
+    status, out = entry(storage, "save", body, table=table, who=ROBOT, ent=ent)
     assert (status, out["error"]["code"]) == (403, "STORED_TABLE_AGENT_DRAFT_ONLY")
     assert storage.data == {}
-    status, out = entry(storage, "save", body, table=table, who=PERSON)
+    status, out = entry(storage, "save", body, table=table, who=PERSON, ent=ent)
     assert status == 200, out
     assert out["saved_by"]["writer"] == WRITER and out["saved_by"]["writer_verified"] is True
     assert out["ledger_row"]["writer"] == {"id": WRITER, "kind": None}
 
 
 @pytest.mark.parametrize("n", [0, 1])
-def test_a_signed_save_of_a_scene_table_counts_only_from_the_maintenance_app(n):
+def test_a_signed_save_of_a_scene_table_counts_only_from_the_maintenance_app(n, monkeypatch):
+    toy_entry(monkeypatch)
     table, doc = scene_tables()[n]
     storage = FakeStorage()
     status, out = entry(
-        storage, "save", dict(doc, expected_version=0), table=table, who=PERSON, app=OTHER_APP
+        storage,
+        "save",
+        dict(doc, expected_version=0),
+        table=table,
+        who=PERSON,
+        app=OTHER_APP,
+        ent=n == 0,
     )
     assert (status, out["error"]["code"]) == (403, "STORED_TABLE_WRITERS_APP_REJECTED")
     assert storage.data == {}
 
 
 @pytest.mark.parametrize("writers", [None, "", "OPEN"])
-@pytest.mark.parametrize("n", [0, 1])
-def test_open_mode_saves_the_scene_tables_as_before(n, writers):
-    table, doc = scene_tables()[n]
+def test_open_mode_saves_the_issue_acceptance_table_as_before(writers):
+    """2026-11-18 (Brian 10:01「除了场景表，其他都是策略配置」): the issue-acceptance table is policy configuration, saved
+    directly in open mode as before. The scene-topic table is not: see test_controlled_tables."""
+    table, doc = scene_tables()[1]
     status, out = entry(
         FakeStorage(), "save", dict(doc, expected_version=0), table=table, writers=writers
     )
     assert status == 200, out
     assert out["saved_by"]["writer"] is None and out["saved_by"]["writer_verified"] is False
+    assert "entry" not in out["saved_by"] and "entry" not in out["ledger_row"]
+
+
+@pytest.mark.parametrize("writers", [None, "", "OPEN"])
+def test_open_mode_refuses_a_direct_save_of_the_scene_topic_table(writers, monkeypatch):
+    toy_entry(monkeypatch)
+    table, doc = scene_tables()[0]
+    storage = FakeStorage()
+    body = dict(doc, expected_version=0)
+    status, out = entry(storage, "save", body, table=table, writers=writers)
+    assert (status, out["error"]["code"]) == (403, "STORED_TABLE_CONTROLLED_ENTRY_REQUIRED")
+    assert storage.data == {}
+    status, out = entry(storage, "save", body, table=table, writers=writers, ent=True)
+    assert status == 200, out
+    assert out["saved_by"]["writer"] is None and out["saved_by"]["writer_verified"] is False
+    assert out["saved_by"]["entry"] == "toy-entry" and out["saved_by"]["entry_verified"] is True
+    assert out["ledger_row"]["entry"] == "toy-entry" and out["ledger_row"]["entry_verified"] is True
 
 
 def test_signed_mode_leaves_other_tables_outside_the_five_as_they_were():

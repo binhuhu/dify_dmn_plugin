@@ -14,6 +14,7 @@ from test_route_table import FakeStorage
 from test_storage_care import REFUSAL, Capped, call, confirm_of, table_doc
 from test_storage_care_review import _catalog, _clear_half_written, _prune_at, _save
 
+from dmn_client.capability_catalog import OLD_TABLE as OLD
 from dmn_client.capability_catalog import TABLE as CAP
 from dmn_client.capability_catalog import content_sha256 as cat_sha
 from dmn_client.route_table import StorageTables, canon
@@ -148,14 +149,22 @@ def test_a_version_pin_on_a_cleared_half_version_never_reads_other_content():
 def test_no_format_switch_under_the_capability_name():
     from test_route_table import doc as route_doc
 
+    # 2026-11-18 (Brian 00:49「表名也改成四段吧」): the name is target.capability.catalog, a policy table name, which a
+    # route table never takes
     s = FakeStorage()
-    assert _save(s, route_doc(table=CAP))[0] == 200  # a route table may live there
-    status, out = _save(s, _catalog())
-    assert status == 400 and out["error"]["code"] == "STORED_TABLE_SCHEMA_CHANGED", out
-    s = FakeStorage()
+    status, out = _save(s, route_doc(table=CAP))
+    assert status == 400 and out["error"]["code"] == "STORED_TABLE_NAME", out
     assert _save(s, _catalog())[0] == 200
     status, out = _save(s, route_doc(table=CAP))
-    assert status == 400 and out["error"]["code"] == "STORED_TABLE_SCHEMA_CHANGED", out
+    assert status == 400 and out["error"]["code"] == "STORED_TABLE_NAME", out
+    # 0.5.38 let a route table take the old name platform.capability.catalog: it stays there, read as itself, and no
+    # capability table goes under that name (a read-only alias)
+    s = FakeStorage()
+    assert _save(s, route_doc(table=OLD))[0] == 200
+    assert _save(s, _catalog())[0] == 200
+    assert call(s, "table", table=OLD)[1]["doc"]["schema"] != "dmn-json.capability-catalog/v1"
+    status, out = _save(s, dict(_catalog(), table=OLD))
+    assert status == 400 and out["error"]["code"] == "STORED_TABLE_ALIAS_READ_ONLY", out
 
 
 def test_a_capability_plan_kept_across_a_resave_is_refused_and_keep_extremes_delete_no_old_version():

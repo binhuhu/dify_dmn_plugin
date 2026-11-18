@@ -1,12 +1,20 @@
-"""Capability catalog contract checks using an independently invented library domain."""
+"""Capability catalog contract checks using an independently invented library domain.
+
+2026-11-18: these pin 0.5.38's row form (no business modes, lower-case entity codes, the old table name
+platform.capability.catalog) as 0.5.38 checked and read it, byte for byte (coordination ruling 152, Brian 11-18 00:44
+「插件更新2.0.39后务必保证当前全链路是没有影响的」). A save stores that form no more, so a read here reads a table written as
+0.5.38 wrote it (stored_by_0538). The new row form and the new name are in test_capability_modes_and_service.
+"""
 
 import copy
 
 import pytest
-from capability_fixtures import BATCH, COUPON, ORDER, SEND, catalog
+from capability_fixtures import BATCH, COUPON, ORDER, SEND
+from capability_fixtures import legacy_catalog as catalog
+from test_route_table import FakeStorage
 from test_v0515_mechanisms import ev, store
 
-from dmn_client.route_table import RouteTableError
+from dmn_client.route_table import RouteTableError, StorageTables, canon
 from dmn_client.stored_tables import (
     FORMAT_CAPABILITY,
     FORMAT_DECISION,
@@ -15,6 +23,29 @@ from dmn_client.stored_tables import (
     reserved_name,
     validate,
 )
+
+OLD_NAME = "platform.capability.catalog"  # the name 0.5.38 stored a capability table under
+
+
+def stored_by_0538(*docs, storage=None):
+    """Storage holding docs as 0.5.38's save wrote them (a table outside the five: the copy by save id, the version key,
+    the head), versions 1, 2 ... in order; a save now refuses 0.5.38's row form and the old name."""
+    st = StorageTables(storage or FakeStorage())
+    for n, doc in enumerate(docs, 1):
+        clean = validate(copy.deepcopy(doc))
+        table = clean["table"]
+        prev = st._read(st.key(table))
+        clean.update(
+            version=n,
+            saved_at="2026-11-17T00:00:0%dZ" % n,
+            content_sha256=content_sha256(clean),
+            save_id="0538-%d" % n,
+            parent_save_id=prev["save_id"] if prev else None,
+        )
+        raw = canon(clean).encode("utf-8")
+        for key in (st.save_key(table, clean["save_id"]), st.key(table, n), st.key(table)):
+            st.storage.set(key, raw)
+    return st
 
 
 def row(doc, cid):
@@ -37,8 +68,8 @@ def refused(doc, path=None, word=None, code="CAPABILITY_TABLE_INVALID"):
 
 def test_the_sample_saves_and_reads_back_unchanged():
     clean = validate(catalog())
-    st = store(catalog())
-    assert content_sha256(st.load(TABLE_CAPABILITY)) == content_sha256(clean)
+    st = stored_by_0538(catalog())
+    assert content_sha256(st.load(OLD_NAME)) == content_sha256(clean)
     assert [r["capability_id"] for r in clean["capabilities"]] == sorted(
         r["capability_id"] for r in catalog()["capabilities"]
     )
@@ -47,8 +78,9 @@ def test_the_sample_saves_and_reads_back_unchanged():
 def test_the_name_is_bound_to_the_format():
     refused(dict(catalog(), table="platform.other"), "table", code="STORED_TABLE_NAME")
     # not reserved against route tables (0.5.32 let a route table take any free name; adversarial review 3, L1): a
-    # stored catalog and a route table never share the name, because a save refuses a schema change
-    assert not reserved_name(TABLE_CAPABILITY)
+    # stored catalog and a route table never share the name, because a save refuses a schema change. 2026-11-18: the
+    # new name is under target., which route tables never took (a policy table name); the old one stays free
+    assert not reserved_name(OLD_NAME) and reserved_name(TABLE_CAPABILITY)
 
 
 def test_capability_ids_are_unique_and_ascending():
@@ -243,7 +275,7 @@ def test_row_keys_are_exact():
 
 
 def read(inputs, st=None):
-    return ev(st or store(catalog()), TABLE_CAPABILITY, FORMAT_CAPABILITY, inputs)
+    return ev(st or stored_by_0538(catalog()), OLD_NAME, FORMAT_CAPABILITY, inputs)
 
 
 def test_read_one_row_by_capability_id():
@@ -294,18 +326,18 @@ def test_bad_reads_fail(inputs):
 
 
 def test_the_format_and_the_name_go_together_at_read():
-    st = store(catalog())
+    st = stored_by_0538(catalog())
     out = ev(st, "target.scene.topic", FORMAT_CAPABILITY, {"capability_id": COUPON})
     assert out["error"]["code"] == "STORED_TABLE_NAME"
     # another format read at this name answers as in 0.5.32
-    out = ev(st, TABLE_CAPABILITY, FORMAT_DECISION, {"parameters": {}})
+    out = ev(st, OLD_NAME, FORMAT_DECISION, {"parameters": {}})
     assert out["error"]["code"] == "STORED_TABLE_FORMAT_MISMATCH"
-    out = ev(store(), TABLE_CAPABILITY, FORMAT_DECISION, {"parameters": {}})
+    out = ev(store(), OLD_NAME, FORMAT_DECISION, {"parameters": {}})
     assert out["status"] == "NOT_FOUND"
 
 
 def test_the_read_returns_a_copy():
-    st = store(catalog())
+    st = stored_by_0538(catalog())
     first = read({"capability_id": ORDER}, st)
     first["result"]["row"]["facts"].clear()
     assert read({"capability_id": ORDER}, st)["result"]["row"]["facts"]
