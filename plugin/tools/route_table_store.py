@@ -11,6 +11,7 @@ from dmn_client.catalog import OP as CATALOG
 from dmn_client.catalog import SCENE_OP as SCENE_CATALOG
 from dmn_client.route_store import CHECK, OPS, UNDO, error
 from dmn_client.scene_bundle import OPS as BUNDLE_OPS
+from dmn_client.settings import OP as SETTING
 from dmn_client.storage_care import CARE_OPS
 from dmn_client.two_state import (
     CAPABILITY_VOCABULARY,
@@ -20,6 +21,7 @@ from dmn_client.two_state import (
     WRITERS_OPS,
     run_entry,
 )
+from dmn_client.vocabulary import V2_VOCABULARY
 
 
 class RouteTableStoreTool(Tool):
@@ -37,9 +39,12 @@ class RouteTableStoreTool(Tool):
             and op != CATALOG
             and op != CAPABILITY_VOCABULARY
             and op != SCENE_CATALOG
+            and op != V2_VOCABULARY
+            and op != SETTING
         ):
             # the list is 0.5.38's, word for word (coordination ruling 152: an old call answers as it did);
-            # capability_vocabulary and scene_catalog (2026-11-18) are named in the op parameter's description
+            # capability_vocabulary and scene_catalog (2026-11-18), v2_vocabulary and setting (0.5.41) are named in the op
+            # parameter's description
             status, body = error(
                 400,
                 "ROUTE_STORE_OP_INVALID",

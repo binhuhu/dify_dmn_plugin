@@ -46,8 +46,10 @@ parameters:
     zh_Hans: 模型
   human_description:
     en_US: For export. A decision model, or a stored decision-table document (its model is taken); object or JSON
-      string, at most 1 MiB.
-    zh_Hans: 导出用。一个决策模型、一份存着的决策表文档（取其中的 model），或一份决策集文档（每个模型一个决策）；对象或 JSON 字符串，不超过 1 MiB。
+      string, at most 1344 KiB (0.5.41, as a save request; was 1 MiB). 0.5.41 - a table document of the new writing (dmn-json.decision-table/v2) is exported
+      whole, its by-id conditions written as a filter then the first item (fact[fact_id = "X"][1].value), and comes
+      back word for word; a bare v2 decision is refused (its table name fixes its role and inputs).
+    zh_Hans: 导出用。一个决策模型、一份存着的决策表文档（取其中的 model），或一份决策集文档（每个模型一个决策）；对象或 JSON 字符串，不超过 1344 KiB（0.5.41 起，与存表请求同线；原 1 MiB）。0.5.41：新写法 v2 的表文档（dmn-json.decision-table/v2）整份导出，按号取的条件写成过滤再取第一项（fact[fact_id = "X"][1].value），导回逐字一样；只给 v2 的决策不收（表名定角色与固定输入）。
   llm_description: The decision model (or decision-table document) to export.
 - name: decision_id
   type: string
