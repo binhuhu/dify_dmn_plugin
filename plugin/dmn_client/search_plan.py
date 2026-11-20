@@ -223,8 +223,12 @@ def _gives(rows, result):
     set of business mode x role combinations): the intersection, whatever the session's business mode and role."""
     if "facts" in result:
         return list(result["facts"])
-    each = [{f["fact_id"] for f in r["facts"]} for r in rows]
-    return [f["fact_id"] for f in rows[0]["facts"] if all(f["fact_id"] in e for e in each)]
+    each = [{capability_catalog.item_id(f) for f in capability_catalog.row_infos(r)} for r in rows]
+    return [
+        capability_catalog.item_id(f)
+        for f in capability_catalog.row_infos(rows[0])
+        if all(capability_catalog.item_id(f) in e for e in each)
+    ]
 
 
 def check(clean, catalog):
@@ -241,9 +245,17 @@ def check(clean, catalog):
         "declare.capability_table.content_sha256",
     )
     rows = capability_catalog.rows_by_id(catalog)
-    registered = {f["fact_id"] for r in catalog["capabilities"] for f in r["facts"]}
+    registered = {
+        capability_catalog.item_id(f)
+        for r in catalog["capabilities"]
+        for f in capability_catalog.row_infos(r)
+    }
     req = set(decl["request_inputs"])
-    types = {f["fact_id"]: f["type"] for r in catalog["capabilities"] for f in r["facts"]}
+    types = {
+        capability_catalog.item_id(f): f["type"]
+        for r in catalog["capabilities"]
+        for f in capability_catalog.row_infos(r)
+    }
     for name in sorted(set(model["parameters"]) - req):
         _fail(
             name in registered,
@@ -295,7 +307,7 @@ def check(clean, catalog):
                 p + ".bindings",
             )
             if "facts" in result:
-                have = {f["fact_id"] for f in row["facts"]}
+                have = {capability_catalog.item_id(f) for f in capability_catalog.row_infos(row)}
                 bad = sorted(set(result["facts"]) - have)
                 _fail(
                     not bad,

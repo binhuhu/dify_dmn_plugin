@@ -106,7 +106,16 @@ TABLE_RE = re.compile(r"^[a-z0-9][a-z0-9._-]{0,63}$")
 # 0.5.28 (DMN 2.0, solution layer four tables, end to end): search.fact -> fact.feature -> feature.reality ->
 # reality.strategy. disposal.strategy (reality.strategy's former name) and disposal.status (moved out of the solution
 # layer) stay storable and readable as legacy names, so tables already stored under them keep working.
-SOLUTION_TABLES = ("search.fact", "fact.feature", "feature.reality", "reality.strategy")
+# 0.5.41 (DMN 2.0.43, 查询事实拆成查询原值与原值事实两张表): search.info (query -> info) and info.fact (info -> fact) are
+# the query table's two halves; search.fact stays as an old name, stored and read as before
+SOLUTION_TABLES = (
+    "search.info",
+    "info.fact",
+    "search.fact",
+    "fact.feature",
+    "feature.reality",
+    "reality.strategy",
+)
 SOLUTION_LEGACY = ("disposal.strategy", "disposal.status")
 SOLUTION_TABLE_RE = re.compile(
     r"^solution\.(?:(?:"
@@ -2171,10 +2180,13 @@ class StorageTables:
 
     def _cross_check(self, clean):
         """cross check."""
-        from dmn_client import stored_tables  # noqa
+        from dmn_client import decision_v2, stored_tables  # noqa
 
+        self.cross_warnings = []  # 0.5.41: warnings of the cross-table check for the save receipt (never a refusal)
         if clean["schema"] in ROUTE_SCHEMAS:
             self._one_state(clean)
+        if clean["schema"] == stored_tables.SCHEMA_DECISION_V2:
+            self.cross_warnings = decision_v2.cross_check(self, clean)
         decl = clean.get("declare") if isinstance(clean.get("declare"), dict) else {}
         if (
             clean["schema"] == stored_tables.SCHEMA_DECISION
@@ -2311,6 +2323,18 @@ class StorageTables:
             "新存的能力表每行写 business_modes（适用业务模式）、roles（适用角色）与 subject_entity（查询主体实体），entity 写结果实体的种类码："
             "0.5.38 存下的旧行形照读、照求值，不再新存",
             "capabilities[0]",
+        )
+        # 0.5.41 (DMN 2.0.43 §十「能力表」; 协调 11-20 评审第 6 条, Brian 批的 LQ-CATALOG-FIRST-STORE): under the new name a
+        # table writes facts (0.5.40's row form, fact_id) or infos (raw values, info_id), one of the two in every row. Once
+        # the head is in infos it takes only infos (one way: a query -> info table of the new writing pins only an infos
+        # version); with no head, or a head in facts, both are taken
+        head = self.load(CC.TABLE)
+        _need(
+            head is None or CC.info_key(head) != CC.INFOS or CC.info_key(clean) == CC.INFOS,
+            "CAPABILITY_TABLE_INVALID",
+            "能力表 %s 已改存成 infos 写法（第 %s 版起）：改存是单向的，不再收 facts 写法；能力给出的原值写 infos，每项写 info_id"
+            % (CC.TABLE, head.get("version") if isinstance(head, dict) else "?"),
+            "capabilities[0].facts",
         )
         scene = self.load(SCENE_ENTITY_TABLE)
         missing = sorted({k for _, k in CC.scene_kinds(scene)} - CC.result_kinds(clean))
@@ -2485,6 +2509,8 @@ class StorageTables:
     ):
         """An ordinary save (0.5.19's), with the first-record checks before its head and after it for the five
         (guard)."""
+        from dmn_client import decision_v2, stored_tables  # noqa
+
         self._references(doc if isinstance(doc, dict) else {})
         clean = validate_doc(doc)
         table = clean["table"]
@@ -2494,12 +2520,17 @@ class StorageTables:
         _need(
             cur is None
             or _family(cur.get("schema", SCHEMA)) == _family(clean["schema"])
-            or _resource_switch(cur, clean),
+            or _resource_switch(cur, clean)
+            or stored_tables.SCHEMA_DECISION_V2 in (clean["schema"], cur.get("schema")),
             "STORED_TABLE_SCHEMA_CHANGED",
             "表 %s 存的是 %s，不能存成 %s"
             % (table, cur.get("schema", SCHEMA) if cur else "", clean["schema"]),
             "schema",
         )
+        # 0.5.41: a solution-layer name takes the writing its head is in (dmn_client.decision_v2.head_gate), and v1 only
+        # while the registered value solution.v1_writes says ACCEPT (dmn_client.settings, the default)
+        decision_v2.head_gate(cur, clean)
+        decision_v2.v1_stop_gate(self.storage, cur, clean)
         _need(
             cur is None or cur.get("schema") != SCHEMA_V3 or clean["schema"] == SCHEMA_V3,
             "STORED_TABLE_SCHEMA_CHANGED",

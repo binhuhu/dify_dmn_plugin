@@ -43,6 +43,11 @@ from dmn_client.table_names import (
 
 SCHEMA_DECISION = "dmn-json.decision-table/v1"
 SCHEMA_DECISION_SET = "dmn-json.decision-set/v1"
+# 0.5.41 (DMN 2.0.53): the solution layer's new writing, format v2 (dmn_client.decision_v2): one decision, inputs fixed by
+# position, conditions read by id. v1 keeps every check, evaluation and digest it had.
+SCHEMA_DECISION_V2 = "dmn-json.decision-table/v2"
+FORMAT_DECISION_V2 = "decision-table/v2"
+PROFILE_V2 = "service-decision-table-v2"
 SCHEMA_SUPPLEMENT = "dmn-json.supplement-requirements/v1"
 SCHEMA_SUPPLEMENT_V2 = "dmn-json.supplement-requirements/v2"
 SUPPLEMENT_SCHEMAS = (SCHEMA_SUPPLEMENT, SCHEMA_SUPPLEMENT_V2)
@@ -70,6 +75,7 @@ FORMATS = {
     FORMAT_DECISION_SET: SCHEMA_DECISION_SET,
     FORMAT_SCENE_TOPIC: SCHEMA_SCENE_TOPIC,
     FORMAT_CAPABILITY: SCHEMA_CAPABILITY,
+    FORMAT_DECISION_V2: SCHEMA_DECISION_V2,
 }
 SCHEMAS = tuple(FORMATS.values())
 KEYS = {
@@ -80,6 +86,7 @@ KEYS = {
     SCHEMA_RESOURCE: ("schema", "table", "targets", "route_tables", "note", "declare"),
     SCHEMA_SCENE_TOPIC: ("schema", "table", "intent_types", "rows", "note", "declare"),
     SCHEMA_CAPABILITY: capability_catalog.KEYS,
+    SCHEMA_DECISION_V2: ("schema", "table", "owner", "decision_ref", "decision", "note", "declare"),
 }
 RESULT_SCHEMA = "dmn-json.stored-table-result/v1"
 CALL_STATUSES = ("SUCCEEDED", "NOT_REQUESTED", "NOT_FOUND", "BLOCKED", "FAILED")
@@ -102,14 +109,21 @@ IN_SET = "in_set"  # 2026-11-11 (提议，待 Brian 定): a table parameter that
 RESULT_KEY_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_]{0,63}$")
 MAX_SOURCE_REFS = 16
 MAX_SET_MODELS = 64
-MAX_HITS = 512  # a COLLECT table outputs at most one result per rule
+# a COLLECT table outputs at most one result per rule (0.5.41: as many as rules, MAX_RULES below)
+MAX_HITS = 2048
 MODEL_KEY_RE = re.compile(r"^[a-z][a-z0-9_]{0,47}$")
+# 0.5.41 (DMN 2.0.52 顶层规则一 / §八; Brian 11-20「照建议放宽」): one set of safety lines for every decision table, v1
+# and v2 alike, none below 0.5.40's, and set so that the 1 MiB content line is the real bound: rules and result
+# templates 2048 (were 512 and 128), situations of one rule 1024 (was 128), values of one in 1024 (was 128); parameters
+# 32 and conditions of one situation 32 as before. Lines only: a table inside 0.5.40's lines is checked, evaluated and
+# digested as before. (A v2 decision does not count its no-match template: dmn_client.decision_v2.)
 MAX_PARAMETERS = 32
-MAX_RULES = 512
+MAX_RULES = 2048
 MAX_CONDITIONS = 32
-# 0.5.18: condition combinations in one rule (when_any); 0.5.19: 32 → 128, each still ≤ 32 conditions
-MAX_COMBINATIONS = 128
-MAX_TEMPLATES = 128
+# 0.5.18: condition combinations in one rule (when_any); 0.5.19: 32 → 128, each still ≤ 32 conditions; 0.5.41: 1024
+MAX_COMBINATIONS = 1024
+MAX_TEMPLATES = 2048
+MAX_IN_VALUES = 1024  # values of one in
 MAX_SUPPLEMENT_SCENES = 1024
 MAX_ITEMS = 16
 MAX_TARGETS = 256
@@ -212,8 +226,8 @@ DECISION_NAME_RULE = (
     "target.<名称> 或 target.<对象>.<判断>（owner.app_id = 定位 TARGET " + APP_TARGET + "）、"
     "triage.<名称> 或 triage.<对象>.<判断>（owner.app_id = 分诊 TRIAGE " + APP_TRIAGE + "）、"
     "handle.<对象>.<判断>（交付的处理流程；owner.app_id = 读这张表的流程应用）、"
-    "solution.<search.fact|fact.feature|feature.reality|reality.strategy>.<场景号>[.<方案段>][.<分片>]"
-    "（旧名 disposal.strategy / disposal.status 照收）"
+    "solution.<search.info|info.fact|search.fact|fact.feature|feature.reality|reality.strategy>.<场景号>[.<方案段>][.<分片>]"
+    "（旧名 search.fact、disposal.strategy / disposal.status 照收；search.info、info.fact 只收新写法 v2）"
     "或多场景共用的 solution.disposal.status.shared"
     "（owner.app_id = 该方案应用；场景号如 M_P_02_04_01；方案段 = owner.app_id 的第一段，8 位小写十六进制；"
     "分片小写字母开头，只含小写字母、数字、_，最多 24 个字符）；"
@@ -559,7 +573,7 @@ def _model(m, path):
                 )
             if c["op"] == "in":
                 _need(
-                    type(c["value"]) is list and len(c["value"]) <= 128,
+                    type(c["value"]) is list and len(c["value"]) <= MAX_IN_VALUES,
                     "DECISION_TABLE_INVALID",
                     "in 要列表",
                     q,
@@ -655,8 +669,23 @@ def _model_ref(ref, model, code, path):
     return ref
 
 
+# 0.5.41: two solution-layer names that exist only in the new writing (DMN 2.0.43 split the query table in two); a v1
+# document under them is refused (0.5.40 refused the names themselves, with the same code)
+V2_ONLY_PREFIXES = ("solution.search.info.", "solution.info.fact.")
+
+
+def _v2_only(table):
+    _need(
+        not storage_name(table).startswith(V2_ONLY_PREFIXES),
+        "STORED_TABLE_NAME",
+        "%s 是查询 → 原值 / 原值 → 事实的表名：只收新写法 v2（%s）" % (table, SCHEMA_DECISION_V2),
+        "table",
+    )
+
+
 def _validate_decision(doc):
     clean_owner, table = _owner(doc, "DECISION_TABLE_INVALID")
+    _v2_only(table)
     model = _model(doc.get("model"), "model")
     marked = sorted(n for n, c in model["parameters"].items() if IN_SET in c)
     _need(
@@ -680,6 +709,7 @@ def _validate_decision_set(doc):
     """0.5.15 decision set (DMN 2.0 §九-3): one table, several models, each the decision-table model shape, evaluated by
     model key or as a group. Name and owner rules are the decision table's."""
     clean_owner, table = _owner(doc, "DECISION_SET_INVALID", decision_set=True)
+    _v2_only(table)
     raw = doc.get("models")
     _need(
         type(raw) is dict and 0 < len(raw) <= MAX_SET_MODELS,
@@ -1468,6 +1498,11 @@ def validate(doc, *, validate_declaration=True):
             _note,
         )
         return declared(doc, clean) if validate_declaration else clean
+    if schema == SCHEMA_DECISION_V2:
+        from dmn_client import decision_v2  # noqa
+
+        clean = decision_v2.validate(doc)
+        return declared(doc, clean) if validate_declaration else clean
     raise RouteTableError("ROUTE_TABLE_INVALID", "不认识的表格式：" + str(schema)[:64], "schema")
 
 
@@ -1491,6 +1526,18 @@ def declared(doc, clean):
         ),
         "declare",
     )
+    if clean.get("schema") == SCHEMA_DECISION_V2:
+        # 0.5.41: the new writing is STANDARD by construction; its declaration (names, rows.why) is required
+        from dmn_client import decision_v2  # noqa
+
+        _need(
+            type(doc.get("declare")) is dict,
+            "TABLE_DECLARATION_INVALID",
+            "新写法 v2 的表要带声明（stage = STANDARD）",
+            "declare",
+        )
+        clean["declare"] = decision_v2.check_declaration(doc["declare"], clean)
+        return clean
     if doc.get("declare") is None:
         # 0.5.22: a decision table under a resource name is the three-tier resource routing; its checks live in its
         # declaration (role RESOURCE), so it cannot be saved without one
@@ -1542,6 +1589,10 @@ def content_sha256(doc):
         return digest({"intent_types": doc["intent_types"], "rows": doc["rows"]})
     if schema == SCHEMA_CAPABILITY:
         return capability_catalog.content_sha256(doc)
+    if schema == SCHEMA_DECISION_V2:
+        from dmn_client import decision_v2  # noqa
+
+        return decision_v2.content_sha256(doc)
     return digest({"targets": doc["targets"]})
 
 
@@ -1562,6 +1613,8 @@ def rows(doc):
         return len(doc.get("rows", []))
     if schema == SCHEMA_CAPABILITY:
         return len(doc.get("capabilities", []))
+    if schema == SCHEMA_DECISION_V2:
+        return len(doc.get("decision", {}).get("rules", []))
     return len(doc.get("routes", []))
 
 
@@ -2277,7 +2330,8 @@ def evaluate_stored(
             return out
         # 0.5.21: scoped to the new format; the others keep 0.5.20's path unchanged
         _need(
-            fmt not in (FORMAT_SCENE_TOPIC, FORMAT_CAPABILITY) or type(doc) is dict,
+            fmt not in (FORMAT_SCENE_TOPIC, FORMAT_CAPABILITY, FORMAT_DECISION_V2)
+            or type(doc) is dict,
             "ROUTE_TABLE_CORRUPT",
             "插件里的表 %s 不是一个 JSON 对象" % table,
             "table",
@@ -2329,6 +2383,10 @@ def evaluate_stored(
             out["result"] = scene_topic_lookup(clean, inputs)
         elif fmt == FORMAT_CAPABILITY:
             out["result"] = capability_catalog.lookup(clean, inputs)
+        elif fmt == FORMAT_DECISION_V2:
+            from dmn_client import decision_v2  # noqa
+
+            out["result"] = decision_v2.evaluate(clean, inputs, out["source"])
         else:
             rid = inputs.get("resource_id")
             _need(

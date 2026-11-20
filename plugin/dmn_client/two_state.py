@@ -24,7 +24,7 @@ from datetime import datetime, timedelta, timezone
 
 import rfc8785
 
-from dmn_client import catalog, controlled, scene_bundle
+from dmn_client import catalog, controlled, scene_bundle, settings
 from dmn_client.client import EngineError, json_object
 from dmn_client.route_store import CONFLICT, DEFAULT_TABLE, MAX_REQUEST, UNAVAILABLE, error, run_op
 from dmn_client.route_table import (
@@ -53,7 +53,14 @@ from dmn_client.storage_care import (
 from dmn_client.storage_care import full as storage_full
 from dmn_client.stored_tables import TABLE_SCENE_TOPIC
 from dmn_client.table_names import STANDARD, delivery_name, old_name, storage_name
-from dmn_client.vocabulary import capability_declared, declared, format_keys, unknown_keys
+from dmn_client.vocabulary import (
+    V2_VOCABULARY,
+    capability_declared,
+    declared,
+    format_keys,
+    unknown_keys,
+    v2_declared,
+)
 
 FIVE = frozenset(
     STANDARD
@@ -729,6 +736,10 @@ def _run_entry(
         return 200, declared()
     if op == CAPABILITY_VOCABULARY:  # no table, no body
         return 200, capability_declared()
+    if (
+        op == V2_VOCABULARY
+    ):  # 0.5.41: the new writing's words (format v2, fixed inputs, by-id paths, lines); no body
+        return 200, v2_declared()
     # 2026-11-16: support.<name> is the table <name>. A writer signs the table as it was sent, so the signature is
     # checked against that spelling (third review M2); every rule and every key uses the stored name.
     named = table  # op=scene_catalog: a table parameter left empty is the scene-topic table, not DEFAULT_TABLE
@@ -801,6 +812,35 @@ def _run_entry(
                 version,
                 {k: v for k, v in parsed.items() if k != "writer"},
             )
+        if op == settings.OP:
+            # 0.5.41 (DMN 2.0.53): a registered value in plugin storage. A read (no body, or {name}) for any app; a write
+            # ({name, value, note}) only from the pinned maintenance app, in signed mode with a writer's signature, never
+            # an agent's; flipping it is not a release
+            if refused:
+                return refused
+            rest = {k: v for k, v in parsed.items() if k != "writer"}
+            if set(rest) <= {"name"}:
+                return 200, settings.answer(storage, rest.get("name"))
+            check_caller(storage, caller_app)
+            with _MUTATION_LOCK:
+                who = None
+                if not opened:
+                    parse_writers(writers)
+                    who = verify(writers, parsed.get("writer"), op, sent, vstr, parsed, now())
+                _need(
+                    not (isinstance(who, dict) and who.get("kind") == AGENT),
+                    "STORED_TABLE_AGENT_DRAFT_ONLY",
+                    "写手 %s 登记的种类是 AGENT：只进草稿，翻登记值要由登记为人或脚本的写手来做"
+                    % (who or {}).get("id"),
+                    "writer",
+                )
+                by = {
+                    "user": _context_text(caller_user),
+                    "via": via,
+                    "writer": (who or {}).get("id"),
+                    "writer_verified": bool(who),
+                }
+                return 200, settings.write(storage, rest, by, now())
         if op == LEDGER:
             check_caller(storage, caller_app)
             return 200, ledger(storage, table)

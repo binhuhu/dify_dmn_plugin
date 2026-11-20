@@ -14,7 +14,12 @@ from dmn_client.route_table import (
     validate_doc,
 )
 from dmn_client.scene_spelling import respell, table_spelling
-from dmn_client.stored_tables import KEYS, SCHEMA_DECISION, resource_decision_name
+from dmn_client.stored_tables import (
+    KEYS,
+    SCHEMA_DECISION,
+    SCHEMA_DECISION_V2,
+    resource_decision_name,
+)
 from dmn_client.table_names import delivery_name, old_name, read_names
 from dmn_client.vocabulary import ROUTE_V1_KEYS, ROUTE_V2_KEYS, unknown_keys
 
@@ -24,7 +29,11 @@ CHECK = "check"  # 0.5.20 (R3): the standard-name keys 0.5.19 would see; [] befo
 # 0.5.15 (DMN 2.0 draft.10 体积): the table content (everything but declare, canonical JSON) and its declaration are
 # counted separately. Dify plugin storage has no per-value limit of its own; a value travels hex-encoded in one plugin
 # message (PLUGIN_STDIO_MAX_BUFFER_SIZE, 5 MiB by default), so one stored document stays in one key.
-MAX_BODY = 512 * 1024
+# 0.5.41 (DMN 2.0.52 §八, Brian 11-20「我们就把最大的限制变成一兆吧」): one line for every table, content ≤ 1 MiB (was
+# 512 KiB). One table is one stored value and travels in one plugin message, hex-encoded (twice its size); a full 1 MiB
+# content with a full 256 KiB declaration is about 2.6 MiB encoded, inside Dify's default 5 MiB message. The request is
+# content + declaration + 64 KiB, 1344 KiB.
+MAX_BODY = 1024 * 1024
 MAX_DECLARE = 256 * 1024
 MAX_REQUEST = MAX_BODY + MAX_DECLARE + 64 * 1024
 DEFAULT_TABLE = "dispatch.route"
@@ -50,11 +59,12 @@ def _sizes(doc):
     except (TypeError, ValueError):
         return None  # not JSON-shaped: the validator refuses it with its own code and path
     if content > MAX_BODY:
+        # 0.5.41: the line and this table's size (the solution layer is no longer split into .<part> tables)
         return error(
             400,
             "STORED_TABLE_TOO_LARGE",
-            "表内容（不含声明）%d KiB，超过 %d KiB：按 .<part> 拆"
-            % (content // 1024, MAX_BODY // 1024),
+            "表 %s 的内容（不含声明，按规范 JSON 算）是 %d 字节（约 %.1f KiB），超过存表线 %d 字节（%d KiB，所有表一套）"
+            % (str(doc.get("table"))[:128], content, content / 1024, MAX_BODY, MAX_BODY // 1024),
         )
     if declared > MAX_DECLARE:
         return error(
@@ -227,6 +237,8 @@ def run_op(storage, op, table=DEFAULT_TABLE, version=None, body=None, *, gate=No
             )
             skipped = list(getattr(tables, "skipped", None) or [])
             warned = declarations.warnings(saved, current if isinstance(current, dict) else None)
+            # 0.5.41: what the v2 cross-table check could not check (INFO_IDS_UNCHECKED); empty for every other table
+            warned = warned + list(getattr(tables, "cross_warnings", None) or [])
             warned = warned + _after_save(tables, saved)
             if skipped:
                 warned.append(
@@ -274,6 +286,10 @@ def _back_from_resource_decision(name, current, doc):
     """0.5.22: a save that would turn a decision-format resource table back into another format does not inherit its
     declaration (role RESOURCE, stage STANDARD), so the refusal is the schema change (STORED_TABLE_SCHEMA_CHANGED), as
     with declare: null, and not a declaration error. No 0.5.21 table can be in this state."""
+    if (doc.get("schema") == SCHEMA_DECISION_V2) != (current.get("schema") == SCHEMA_DECISION_V2):
+        # 0.5.41: a declaration never crosses between v1 and v2 (a v1 table changed to v2 writes its own; a v1 save
+        # onto a v2 head is refused as the schema change it is, not by the v2 declaration it would have inherited)
+        return True
     return (
         current.get("schema") == SCHEMA_DECISION
         and doc.get("schema") != SCHEMA_DECISION

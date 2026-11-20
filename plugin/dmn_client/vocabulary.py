@@ -17,6 +17,8 @@ from dmn_client.route_table import canon, digest
 from dmn_client.table_names import STANDARD, full_name
 
 SCHEMA = "dmn-json.vocabulary/v1"
+# 0.5.41: roles only the new writing (dmn-json.decision-table/v2) takes; op=vocabulary answers as 0.5.38 did without them
+V2_ROLES = ("SEARCH_INFO", "INFO_FACT")
 
 # keys of the save request itself (route_store / two_state), never stored as content
 # 0.5.25: scene_spelling_rollback = the explicit M_ → legacy rollback (route_store); a draft that carries it keeps
@@ -121,7 +123,10 @@ def declared():
             "row_states": list(D.ROW_STATES),
             "acceptance": dict(D.ACCEPTANCE),
             "outcome": dict(D.OUTCOME),
-            "conclusion_keys": {k: list(v) for k, v in D.CONCLUSION_KEYS.items()},
+            # 0.5.41: the new writing's roles are not in this read, which answers what 0.5.38 answered
+            "conclusion_keys": {
+                k: list(v) for k, v in D.CONCLUSION_KEYS.items() if k not in V2_ROLES
+            },
             "resource_result_keys": list(D.RESOURCE_RESULT_KEYS),
             "resource_states": list(D.RESOURCE_STATES),
             "resource_executors": list(D.RESOURCE_EXECUTORS),
@@ -141,7 +146,11 @@ def declared():
         },
         "shapes": {
             "top_level_keys": {
-                **{schema: list(keys) for schema, keys in sorted(S.KEYS.items())},
+                **{
+                    schema: list(keys)
+                    for schema, keys in sorted(S.KEYS.items())
+                    if schema != S.SCHEMA_DECISION_V2
+                },
                 **{schema: list(ROUTE_V2_KEYS) for schema in R.ROUTE_SCHEMAS},
                 "dmn-json.route-table/v1": list(ROUTE_V1_KEYS),
             },
@@ -232,6 +241,186 @@ def capability_declared():
             "page_size": CC.MAX_PAGE,
             "timeout_ms": CC.MAX_TIMEOUT_MS,
             "valid_for_s": CC.MAX_VALID_S,
+        },
+    }
+    canon(doc)  # JSON-shaped, or this raises
+    return dict(doc, content_sha256=digest(doc))
+
+
+V2_VOCABULARY = "v2_vocabulary"
+V2_SCHEMA = "dmn-json.v2-vocabulary/v1"
+
+
+def v2_declared():
+    """0.5.41 (需求单第 6、12 件): the new writing's words, read with route_table_store op=v2_vocabulary, so that
+    op=vocabulary and op=capability_vocabulary keep answering what they answered (0.5.38 / 0.5.40). As declared(): every
+    value is the object the validators use, not a copy."""
+    from dmn_client import decision_v2 as V  # noqa
+    from dmn_client import route_store as RS  # noqa
+    from dmn_client import settings  # noqa
+
+    doc = {
+        "schema": V2_SCHEMA,
+        "formats": {
+            "document_schema": V.SCHEMA,
+            "evaluate_format": V.FORMAT,
+            "profile": V.PROFILE,
+            "conclusions_schema": V.CONCLUSIONS_SCHEMA,
+            "top_level_keys": list(V.KEYS),
+            "decision_keys": list(V.BASE_KEYS),
+            "decision_keys_by_role": {
+                role: list(V.BASE_KEYS)
+                + ([V.IDS] if role in V.KEYED else [])
+                + ([V.PASSTHROUGH] if role == V.INFO_FACT else [])
+                for role in V.ROLES
+            },
+            "rule_keys": list(V.RULE_KEYS),
+            "id_spec_keys": ["type", "values"],
+            "id_types": sorted(D.TYPES),
+            "template_keys": ["state", "data", "actions"],
+            "template_data_keys": ["result", "note"],
+            # 0.5.41 (Brian 11-20): an all-passthrough INFO_FACT may write rules: [] and ids: {}
+            "roles_that_may_have_no_rule": [V.INFO_FACT],
+        },
+        "tables": {
+            "kinds": dict(V.ROLE_OF_KIND),
+            "name_rule": V.NAME_RULE,
+            "order": list(V.KIND_ORDER),
+            "v1_only_names": [
+                "solution.search.fact.",
+                "solution.disposal.strategy.",
+                "solution.disposal.status.",
+            ],
+            "v2_only_names": list(S.V2_ONLY_PREFIXES),
+            # 头版闸：表名收哪种写法看它当前头版的格式名
+            "head_gate": {
+                "no_head": "只收 v2（STORED_TABLE_V2_ONLY）",
+                "v1_head": "照收 v1，也可以单向改存成 v2",
+                "fact_feature_set_head": "事实 → 特征的决策集头版可以单向改存成 v2 的一个决策",
+                "v2_head": "只收 v2，再存 v1 → STORED_TABLE_SCHEMA_CHANGED",
+                "parts_and_old_names": "带分片的名字、旧名（search.fact / disposal.strategy / disposal.status）不收 v2：头版 v1 的照收 v1",
+                "v1_stop": "登记值 solution.v1_writes = REFUSE 后，方案层表名一律不再收 v1（STORED_TABLE_V1_STOPPED）",
+            },
+            # v2 的表输入（fact / feature / reality）只读同一方案、头版是 v2 的那一张；上游没存或头版是 v1 → STORED_TABLE_UPSTREAM_MISSING
+            "upstream_heads_v2_only": True,
+            "hit_policies": {role: list(v) for role, v in V.HIT_POLICIES.items()},
+            "keyed_roles": dict(V.KEYED),
+        },
+        "inputs": {
+            # 标准 2.0.54 顶层规则三：每种表的输入按位置固定；参数只写类型（Brian 11-20 批 (a)）
+            "fixed": {role: list(v) for role, v in V.INPUTS.items()},
+            "groups": list(V.GROUPS),
+            "by_id_tables": list(V.BY_ID_TABLES),
+            "whole_tables": list(V.WHOLE_TABLES),
+            "upstream_kind": dict(V.UPSTREAM_KIND),
+            "parameter_shapes": {
+                "group": {"type": V.GROUP},
+                "table": {"type": V.TABLE, "from_table": "solution.<段>.<场景号>[.<方案段>]"},
+            },
+            "declared_sources": dict(V.GROUP_SOURCES),
+            "declared_table_source": "table:<from_table>",
+            "not_required": True,
+            "qualities": list(V.ALL_QUALITIES),
+        },
+        "paths": {
+            "by_id": ["parameters", "<输入>", V.KEY, "<号>", "<部分>"],
+            "group_parts": list(V.GROUP_PARTS),
+            "table_parts": list(V.TABLE_PARTS),
+            "whole": [
+                ["parameters", "reality", "state"],
+                ["parameters", "reality", "quality"],
+                ["parameters", "reality", "result", "<键>"],
+            ],
+            "ops": list(V.V2_OPS),  # 新写法不收 exists（按号取的号总在；要问拿没拿到用质量）
+            "quality_ops": list(V.QUALITY_OPS),
+            "state_ops": list(V.STATE_OPS),
+            "json_types": list(V.JSON_TYPES),
+            "json_type_ops": list(V.JSON_OPS),
+            "binding_source": "<request|calc|info>:<号>",
+        },
+        "ids": {
+            "rule": "1–%d 个字符，不含空白、控制字符与不可见的格式字符（Unicode 类别 C*、Z*）；可以有中文和点"
+            % V.ID_MAX,
+            "max_length": V.ID_MAX,
+            "excluded_unicode_categories": ["C", "Z"],
+            "passthrough": "原值 → 事实的 passthrough：直通的原值号，事实号 = 原值号，类型照钉住的能力表；不写规则、不进 ids",
+            "capability_infos_key": CC.INFOS,
+            "capability_info_keys": list(CC.INFO_KEYS),
+            "capability_info_id": CC.ITEM_ID[CC.INFOS],
+            "capability_old_name_keys": {"list": CC.FACTS, "id": CC.ITEM_ID[CC.FACTS]},
+            # 新名下 facts（fact_id）与 infos（info_id）两种行形都收、一张表不混；头版是 infos 以后只收 infos（单向）；
+            # v2 的查询 → 原值表只钉 infos 写法的那一版
+            "capability_new_name_forms": [CC.FACTS, CC.INFOS],
+            "capability_infos_one_way": True,
+            "search_info_pins": CC.INFOS,
+        },
+        "conclusions": {
+            "result_key": "conclusions",
+            "part_keys": ["schema", "table", "version", "content_sha256", "decision_ref", "keyed"],
+            "keyed_part": "keys",
+            "whole_part": ["decision", "decisions"],
+            "key_entry_keys": ["quality", "state", "value", "rule_id"],
+            "key_entry_optional_keys": ["rule_ids", "gap", "filled", "passthrough"],
+            "filled": ["CONFLICT", "INDETERMINATE", "NO_RULE"],
+            "filled_gap_codes": ["KEY_INDETERMINATE", "KEY_NO_RULE"],
+            "filled_gap": {"owner": "AUTHOR", "kind": "RULE"},
+            "receipt_keys": ["inputs", "reads", "chained_parameters"],
+        },
+        "declaration": {
+            "keys": list(V.DECLARE_KEYS),
+            "keyed_roles_add": ["ids"],
+            "search_info_adds": ["capability_table"],
+            # 按号判的表，号的中文名在 declare.ids（号 → {name, names?}）；号的类型、取值在决策本体的 ids
+            "ids_entry_keys": ["name", "names"],
+        },
+        "codes": {
+            "refusals": [
+                "STORED_TABLE_V2_ONLY",
+                "STORED_TABLE_SCHEMA_CHANGED",
+                V.UPSTREAM_MISSING,
+                V.ID_UNDEFINED,
+                V.ID_TYPE_MISMATCH,
+                V.ID_IN_USE,
+                settings.V1_STOPPED,
+                "STORED_TABLE_SETTING_INVALID",
+                "STORED_TABLE_SETTING_UNKNOWN",
+            ],
+            # 登记值读不出时存表闸回 503（op=setting 的读写照常，读回 readable: false）
+            "unavailable": ["STORED_TABLE_UNAVAILABLE"],
+            # 存表回执的警告（不拒）：同号可能同时成立、split_of 依据没查完、钉的能力表那一版找不到没核原值号
+            "warnings": [
+                "KEY_RULES_MAY_OVERLAP",
+                "SPLIT_OF_ANALYSIS_LIMITED",
+                "INFO_IDS_UNCHECKED",
+            ],
+        },
+        "settings": {
+            "op": settings.OP,
+            "registered": {
+                name: {
+                    "values": list(spec["values"]),
+                    "default": spec["default"],
+                    "meaning": spec["meaning"],
+                }
+                for name, spec in sorted(settings.REGISTERED.items())
+            },
+            "write_keys": list(settings.WRITE_KEYS),
+            "written_by": "钉定的「路由表维护」应用（签名模式下另要写手签名，AGENT 不能翻）",
+        },
+        "limits": {
+            "parameters": S.MAX_PARAMETERS,
+            "rules": S.MAX_RULES,
+            "result_templates": S.MAX_TEMPLATES,
+            "no_match_template_counted": False,
+            "rows_per_rule": S.MAX_COMBINATIONS,
+            "conditions_per_row": S.MAX_CONDITIONS,
+            "in_values": S.MAX_IN_VALUES,
+            "ids": V.MAX_IDS,
+            "passthrough": V.MAX_PASSTHROUGH,
+            "id_values": V.MAX_ID_VALUES,
+            "content_bytes": RS.MAX_BODY,
+            "declare_bytes": RS.MAX_DECLARE,
+            "request_bytes": RS.MAX_REQUEST,
         },
     }
     canon(doc)  # JSON-shaped, or this raises

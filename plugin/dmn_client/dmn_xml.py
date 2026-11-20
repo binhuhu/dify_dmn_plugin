@@ -850,7 +850,9 @@ def _decision(model, decision_id, name, rule_prefix="", model_ref=None):
 # --- the tool -------------------------------------------------------------------------------------------------------
 
 RESULT_SCHEMA = "dmn-json.dmn-xml-conversion/v1"
-MAX_MODEL_BYTES = 1024 * 1024
+# 0.5.41: a stored table at the content line (1 MiB) with its declaration is exported whole: the input takes what a save
+# request takes (route_store.MAX_REQUEST, 1344 KiB; was 1 MiB)
+MAX_MODEL_BYTES = 1344 * 1024
 
 
 def convert(parameters):
@@ -879,7 +881,21 @@ def convert(parameters):
         if direction == "import":
             xml = parameters.get("dmn_xml")
             root, ns = _root(xml)
-            if decision_id or len(root.findall("{%s}decision" % ns)) == 1:
+            # 0.5.41: an XML exported from the new writing carries <dj:decision> (dmn_client.dmn_xml_v2)
+            from dmn_client import dmn_xml_v2  # noqa
+
+            if dmn_xml_v2.is_v2_xml(root, ns):
+                got = dmn_xml_v2.import_doc(xml)
+                node = root.find("{%s}decision" % ns)
+                out.update(
+                    decision_id=node.get("id"),
+                    name=node.get("name"),
+                    model=got["document"]["decision"],
+                    model_ref=got["document"]["decision_ref"],
+                    warnings=got["warnings"],
+                    document=got["document"],
+                )
+            elif decision_id or len(root.findall("{%s}decision" % ns)) == 1:
                 out.update(import_xml(xml, decision_id))
             else:
                 out.update(import_set_xml(xml))
@@ -887,7 +903,10 @@ def convert(parameters):
             raw = parameters.get("model_json")
             try:
                 if type(raw) is str:
-                    _need(len(raw.encode("utf-8")) <= MAX_MODEL_BYTES, "model_json 不超过 1 MiB")
+                    _need(
+                        len(raw.encode("utf-8")) <= MAX_MODEL_BYTES,
+                        "model_json 不超过 %d KiB" % (MAX_MODEL_BYTES // 1024),
+                    )
                     raw = json.loads(raw)
                 _need(type(raw) is dict, "")
             except (DmnXmlError, ValueError, UnicodeError, RecursionError):
@@ -896,7 +915,33 @@ def convert(parameters):
                     "model_json",
                     "INPUT_INVALID",
                 )
-            if "models" in raw and "profile" not in raw:
+            from dmn_client import dmn_xml_v2  # noqa
+
+            _need(
+                raw.get("profile") != stored_tables.PROFILE_V2,
+                "新写法 v2 的决策要连表文档一起给（表名定角色与固定输入）：model_json 写整个表文档",
+                "model_json",
+                "INPUT_INVALID",
+            )
+            if raw.get("schema") == stored_tables.SCHEMA_DECISION_V2:
+                # 0.5.41: a table document of the new writing (dmn_client.dmn_xml_v2)
+                out["decision_id"] = decision_id or "decision"
+                xml, warnings, clean = dmn_xml_v2.export_doc(raw, out["decision_id"], name)
+                document = {
+                    "schema": clean["schema"],
+                    "table": clean["table"],
+                    "decision_ref": clean["decision_ref"],
+                    "decision": clean["decision"],
+                }
+                out.update(
+                    dmn_xml=xml,
+                    name=name or out["decision_id"],
+                    model=clean["decision"],
+                    model_ref=clean["decision_ref"],
+                    warnings=warnings,
+                    document=document,
+                )
+            elif "models" in raw and "profile" not in raw:
                 # a decision-set document: every model, one <decision> each
                 out["dmn_xml"] = export_set_xml(raw["models"], name or "decisions")
                 out["name"] = name or "decisions"
@@ -917,5 +962,6 @@ def convert(parameters):
     except DmnXmlError as e:
         for key in ("model", "model_ref", "model_sha256", "models", "dmn_xml"):
             out[key] = None
+        out.pop("document", None)
         out["error"] = {"code": e.code, "message": e.message, "path": e.path}
     return out

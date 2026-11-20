@@ -23,6 +23,7 @@ rows of a FIRST table moved, with the shadowing changes against the previous ver
 table, an exit rule and a reality rule, or two realities not registered in coexist, that may hold together).
 """
 
+import bisect
 import itertools
 import json
 import re
@@ -97,6 +98,9 @@ SEARCH_KEYS = {"capability_table", "request_inputs"}
 SET_KEYS = {"stage", "role", "models"}
 MAX_SHADOWING = 100
 MAX_OVERLAP_CHECKS = 4096
+# 比对的规则对数上限（每对先比取值域，过了再按情形比、走 MAX_OVERLAP_CHECKS 的预算）。split_of 的依据与行序分析共用：
+# 0.5.40 的线内（512 条规则）一张表最多 130816 对，碰不到这条线，回答照旧；只有过了旧线的大表才会用完（0.5.41 第三份评审第 1、2 条）
+MAX_OVERLAP_PAIRS = 200_000
 SOURCE_RE = re.compile(r"^(fact|feature|calc|table|request):\S{1,160}$")
 KEY_RE = re.compile(r"^[A-Za-z0-9_.:#/一-鿿-]{1,160}$")
 HEX64 = re.compile(r"^[0-9a-f]{64}$")
@@ -146,6 +150,9 @@ CONCLUSION_KEYS = {
     ),  # 0.5.28: one rule per fact code (proposal until the standard fixes the columns)
     # 2026-11-11 (提议): one rule per capability call — the capability and where each input comes from
     "SEARCH_CAPABILITY": ("capability_id", "bindings"),
+    # 0.5.41: the new writing's two query roles (dmn_client.decision_v2)
+    "SEARCH_INFO": ("capability_id", "bindings"),
+    "INFO_FACT": ("fact_id", "value"),
     # 0.5.22: a dotted key is a path into the result object
     "RESOURCE": ("tier1.pool", "tier2.skill_group", "tier2.priority", "tier3.pick"),
 }
@@ -189,6 +196,9 @@ ROLE_BY_NAME = (
     # 0.5.28 (DMN 2.0, solution layer four tables): reality.strategy is disposal.strategy's new name
     ("solution.reality.strategy.", "DISPOSAL"),
     ("solution.search.fact.", "SEARCH_FACT"),
+    # 0.5.41 (DMN 2.0.43): the query table's two halves, in the new writing only (dmn_client.decision_v2)
+    ("solution.search.info.", "SEARCH_INFO"),
+    ("solution.info.fact.", "INFO_FACT"),
 )
 MAX_COEXIST = 256
 
@@ -217,8 +227,12 @@ def _scalar(v):
     return v is None or type(v) in (str, bool, int, float)
 
 
-def _named_map(value, path, label, entry):
-    _need(type(value) is dict and 0 < len(value) <= 512, label + "是非空对象", path)
+# 0.5.41: a declaration's rows (one per rule) go with the rule line (dmn_client.stored_tables.MAX_RULES)
+MAX_RULE_ROWS = 2048
+
+
+def _named_map(value, path, label, entry, limit=512):
+    _need(type(value) is dict and 0 < len(value) <= limit, label + "是非空对象", path)
     out = {}
     for k, v in value.items():
         _need(type(k) is str and KEY_RE.match(k), label + "的键不对", path + "." + str(k)[:64])
@@ -406,7 +420,7 @@ def _states(value):
     return _named_map(value, ".states", "states", lambda v, p: _text(v, 120, "state 的意思", p))
 
 
-def check(declare, clean, schema):
+def check(declare, clean, schema, *, budget=None):
     """The declaration of a valid table document (clean), itself cleaned."""
     roles = ROLES_BY_SCHEMA.get(schema)
     _need(roles is not None, "这种表还不能写声明", "")
@@ -491,7 +505,9 @@ def check(declare, clean, schema):
             lambda v, p: _parameter(v, p, stage),
         )
     if "rows" in declare:
-        out["rows"] = _named_map(declare["rows"], ".rows", "rows", lambda v, p: _row(v, p, stage))
+        out["rows"] = _named_map(
+            declare["rows"], ".rows", "rows", lambda v, p: _row(v, p, stage), MAX_RULE_ROWS
+        )
     if "priority" in declare:
         _need(declare["priority"] == "ROW_ORDER", "priority 只能是 ROW_ORDER", ".priority")
         out["priority"] = "ROW_ORDER"
@@ -513,7 +529,7 @@ def check(declare, clean, schema):
         _need(out["stage"] == "STANDARD", "新形状的查询 → 事实表写 stage = STANDARD", ".stage")
         out.update(search_plan.declaration(out, declare, clean["model"]))
     if schema == DECISION:
-        _decision(out, clean["model"])
+        _decision(out, clean["model"], budget)
     elif out["role"] == "SUPPLEMENT":
         _keyed(
             out,
@@ -670,7 +686,7 @@ def _inputs(out, names):
         )
 
 
-def _decision(out, model):
+def _decision(out, model, budget=None):
     rules, templates = model["rules"], model["result_templates"]
     _need("parameters" in out, "决策表要声明每个参数", ".parameters")
     _inputs(out, model["parameters"])
@@ -712,7 +728,7 @@ def _decision(out, model):
         )
         # 0.5.19: the role's business keys first, then one rule per conclusion
         _business_keys(out["role"], model)
-        _one_rule_per_conclusion(out["role"], model, out["rows"], first)
+        _one_rule_per_conclusion(out["role"], model, out["rows"], first, budget=budget)
     for ref, t in templates.items():
         p = ".templates." + str(ref)[:64]
         if out["stage"] == "TRANSITION":
@@ -808,14 +824,42 @@ def _business_keys(role, model):
         )
 
 
-def _one_rule_per_conclusion(role, model, rows=None, first=False):
+def overlap_budget():
+    """The work bound of the split_of check for one table (a decision set's models share it): combination comparisons
+    (MAX_OVERLAP_CHECKS, may_overlap's budget) and compared rule pairs (MAX_OVERLAP_PAIRS)."""
+    return {"remaining": MAX_OVERLAP_CHECKS, "limited": False, "pairs": 0}
+
+
+def _one_rule_per_conclusion(role, model, rows=None, first=False, unproven=None, budget=None):
     """0.5.18: two rules giving the same conclusion are one rule with when_any combinations. 0.5.19: a FIRST
     table may give a conclusion again when merging would move combinations past another conclusion's rule: the later
     rule's row names the conclusion's first rule in split_of with a split_reason, and between it and the previous rule
-    of that conclusion stands a rule of another conclusion that may hold together with it."""
+    of that conclusion stands a rule of another conclusion that may hold together with it.
+
+    0.5.41: that last check is bounded like the other overlap analyses — each rule's finite domains are computed once,
+    combination comparisons spend one budget (MAX_OVERLAP_CHECKS) and compared rule pairs stop at MAX_OVERLAP_PAIRS, for
+    the whole table (budget: overlap_budget(), shared by a decision set's models). When either runs out the pair counts as
+    "may hold together": a good table is never refused because of the limit. unproven (a list) collects the split rules
+    let through that way (the analysis was limited)."""
     if role not in CONCLUSION_KEYS:
         return
     rules, rows = model["rules"], rows or {}
+    budget = budget if budget is not None else overlap_budget()
+    domains, spent = {}, [False]
+
+    def overlap(j, i):
+        """Rule j may hold together with rule i; spent[0] says the answer came from a spent limit."""
+        if budget["pairs"] >= MAX_OVERLAP_PAIRS:
+            spent[0] = True
+            return True
+        budget["pairs"] += 1
+        for k in (j, i):
+            if k not in domains:
+                domains[k] = _finite_domains(rules[k])
+        hit = may_overlap(rules[j], rules[i], domains=(domains[j], domains[i]), budget=budget)
+        spent[0] = hit and budget["limited"]
+        return hit
+
     seen, head, last = {}, {}, {}
     for i, r in enumerate(rules):
         key = conclusion_of(role, model["result_templates"][r["output_template_ref"]])
@@ -845,13 +889,15 @@ def _one_rule_per_conclusion(role, model, rows=None, first=False):
             "split_of 要指向同一结论的第一条规则 %s（写的是 %s）" % (head[key], split),
             path + ".split_of",
         )
-        between = rules[last[key] + 1 : i]
+        spent[0] = False
         _need(
-            any(may_overlap(b, r) for b in between),
+            any(overlap(j, i) for j in range(last[key] + 1, i)),
             "%s 和 %s 之间没有可能同时成立的别的结论规则：相邻或不重叠的同结论规则合成一条（when_any），不分两条"
             % (seen[key], r["rule_id"]),
             path + ".split_of",
         )
+        if spent[0] and unproven is not None:
+            unproven.append(r["rule_id"])
         seen[key], last[key] = r["rule_id"], i
 
 
@@ -913,6 +959,7 @@ def _set(declare, clean, roles):
     _need(not extra, "models 里有表里没有的模型：" + ", ".join(map(str, extra[:5])), ".models")
     _need(not missing, "这些模型没写声明：" + ", ".join(missing[:5]), ".models")
     out["models"] = {}
+    budget = overlap_budget()  # 一张表一份：决策集各模型的 split_of 依据共用一份预算与比对上限
     for key in sorted(models):
         sub = models[key]
         _need(
@@ -925,6 +972,7 @@ def _set(declare, clean, roles):
                 dict(sub, stage=out["stage"], role=out["role"]),
                 {"model": clean["models"][key]["model"]},
                 DECISION,
+                budget=budget,
             )
         except RouteTableError as exc:
             raise RouteTableError(
@@ -1497,6 +1545,10 @@ def warnings(clean, previous=None):
     d = clean.get("declare") if type(clean) is dict else None
     if not d:
         return []
+    if clean.get("schema") == "dmn-json.decision-table/v2":
+        from dmn_client import decision_v2  # noqa
+
+        return decision_v2.warnings(clean, previous)
     if clean.get("schema") == DECISION:
         before = previous.get("model") if _same(previous, DECISION) else None
         return _model_warnings(d, clean["model"], before, d)
@@ -1642,12 +1694,25 @@ def row_order_changes(before, after, limit=MAX_SHADOWING, *, analysis=None):
     common = [rid for rid in old if rid in pos]
     domains = {rid: _finite_domains(by_id[rid]) for rid in common}
     budget = {"remaining": MAX_OVERLAP_CHECKS, "limited": False}
-    out = []
+    # 0.5.41（第三份评审第 2 条）：两条规则在一条每条都限定的路径上取值不相交，就证明了不重叠（may_overlap 头一步也是这么判的，
+    # 不花预算）——按那条路径建倒排，只走可能相交的对，回答与逐对比一样；再加比对数上限 MAX_OVERLAP_PAIRS（旧线内碰不到），
+    # 用完的对照「可能重叠」记，标分析受限
+    later = _later_candidates([domains[rid] for rid in common])
+    out, compared = [], 0
     for i, a in enumerate(common):
-        for b in common[i + 1 :]:
-            if pos[b] < pos[a] and may_overlap(
-                by_id[a], by_id[b], domains=(domains[a], domains[b]), budget=budget
-            ):
+        for j in later(i):
+            b = common[j]
+            if pos[b] >= pos[a]:
+                continue
+            if compared >= MAX_OVERLAP_PAIRS:
+                budget["limited"] = True
+                hit = True
+            else:
+                compared += 1
+                hit = may_overlap(
+                    by_id[a], by_id[b], domains=(domains[a], domains[b]), budget=budget
+                )
+            if hit:
                 out.append({"rules": [a, b], "before": a, "after": b})
                 if len(out) >= limit:
                     if analysis is not None:
@@ -1656,6 +1721,35 @@ def row_order_changes(before, after, limit=MAX_SHADOWING, *, analysis=None):
     if analysis is not None:
         analysis["limited"] = budget["limited"]
     return out
+
+
+def _later_candidates(doms):
+    """later(i) -> the indices j > i, ascending, of rules that may overlap rule i as far as one path tells: a path every
+    rule constrains to a finite set, the one leaving the fewest pairs; two rules whose sets on it do not meet cannot
+    overlap. With no such path, every j > i."""
+    n = len(doms)
+    common = set(doms[0]).intersection(*doms[1:]) if doms else set()
+    best, best_count = None, None
+    for path in sorted(common, key=repr):
+        index = {}
+        for i, dom in enumerate(doms):
+            for value in dom[path]:
+                index.setdefault(value, []).append(i)
+        count = sum(len(v) * (len(v) - 1) // 2 for v in index.values())
+        if best_count is None or count < best_count:
+            best, best_count = (path, index), count
+    if best is None or best_count >= n * (n - 1) // 2:
+        return lambda i: range(i + 1, n)  # no path splits the pairs: every pair, without the index
+    path, index = best
+
+    def later(i):
+        values = doms[i][path]
+        if len(values) == 1:
+            bucket = index[next(iter(values))]
+            return bucket[bisect.bisect_right(bucket, i) :]
+        return sorted({j for v in values for j in index[v] if j > i})
+
+    return later
 
 
 def _domain_key(path, value):

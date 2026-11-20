@@ -41,6 +41,7 @@ This module does not import stored_tables (stored_tables imports it).
 
 import copy
 import re
+import unicodedata
 
 from dmn_client.route_table import RouteTableError, digest
 from dmn_client.table_names import CAPABILITY_OLD_NAME, CAPABILITY_TABLE
@@ -78,6 +79,15 @@ ROW_KEYS = (
     "call_ref",
 )
 FACT_KEYS = ("fact_id", "name", "field", "type", "unit", "object")
+# 0.5.41 (DMN 2.0.43 §十「能力表」): the list a capability gives is named infos (raw values) under the new name; under the
+# old name platform.capability.catalog it stays facts. One document writes one of the two in every row. Brian 11-20
+# (HOLD (c) approved): an item of infos names its raw value info_id (facts keep fact_id). An info id is an id of the new
+# writing (dmn_client.decision_v2.id_ok: 1–128 characters, no white space or control characters; dots and Chinese
+# allowed), since conditions read it by id; a fact id keeps 0.5.38's spelling (FACT_RE).
+FACTS = "facts"
+INFOS = "infos"
+INFO_KEYS = ("info_id", "name", "field", "type", "unit", "object")
+ITEM_ID = {FACTS: "fact_id", INFOS: "info_id"}
 LIST_FILTERS = ("domain", "entity", "kind", "face")
 
 # 2026-11-17 晚: the new row form's columns (with entity read as the result entity); service only in that form.
@@ -190,6 +200,11 @@ NEW_ROW_RULE = (
 )
 
 
+def row_rule(key=FACTS):
+    """The new row form's rule as said to a table in facts (0.5.38's words) or in infos (0.5.41)."""
+    return NEW_ROW_RULE if key == FACTS else NEW_ROW_RULE.replace(FACTS, INFOS, 1)
+
+
 def _need(ok, message, path, code="CAPABILITY_TABLE_INVALID"):
     if not ok:
         raise RouteTableError(code, message, path)
@@ -245,12 +260,32 @@ def _inputs(raw, p):
     return out
 
 
-def _fact(raw, q, moded=False):
+def _info_id(value, path):
+    """An info id (0.5.41): the new writing's id spelling (1–128 characters, no white space, control or invisible
+    format characters)."""
     _need(
-        type(raw) is dict and set(FACT_KEYS) <= set(raw) <= set(FACT_KEYS) | {"alternate_of"},
-        "事实 = " + " / ".join(FACT_KEYS) + "（+ alternate_of：这条事实的主来源能力）",
-        q,
+        type(value) is str
+        and 0 < len(value) <= 128
+        and not any(unicodedata.category(ch)[0] in "CZ" for ch in value),
+        "原值号：1–128 个字符，不含空白和控制字符（可以有中文和点）",
+        path,
     )
+    return value
+
+
+def _fact(raw, q, moded=False, key=FACTS):
+    if key == INFOS:
+        _need(
+            type(raw) is dict and set(INFO_KEYS) <= set(raw) <= set(INFO_KEYS) | {"alternate_of"},
+            "原值 = " + " / ".join(INFO_KEYS) + "（+ alternate_of：这个原值的主来源能力）",
+            q,
+        )
+    else:
+        _need(
+            type(raw) is dict and set(FACT_KEYS) <= set(raw) <= set(FACT_KEYS) | {"alternate_of"},
+            "事实 = " + " / ".join(FACT_KEYS) + "（+ alternate_of：这条事实的主来源能力）",
+            q,
+        )
     _need(raw["type"] in FACT_TYPES, "type 只能是 " + " / ".join(FACT_TYPES), q + ".type")
     _need(
         raw["unit"] is None
@@ -259,14 +294,19 @@ def _fact(raw, q, moded=False):
         "unit = 单位（最多 16 个字符，不含空白）或 null",
         q + ".unit",
     )
-    out = {
-        "fact_id": _code(
-            raw["fact_id"],
-            FACT_RE,
-            "事实号：字母开头，只含字母、数字、_、.，最多 96 个字符",
-            q + ".fact_id",
-        ),
-        "name": _text(raw["name"], 40, "事实显示名", q + ".name"),
+    if key == INFOS:
+        out = {"info_id": _info_id(raw["info_id"], q + ".info_id")}
+    else:
+        out = {
+            "fact_id": _code(
+                raw["fact_id"],
+                FACT_RE,
+                "事实号：字母开头，只含字母、数字、_、.，最多 96 个字符",
+                q + ".fact_id",
+            )
+        }
+    out |= {
+        "name": _text(raw["name"], 40, "事实显示名" if key == FACTS else "原值显示名", q + ".name"),
         "field": _code(
             raw["field"], FIELD_RE, "field = 返回里的字段路径（最多 160 个字符）", q + ".field"
         ),
@@ -441,22 +481,24 @@ def _service(raw, p):
     return out
 
 
-def _row(raw, p, prev, moded=False):
+def _row(raw, p, prev, moded=False, key=FACTS):
     """One row. moded = False is 0.5.38's row, checked in 0.5.38's order with 0.5.38's texts (ids ascending as it goes);
-    moded = True is the new row form (the order of ids is checked by _after)."""
+    moded = True is the new row form (the order of ids is checked by _after). key (0.5.41): facts, or infos under the new
+    name; a table in facts is checked exactly as before."""
+    row_keys = ROW_KEYS if key == FACTS else tuple(INFOS if k == FACTS else k for k in ROW_KEYS)
     if moded:
         _need(
             type(raw) is dict
-            and set(ROW_KEYS) | set(MODE_KEYS) <= set(raw)
-            and set(raw) <= set(ROW_KEYS) | set(MODE_KEYS) | set(NEW_OPTIONAL_KEYS),
-            NEW_ROW_RULE,
+            and set(row_keys) | set(MODE_KEYS) <= set(raw)
+            and set(raw) <= set(row_keys) | set(MODE_KEYS) | set(NEW_OPTIONAL_KEYS),
+            row_rule(key),
             p,
         )
     else:
         _need(
             type(raw) is dict
-            and set(ROW_KEYS) <= set(raw) <= set(ROW_KEYS) | set(OLD_OPTIONAL_KEYS),
-            "一行 = " + " / ".join(ROW_KEYS) + "（+ note）",
+            and set(row_keys) <= set(raw) <= set(row_keys) | set(OLD_OPTIONAL_KEYS),
+            "一行 = " + " / ".join(row_keys) + "（+ note）",
             p,
         )
     cid = _code(
@@ -477,30 +519,40 @@ def _row(raw, p, prev, moded=False):
     else:
         _need(raw["kind"] is None, "动作能力的 kind 写 null（动作的分类还没定）", p + ".kind")
     inputs = _inputs(raw["inputs"], p + ".inputs")
-    facts_raw = raw["facts"]
+    facts_raw = raw[key]
     if raw["face"] == "QUERY":
         _need(
             type(facts_raw) is list and 0 < len(facts_raw) <= MAX_FACTS,
-            "查询能力的 facts = 得到的事实，1–%d 条" % MAX_FACTS,
-            p + ".facts",
+            "查询能力的 facts = 得到的事实，1–%d 条" % MAX_FACTS
+            if key == FACTS
+            else "查询能力的 infos = 给出的原值，1–%d 条" % MAX_FACTS,
+            p + "." + key,
         )
     else:
-        _need(facts_raw == [], "动作能力不出事实：facts 写 []（动作暂不调用）", p + ".facts")
-    facts, seen = [], set()
-    for i, f in enumerate(facts_raw):
-        q = "%s.facts[%d]" % (p, i)
-        clean = _fact(f, q, moded)
         _need(
-            clean["fact_id"] not in seen,
-            "同一个能力里事实号 %s 写了两次" % clean["fact_id"],
-            q + ".fact_id",
+            facts_raw == [],
+            "动作能力不出事实：facts 写 []（动作暂不调用）"
+            if key == FACTS
+            else "动作能力不出原值：infos 写 []（动作暂不调用）",
+            p + "." + key,
+        )
+    facts, seen = [], set()
+    id_key = ITEM_ID[key]
+    for i, f in enumerate(facts_raw):
+        q = "%s.%s[%d]" % (p, key, i)
+        clean = _fact(f, q, moded, key)
+        _need(
+            clean[id_key] not in seen,
+            ("同一个能力里事实号 %s 写了两次" if key == FACTS else "同一个能力里原值号 %s 写了两次")
+            % clean[id_key],
+            q + "." + id_key,
         )
         _need(
             clean.get("alternate_of") != cid,
             "alternate_of 指向别的能力（主来源），不是自己",
             q + ".alternate_of",
         )
-        seen.add(clean["fact_id"])
+        seen.add(clean[id_key])
         facts.append(clean)
     fan = raw["fan_out"]
     if fan is not None:
@@ -559,7 +611,7 @@ def _row(raw, p, prev, moded=False):
         "face": raw["face"],
         "kind": raw["kind"],
         "inputs": inputs,
-        "facts": facts,
+        key: facts,
         "fan_out": fan,
         "call_ref": ref,
     }
@@ -592,19 +644,25 @@ def validate(doc, table_check, note):
         "capabilities",
     )
     rows, prev = [], None
+    key = INFOS if any(type(r) is dict and INFOS in r for r in raw) else FACTS
+    _need(
+        key == FACTS or table != OLD_TABLE,
+        "旧名 %s 下能力给出的写 facts（照 0.5.38）；infos 只用在新名 %s 下" % (OLD_TABLE, TABLE),
+        "table",
+    )
     if new_form_rows(raw):
         for i, row in enumerate(raw):
             p = "capabilities[%d]" % i
-            clean = _row(row, p, None, moded=True)
+            clean = _row(row, p, None, moded=True, key=key)
             _after(rows, clean, p)
             rows.append(clean)
         _one_row_per_query(rows)
     else:
         for i, row in enumerate(raw):
-            clean = _row(row, "capabilities[%d]" % i, prev)
+            clean = _row(row, "capabilities[%d]" % i, prev, key=key)
             prev = clean["capability_id"]
             rows.append(clean)
-    _facts_agree(rows)
+    _facts_agree(rows, key)
     return {"schema": SCHEMA, "table": table, "capabilities": rows, "note": note(doc)}
 
 
@@ -678,40 +736,40 @@ def _one_row_per_query(rows):
             seen[key] = r["capability_id"]
 
 
-def _facts_agree(rows):
+def _facts_agree(rows, key=FACTS):
     """A fact id is given by one primary capability; any other capability giving it says alternate_of = that one, and
     gives it of the same type, unit and object. The rows of one capability id (new row form, one per set of business
     modes) are one source of the fact; in a 0.5.38 table ids are unique, so this is 0.5.38's check."""
-    primary = {}
+    primary, id_key = {}, ITEM_ID[key]
     for i, r in enumerate(rows):
-        for j, f in enumerate(r["facts"]):
+        for j, f in enumerate(r[key]):
             if "alternate_of" not in f:
-                q = "capabilities[%d].facts[%d]" % (i, j)
-                other = primary.get(f["fact_id"])
+                q = "capabilities[%%d].%s[%%d]" % key % (i, j)
+                other = primary.get(f[id_key])
                 if other is not None and other[0] == r["capability_id"]:
                     _need(
                         all(other[1][k] == f[k] for k in ("type", "unit", "object")),
                         "能力号 %s 的几行给同一条事实 %s，type / unit / object 要一致"
-                        % (r["capability_id"], f["fact_id"]),
+                        % (r["capability_id"], f[id_key]),
                         q,
                     )
                     continue
                 _need(
                     other is None,
                     "事实号 %s 出现在两个能力下（%s、%s）：确有两个来源时，第二个标 alternate_of = %s（备选来源）"
-                    % (f["fact_id"], other and other[0], r["capability_id"], other and other[0]),
-                    q + ".fact_id",
+                    % (f[id_key], other and other[0], r["capability_id"], other and other[0]),
+                    q + "." + id_key,
                 )
-                primary[f["fact_id"]] = (r["capability_id"], f)
+                primary[f[id_key]] = (r["capability_id"], f)
     for i, r in enumerate(rows):
-        for j, f in enumerate(r["facts"]):
+        for j, f in enumerate(r[key]):
             if "alternate_of" in f:
-                q = "capabilities[%d].facts[%d]" % (i, j)
-                main = primary.get(f["fact_id"])
+                q = "capabilities[%%d].%s[%%d]" % key % (i, j)
+                main = primary.get(f[id_key])
                 _need(
                     main is not None and main[0] == f["alternate_of"],
                     "alternate_of 要指向这条事实的主来源：%s 的主来源是 %s，写的是 %s"
-                    % (f["fact_id"], main[0] if main else "（没有）", f["alternate_of"]),
+                    % (f[id_key], main[0] if main else "（没有）", f["alternate_of"]),
                     q + ".alternate_of",
                 )
                 _need(
@@ -723,6 +781,22 @@ def _facts_agree(rows):
 
 def content_sha256(doc):
     return digest({"capabilities": doc["capabilities"]})
+
+
+def info_key(doc):
+    """infos or facts: which list a clean catalog's rows carry (one per document)."""
+    rows = doc.get("capabilities") or []
+    return INFOS if rows and INFOS in rows[0] else FACTS
+
+
+def row_infos(row):
+    """What a capability gives: its infos, or (old name, or a table stored before 0.5.41) its facts."""
+    return row[INFOS] if INFOS in row else row[FACTS]
+
+
+def item_id(item):
+    """The id of one thing a capability gives: info_id in infos (0.5.41), fact_id in facts."""
+    return item["info_id"] if "info_id" in item else item["fact_id"]
 
 
 def callable_row(row):

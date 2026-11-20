@@ -25,6 +25,7 @@ MAX_RESULT_BYTES = 2 * 1024 * 1024
 INLINE_FORMATS = {
     stored_tables.SCHEMA_DECISION: stored_tables.FORMAT_DECISION,
     stored_tables.SCHEMA_DECISION_SET: stored_tables.FORMAT_DECISION_SET,
+    stored_tables.SCHEMA_DECISION_V2: stored_tables.FORMAT_DECISION_V2,  # 0.5.41: the new writing
 }
 
 
@@ -69,7 +70,7 @@ def evaluate_inline(parameters):
             if fmt is None:
                 raise RouteTableError(
                     "STORED_TABLE_FORMAT_UNKNOWN",
-                    "节点里直接求值只收决策表（decision-table/v1）和决策集（decision-set/v1），读到 %s"
+                    "节点里直接求值只收决策表（decision-table/v1、decision-table/v2）和决策集（decision-set/v1），读到 %s"
                     % str(doc.get("schema"))[:64],
                     "table_json.schema",
                 )
