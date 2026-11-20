@@ -20,7 +20,16 @@ import re
 from types import SimpleNamespace
 
 import pytest
-from capability_fixtures import COUPON, ORDER, PACKAGE, catalog, legacy_catalog, moded_row
+from capability_fixtures import (
+    COUPON,
+    ORDER,
+    PACKAGE,
+    as_infos,
+    catalog,
+    facts_form,
+    legacy_catalog,
+    moded_row,
+)
 from scene_bundle_fixtures import APP_TARGET, P, T, decision, scene_is
 from search_fixtures import search_doc
 from test_capability_catalog import OLD_NAME, refused, stored_by_0538
@@ -35,6 +44,9 @@ from dmn_client.route_table import RouteTableError, StorageTables, digest
 from dmn_client.stored_tables import FORMAT_CAPABILITY, TABLE_CAPABILITY, content_sha256, validate
 from dmn_client.two_state import CAPABILITY_VOCABULARY, run_entry
 from dmn_client.vocabulary import CAPABILITY_SCHEMA, capability_declared, declared
+
+# 0.5.41: v1 query tables saved on fresh solution-layer names, as if those names had v1 heads from 0.5.40
+pytestmark = pytest.mark.usefixtures("v1_heads_before_0541")
 
 # the digest of the library fixture in 0.5.38's row form: a table stored by 0.5.38 is the same table now
 LEGACY_DIGEST = "4ecc9faf32d48c7087d2c9f97d42445d4f8c4f22f3a2038ae9938492fd3cf379"
@@ -60,7 +72,7 @@ def fact(fact_id, field, obj, type_="string"):
 
 def moded(cid, modes, subj, result, kind="LIST", inputs=None, facts=None, roles=("P",), **extra):
     """A row of the new form; extra overrides any key (entity, subject_entity, face ...). roles (2026-11-18): P is only
-    a toy role code."""
+    a toy role code. 0.5.41: under the new name a capability gives infos (facts= keeps its name here)."""
     out = {
         "capability_id": cid,
         "name": "能力 " + cid,
@@ -69,9 +81,11 @@ def moded(cid, modes, subj, result, kind="LIST", inputs=None, facts=None, roles=
         "face": "QUERY",
         "kind": kind,
         "inputs": {"holderKey": {"required": True}} if inputs is None else inputs,
-        "facts": [fact(cid.upper() + ".count", "data.count", result, "integer")]
-        if facts is None
-        else facts,
+        "infos": as_infos(
+            [fact(cid.upper() + ".count", "data.count", result, "integer")]
+            if facts is None
+            else facts
+        ),
         "fan_out": None,
         "call_ref": "registry:toy-" + cid.split(".")[1] + "/" + (kind or "act").lower(),
         "business_modes": list(modes),
@@ -320,7 +334,7 @@ def test_the_new_name_and_its_full_spelling_are_one_table():
 
 
 def test_nothing_is_saved_under_the_old_name():
-    d = dict(catalog(), table=OLD_NAME)
+    d = dict(facts_form(catalog()), table=OLD_NAME)  # 0.5.41: under the old name rows give facts
     assert validate(d)["table"] == OLD_NAME  # a document naming it is taken
     with pytest.raises(RouteTableError) as err:
         store(d)
@@ -400,7 +414,7 @@ def test_the_two_forms_never_share_a_table(i):
     for k in CC.MODE_KEYS:
         del d["capabilities"][i][k]
     e = refused(d, "capabilities[%d]" % i, "不与 0.5.38 的旧行形混写")
-    assert e.message == CC.NEW_ROW_RULE
+    assert e.message == CC.row_rule(CC.INFOS)
 
 
 @pytest.mark.parametrize("i", [0, 2])
@@ -412,14 +426,14 @@ def test_a_valid_0538_row_does_not_join_a_new_form_table(i):
     for k in CC.MODE_KEYS:
         del row[k]
     row["entity"] = row["entity"].lower()
-    for f in row["facts"]:
+    for f in row["infos"]:
         f["object"] = f["object"].lower()
     alone = table(row)
     assert (
         validate(alone)["capabilities"][0]["entity"] == row["entity"]
     )  # 0.5.38's row form, taken alone
     e = refused(d, "capabilities[%d]" % i, code="CAPABILITY_TABLE_INVALID")
-    assert e.message == CC.NEW_ROW_RULE
+    assert e.message == CC.row_rule(CC.INFOS)
 
 
 @pytest.mark.parametrize("key", CC.MODE_KEYS)
@@ -494,12 +508,12 @@ def test_modes_are_stored_sorted():
 
 def test_a_fact_object_is_a_kind_code_in_the_new_form():
     d = sample()
-    first(d)["facts"][0]["object"] = "coupon"
-    refused(d, "capabilities[0].facts[0].object", "种类码")
-    first(d)["facts"][0]["object"] = "COUPON"
-    assert first(validate(d))["facts"][0]["object"] == "COUPON"
-    first(d)["facts"][0]["object"] = "NONE"
-    refused(d, "capabilities[0].facts[0].object", "没有核心对象")
+    first(d)["infos"][0]["object"] = "coupon"
+    refused(d, "capabilities[0].infos[0].object", "种类码")
+    first(d)["infos"][0]["object"] = "COUPON"
+    assert first(validate(d))["infos"][0]["object"] == "COUPON"
+    first(d)["infos"][0]["object"] = "NONE"
+    refused(d, "capabilities[0].infos[0].object", "没有核心对象")
 
 
 def test_an_old_form_row_keeps_its_lower_case_codes():
@@ -560,7 +574,7 @@ def test_the_rows_of_one_id_are_one_capability(key, value):
 
 def test_the_rows_of_one_id_are_all_queries_or_all_actions():
     d = sample()
-    d["capabilities"][3].update(face="ACTION", kind=None, facts=[])
+    d["capabilities"][3].update(face="ACTION", kind=None, infos=[])
     refused(d, "capabilities[3].face", "同一个能力")
 
 
@@ -584,15 +598,15 @@ def test_one_query_row_per_mode_subject_result_and_kind():
 def test_the_rows_of_one_id_give_a_fact_as_one_source():
     d = sample()
     validate(d)  # both rows of toy.orders.list give TOY.ORDERS.LIST.count
-    d["capabilities"][3]["facts"][0]["type"] = "string"
-    refused(d, "capabilities[3].facts[0]", "一致")
+    d["capabilities"][3]["infos"][0]["type"] = "string"
+    refused(d, "capabilities[3].infos[0]", "一致")
 
 
 def test_another_capability_giving_the_fact_still_says_alternate_of():
     d = sample()
-    d["capabilities"][0]["facts"] = [
-        fact("TOY.ORDERS.LIST.count", "data.count", "ORDER", "integer")
-    ]
+    d["capabilities"][0]["infos"] = as_infos(
+        [fact("TOY.ORDERS.LIST.count", "data.count", "ORDER", "integer")]
+    )
     refused(d, word="alternate_of")
 
 
@@ -1020,7 +1034,7 @@ def test_a_call_gives_only_the_facts_every_row_of_its_id_gives(which):
         for r in cat["capabilities"]
         if r["capability_id"] == COUPON and r["business_modes"] == [which]
     )
-    row["facts"] = [f for f in row["facts"] if f["fact_id"] != "BOOK_COPY.edition_key"]
+    row["infos"] = [f for f in row["infos"] if f["info_id"] != "BOOK_COPY.edition_key"]
     with pytest.raises(RouteTableError) as err:
         check(cat)
     assert err.value.code == "SEARCH_TABLE_INVALID" and "S_EDITION" in err.value.message

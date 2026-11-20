@@ -20,6 +20,9 @@ from test_storage_care_review import _save as _save_doc
 from dmn_client.capability_catalog import TABLE as CAP
 from dmn_client.route_table import StorageTables, canon
 
+# 0.5.41: v1 tables saved on fresh solution-layer names, as if those names had v1 heads from 0.5.40
+pytestmark = pytest.mark.usefixtures("v1_heads_before_0541")
+
 
 class Host(FakeStorage):
     """Plugin storage behind a read cache kept `ttl`, on a clock the test moves."""

@@ -24,6 +24,9 @@ from test_v0515_mechanisms import flag_model, records, set_doc
 from dmn_client.route_table import StorageTables
 from dmn_client.stored_tables import evaluate_stored
 
+# 0.5.41: v1 tables saved on fresh solution-layer names, as if those names had v1 heads from 0.5.40
+pytestmark = pytest.mark.usefixtures("v1_heads_before_0541")
+
 ROOT = Path(__file__).resolve().parents[2]
 PUBLIC_V0533_RUNTIME = "b7137a985b73e9794f68efdb7d1729959167c7a8"
 

@@ -43,6 +43,9 @@ from dmn_client.stored_tables import (
     validate,
 )
 
+# 0.5.41: v1 tables saved on fresh solution-layer names, as if those names had v1 heads from 0.5.40
+pytestmark = pytest.mark.usefixtures("v1_heads_before_0541")
+
 TRIAGE = {"app_id": APP_TRIAGE, "team": "分诊", "name": "样例"}
 FEATURE = "solution.fact.feature.M_P_02_04_01"
 OTHER_FEATURE = "solution.fact.feature.M_P_05_01_06"
@@ -195,12 +198,12 @@ def combos_doc(n, size=1):
     return doc("triage.sample-many", m, owner=TRIAGE)
 
 
-def test_1_a_rule_takes_128_combinations_and_refuses_129():
-    assert stored_tables.MAX_COMBINATIONS == 128
-    assert validate(combos_doc(128))
+def test_1_a_rule_takes_1024_combinations_and_refuses_1025():
+    assert stored_tables.MAX_COMBINATIONS == 1024  # 0.5.41 (Brian 11-20「照建议放宽」): 128 → 1024
+    assert validate(combos_doc(1024))
     assert validate(combos_doc(2, size=32))
-    exc = refused(combos_doc(129), "DECISION_TABLE_INVALID")
-    assert "1–128 种组合" in exc.message and "rules[0]" in exc.path
+    exc = refused(combos_doc(1025), "DECISION_TABLE_INVALID")
+    assert "1–1024 种组合" in exc.message and "rules[0]" in exc.path
     refused(combos_doc(2, size=33), "DECISION_TABLE_INVALID")
 
 

@@ -18,6 +18,9 @@ from dmn_client.route_table import STAMP, StorageTables, canon
 from dmn_client.stored_tables import FORMAT_DECISION, evaluate_stored
 from dmn_client.two_state import MAINTENANCE_APP, run_entry
 
+# 0.5.41: v1 tables saved on fresh solution-layer names, as if those names had v1 heads from 0.5.40
+pytestmark = pytest.mark.usefixtures("v1_heads_before_0541")
+
 SCENE = "M_P_02_04_01"
 T = "solution.fact.feature." + SCENE
 OTHER_APP = "00000000-0000-4000-8000-0000000000aa"

@@ -27,6 +27,9 @@ from dmn_client.stored_tables import (
     evaluate_stored,
 )
 
+# 0.5.41: v1 tables saved on fresh solution-layer names, as if those names had v1 heads from 0.5.40
+pytestmark = pytest.mark.usefixtures("v1_heads_before_0541")
+
 
 def as_set(d):
     d = copy.deepcopy(d)

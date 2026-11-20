@@ -183,20 +183,20 @@ def test_a_name_another_format_holds_is_refused_by_the_0_5_4_format_check():
 # ── 512 rules ─────────────────────────────────────────────────────────────────
 
 
-def test_max_rules_is_512():
-    assert MAX_RULES == 512
+def test_max_rules():
+    assert MAX_RULES == 2048  # 0.5.41 (Brian 11-20「照建议放宽」): 512 → 2048
 
 
 @pytest.mark.parametrize(
     "table, app_id", [("target.scene_entity", TARGET), ("p2." + COUPON, COUPON)]
 )
-def test_a_decision_table_takes_512_rules_and_refuses_513(table, app_id):
-    assert len(validate_doc(owned(table, app_id, 512))["model"]["rules"]) == 512
-    e = refused(owned(table, app_id, 513))
+def test_a_decision_table_takes_2048_rules_and_refuses_2049(table, app_id):
+    assert len(validate_doc(owned(table, app_id, 2048))["model"]["rules"]) == 2048
+    e = refused(owned(table, app_id, 2049))
     assert (e.code, e.path, e.message) == (
         "DECISION_TABLE_INVALID",
         "model.rules",
-        "rules 1–512 条",
+        "rules 1–2048 条",
     )
 
 
@@ -229,15 +229,16 @@ def test_other_limits_did_not_move():
         4096,
         1024,
     )
+    # 0.5.41 (DMN 2.0.52 §八): one set of safety lines; result templates go with rules (512, was 128), content 1 MiB
     assert (
         stored_tables.MAX_TEMPLATES,
         stored_tables.MAX_PARAMETERS,
         stored_tables.MAX_CONDITIONS,
-    ) == (128, 32, 32)
+    ) == (2048, 32, 32)
     assert (stored_tables.MAX_SUPPLEMENT_SCENES, stored_tables.MAX_TARGETS, MAX_BODY) == (
         1024,
         256,
-        512 * 1024,
+        1024 * 1024,
     )
 
 

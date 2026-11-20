@@ -128,7 +128,7 @@ def test_a_when_any_table_saves_and_reads_back():
         (
             {
                 "rule_id": "R",
-                "when_any": [[cond("comp", "eq", True)]] * 129,  # 0.5.19: the limit is 128
+                "when_any": [[cond("comp", "eq", True)]] * 1025,  # 0.5.41: the limit is 1024
                 "output_template_ref": "ok",
             },
             "rules[0]",

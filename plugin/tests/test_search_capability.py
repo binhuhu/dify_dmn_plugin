@@ -14,6 +14,9 @@ from dmn_client import search_plan
 from dmn_client.route_table import RouteTableError, StorageTables
 from dmn_client.stored_tables import FORMAT_DECISION, validate
 
+# 0.5.41: v1 tables saved on fresh solution-layer names, as if those names had v1 heads from 0.5.40
+pytestmark = pytest.mark.usefixtures("v1_heads_before_0541")
+
 KNOWN = lambda v: {"quality": "KNOWN", "value": v, "source_refs": ["test"]}  # noqa: E731
 GONE = {"quality": "UNKNOWN", "value": None, "source_refs": ["test"]}
 

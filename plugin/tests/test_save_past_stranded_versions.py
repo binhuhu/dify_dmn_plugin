@@ -24,6 +24,9 @@ from dmn_client.capability_catalog import TABLE as CAP
 from dmn_client.route_table import SETTLED_AGE, SKIP_MAX, STAMP, StorageTables, canon
 from dmn_client.storage_care import CLEAN_MIN_AGE
 
+# 0.5.41: v1 tables saved on fresh solution-layer names, as if those names had v1 heads from 0.5.40
+pytestmark = pytest.mark.usefixtures("v1_heads_before_0541")
+
 HEAD = "route-table:" + T
 
 

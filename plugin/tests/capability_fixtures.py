@@ -209,9 +209,40 @@ def moded_row(row, modes=("M",), roles=("P",)):
     return out
 
 
+def as_infos(items):
+    """0.5.41 (Brian 11-20, HOLD (c)): an item of infos names its raw value info_id (an item of facts, fact_id)."""
+    return [{("info_id" if k == "fact_id" else k): v for k, v in f.items()} for f in items]
+
+
+def as_facts(items):
+    return [{("fact_id" if k == "info_id" else k): v for k, v in f.items()} for f in items]
+
+
+def infos_row(row):
+    """0.5.41 (DMN 2.0.43): under the new name a capability gives infos; the row's facts renamed (fact_id → info_id),
+    nothing else."""
+    out = {k: v for k, v in row.items() if k != "facts"}
+    out["infos"] = as_infos(row["facts"])
+    return out
+
+
+def facts_form(doc):
+    """A catalog document with its rows giving facts again (0.5.38 / 0.5.40's key; under the old name only facts)."""
+    out = copy.deepcopy(doc)
+    out["capabilities"] = [
+        {
+            ("facts" if k == "infos" else k): (as_facts(v) if k == "infos" else v)
+            for k, v in r.items()
+        }
+        for r in out["capabilities"]
+    ]
+    return out
+
+
 def catalog(rows=None, note="虚构图书馆能力表示例"):
-    """The library fixture as a table is saved now: the new row form, under target.capability.catalog."""
-    rows = [moded_row(r) for r in (CAPABILITIES if rows is None else rows)]
+    """The library fixture as a table is saved now: the new row form, under target.capability.catalog, giving infos
+    (0.5.41)."""
+    rows = [infos_row(moded_row(r)) for r in (CAPABILITIES if rows is None else rows)]
     return {
         "schema": "dmn-json.capability-catalog/v1",
         "table": "target.capability.catalog",

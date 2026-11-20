@@ -246,7 +246,7 @@ def test_second_save_numbers_on_and_a_stale_one_is_refused():
 
 def test_size_over_the_body_limit_is_refused_before_validation():
     many = doc()
-    long = "长" * 600
+    long = "长" * 1200  # 0.5.41: the content line is 1 MiB
     many["rows"] = [
         row(
             "M_P_%02d_%02d_%02d" % (1 + i // 100, 1 + (i // 10) % 10, 1 + i % 10),

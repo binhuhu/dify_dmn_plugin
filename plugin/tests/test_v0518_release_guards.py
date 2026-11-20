@@ -19,6 +19,9 @@ from test_v0517_standard import (
 from dmn_client.route_table import RouteTableError, StorageTables, table_name
 from dmn_client.stored_tables import validate
 
+# 0.5.41: v1 tables saved on fresh solution-layer names, as if those names had v1 heads from 0.5.40
+pytestmark = pytest.mark.usefixtures("v1_heads_before_0541")
+
 
 @pytest.mark.parametrize("customer", [None, "absent"])
 def test_agent_only_rejects_customer_channel_text(customer):

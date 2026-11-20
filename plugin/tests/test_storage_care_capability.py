@@ -9,6 +9,8 @@ release note's clean-up request works past a thousand versions; and the attacks 
 import json
 from datetime import datetime, timedelta, timezone
 
+import pytest
+from capability_fixtures import facts_form
 from search_fixtures import search_doc
 from test_route_table import FakeStorage
 from test_storage_care import REFUSAL, Capped, call, confirm_of, table_doc
@@ -19,6 +21,9 @@ from dmn_client.capability_catalog import TABLE as CAP
 from dmn_client.capability_catalog import content_sha256 as cat_sha
 from dmn_client.route_table import StorageTables, canon
 from dmn_client.stored_tables import FORMAT_CAPABILITY, evaluate_stored, validate
+
+# 0.5.41: v1 tables saved on fresh solution-layer names, as if those names had v1 heads from 0.5.40
+pytestmark = pytest.mark.usefixtures("v1_heads_before_0541")
 
 CAP_HEAD = "route-table:" + CAP
 
@@ -163,7 +168,7 @@ def test_no_format_switch_under_the_capability_name():
     assert _save(s, route_doc(table=OLD))[0] == 200
     assert _save(s, _catalog())[0] == 200
     assert call(s, "table", table=OLD)[1]["doc"]["schema"] != "dmn-json.capability-catalog/v1"
-    status, out = _save(s, dict(_catalog(), table=OLD))
+    status, out = _save(s, dict(facts_form(_catalog()), table=OLD))
     assert status == 400 and out["error"]["code"] == "STORED_TABLE_ALIAS_READ_ONLY", out
 
 

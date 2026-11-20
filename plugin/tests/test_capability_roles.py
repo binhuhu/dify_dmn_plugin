@@ -31,6 +31,9 @@ from dmn_client.route_table import RouteTableError
 from dmn_client.stored_tables import FORMAT_CAPABILITY, TABLE_CAPABILITY, validate
 from dmn_client.vocabulary import capability_declared
 
+# 0.5.41: v1 query tables saved on fresh solution-layer names, as if those names had v1 heads from 0.5.40
+pytestmark = pytest.mark.usefixtures("v1_heads_before_0541")
+
 BILL = "toy.bills.by_order"
 BILL_LIST = "toy.bills.list"
 
@@ -271,7 +274,7 @@ def test_a_call_gives_only_the_facts_every_role_row_gives():
     driver = next(
         r for r in cat["capabilities"] if r["capability_id"] == COUPON and r["roles"] == ["D"]
     )
-    driver["facts"] = [f for f in driver["facts"] if f["fact_id"] != "BOOK_COPY.edition_key"]
+    driver["infos"] = [f for f in driver["infos"] if f["info_id"] != "BOOK_COPY.edition_key"]
     with pytest.raises(RouteTableError) as err:
         check(cat)
     assert err.value.code == "SEARCH_TABLE_INVALID" and "BOOK_COPY.edition_key" in err.value.message
@@ -310,7 +313,7 @@ def test_a_call_gives_only_the_facts_all_three_role_rows_give():
     check(cat)
     middle = cat["capabilities"][i]
     assert middle["roles"] == ["P"]
-    middle["facts"] = [f for f in middle["facts"] if f["fact_id"] != "BOOK_COPY.edition_key"]
+    middle["infos"] = [f for f in middle["infos"] if f["info_id"] != "BOOK_COPY.edition_key"]
     with pytest.raises(RouteTableError) as err:
         check(cat)
     assert err.value.code == "SEARCH_TABLE_INVALID" and "BOOK_COPY.edition_key" in err.value.message

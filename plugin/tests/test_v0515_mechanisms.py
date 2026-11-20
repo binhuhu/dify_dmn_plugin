@@ -563,7 +563,8 @@ def test_a_decision_set_declares_each_model():
 
 
 def test_size_limits():
-    assert (MAX_BODY, MAX_DECLARE, MAX_REQUEST) == (512 * 1024, 256 * 1024, 832 * 1024)
+    # 0.5.41 (DMN 2.0.52 §八): content 1 MiB (was 512 KiB), declaration 256 KiB, request = both + 64 KiB
+    assert (MAX_BODY, MAX_DECLARE, MAX_REQUEST) == (1024 * 1024, 256 * 1024, 1344 * 1024)
 
 
 def padded(content_bytes):
@@ -603,9 +604,9 @@ def big_declare(d, declare_bytes):
     return dec
 
 
-def test_content_up_to_512k_saves_with_a_declaration_beside_it():
+def test_content_up_to_the_line_saves_with_a_declaration_beside_it():
     storage = FakeStorage()
-    d = padded(500 * 1024)
+    d = padded(MAX_BODY - 24 * 1024)  # 0.5.41: the line is 1 MiB (was 512 KiB)
     d["declare"] = big_declare(d, 100 * 1024)
     body = json.dumps(dict(d, expected_version=0), ensure_ascii=False)
     assert len(body.encode()) > MAX_BODY  # 0.5.14 refused this whole request

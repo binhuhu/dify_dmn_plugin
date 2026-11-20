@@ -18,6 +18,9 @@ from dmn_client.stored_tables import (
     validate,
 )
 
+# 0.5.41: v1 tables saved on fresh solution-layer names, as if those names had v1 heads from 0.5.40
+pytestmark = pytest.mark.usefixtures("v1_heads_before_0541")
+
 SOLUTION_APP = "11111111-1111-4111-8111-111111111111"
 OWNER = {"app_id": SOLUTION_APP, "team": "示例团队", "name": "样例方案"}
 

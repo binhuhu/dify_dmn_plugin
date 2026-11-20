@@ -17,6 +17,9 @@ from test_v0519_review27 import (
 from dmn_client.route_table import RouteTableError
 from dmn_client.stored_tables import evaluate_decision_set, evaluate_decision_table, validate
 
+# 0.5.41: v1 tables saved on fresh solution-layer names, as if those names had v1 heads from 0.5.40
+pytestmark = pytest.mark.usefixtures("v1_heads_before_0541")
+
 
 @pytest.mark.parametrize("sources", [None, {}, {"f": OTHER_FEATURE}])
 @pytest.mark.parametrize("grouped", [False, True])

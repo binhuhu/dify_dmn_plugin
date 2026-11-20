@@ -24,6 +24,9 @@ from dmn_client.stored_tables import (
     resource_decision_name,
 )
 
+# 0.5.41: v1 tables saved on fresh solution-layer names, as if those names had v1 heads from 0.5.40
+pytestmark = pytest.mark.usefixtures("v1_heads_before_0541")
+
 GAP = {"code": "RESOURCE_TO_CONFIRM", "owner": "SYSTEM", "kind": "CONFIRM"}
 PENDING_STATIONS = ["workshop.paint", "workshop.polish", "workshop.pack", "workshop.inspect"]
 
@@ -852,8 +855,9 @@ DECISION_NAME_RULE_0521 = (
     # 0.5.28: the solution layer's four names (legacy disposal.strategy / disposal.status still taken)
     # 0.5.30: the solution segment
     "handle.<对象>.<判断>（交付的处理流程；owner.app_id = 读这张表的流程应用）、"
-    "solution.<search.fact|fact.feature|feature.reality|reality.strategy>.<场景号>[.<方案段>][.<分片>]"
-    "（旧名 disposal.strategy / disposal.status 照收）"
+    # 0.5.41 (需求单第 1 件「名字提示同步加」): search.info / info.fact, which take only the new writing v2
+    "solution.<search.info|info.fact|search.fact|fact.feature|feature.reality|reality.strategy>.<场景号>[.<方案段>][.<分片>]"
+    "（旧名 search.fact、disposal.strategy / disposal.status 照收；search.info、info.fact 只收新写法 v2）"
     "或多场景共用的 solution.disposal.status.shared"
     "（owner.app_id = 该方案应用；场景号如 M_P_02_04_01；方案段 = owner.app_id 的第一段，8 位小写十六进制；"
     "分片小写字母开头，只含小写字母、数字、_，最多 24 个字符）；"

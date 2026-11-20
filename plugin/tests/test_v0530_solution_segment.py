@@ -10,6 +10,9 @@ from dmn_client.declarations import ROLE_BY_NAME
 from dmn_client.route_store import run_op
 from dmn_client.route_table import solution_segment, table_name
 
+# 0.5.41: v1 tables saved on fresh solution-layer names, as if those names had v1 heads from 0.5.40
+pytestmark = pytest.mark.usefixtures("v1_heads_before_0541")
+
 SCENE = "M_P_02_04_01"
 SEG = SOLUTION_APP.split("-")[0]  # 11111111
 OTHER_APP = "56d3c0c5-4d41-4454-99ab-e3a6db6aa66c"
