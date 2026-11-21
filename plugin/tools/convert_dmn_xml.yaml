@@ -32,10 +32,11 @@ parameters:
     en_US: dmn_xml
     zh_Hans: DMN XML
   human_description:
-    en_US: For import. One DMN 1.2-1.5 document, at most 1 MiB; no DTD, entity declaration or processing instruction.
-      Hit policy UNIQUE / FIRST / COLLECT (no aggregation). Input cells - literals, comparisons, intervals, lists,
-      not(...), null, "-". Output cells - literals only.
-    zh_Hans: 导入用。一份 DMN 1.2–1.5 文档，不超过 1 MiB；不收 DTD、实体声明和处理指令。命中策略 UNIQUE / FIRST / COLLECT（不带聚合）。输入格：字面量、比较、区间、列表、not(...)、null、-。输出格只收字面量。
+    en_US: For import. One DMN 1.2-1.5 document, at most 4 MiB (0.5.42; was 1 MiB), and the table that comes back at
+      most 1 MiB of canonical JSON, as a save takes it; no DTD, entity declaration or processing instruction. Hit
+      policy UNIQUE / FIRST / COLLECT (no aggregation; ANY only on a UNIQUE table this plugin exported). Input cells -
+      literals, comparisons, intervals, lists, not(...), null, "-". Output cells - literals only.
+    zh_Hans: 导入用。一份 DMN 1.2–1.5 文档，不超过 4 MiB（0.5.42 起；原 1 MiB），导回的表按规范 JSON 不超过 1 MiB（与存表同线）；不收 DTD、实体声明和处理指令。命中策略 UNIQUE / FIRST / COLLECT（不带聚合；ANY 只收本插件把 UNIQUE 表导成 ANY 的那种）。输入格：字面量、比较、区间、列表、not(...)、null、-。输出格只收字面量。
   llm_description: DMN XML to import; reviewed text, never a URL or file path.
 - name: model_json
   type: any

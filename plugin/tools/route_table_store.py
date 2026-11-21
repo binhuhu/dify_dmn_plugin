@@ -10,6 +10,8 @@ from dify_plugin import Tool
 from dmn_client.catalog import OP as CATALOG
 from dmn_client.catalog import SCENE_OP as SCENE_CATALOG
 from dmn_client.route_store import CHECK, OPS, UNDO, error
+from dmn_client.save_gate import FETCH_APP
+from dmn_client.save_gate import OPS as GATE_OPS
 from dmn_client.scene_bundle import OPS as BUNDLE_OPS
 from dmn_client.settings import OP as SETTING
 from dmn_client.storage_care import CARE_OPS
@@ -41,6 +43,7 @@ class RouteTableStoreTool(Tool):
             and op != SCENE_CATALOG
             and op != V2_VOCABULARY
             and op != SETTING
+            and op not in GATE_OPS
         ):
             # the list is 0.5.38's, word for word (coordination ruling 152: an old call answers as it did);
             # capability_vocabulary and scene_catalog (2026-11-18), v2_vocabulary and setting (0.5.41) are named in the op
@@ -65,19 +68,34 @@ class RouteTableStoreTool(Tool):
                 ),
             )
         else:
-            status, body = run_entry(
-                self.session.storage,
-                op,
-                (tool_parameters.get("table") or "").strip(),
-                (tool_parameters.get("version") or "").strip() or None,
-                tool_parameters.get("body_json") or None,
-                writers=tool_parameters.get("writers"),
-                caller_app=getattr(self.session, "app_id", None),
-                caller_user=getattr(
-                    getattr(self, "runtime", None), "user_id", None
-                ),  # 0.5.29: saved_by.user
-            )
+            # 2026-11-20 (存表自动闸 ③): a route table's save reads its changed solutions' published start form
+            token = FETCH_APP.set(_fetcher(self.session))
+            try:
+                status, body = self._run(tool_parameters, op)
+            finally:
+                FETCH_APP.reset(token)
         yield self.create_json_message({"status_code": status, "result": body})
         yield self.create_variable_message("status_code", status)
         yield self.create_variable_message("result_json", json.dumps(body, ensure_ascii=False))
         yield self.create_variable_message("result", body)
+
+    def _run(self, tool_parameters, op):
+        return run_entry(
+            self.session.storage,
+            op,
+            (tool_parameters.get("table") or "").strip(),
+            (tool_parameters.get("version") or "").strip() or None,
+            tool_parameters.get("body_json") or None,
+            writers=tool_parameters.get("writers"),
+            caller_app=getattr(self.session, "app_id", None),
+            caller_user=getattr(
+                getattr(self, "runtime", None), "user_id", None
+            ),  # 0.5.29: saved_by.user
+        )
+
+
+def _fetcher(session):
+    """The published start form of an app, through the session; None when this runtime has no such call."""
+    app = getattr(session, "app", None)
+    fetch = getattr(app, "fetch_app", None)
+    return fetch if callable(fetch) else None
