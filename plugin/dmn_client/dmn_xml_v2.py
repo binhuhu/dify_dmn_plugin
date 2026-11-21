@@ -308,6 +308,17 @@ def _render(clean, decision_id, name, order=None):
             "UNIQUE 表里 %d 条规则各有几种情形、一种情形一行导出：几行可能同时成立，按 DMN 的 UNIQUE 算违例，这张表导成 ANY"
             "（同一条规则的几行输出一样），导回还是 UNIQUE" % len(split)
         )
+    defaulted = sorted(
+        k for k, spec in (d.get(decision_v2.IDS) or {}).items() if decision_v2.DEFAULT in spec
+    )
+    if defaulted:
+        # 0.5.42: a number's own conclusion when none of its rules holds is the plugin's; DMN's default output entry is
+        # the whole table's (a column's value when no rule matches at all), so it travels in the extension element
+        warnings.append(
+            "%d 个号写了没中时的结论（ids.<号>.default，如 %s）：标准 DMN 的默认输出管的是整张表一条没中，没有按号的，"
+            "这几个号的没中结论记在扩展元素 dj:decision 里，导回照旧；别的 DMN 引擎求值时，这几个号一条没中就没有结论"
+            % (len(defaulted), "、".join(defaulted[:3]))
+        )
     if policy == "COLLECT" and split:
         warnings.append(
             "COLLECT 表里 %d 条规则各有几种情形、一种情形一行导出：几行同时成立时，标准 DMN 的 COLLECT 会出几份同样的结果"
@@ -404,7 +415,7 @@ def is_v2_xml(root, ns):
 
 
 def _parse(xml, limit=True):
-    """(root, ns): the converter's reader (its 1 MiB line, no DTD or entity) — or, for export's own read-back of what it
+    """(root, ns): the converter's reader (its import line, no DTD or entity) — or, for export's own read-back of what it
     has just written (limit False), the same checks without the size line."""
     from dmn_client.dmn_xml import NAMESPACES, _root  # noqa
 
@@ -517,10 +528,21 @@ def _import_doc(xml, limit):
             col[1] = (found - {None}).pop() if found - {None} else "string"
 
     rules, by_id, refs_used = [], {}, {}
+    from dmn_client.dmn_xml import CONDITION_BUDGET  # noqa
+
+    # 0.5.42: conditions built so far, the most the store's line holds, and the crossing's steps so far (third review
+    # B1′: a by-id table has a column per id, so the crossing is bounded as it goes, not after)
+    budget = [0, CONDITION_BUDGET, 0]
     order = meta.get("order", {})
     for i, node in enumerate(rule_nodes):
         p = "rule[%d]" % i
-        combos = [[]]
+        xid = node.get("id") or ""
+        rid = meta["rows"].get(xid, xid)
+        joins = rid in by_id and rules[by_id[rid]]["_xml_last"] == i - 1
+        # the rule this row ends up in, as the document's check would name it (0.5.41 answered a situation over the
+        # line there, once the whole table was built)
+        at = "decision.rules[%d].rows" % (by_id[rid] if joins else len(rules))
+        combos = [([], set())]  # each situation with the keys of its conditions
         for j, (path, kind) in enumerate(columns):
             alternatives, _ = _cell(
                 feel_cells.compile_cell,
@@ -530,15 +552,53 @@ def _import_doc(xml, limit):
                 kind,
                 False,
             )
-            combos = [c + a for c in combos for a in alternatives]
+            if alternatives == [[]]:
+                continue  # 「-」: the crossing stays as it is
+            # 0.5.42: counted before the crossing is built (a cell takes up to 1024 alternatives now)
             _need(
-                len(combos) <= stored_tables.MAX_COMBINATIONS,
+                len(combos) * len(alternatives) <= stored_tables.MAX_COMBINATIONS,
                 "这一行各列写法交叉后超过 %d 种情形" % stored_tables.MAX_COMBINATIONS,
                 p,
                 "FEEL_TOO_LARGE",
             )
-        combos = [feel_cells._unique(c) for c in combos]
-        xid = node.get("id") or ""
+            # every column of its own path adds a condition to each situation, so a table the line holds takes no more
+            # steps than conditions; repeated paths are what could make more
+            budget[2] += len(combos) * len(alternatives)
+            _need(
+                budget[2] <= budget[1],
+                "导回的表超过存表线：条件已过 %d 条" % budget[1],
+                p,
+                "STORED_TABLE_TOO_LARGE",
+            )
+            keyed = [[(feel_cells.cond_key(x), x) for x in a] for a in alternatives]
+            grown = []
+            for conds, keys in combos:
+                for a in keyed:
+                    new = [(k, x) for k, x in a if k not in keys]
+                    if not new:
+                        grown.append((conds, keys))
+                        continue
+                    nk, nc = set(keys), list(conds)
+                    for k, x in new:
+                        if k not in nk:
+                            nk.add(k)
+                            nc.append(x)
+                    _need(
+                        len(nc) <= stored_tables.MAX_CONDITIONS,
+                        decision_v2.ROWS_RULE,
+                        at,
+                        "DECISION_TABLE_INVALID",
+                    )
+                    grown.append((nc, nk))
+            combos = grown
+        combos = [conds for conds, _keys in combos]
+        budget[0] += sum(len(c) for c in combos)
+        _need(
+            budget[0] <= budget[1],
+            "导回的表超过存表线：条件已过 %d 条" % budget[1],
+            p,
+            "STORED_TABLE_TOO_LARGE",
+        )
         perm = order.get(xid)
         if (
             perm is not None
@@ -554,15 +614,23 @@ def _import_doc(xml, limit):
             for j, (out, e) in enumerate(zip(outputs, entries))
             if _text(e, ns) != ""
         }
-        rid = meta["rows"].get(xid, xid)
-        if rid in by_id and rules[by_id[rid]]["_xml_last"] == i - 1:
+        if joins:
             rule = rules[by_id[rid]]
             _need(
                 _canon(values) == _canon(rule["_values"]),
                 "这几行是同一条规则的几种情形，输出要一样；要不同的输出就给这一行换个 id",
                 p,
             )
-            rule["rows"] += [c for c in combos if c not in rule["rows"]]
+            # 0.5.42 (independent review B1): repeats found by key, the rule's situations counted as they come
+            fresh = [c for c in combos if feel_cells.combo_key(c) not in rule["_keys"]]
+            rule["_keys"] |= {feel_cells.combo_key(c) for c in fresh}
+            rule["rows"] += fresh
+            _need(
+                len(rule["rows"]) <= stored_tables.MAX_COMBINATIONS,
+                "这条规则的情形超过 %d 种" % stored_tables.MAX_COMBINATIONS,
+                p,
+                "FEEL_TOO_LARGE",
+            )
             rule["_xml_last"] = i
             continue
         _need(
@@ -572,7 +640,16 @@ def _import_doc(xml, limit):
             "DMN_XML_INVALID",
         )
         by_id[rid] = len(rules)
-        rules.append({"rule_id": rid, "rows": combos, "_values": values, "_xml_last": i, "_p": p})
+        rules.append(
+            {
+                "rule_id": rid,
+                "rows": combos,
+                "_keys": {feel_cells.combo_key(c) for c in combos},
+                "_values": values,
+                "_xml_last": i,
+                "_p": p,
+            }
+        )
 
     templates = {}
     for ref, t in meta.get("spare_templates", {}).items():

@@ -58,7 +58,10 @@ ROUTE_V2_KEYS = (
 
 
 def format_keys(schema):
-    """The content keys of a save's format, as route_store.run_op takes them."""
+    """The content keys of a save's format, as route_store.run_op takes them. 0.5.42: a schema written as a list or an
+    object is no format (it was a TypeError); the save refuses it (route_store.schema_refused)."""
+    if not isinstance(schema, str):
+        schema = None
     return S.KEYS.get(schema) or (ROUTE_V2_KEYS if schema in R.ROUTE_SCHEMAS else ROUTE_V1_KEYS)
 
 
@@ -256,6 +259,7 @@ def v2_declared():
     op=vocabulary and op=capability_vocabulary keep answering what they answered (0.5.38 / 0.5.40). As declared(): every
     value is the object the validators use, not a copy."""
     from dmn_client import decision_v2 as V  # noqa
+    from dmn_client import request_ids as RI  # noqa
     from dmn_client import route_store as RS  # noqa
     from dmn_client import settings  # noqa
 
@@ -275,7 +279,7 @@ def v2_declared():
                 for role in V.ROLES
             },
             "rule_keys": list(V.RULE_KEYS),
-            "id_spec_keys": ["type", "values"],
+            "id_spec_keys": ["type", "values", V.DEFAULT],  # 0.5.42: default
             "id_types": sorted(D.TYPES),
             "template_keys": ["state", "data", "actions"],
             "template_data_keys": ["result", "note"],
@@ -318,6 +322,21 @@ def v2_declared():
                 "table": {"type": V.TABLE, "from_table": "solution.<段>.<场景号>[.<方案段>]"},
             },
             "declared_sources": dict(V.GROUP_SOURCES),
+            # 0.5.42（Brian 11-21「放进 0.5.42」）：条件与 bindings 读的 request 号存表时对合同 v5 的请求的号清单（STORED_TABLE_REQUEST_ID_UNKNOWN）
+            "request_ids": {
+                "contract": RI.CONTRACT,
+                "list": RI.LIST_NAME,
+                "sha256": RI.LIST_SHA256,
+                "source": RI.SOURCE,
+                "lock_sha256": RI.LOCK_SHA256,
+                "count": RI.count(),
+                "template_count": RI.template_count(),
+                "ids": RI.names(),
+                # 模板里的 <关联组>、<关系> 只核写法（清单里那个模板的 关联组写法 / 关系写法），<键> 对清单里那个模板的键
+                "placeholders": [RI.GROUP, RI.RELATION, RI.KEY],
+                "checked_on": "save",
+                "types_checked": False,  # 0.5.43
+            },
             "declared_table_source": "table:<from_table>",
             "not_required": True,
             "qualities": list(V.ALL_QUALITIES),
@@ -350,6 +369,11 @@ def v2_declared():
             "capability_old_name_keys": {"list": CC.FACTS, "id": CC.ITEM_ID[CC.FACTS]},
             # 新名下 facts（fact_id）与 infos（info_id）两种行形都收、一张表不混；头版是 infos 以后只收 infos（单向）；
             # v2 的查询 → 原值表只钉 infos 写法的那一版
+            # 0.5.42（Brian 11-21「照这个改」）：决策本体 ids 里一个号的定义 = {type, values?, default?}；default 是这个号
+            # 一条规则都没成立（也没有判不了的）时的结论，对应 DMN 的默认输出
+            "decision_id_entry_keys": ["type", "values", V.DEFAULT],
+            "default_keys": ["state", "value", "gap"],
+            "default_states": list(D.ROW_STATES),
             "capability_new_name_forms": [CC.FACTS, CC.INFOS],
             "capability_infos_one_way": True,
             "search_info_pins": CC.INFOS,
@@ -361,7 +385,12 @@ def v2_declared():
             "whole_part": ["decision", "decisions"],
             "key_entry_keys": ["quality", "state", "value", "rule_id"],
             "key_entry_optional_keys": ["rule_ids", "gap", "filled", "passthrough"],
-            "filled": ["CONFLICT", "INDETERMINATE", "NO_RULE"],
+            "filled": [
+                "CONFLICT",
+                "INDETERMINATE",
+                "NO_RULE",
+                "DEFAULT",
+            ],  # 0.5.42: DEFAULT = 照这个号没中时的结论给
             "filled_gap_codes": ["KEY_INDETERMINATE", "KEY_NO_RULE"],
             "filled_gap": {"owner": "AUTHOR", "kind": "RULE"},
             "receipt_keys": ["inputs", "reads", "chained_parameters"],
@@ -384,6 +413,7 @@ def v2_declared():
                 settings.V1_STOPPED,
                 "STORED_TABLE_SETTING_INVALID",
                 "STORED_TABLE_SETTING_UNKNOWN",
+                V.REQUEST_ID_UNKNOWN,  # 0.5.42
             ],
             # 登记值读不出时存表闸回 503（op=setting 的读写照常，读回 readable: false）
             "unavailable": ["STORED_TABLE_UNAVAILABLE"],

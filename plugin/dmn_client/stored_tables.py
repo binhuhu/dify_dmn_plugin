@@ -89,6 +89,10 @@ KEYS = {
     SCHEMA_DECISION_V2: ("schema", "table", "owner", "decision_ref", "decision", "note", "declare"),
 }
 RESULT_SCHEMA = "dmn-json.stored-table-result/v1"
+# 0.5.42 (from the 11-17 DMN XML line): where an evaluated table came from. INLINE = given in a node for a trial
+# (evaluate_json_table): no version and no save time whatever the document claims, and its receipt is not read as a stored
+# table's (INLINE_RECEIPT_REFUSED)
+SOURCE_STORAGE, SOURCE_INLINE = "PLUGIN_STORAGE", "INLINE"
 CALL_STATUSES = ("SUCCEEDED", "NOT_REQUESTED", "NOT_FOUND", "BLOCKED", "FAILED")
 BLOCKING = ("INDETERMINATE_MATCH", "INPUT_REQUIRED_MISSING", "INPUT_QUALITY_BLOCKED")
 
@@ -1677,6 +1681,18 @@ def _envelope(value, name):
     return value
 
 
+def inline_refused(source, name):
+    """0.5.42: a table tried in a node (evaluate_json_table) was not read from storage; its receipt says so (source.kind
+    INLINE, no version) and is not a stored table's receipt, whatever reads it. This keeps a trial from being wired into
+    a chain by mistake; a receipt is not signed, so it is no defence against one written by hand."""
+    _need(
+        not (type(source) is dict and source.get("kind") == SOURCE_INLINE),
+        "INLINE_RECEIPT_REFUSED",
+        "这份回执来自节点里试验求值的表（source.kind = INLINE），不能当存表的回执接；把表存进插件再接",
+        name,
+    )
+
+
 def _chain(envelope, model_key, name, hit=None):
     """(record or None, provenance) of a table parameter from the upstream envelope; None = the upstream call did not
     succeed, so there is no state and the parameter is missing. hit (0.5.17): which output of a standard COLLECT
@@ -1701,6 +1717,7 @@ def _chain(envelope, model_key, name, hit=None):
         "只能接决策表、决策集的回执",
         name,
     )
+    inline_refused(source, name)
     _need(
         (model_key is not None) == (fmt == FORMAT_DECISION_SET),
         "INPUT_INVALID",
@@ -2271,8 +2288,12 @@ def evaluate_stored(
     content_sha256=None,
     load_version=None,
     find_content=None,
+    kind=SOURCE_STORAGE,
 ):
     """2026-11-16: a delivery table may be named in full (support.<name>); it is evaluated as <name>.
+
+    kind (0.5.42): where load's document came from. SOURCE_INLINE = given in a node for a trial: the envelope says so and
+    carries no version or save time, whatever the document claims (it has no history).
 
     The evaluate_stored_table tool. load(table) -> stored doc or None; load_version(table, n) -> that stored version
     or None (needed for a pin); find_content(table, sha) (0.5.20) -> the version a content pin finds or None (default:
@@ -2344,11 +2365,12 @@ def evaluate_stored(
             "format",
         )
         clean = validate(doc, validate_declaration=False)
+        stored = kind == SOURCE_STORAGE
         out["source"] = {
-            "kind": "PLUGIN_STORAGE",
+            "kind": kind,
             "table": table,
-            "version": doc.get("version"),
-            "saved_at": doc.get("saved_at"),
+            "version": doc.get("version") if stored else None,
+            "saved_at": doc.get("saved_at") if stored else None,
             "content_sha256": _content_sha256(clean),
         }
         # 0.5.20: a standard name before its first store says alias_of (as 0.5.19); an old name read after it gets the
@@ -2369,7 +2391,11 @@ def evaluate_stored(
             out["result"] = evaluate_decision_table(clean, inputs, model_sources(clean["model"]))
         elif fmt == FORMAT_DECISION_SET:
             sources = {key: model_sources(m["model"]) for key, m in clean["models"].items()}
-            out["result"] = evaluate_decision_set(clean, inputs, sources, out["source"])
+            # a set read from storage hands its own source to the models that read one another; a trial has none
+            # (0.5.42: its siblings are read as before a source existed, not refused as a trial's receipt)
+            out["result"] = evaluate_decision_set(
+                clean, inputs, sources, out["source"] if stored else None
+            )
         elif fmt in (FORMAT_SUPPLEMENT, FORMAT_SUPPLEMENT_V2):
             sid = inputs.get("scene_id")
             _need(

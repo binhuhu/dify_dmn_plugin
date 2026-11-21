@@ -20,10 +20,19 @@ import json
 import re
 from decimal import Decimal
 
-MAX_CELL = 4096
-MAX_ALTERNATIVES = (
-    128  # as stored_tables.MAX_COMBINATIONS: one rule holds at most this many combinations
-)
+# 0.5.42: lines aligned with what the export writes (0.5.41 raised the table's own lines and the XML lines stayed). A cell
+# is bounded by the XML it is in (dmn_xml.MAX_XML_BYTES): a 1024-value `in`, or a long note, is one cell the export
+# writes and the import must take back (it refused any cell over 4096 characters).
+MAX_CELL = 4 * 1024 * 1024
+# as stored_tables.MAX_COMBINATIONS (one rule holds at most this many combinations) and MAX_IN_VALUES (one `in`, which a
+# cell writes as that many literals): 1024 since 0.5.41 (it stayed 128 here)
+MAX_ALTERNATIVES = 1024
+# 0.5.42 (independent review B1): a 4 MiB cell is read token by token only up to these, so that what the lines refuse is
+# refused before it costs seconds and hundreds of MB. An input cell of 1024 ranges or literals is a few thousand tokens;
+# an output cell holds one literal, a result object of the table's own size
+MAX_INPUT_TOKENS = 32 * 1024
+MAX_OUTPUT_TOKENS = 256 * 1024
+MAX_INTEGER_DIGITS = 32  # past SAFE_INTEGER anyway; Python refuses to read more than 4300 digits
 MAX_DEPTH = 16
 SAFE_INTEGER = 2**53 - 1
 ORDER = ("lt", "lte", "gt", "gte")
@@ -55,7 +64,7 @@ def _fail(message, code="FEEL_UNSUPPORTED"):
     raise FeelError(code, message)
 
 
-def _tokens(text):
+def _tokens(text, limit=MAX_OUTPUT_TOKENS):
     if type(text) is not str or len(text) > MAX_CELL:
         _fail("单元格必须是不超过 %d 字的文本" % MAX_CELL, "FEEL_INVALID")
     out, pos, end = [], 0, len(text.rstrip())
@@ -64,13 +73,15 @@ def _tokens(text):
         if not m:
             _fail("这里的写法不在支持范围内：%s" % text[pos : pos + 24].strip())
         out.append((m.lastgroup, m.group(m.lastgroup)))
+        if len(out) > limit:
+            _fail("单元格写得太长：超过 %d 个记号" % limit, "FEEL_TOO_LARGE")
         pos = m.end()
     return out
 
 
 class _Parser:
-    def __init__(self, text):
-        self.tokens, self.i = _tokens(text), 0
+    def __init__(self, text, limit=MAX_OUTPUT_TOKENS):
+        self.tokens, self.i = _tokens(text, limit), 0
 
     def peek(self):
         return self.tokens[self.i] if self.i < len(self.tokens) else (None, None)
@@ -94,7 +105,11 @@ class _Parser:
             if value in (float("inf"), float("-inf")) or value != value:
                 _fail("数字超出范围", "FEEL_INVALID")
             return value
-        value = int(text) * (-1 if negative else 1)
+        # 0.5.42 (third review m3): leading zeros are no digits, as 0.5.41 read them
+        digits = text.lstrip("0") or "0"
+        if len(digits) > MAX_INTEGER_DIGITS:
+            _fail("整数超出安全范围", "FEEL_INVALID")
+        value = int(digits) * (-1 if negative else 1)
         if abs(value) > SAFE_INTEGER:
             _fail("整数超出安全范围", "FEEL_INVALID")
         return value
@@ -173,6 +188,8 @@ class _Parser:
         while self.at(","):
             self.take()
             out.append(self.test())
+            if len(out) > MAX_ALTERNATIVES:  # 0.5.42: as compile_cell says, before the rest is read
+                _fail("一个单元格最多 %d 种写法" % MAX_ALTERNATIVES, "FEEL_TOO_LARGE")
         return out
 
 
@@ -189,7 +206,7 @@ def parse_literal(text):
 
 def parse_tests(text):
     """(negated, tests) of an input cell; tests is None for `-` (any value)."""
-    p = _Parser(text)
+    p = _Parser(text, MAX_INPUT_TOKENS)
     if p.done():
         _fail("输入单元格不能为空；不限制就写 -", "FEEL_INVALID")
     if p.at("-") and len(p.tokens) == 1:
@@ -254,6 +271,37 @@ def _alternative(test, path, kind):
     return [cond("gte" if low_closed else "gt", low), cond("lte" if high_closed else "lt", high)]
 
 
+def _value_key(v):
+    if type(v) is bool:
+        return ("b", v)
+    if type(v) in (int, float):
+        return ("n", v)  # 1 and 1.0 are one key, as == says
+    if type(v) is str:
+        return ("s", v)
+    if type(v) is list:
+        return ("l", tuple(_value_key(x) for x in v))
+    if type(v) is dict:
+        return ("d", tuple(sorted((k, _value_key(x)) for k, x in v.items())))
+    return ("z", None)
+
+
+def cond_key(c):
+    """0.5.42: a hashable key equal exactly when two conditions are == (the keys a compiled condition has)."""
+    return (
+        tuple(c.get("path") or ()),
+        c.get("op"),
+        "value" in c,
+        _value_key(c.get("value")),
+        len(c),
+    )
+
+
+def combo_key(combo):
+    """0.5.42: a hashable key equal exactly when two combinations (lists of conditions) are == (so a set finds a repeat
+    in one step: a rule may hold up to 1024 of them)."""
+    return tuple(cond_key(c) for c in combo)
+
+
 def _negate_condition(c):
     if c["op"] == "is_null":
         return {**c, "value": not c["value"]}
@@ -261,9 +309,14 @@ def _negate_condition(c):
 
 
 def _unique(conditions):
-    out = []
+    """The conditions without repeats, first one kept (0.5.42, third review B1′: by key, not a scan of the list)."""
+    if len(conditions) < 2:
+        return list(conditions)
+    out, seen = [], set()
     for c in conditions:
-        if c not in out:
+        k = cond_key(c)
+        if k not in seen:
+            seen.add(k)
             out.append(c)
     return out
 
@@ -311,11 +364,12 @@ def compile_cell(text, name, kind, nullable=False):
             alternatives = [a for a in alternatives if a == [null] or null not in a]
         alternatives = guarded(alternatives)
     elif len(alternatives) > 1 and all(len(a) == 1 and a[0]["op"] == "eq" for a in alternatives):
-        values = []
+        values, seen = [], set()
         for a in alternatives:
-            if (
-                a[0]["value"] not in values
-            ):  # one kind per column (_check), so == is the model's equality
+            # one kind per column (_check), so == is the model's equality; the values are scalars, and a set asks the
+            # same question in one step each (0.5.42: up to 1024 of them)
+            if a[0]["value"] not in seen:
+                seen.add(a[0]["value"])
                 values.append(a[0]["value"])
         alternatives = [[{"path": path, "op": "in", "value": values}]]
     if len(alternatives) > MAX_ALTERNATIVES:

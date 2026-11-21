@@ -2,10 +2,11 @@
 
 import json
 
-from dmn_client import declarations, scene_id
-from dmn_client.client import EngineError, json_object
+from dmn_client import declarations, save_gate, scene_id
+from dmn_client.client import EngineError, json_object, strict_json_loads
 from dmn_client.route_table import (
     ROUTE_SCHEMAS,
+    STAMP,
     UUID_RE,
     RouteTableError,
     StorageTables,
@@ -76,13 +77,29 @@ def _sizes(doc):
     return None
 
 
-def run_op(storage, op, table=DEFAULT_TABLE, version=None, body=None, *, gate=None, new_id=None):
+def run_op(
+    storage,
+    op,
+    table=DEFAULT_TABLE,
+    version=None,
+    body=None,
+    *,
+    gate=None,
+    new_id=None,
+    report_only=False,
+):
     """op in OPS; version: positive int (or digit string) for op=version; body: dict or JSON string for op=save.
     0.5.24: gate / new_id pass through to StorageTables.save (publish writes its record from gate, keyed by new_id).
-    run_op is the engine; the tool and the endpoint call two_state.run_entry, which adds drafts, publish and writers."""
+    run_op is the engine; the tool and the endpoint call two_state.run_entry, which adds drafts, publish and writers.
+    2026-11-20 (存表自动闸): a save body may carry cases (the table's suite, taken off before anything else reads the
+    body); op=cases / cases_check / cases_save (save_gate.OPS); report_only: the auto gate reports instead of refusing
+    (cases_check, on a dry run)."""
     tables = StorageTables(storage)
+    tables.gate_report_only = report_only
     table = delivery_name(table or DEFAULT_TABLE)  # 2026-11-16: support.<name> is the table <name>
     try:
+        if op in save_gate.OPS:
+            return _gate_op(storage, tables, op, table, body, new_id)
         # 0.5.20 (存表名即标准名): a standard name before its first store says alias_of, as 0.5.19 did; an old name read
         # after it gets the standard name's table ({table: <standard>, read_as: <old>}); history and version read the
         # history a version pin on the name refers to (a standard name: one chain; an old name: its own, frozen)
@@ -130,6 +147,8 @@ def run_op(storage, op, table=DEFAULT_TABLE, version=None, body=None, *, gate=No
             # I26: a storage failure reading the state is not taken for "before the first store" (it answers 503)
             if old_name(table) is not None and tables.state(table)[0] != "NEW":
                 return error(400, "STORED_TABLE_ALIAS_READ_ONLY", "只读别名不可用于存表", "table")
+            # 2026-11-20: the suite rides with the save, never as a table key and never in the request's size
+            body, tables.sent_cases = _take_cases(body)
             try:
                 size = len(body.encode("utf-8")) if isinstance(body, str) else 0
             except UnicodeEncodeError:
@@ -146,6 +165,9 @@ def run_op(storage, op, table=DEFAULT_TABLE, version=None, body=None, *, gate=No
                         413, "BODY_TOO_LARGE", "存表请求太大（最多 %d KiB）" % (MAX_REQUEST // 1024)
                     )
                 return error(400, "INVALID_JSON", "请求不是合法的 JSON 对象")
+            refused = schema_refused(body)
+            if refused:
+                return refused
             keys = KEYS.get(body.get("schema")) or (
                 V2_KEYS if body.get("schema") in ROUTE_SCHEMAS else V1_KEYS
             )
@@ -259,6 +281,9 @@ def run_op(storage, op, table=DEFAULT_TABLE, version=None, body=None, *, gate=No
                         "message": "这些顶层键不是这种表的键，没有存：" + "、".join(dropped[:20]),
                     }
                 )
+            auto = getattr(tables, "auto_gate", None)
+            if auto is not None:
+                warned = warned + auto.warnings
             return 200, {
                 "table": saved["table"],
                 "version": saved["version"],
@@ -269,17 +294,110 @@ def run_op(storage, op, table=DEFAULT_TABLE, version=None, body=None, *, gate=No
                 **({"supersedes": saved["supersedes"]} if "supersedes" in saved else {}),
                 # 0.5.36: versions left above the head by saves crossing, numbered past by this save
                 **({"skipped_versions": skipped} if skipped else {}),
+                # 2026-11-20: the auto gate's account, on the seven delivery tables and tables with a suite only
+                **(
+                    {"auto_gate": auto.receipt}
+                    if auto is not None and auto.receipt is not None
+                    else {}
+                ),
+                **({"auto_gate_report": _report(auto)} if report_only and auto is not None else {}),
             }
         return error(404, "NOT_FOUND", "接口不存在")
     except RouteTableError as exc:
         status = 409 if exc.code in CONFLICT else 503 if exc.code in UNAVAILABLE else 400
-        return error(status, exc.code, exc.message, exc.path)
+        out = error(status, exc.code, exc.message, exc.path)
+        if (
+            getattr(exc, "detail", None) is not None
+        ):  # 2026-11-20: a failed case says which, expected, got
+            out[1]["error"]["detail"] = exc.detail
+        return out
     except (
         Exception
     ) as exc:  # storage backend failure: never echo content; which call failed is said
         from dmn_client import storage_care  # noqa
 
         return storage_care.failed(storage, exc)
+
+
+def _take_cases(body):
+    """(body without cases, the suite or None). A body that is not strict JSON (a repeated key, NaN, ... anywhere, the
+    suite included) or not an object is left as it is, for the save to refuse exactly as without cases; so is one too
+    large to be a save with a suite."""
+    if isinstance(body, str):
+        try:
+            if len(body.encode("utf-8")) > MAX_REQUEST + save_gate.MAX_SUITE + 1024:
+                return body, None
+            parsed = strict_json_loads(body)
+        except (ValueError, TypeError, OverflowError, UnicodeError, RecursionError):
+            return body, None
+        if isinstance(parsed, dict) and "cases" in parsed:
+            suite = parsed.pop("cases")
+            return json.dumps(parsed, ensure_ascii=False), suite
+        return body, None
+    if isinstance(body, dict) and "cases" in body:
+        body = dict(body)
+        return body, body.pop("cases")
+    return body, None
+
+
+def _report(auto):
+    return {
+        "refusals": [{"code": c, "message": m} for c, m, _d in auto.reds],
+        "cases": auto.cases,
+        **({"proposed_cases": auto.proposed} if getattr(auto, "proposed", None) else {}),
+        **(
+            {"proposed_dependent_cases": auto.proposed_dependents}
+            if getattr(auto, "proposed_dependents", None)
+            else {}
+        ),
+    }
+
+
+def _gate_op(storage, tables, op, table, body, new_id):
+    """2026-11-20 (存表自动闸): op=cases reads the suite a table's next save is checked with; op=cases_check runs the whole
+    save on a dry run with the gate reporting (nothing written) and hands back a suite with the failing expectations
+    taken from the new answers; op=cases_save replaces the suite only, which must pass on the head."""
+    if op == "cases":
+        return save_gate.op_cases(tables, table)
+    if op == "cases_save":
+        try:
+            parsed = json_object(body, "body", MAX_REQUEST) if body not in (None, "") else {}
+        except EngineError:
+            return error(400, "INVALID_JSON", "请求不是合法的 JSON 对象")
+        name = delivery_name(parsed.get("table") or table)
+        return save_gate.op_cases_save(tables, name, parsed, tables.now().strftime(STAMP))
+    from dmn_client.two_state import DryRun  # noqa
+
+    status, out = run_op(
+        DryRun(storage), "save", table, None, body, new_id=new_id, report_only=True
+    )
+    if status != 200:
+        return status, out
+    report = out.get("auto_gate_report") or {"refusals": [], "cases": None}
+    return 200, {
+        "table": out["table"],
+        "would_be_version": out["version"],
+        "content_sha256": out["doc"]["content_sha256"],
+        "ok": not report["refusals"],
+        "warnings": out.get("warnings", []),
+        **report,
+    }
+
+
+def schema_refused(body):
+    """0.5.42: a save whose schema is a list or an object (JSON's two unhashable kinds) is a format the plugin does not
+    know — 400, as an unknown name is; before, the lookup raised and the save answered 503 as a storage failure. A schema
+    that is text, a number, true / false or null answers as in 0.5.41."""
+    schema = body.get("schema") if isinstance(body, dict) else None
+    if isinstance(schema, (list, dict)):
+        return error(
+            400,
+            "ROUTE_TABLE_INVALID",
+            "不认识的表格式：schema 要写格式名（文本），读到的是%s"
+            % ("列表" if isinstance(schema, list) else "对象"),
+            "schema",
+        )
+    return None
 
 
 def _back_from_resource_decision(name, current, doc):

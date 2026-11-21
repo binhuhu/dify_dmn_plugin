@@ -31,7 +31,7 @@ maintenance app, the writer's signature)."""
 import copy
 import json
 
-from dmn_client import declarations, scene_id
+from dmn_client import declarations, save_gate, scene_id
 from dmn_client.route_store import run_op
 from dmn_client.route_table import STAMP, RouteTableError, StorageTables, _need, canon, digest
 from dmn_client.scene_spelling import respell
@@ -900,7 +900,19 @@ def _gate_red(out):
 
 def run(storage, op, sid, rest, ctx):
     """ctx: who (the verified writer {id, kind} or None), user, signed (bool), now, new_id, overlay (DryRun),
-    publish_record (two_state's record writer for the five), release_ref_ok."""
+    publish_record (two_state's record writer for the five), release_ref_ok.
+    2026-11-20 (存表自动闸): the bundle's own scene is written to the catalog last (its scene-topic row is a required part),
+    so the saves before it take it as in the catalog."""
+    token = save_gate.INCOMING_SCENES.set(
+        (scene_id.canonical(sid),) if isinstance(sid, str) else ()
+    )
+    try:
+        return _run(storage, op, sid, rest, ctx)
+    finally:
+        save_gate.INCOMING_SCENES.reset(token)
+
+
+def _run(storage, op, sid, rest, ctx):
     tables = StorageTables(storage)
     _bad(
         scene_id.is_scene(sid) and scene_id.spelling(sid) == scene_id.CANONICAL,

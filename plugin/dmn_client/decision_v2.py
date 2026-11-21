@@ -21,12 +21,16 @@ info（本次原值一组）三组，fact / feature / reality 三张同一方案
 质量和结论分两层（顶层规则四）：按号判的表给每个号一条结论——有一条规则给出它 → 质量 KNOWN，state / value 照那条规则
 （写表人写的「判断不了」规则命中也是 KNOWN，state 是 UNKNOWN）；同号两条规则给出不同的结论 → CONFLICT；给它的规则判不了、
 定义了但一条没中 → UNKNOWN。插件补出的这三种不带 rule_id，带 filled（CONFLICT / INDETERMINATE / NO_RULE），和写表人写的
-UNKNOWN 分得开。下游只收「每个号的质量、state、值、规则号」这一部分（回执 result.conclusions），整份回执也收、只取这一部分。
+UNKNOWN 分得开。0.5.42（Brian 11-21「照这个改」：0.5.42 先做每个号没中时的结论）：ids 里一个号可以另写没中时的结论
+default = {state, value, gap?}（对应 DMN 的默认输出、v1 每个决策的没中模板）——这个号的规则一条都没成立、也没有判不了的，
+就照它给：质量 KNOWN，filled = DEFAULT，不带 rule_id；有判不了的照旧 INDETERMINATE，同号异值照旧 CONFLICT；没写 default 的号
+照旧 NO_RULE。下游只收「每个号的质量、state、值、规则号」这一部分（回执 result.conclusions），整份回执也收、只取这一部分。
 
 v1（dmn-json.decision-table/v1、decision-set/v1）的检查、求值、摘要一字不动：这里的代码只在 v2 文档、v2 回执上走。
 """
 
 import copy
+import functools
 import hashlib
 import json
 import re
@@ -64,6 +68,7 @@ BASE_KEYS = (
     "empty_template_ref",
 )
 IDS = "ids"
+DEFAULT = "default"  # 0.5.42: ids.<号>.default，这个号没中时的结论
 PASSTHROUGH = "passthrough"
 RULE_KEYS = ("rule_id", "output_template_ref", "rows")
 KEY = "key"  # 按号取的路径段：[parameters, <输入>, key, <号>, <部分>]
@@ -81,6 +86,7 @@ ROLE_OF_KIND = {
     "reality.strategy": DISPOSAL,
 }
 ROLES = tuple(ROLE_OF_KIND.values())
+KIND_OF_ROLE = {role: kind for kind, role in ROLE_OF_KIND.items()}
 # 按号判的角色与结论里号的键（依据是结论里有没有号：这两种的结论是「号 + 值」）
 KEYED = {INFO_FACT: "fact_id", FACT_FEATURE: "feature_id"}
 HIT_POLICIES = {
@@ -166,11 +172,13 @@ def _bad(ok, message, path):
 
 def id_ok(value):
     """号的字符（协调 11-20 定）：1–128 个字符，不含空白、控制字符与不可见的格式字符。号里可以有中文和点。"""
-    return (
-        type(value) is str
-        and 0 < len(value) <= ID_MAX
-        and not any(unicodedata.category(ch)[0] in "CZ" for ch in value)
-    )
+    return type(value) is str and 0 < len(value) <= ID_MAX and _id_chars_ok(value)
+
+
+@functools.lru_cache(maxsize=16384)
+def _id_chars_ok(value):
+    # 0.5.42：一张表里同一个号在几千种情形里反复出现，逐字符查一次就记住（2.66 MB 的原值 → 事实表，求值里这一项占七成）
+    return not any(unicodedata.category(ch)[0] in "CZ" for ch in value)
 
 
 # ── 表名 ─────────────────────────────────────────────────────────────────────
@@ -203,6 +211,13 @@ def input_spec(p, scene, seg):
 
 
 # ── 存表检查（文档本身） ─────────────────────────────────────────────────────
+
+
+ROWS_RULE = (
+    "rows = 情形列表（1–%d 种，任一成立就命中），每种情形是「且」条件列表（≤%d 条）；"
+    "只有一种情形也写成一项；不设条件的情形 [] 只能单独一项"
+    % (stored_tables.MAX_COMBINATIONS, stored_tables.MAX_CONDITIONS)
+)
 
 
 def path_parts(path, params):
@@ -255,10 +270,10 @@ def _id_spec(spec, path):
     _bad(
         type(spec) is dict
         and "type" in spec
-        and set(spec) <= {"type", "values"}
+        and set(spec) <= {"type", "values", DEFAULT}
         and type(spec["type"]) is str
         and spec["type"] in declarations.TYPES,
-        "号的定义 = {type: string / boolean / integer / number / object / array（+ values：取值列表）}",
+        "号的定义 = {type: string / boolean / integer / number / object / array（+ values：取值列表；+ default：没中时的结论）}",
         path,
     )
     if "values" in spec:
@@ -278,7 +293,32 @@ def _id_spec(spec, path):
             % MAX_ID_VALUES,
             path + ".values",
         )
+    if DEFAULT in spec:
+        _id_default(spec, path + "." + DEFAULT)
     return spec
+
+
+def _id_default(spec, path):
+    """0.5.42: a number's conclusion when none of its rules held (and none could not be judged): {state, value, gap?}.
+    state is one a rule may write; value is of the number's type and among its values (null as a rule's may be). Whether
+    its state needs a gap, and the gap's shape, are checked with the declaration, as a rule's template is."""
+    d = spec[DEFAULT]
+    _bad(
+        type(d) is dict and {"state", "value"} <= set(d) <= {"state", "value", "gap"},
+        "default = 这个号一条规则都没中时的结论 {state, value（+ gap）}",
+        path,
+    )
+    _bad(
+        type(d["state"]) is str and d["state"] in declarations.ROW_STATES,
+        "default.state 只能是规则能写的 state（%s）；NO_MATCH 是表 state"
+        % " / ".join(declarations.ROW_STATES),
+        path + ".state",
+    )
+    _bad(
+        typed(d["value"], spec),
+        "default.value 和这个号的 type、values 对不上",
+        path + ".value",
+    )
 
 
 def typed(value, spec):
@@ -482,9 +522,7 @@ def _decision(d, role, scene, seg, path):
             and 0 < len(rows) <= stored_tables.MAX_COMBINATIONS
             and all(type(w) is list and len(w) <= stored_tables.MAX_CONDITIONS for w in rows)
             and (len(rows) == 1 or all(rows)),
-            "rows = 情形列表（1–%d 种，任一成立就命中），每种情形是「且」条件列表（≤%d 条）；"
-            "只有一种情形也写成一项；不设条件的情形 [] 只能单独一项"
-            % (stored_tables.MAX_COMBINATIONS, stored_tables.MAX_CONDITIONS),
+            ROWS_RULE,
             p + ".rows",
         )
         for k, w in enumerate(rows):
@@ -937,7 +975,9 @@ def _standard_checks(out, d, role):
     missing, extra = sorted(set(ids) - set(out["rows"])), sorted(set(out["rows"]) - set(ids))
     _declare(not extra, "rows 里有表里没有的规则：" + ", ".join(extra[:5]), "declare.rows")
     _declare(not missing, "这些规则没写依据：" + ", ".join(missing[:5]), "declare.rows")
-    declarations._row_states(out["states"], model)
+    # 0.5.42 (third review m1): a state only an id's default gives may be listed, and need not be (标准 2.0.59)
+    defaults = {s[DEFAULT]["state"] for s in d.get(IDS, {}).values() if DEFAULT in s}
+    declarations._row_states(out["states"], model, defaults if role in KEYED else ())
     split = [rid for rid, row in out["rows"].items() if "split_of" in row]
     _declare(
         first or not split,
@@ -959,6 +999,39 @@ def _standard_checks(out, d, role):
                 outputs["value"] = dict(spec, name="value")
             view = dict(out, outputs=outputs)
         declarations._standard(view, t, p)
+    if role in KEYED:
+        # 0.5.42: a number's default is checked as a rule's template giving it is (its state's gap, a feature is no
+        # FAIL, the result keys declared), at the path where it is written
+        key = KEYED[role]
+        for ident, spec in sorted(d[IDS].items()):
+            if DEFAULT not in spec:
+                continue
+            default = spec[DEFAULT]
+            result = {key: ident, "value": default["value"], "actions": []}
+            if "gap" in default:
+                result["gap"] = default["gap"]
+            outputs = dict(out["outputs"])
+            outputs[key] = {"type": "string", "name": key}
+            outputs["value"] = dict({k: v for k, v in spec.items() if k != DEFAULT}, name="value")
+            here = "decision.ids.%s.default" % str(ident)[:64]
+            try:
+                declarations._standard(
+                    dict(out, outputs=outputs),
+                    {
+                        "state": default["state"],
+                        "data": {
+                            "result": {"literal": result},
+                            "note": {"literal": "没中时的结论"},
+                        },
+                        "actions": [],
+                    },
+                    "",
+                )
+            except RouteTableError as exc:  # said where the default is written, not as a template
+                rest = exc.path[len("declare") :] if exc.path.startswith("declare") else ""
+                raise RouteTableError(
+                    exc.code, "没中时的结论：" + exc.message, here + rest.replace(".result", "")
+                ) from None
 
 
 # ── 存表时的跨表检查（读插件存储里的上游与能力表） ──────────────────────────────
@@ -1375,6 +1448,7 @@ def cross_check(tables, clean):
     各表按号读的号在上游的定义里、类型对得上，JSON 类型的号只问质量 / is_null（读方这一头）；这张表删掉或改了
     类型的号没有后面的表在读（上游这一头）。返回存表回执的警告（读方用到的能力表那一版找不到、没核的，见 unchecked_warnings）。"""
     role = name_parts(clean["table"])[0]
+    check_request_ids(clean)  # 0.5.42: before anything is read
     missed = []
     if role == SEARCH_INFO:
         pin = clean["declare"]["capability_table"]
@@ -1385,6 +1459,69 @@ def cross_check(tables, clean):
         check_reads(tables, clean, missed)
     check_readers(tables, clean, missed)
     return unchecked_warnings(missed)
+
+
+def request_ids_read(d, role):
+    """请求的号（0.5.42）：条件路径 [parameters, request, key, <号>, …] 里的号，加查询 → 原值表 bindings 里 request:<号> 的号
+    （别的表模板里写的 bindings 只是结果，不是读）。"""
+    out = set()
+    for r in d["rules"]:
+        for row in r["rows"]:
+            for c in row:
+                path = c["path"]
+                if len(path) == 5 and path[1] == REQUEST:
+                    out.add(path[3])
+    for t in d["result_templates"].values() if role == SEARCH_INFO else ():
+        lit = _result(t)
+        bindings = lit.get("bindings") if type(lit) is dict else None
+        for v in (bindings or {}).values() if type(bindings) is dict else ():
+            src = binding_source(v)
+            if src is not None and src[0] == REQUEST:
+                out.add(src[1])
+    return out
+
+
+def check_request_ids(clean):
+    """0.5.42（Brian 11-21「放进 0.5.42」，标准 2.0.60；协调 11-21 定用请求结构线那份清单）：表里读的请求的号要在合同 v5 的请求的号
+    清单里（这种表能读的：清单写了「只给」的号只给那几种表），同原值号对能力表。只在存表时核（读与求值不核）；旧写法 v1 不走这里；
+    清单写的类型不核（0.5.43）。"""
+    from dmn_client import request_ids  # noqa
+
+    role = name_parts(clean["table"])[0]
+    kind = KIND_OF_ROLE[role]
+    unknown = sorted(
+        i
+        for i in request_ids_read(clean["decision"], role)
+        if request_ids.entry_of(i, kind) is None
+    )
+    shown = unknown[:SHOWN_IDS]
+    only = [
+        "%s 只给%s表" % (i, request_ids.only_label(i) or " / ".join(request_ids.only_for(i)))
+        for i in shown
+        if request_ids.only_for(i)
+    ]
+    need(
+        not unknown,
+        REQUEST_ID_UNKNOWN,
+        "表 %s 读的请求的号 %s 不在合同「%s」的请求的号清单里%s（%s，sha256 %s…，%d 个号、%d 个模板）：照清单起号"
+        "（号 = 合同字段路径用「.」连，例 对象.id、身份.锚点.进线ms；关联对象写 关联对象.<关联组>.<关系>.<键>）；"
+        "清单没有的走合同改版，或在表外算成 calc:"
+        % (
+            clean["table"],
+            "、".join(shown) + ("等 %d 个" % len(unknown) if len(unknown) > SHOWN_IDS else ""),
+            request_ids.CONTRACT,
+            "（%s）" % "；".join(only) if only else "",
+            request_ids.LIST_NAME,
+            request_ids.LIST_SHA256[:12],
+            request_ids.count(),
+            request_ids.template_count(),
+        ),
+        "decision",
+    )
+
+
+SHOWN_IDS = 8
+REQUEST_ID_UNKNOWN = "STORED_TABLE_REQUEST_ID_UNKNOWN"
 
 
 def unchecked_warnings(missed):
@@ -1616,6 +1753,7 @@ def _part(raw, p, from_table):
     S = stored_tables
     if raw.get("schema_version") == S.RESULT_SCHEMA:
         need(raw.get("status") in S.CALL_STATUSES, "INPUT_INVALID", "上游回执的 status 不对", p)
+        S.inline_refused(raw.get("source"), p)  # 0.5.42
         src = raw.get("source") if type(raw.get("source")) is dict else {}
         table = src.get("table") if type(src.get("table")) is str else None
         table = table or (raw.get("table") if type(raw.get("table")) is str else None)
@@ -1639,6 +1777,15 @@ def _part(raw, p, from_table):
         "INPUT_INVALID",
         "参数 %s 读 v2 表：收上游 evaluate_stored_table 的回执，或回执里的 result.conclusions（%s）"
         % (p, CONCLUSIONS_SCHEMA),
+        p,
+    )
+    # 0.5.42: conclusions without a version come from a table tried in a node (a stored table always has one); they are
+    # refused as its whole receipt is
+    need(
+        raw["version"] is not None,
+        "INLINE_RECEIPT_REFUSED",
+        "参数 %s：这份结论没有版次，来自节点里试验求值的表，不能当存表的结论接；把表存进插件再接"
+        % p,
         p,
     )
     info = {"table": raw["table"], "version": raw["version"]}
@@ -1836,6 +1983,19 @@ def judge_keys(d, role, matched, keyed_inputs):
                 "rule_ids": unknown,
                 "gap": _key_gap("KEY_INDETERMINATE", ident),
             }
+        elif not hits and DEFAULT in d[IDS][ident]:
+            # 0.5.42: none of its rules held, none could not be judged: the number's own conclusion when none holds
+            default = d[IDS][ident][DEFAULT]
+            one = {
+                "quality": "KNOWN",
+                "state": default["state"],
+                "value": copy.deepcopy(default["value"]),
+                "rule_id": None,
+                "filled": "DEFAULT",
+            }
+            if "gap" in default:
+                one["gap"] = copy.deepcopy(default["gap"])
+            keys[ident] = one
         elif not hits:
             keys[ident] = {
                 "quality": "UNKNOWN",

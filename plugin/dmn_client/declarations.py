@@ -901,9 +901,9 @@ def _one_rule_per_conclusion(role, model, rows=None, first=False, unproven=None,
         seen[key], last[key] = r["rule_id"], i
 
 
-def _row_states(listed, model):
+def _row_states(listed, model, may=()):
     """draft.10: a STANDARD table lists the row states its rules use; the no-match template is the table state NO_MATCH
-    and no rule points at it."""
+    and no rule points at it. may (0.5.42): states it may list though no rule uses them (a v2 id's default)."""
     bad = [s for s in listed if s not in ROW_STATES]
     _need(
         not bad,
@@ -926,7 +926,7 @@ def _row_states(listed, model):
         "NO_MATCH 只在表这层：规则不得指向一行没中时用的模板（%s）" % ", ".join(pointed[:5]),
         ".empty_template_ref",
     )
-    _exactly(listed, _rule_states(model), "行 state")
+    _exactly(listed, _rule_states(model), "行 state", may)
 
 
 def _rule_states(model):
@@ -935,8 +935,8 @@ def _rule_states(model):
     return {templates[r["output_template_ref"]]["state"] for r in model["rules"]}
 
 
-def _exactly(listed, used, label):
-    unlisted, unused = sorted(used - set(listed)), sorted(set(listed) - used)
+def _exactly(listed, used, label, may=()):
+    unlisted, unused = sorted(used - set(listed)), sorted(set(listed) - used - set(may))
     _need(not unlisted, "规则用到但没列的%s：%s" % (label, ", ".join(unlisted)), ".states")
     _need(not unused, "列了但没有规则用到的 state：" + ", ".join(unused), ".states")
 
@@ -1369,8 +1369,11 @@ def _gap_item(g, p, keys):
     if "blocking" in g:
         _need(type(g["blocking"]) is bool, "gap.blocking 是布尔", p + ".blocking")
     if "assoc_id" in g:
+        from dmn_client.request_ids import ASSOC_GROUP_RE  # noqa
+
+        # 0.5.42（协调 11-21）：关联组的写法并成一种（清单模板与补充要求表的那条），原来只核非空
         _need(
-            type(g["assoc_id"]) is str and g["assoc_id"].strip(),
+            type(g["assoc_id"]) is str and ASSOC_GROUP_RE.fullmatch(g["assoc_id"]) is not None,
             "gap.assoc_id 是关联组编号",
             p + ".assoc_id",
         )

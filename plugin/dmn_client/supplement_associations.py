@@ -1,8 +1,8 @@
 """Supplement associations."""
 
 import copy
-import re
 
+from dmn_client.request_ids import ASSOC_GROUP_RE
 from dmn_client.route_table import RouteTableError
 
 GROUP_KEYS = {"assoc_id", "on", "any_of", "min_satisfied", "routing", "label"}
@@ -13,7 +13,7 @@ RELATIONS = {
     "ESTIMATE": "COUPON_EVALUATED_IN_ESTIMATE",
 }
 PROOFS = ("AGENT_PICK", "VERIFIED_QUERY")
-ID_RE = re.compile(r"^[a-z][a-z0-9_]{0,63}$")
+ID_RE = ASSOC_GROUP_RE  # 0.5.42: one writing of an association group in the plugin (same set as the r"^…$" it was)
 MAX_GROUPS = 16
 # Unicode 15.0.0 Cc/Cf/Zl/Zp plus lone-surrogate Cs. Pinned ranges also ship in
 # the JS reference so host Unicode-version drift cannot change the wire boundary.

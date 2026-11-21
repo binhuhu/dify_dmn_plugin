@@ -2547,6 +2547,28 @@ class StorageTables:
         )
         transition = supplement_transition_of(cur, clean, schema_transition)
         _need(clean["note"].strip() != "", "ROUTE_TABLE_NOTE_REQUIRED", "写一句改动说明", "note")
+        # 2026-11-20 (全链路评审 2-5): the pre-save auto gate is worked out here, before the version check, so that from
+        # that check to the head a save still makes 0.5.19's storage calls (I19 / R6: the gate reads other tables and runs
+        # their readers, which takes up to seconds); its refusal is raised below, after every refusal v0.5.22 and the
+        # 0.5.23 callability gate give (their codes and order unchanged). Not on an undo's reference fix (take_back
+        # False): it only renames a reference
+        auto, auto_refusal = None, None
+        if take_back:
+            from dmn_client import save_gate  # noqa
+
+            try:
+                auto = save_gate.run(
+                    self,
+                    table,
+                    cur,
+                    clean,
+                    content_sha256(clean),
+                    getattr(self, "sent_cases", None),
+                    getattr(self, "gate_report_only", False),
+                    defer=True,
+                )
+            except RouteTableError as exc:  # the suite the request carries is malformed
+                auto_refusal = exc
         n = have + 1
         skipped = []
         if guard is not None:
@@ -2573,6 +2595,15 @@ class StorageTables:
         # 0.5.23 (D13): after every refusal v0.5.22 gives (they keep their order and codes), before the caller's gate;
         # reads only cur, so I19 / I20 are unaffected
         callability_gate(cur, clean, doc)
+        # 2026-11-20 (全链路评审 2-5): the pre-save auto gate's refusal (worked out before the version check), after every
+        # refusal above, before the caller's gate
+        if auto_refusal is not None:
+            raise auto_refusal
+        if auto is not None:
+            from dmn_client import save_gate  # noqa
+
+            save_gate.raise_first(auto)
+        self.auto_gate = auto
         if gate is not None:
             gate(clean, gate_report)
         clean.update(
@@ -2601,6 +2632,18 @@ class StorageTables:
                 self._index(
                     table
                 )  # before the document: an index entry without its table is skipped
+            if auto is not None and auto.write is not None:
+                # the suite this save brings, before the table: a save stopped after its head still finds it by save id
+                from dmn_client import save_gate  # noqa
+
+                self.storage.set(
+                    save_gate.pending_key(table, clean["save_id"]),
+                    canon(
+                        save_gate.suite_record(
+                            auto.write, clean["save_id"], clean["saved_at"], auto.reads
+                        )
+                    ).encode("utf-8"),
+                )
             self.storage.set(self.save_key(table, clean["save_id"]), raw)  # never overwritten
             self.storage.set(
                 self.key(table, n), raw
@@ -2619,7 +2662,13 @@ class StorageTables:
             outcome = (
                 "UNKNOWN"
                 if head_tried
-                else self._unwind(table, n, clean["save_id"], report is not None)
+                else self._unwind(
+                    table,
+                    n,
+                    clean["save_id"],
+                    report is not None,
+                    auto is not None and auto.write is not None,
+                )
             )
             if isinstance(exc, RouteTableError):
                 raise
@@ -2642,7 +2691,34 @@ class StorageTables:
                 self._withdraw(guard[0], table, n, clean["save_id"])
             raise
         self.skipped = skipped
+        if auto is not None and auto.write is not None:
+            self._move_suite(table, clean, auto)
         return clean
+
+    def _move_suite(self, table, clean, auto):
+        """2026-11-20: the suite a save brought becomes the table's own, then its pending copy goes. A failure leaves the
+        pending copy bound to the head's save id, which the next save picks (save_gate.current_suite)."""
+        from dmn_client import save_gate  # noqa
+
+        try:
+            self.storage.set(
+                save_gate.cases_key(table),
+                canon(
+                    save_gate.suite_record(
+                        auto.write, clean["save_id"], clean["saved_at"], auto.reads
+                    )
+                ).encode("utf-8"),
+            )
+            key = save_gate.pending_key(table, clean["save_id"])
+            if self.storage.exist(key):
+                self.storage.delete(key)
+        except Exception:
+            auto.warnings.append(
+                {
+                    "code": "TABLE_CASES_NOT_MOVED",
+                    "message": "表已存成；挪用例集时插件存储写失败：这次带的用例集挂在这一版的存表号上，下一次存表照样用它",
+                }
+            )
 
     def _skip_stranded(self, table, cur, n):
         """0.5.36: (the version number to save as, the versions numbered past). Storage has no conditional write, so
@@ -2792,7 +2868,7 @@ class StorageTables:
         for key in (self.key(table), self.key(table, n)):
             self._delete_own(key, save_id)
 
-    def _unwind(self, table, n, save_id, with_gate):
+    def _unwind(self, table, n, save_id, with_gate, with_cases=False):
         """Take back what a save stopped before its head wrote: only this save's keys (the version key only while it
         carries this save id), the copies by save id first and the version key last, as prune does, so that whatever
         is left can still be found from the version key. NOT_SAVED when every one is gone; HALF_WRITTEN when one would
@@ -2800,6 +2876,8 @@ class StorageTables:
         keys = [self.save_key(table, save_id)]
         if with_gate:
             keys.append(self.gate_key(table, save_id))
+        if with_cases:  # 2026-11-20: the suite this save brought, written before its table
+            keys.append("route-table:" + delivery_name(table) + ":cp:" + save_id)
         try:
             for key in keys:
                 if self.storage.exist(key):

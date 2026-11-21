@@ -24,7 +24,7 @@ from datetime import datetime, timedelta, timezone
 
 import rfc8785
 
-from dmn_client import catalog, controlled, scene_bundle, settings
+from dmn_client import catalog, controlled, save_gate, scene_bundle, settings
 from dmn_client.client import EngineError, json_object
 from dmn_client.route_store import CONFLICT, DEFAULT_TABLE, MAX_REQUEST, UNAVAILABLE, error, run_op
 from dmn_client.route_table import (
@@ -648,6 +648,12 @@ def controlled_target(op, table, body):
         if refused is None and parsed.get("plan_sha256") is not None:
             return storage_name(table)
         return None
+    if (
+        op == save_gate.CASES_SAVE
+    ):  # 2026-11-20: a controlled table's suite is written as the table is
+        parsed, refused = _parse(body) if body not in (None, "") else ({}, None)
+        name = (parsed.get("table") if refused is None else None) or table
+        return storage_name(name) if controlled.listed(name) else None
     if op in BUNDLE_WRITES:
         hit = [t for t in scene_bundle.TABLES.values() if controlled.listed(t)]
         return hit[-1] if hit else None
@@ -844,6 +850,21 @@ def _run_entry(
         if op == LEDGER:
             check_caller(storage, caller_app)
             return 200, ledger(storage, table)
+        if op in save_gate.OPS:
+            # 2026-11-20 (存表自动闸): cases and cases_check read; cases_save writes the suite as a save writes the table
+            if refused:
+                return refused
+            rest = {k: v for k, v in parsed.items() if k != "writer"}
+            forward = json.dumps(rest, ensure_ascii=False) if rest else None
+            if op != save_gate.CASES_SAVE:
+                return run_op(storage, op, table, version, forward)
+            check_caller(storage, caller_app)
+            with _MUTATION_LOCK:
+                who = None
+                if not opened:
+                    parse_writers(writers)
+                    who = verify(writers, parsed.get("writer"), op, sent, vstr, parsed, now())
+                return recorded(run_op(storage, op, table, version, forward), who)
         if op in CARE_OPS:
             if refused:
                 return refused
@@ -916,7 +937,8 @@ def _run_entry(
             if op == "save" and writes_five:
                 # the checks a draft of the five gets (review 0.5.28 adv 中-1): no unregistered top-level key, and no
                 # reference to a table outside the five
-                unknown = unknown_keys(parsed)
+                # 2026-11-20: cases (the table's suite) is a request key of the save, never a table key
+                unknown = unknown_keys({k: v for k, v in parsed.items() if k != "cases"})
                 _need(
                     not unknown,
                     "STORED_TABLE_UNKNOWN_KEY",
@@ -1162,7 +1184,7 @@ def _draft_save(storage, table, rest, who, now, new_id):
             for f, v in rest.items()
             if f not in ("expected_draft", "gate_report", "release_ref", "draft_id")
         }
-    unknown = unknown_keys(body)
+    unknown = unknown_keys({k: v for k, v in body.items() if k != "cases"})  # 2026-11-20: as a save
     _need(
         not unknown,
         "STORED_TABLE_UNKNOWN_KEY",

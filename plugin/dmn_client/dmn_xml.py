@@ -31,7 +31,10 @@ input cell is `-`, and a rule's annotation (description) is the row's note when 
 
 Rows: a stored rule whose combinations (when_any) are not a plain crossing of its columns takes one XML row per
 combination; the rows carry the same outputs and are joined back into the one rule on import (the extension element
-says which rows belong together).
+says which rows belong together). 0.5.42 (as the new writing since 0.5.41): a UNIQUE table with such a rule is written
+ANY — the rows of one rule may hold together, which DMN's UNIQUE calls a violation, and ANY takes several rows holding
+when their outputs are the same, as the rows of one rule are; the extension element says it was UNIQUE (hit_policy) and
+it comes back UNIQUE. hitPolicy ANY is taken only on such a table.
 """
 
 import hashlib
@@ -55,7 +58,18 @@ NAMESPACES = {
 }
 EXPORT_NAMESPACE = NAMESPACES["1.3"]
 EXTENSION_NAMESPACE = "urn:dmn-json:decision-table:v1"
-MAX_XML_BYTES = 1024 * 1024
+# 0.5.42: the import line, aligned with the 1 MiB table line (0.5.41's known limit: a table at that line exports, and its
+# XML could not come back). An exported XML is 1.3–12 times its table (费用 v2 现实表 757 KiB → 2.7 MB, 事实 → 特征表
+# 148 KiB → 1.8 MB): the line is no longer the XML's own 1 MiB but what the export can hand back through Dify — one
+# plugin message is at most 5 MiB (PLUGIN_STDIO_MAX_BUFFER_SIZE) and the export's answer carries the XML and the model —
+# and the table that comes back is held to the store's line (route_store.MAX_BODY: what a save or a trial in a node
+# takes), checked on what was imported.
+MAX_XML_BYTES = 4 * 1024 * 1024
+# the store's line for a table without a name (route_store.MAX_BODY; a test pins the two), and what an import may build
+# before it is known to be over it: a condition is at least 32 bytes of canonical JSON, so a model of more conditions than
+# this is over the line however it is written (0.5.42, independent review B1: refused while it is read, not after)
+MAX_TABLE_BYTES = 1024 * 1024
+CONDITION_BUDGET = MAX_TABLE_BYTES // 32
 TYPE_REFS = {
     "string": "string",
     "number": "number",
@@ -111,7 +125,11 @@ def _checked(model):
 
 def _root(xml):
     _need(type(xml) is str and xml.strip(), "dmn_xml 要是 XML 文本", code="DMN_XML_INVALID")
-    _need(len(xml.encode("utf-8")) <= MAX_XML_BYTES, "XML 不超过 1 MiB", code="DMN_XML_INVALID")
+    _need(
+        len(xml.encode("utf-8")) <= MAX_XML_BYTES,
+        "XML 不超过 %d MiB" % (MAX_XML_BYTES // (1024 * 1024)),
+        code="DMN_XML_INVALID",
+    )
     body = xml.lstrip("﻿ \t\r\n")
     rest = re.sub(r"^<\?xml[^?]*\?>", "", body, count=1)
     _need(
@@ -140,7 +158,7 @@ def _meta(decision, ns):
         return {}
     try:
         meta = json.loads(node.text or "")
-    except ValueError:
+    except (ValueError, RecursionError):  # 0.5.42: too deep is not JSON either (it raised)
         _fail("扩展元素 dj:model 不是 JSON", "extensionElements", "DMN_XML_INVALID")
     _need(
         type(meta) is dict
@@ -152,8 +170,10 @@ def _meta(decision, ns):
             "rule_ids",
             "null_comparison",
             "model_ref",
+            "hit_policy",
         }
         and meta.get("null_comparison", "FALSE") in ("FALSE", "UNKNOWN")
+        and meta.get("hit_policy", "UNIQUE") == "UNIQUE"
         and type(meta.get("parameters", {})) is dict
         and type(meta.get("rule_ids", {})) is dict
         and meta.get("shape", "standard") in ("standard", "plain"),
@@ -282,6 +302,14 @@ def _import_decision(decision, ns):
     table = decision.find(q("decisionTable"))
     _need(table is not None, "只收决策表，不收字面表达式等其他写法", "decision")
     policy = table.get("hitPolicy") or "UNIQUE"  # the standard's default; modelers leave it out
+    if policy == "ANY":
+        # 0.5.42: a UNIQUE table whose rules were written one row per combination (export says so in the extension)
+        _need(
+            _meta(decision, ns).get("hit_policy") == "UNIQUE",
+            "hitPolicy 写 ANY 只用在导出时由 UNIQUE 改写的表上（扩展元素 dj:model 记着 hit_policy: UNIQUE）",
+            "decisionTable.hitPolicy",
+        )
+        policy = "UNIQUE"
     _need(
         policy in stored_tables.HIT_POLICIES,
         "hitPolicy 只收 UNIQUE / FIRST / COLLECT（读到 %s）" % policy,
@@ -431,6 +459,7 @@ def _import_decision(decision, ns):
             templates[refs[key]] = template
         return refs[key]
 
+    budget = [0]  # 0.5.42: conditions built so far
     lines = []  # one per XML rule
     for i, node in enumerate(rule_nodes):
         p = "rule[%d]" % i
@@ -453,14 +482,15 @@ def _import_decision(decision, ns):
                 "%s.inputEntry[%d]" % (p, j),
                 "FEEL_TYPE_MISMATCH",
             )
-            combos = [c + a for c in combos for a in alternatives]
+            # 0.5.42: counted before the crossing is built (a cell takes up to 1024 alternatives now)
             _need(
-                len(combos) <= stored_tables.MAX_COMBINATIONS,
+                len(combos) * len(alternatives) <= stored_tables.MAX_COMBINATIONS,
                 "这条规则各列写法交叉后超过 %d 种组合" % stored_tables.MAX_COMBINATIONS,
                 p,
                 "FEEL_TOO_LARGE",
             )
-        unique = []
+            combos = [c + a for c in combos for a in alternatives]
+        unique, keys = [], set()
         for combo in combos:
             combo = feel_cells._unique(combo)
             _need(
@@ -469,8 +499,18 @@ def _import_decision(decision, ns):
                 p,
                 "FEEL_TOO_LARGE",
             )
-            if combo not in unique:
+            k = feel_cells.combo_key(combo)  # 0.5.42: a set, not a scan of the list (1024 per rule)
+            if k not in keys:
+                keys.add(k)
                 unique.append(combo)
+                budget[0] += len(combo)
+        _need(
+            budget[0] <= CONDITION_BUDGET,
+            "导回的表超过存表线：条件已过 %d 条（%d 字节的表装不下）"
+            % (CONDITION_BUDGET, MAX_TABLE_BYTES),
+            p,
+            "STORED_TABLE_TOO_LARGE",
+        )
         entries = node.findall(q("outputEntry"))
         _need(len(entries) == len(outputs), "这条规则的输出格数和输出列数不一致", p)
         values = {
@@ -494,7 +534,9 @@ def _import_decision(decision, ns):
                 "这几行是同一条规则的几种组合，输出要一样；要不同的输出就给这一行换个 id",
                 p,
             )
-            last["combos"] += [c for c in unique if c not in last["combos"]]
+            fresh = [c for c in unique if feel_cells.combo_key(c) not in last["keys"]]
+            last["keys"] |= {feel_cells.combo_key(c) for c in fresh}
+            last["combos"] += fresh
             _need(
                 len(last["combos"]) <= stored_tables.MAX_COMBINATIONS,
                 "这条规则的组合超过 %d 种" % stored_tables.MAX_COMBINATIONS,
@@ -503,14 +545,24 @@ def _import_decision(decision, ns):
             )
             continue
         lines.append(
-            {"wanted": wanted, "joined": joined, "combos": unique, "values": values, "p": p}
+            {
+                "wanted": wanted,
+                "joined": joined,
+                "combos": unique,
+                "keys": keys,
+                "values": values,
+                "p": p,
+            }
         )
 
     wanted = [line["wanted"] for line in lines]
-    kept = [
-        type(r) is str and bool(STABLE_RE.match(r)) and r not in wanted[:i]
-        for i, r in enumerate(wanted)
-    ]
+    kept, before = [], set()
+    for r in (
+        wanted
+    ):  # 0.5.42: the ids seen so far in a set (a 4 MiB XML holds tens of thousands of rows)
+        kept.append(type(r) is str and bool(STABLE_RE.match(r)) and r not in before)
+        if type(r) is str:
+            before.add(r)
     seen = {
         r for r, ok in zip(wanted, kept) if ok
     }  # a renamed rule never takes an id another rule really has
@@ -671,7 +723,7 @@ def _document(name, decisions):
     )
 
 
-def export_xml(model, decision_id="decision", name=None):
+def export_xml(model, decision_id="decision", name=None, warnings=None):
     """The stored model as DMN 1.3 XML (one decision table)."""
     _need(
         type(decision_id) is str and NCNAME_RE.match(decision_id) and decision_id != "definitions",
@@ -681,10 +733,10 @@ def export_xml(model, decision_id="decision", name=None):
     )
     name = decision_id if name is None else name
     _need(type(name) is str and 0 < len(name) <= 256, "name 写 1–256 字", "name", "DMN_XML_INVALID")
-    return _document(name, _decision(model, decision_id, name))
+    return _document(name, _decision(model, decision_id, name, warnings=warnings))
 
 
-def export_set_xml(models, name="decisions"):
+def export_set_xml(models, name="decisions", warnings=None):
     """A decision set's models ({key: {model_ref, model}}) as one DMN 1.3 document, one <decision> per model."""
     _need(
         type(models) is dict
@@ -707,15 +759,21 @@ def export_set_xml(models, name="decisions"):
         try:
             # rule ids are per model: across the document each is written under its model's key
             decisions += _decision(
-                models[key]["model"], key, key, key + ".", models[key].get("model_ref")
+                models[key]["model"],
+                key,
+                key,
+                key + ".",
+                models[key].get("model_ref"),
+                warnings=warnings,
+                label="模型 %s：" % key,
             )
         except DmnXmlError as e:
             _fail(e.message, "models.%s.%s" % (key, e.path), e.code)
     return _document(name, decisions)
 
 
-def _decision(model, decision_id, name, rule_prefix="", model_ref=None):
-    """The <decision> element of one model, as lines."""
+def _decision(model, decision_id, name, rule_prefix="", model_ref=None, warnings=None, label=""):
+    """The <decision> element of one model, as lines. warnings (0.5.42): a list the export's notes are added to."""
     model = _checked(model)
     shape = "standard" if stored_tables._standard_shaped(model) else "plain"
     kinds = {n: c["type"] for n, c in model["parameters"].items()}
@@ -785,6 +843,17 @@ def _decision(model, decision_id, name, rule_prefix="", model_ref=None):
     }
     if type(model_ref) is str:
         meta["model_ref"] = model_ref
+    split = sorted({i for i, n in count.items() if n > 1})
+    policy = model["hit_policy"]
+    if policy == "UNIQUE" and split:
+        # 0.5.42: the rows of one rule may hold together; DMN's UNIQUE calls that a violation, ANY does not (their
+        # outputs are the same). It comes back UNIQUE.
+        policy, meta["hit_policy"] = "ANY", "UNIQUE"
+        if warnings is not None:
+            warnings.append(
+                "%sUNIQUE 表里 %d 条规则的几种情形各写一行导出：几行可能同时成立，按 DMN 的 UNIQUE 算违例，这张表导成 ANY"
+                "（同一条规则的几行输出一样），导回还是 UNIQUE" % (label, len(split))
+            )
 
     def cell(tag, cid, text):
         return "<%s id=%s><text>%s</text></%s>" % (tag, quoteattr(cid), escape(text), tag)
@@ -793,7 +862,7 @@ def _decision(model, decision_id, name, rule_prefix="", model_ref=None):
         "<decision id=%s name=%s>" % (quoteattr(decision_id), quoteattr(name)),
         "<extensionElements><dj:model>%s</dj:model></extensionElements>" % escape(_canon(meta)),
         "<decisionTable id=%s hitPolicy=%s>"
-        % (quoteattr(decision_id + "_table"), quoteattr(model["hit_policy"])),
+        % (quoteattr(decision_id + "_table"), quoteattr(policy)),
     ]
     for j, (key, _) in enumerate(columns):
         path = ["parameters", *key]
@@ -855,6 +924,38 @@ RESULT_SCHEMA = "dmn-json.dmn-xml-conversion/v1"
 MAX_MODEL_BYTES = 1344 * 1024
 
 
+def _text_parameter(parameters, key):
+    value = parameters.get(key)
+    if not value:  # as 0.5.41: an empty value (0, false, [], {} …) is not given
+        return None
+    _need(type(value) is str, "%s 要是文本" % key, key, "INPUT_INVALID")
+    return value.strip() or None
+
+
+def _content_line(got):
+    """0.5.42: an imported table is held to the line a save holds it to (route_store.MAX_BODY, 1 MiB of canonical JSON,
+    the same for every table), on what came back — the document (v2), the models (a set) or the model with its
+    reference; a save adds a few names to it, and still refuses a table over the line."""
+    from dmn_client.route_store import MAX_BODY  # noqa
+    from dmn_client.route_table import canon  # noqa
+
+    line = MAX_BODY
+    if got.get("document") is not None:
+        body = got["document"]
+    elif got.get("models") is not None:
+        body = got["models"]
+    else:
+        body = {"model_ref": got.get("model_ref"), "model": got.get("model")}
+    size = len(canon(body).encode("utf-8"))
+    _need(
+        size <= line,
+        "导回的表内容（按规范 JSON 算）是 %d 字节（约 %.1f KiB），超过存表线 %d 字节（%d KiB）：存不进插件"
+        % (size, size / 1024, line, line // 1024),
+        "dmn_xml",
+        "STORED_TABLE_TOO_LARGE",
+    )
+
+
 def convert(parameters):
     """The convert_dmn_xml tool: {direction: import | export, dmn_xml | model_json, decision_id?, name?}. One decision
     table is a model; several (a document with several decisions, a decision-set document) are models. Never raises on a
@@ -874,10 +975,11 @@ def convert(parameters):
         "warnings": [],
         "error": None,
     }
-    decision_id = (parameters.get("decision_id") or "").strip() or None
-    name = (parameters.get("name") or "").strip() or None
     try:
         _need(out["direction"], "direction 只能是 import / export", "direction", "INPUT_INVALID")
+        # 0.5.42 (from the 11-17 DMN XML line): a decision_id or name that is not text is refused, not an exception
+        decision_id = _text_parameter(parameters, "decision_id")
+        name = _text_parameter(parameters, "name")
         if direction == "import":
             xml = parameters.get("dmn_xml")
             root, ns = _root(xml)
@@ -887,18 +989,20 @@ def convert(parameters):
             if dmn_xml_v2.is_v2_xml(root, ns):
                 got = dmn_xml_v2.import_doc(xml)
                 node = root.find("{%s}decision" % ns)
-                out.update(
-                    decision_id=node.get("id"),
-                    name=node.get("name"),
-                    model=got["document"]["decision"],
-                    model_ref=got["document"]["decision_ref"],
-                    warnings=got["warnings"],
-                    document=got["document"],
-                )
+                got = {
+                    "decision_id": node.get("id"),
+                    "name": node.get("name"),
+                    "model": got["document"]["decision"],
+                    "model_ref": got["document"]["decision_ref"],
+                    "warnings": got["warnings"],
+                    "document": got["document"],
+                }
             elif decision_id or len(root.findall("{%s}decision" % ns)) == 1:
-                out.update(import_xml(xml, decision_id))
+                got = import_xml(xml, decision_id)
             else:
-                out.update(import_set_xml(xml))
+                got = import_set_xml(xml)
+            _content_line(got)  # 0.5.42: before anything of it is in the answer
+            out.update(got)
         else:
             raw = parameters.get("model_json")
             try:
@@ -943,7 +1047,9 @@ def convert(parameters):
                 )
             elif "models" in raw and "profile" not in raw:
                 # a decision-set document: every model, one <decision> each
-                out["dmn_xml"] = export_set_xml(raw["models"], name or "decisions")
+                notes = []  # 0.5.42: added once the export has gone through
+                out["dmn_xml"] = export_set_xml(raw["models"], name or "decisions", warnings=notes)
+                out["warnings"] += notes
                 out["name"] = name or "decisions"
                 out["models"] = {
                     k: {"model_ref": v.get("model_ref"), "model": _checked(v["model"])}
@@ -953,9 +1059,17 @@ def convert(parameters):
                 # a stored decision-table document is taken by its model
                 model = raw["model"] if "model" in raw and "profile" not in raw else raw
                 out["decision_id"] = decision_id or "decision"
-                out["dmn_xml"] = export_xml(model, out["decision_id"], name)
+                notes = []
+                out["dmn_xml"] = export_xml(model, out["decision_id"], name, warnings=notes)
+                out["warnings"] += notes
                 out["name"] = name or out["decision_id"]
                 out["model"] = _checked(model)
+            size = len(out["dmn_xml"].encode("utf-8"))
+            if size > MAX_XML_BYTES:  # 0.5.42
+                out["warnings"].append(
+                    "导出的 XML 是 %.1f MiB，超过导入线 %d MiB：经这个工具导不回来；Dify 里插件的一条消息最多 5 MiB，这份结果多半"
+                    "也送不出来" % (size / 1024 / 1024, MAX_XML_BYTES // (1024 * 1024))
+                )
         if out["model"] is not None:
             out["model_sha256"] = hashlib.sha256(rfc8785.dumps(out["model"])).hexdigest()
         out["status"] = "SUCCEEDED"

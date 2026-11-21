@@ -9,6 +9,10 @@ Two kinds of table are taken, told apart by their own keys:
   missing?, undeclared?, models?}) and answers with the same envelope (dmn-json.stored-table-result/v1), so a workflow
   can move a table between the node and the plugin's storage without touching what reads the result. source.kind is
   INLINE: nothing was read from storage, and there is no version history behind it.
+
+0.5.42 (from the 11-17 DMN XML line): a table in a node is for trials — no version history, no editor, no ledger, and
+changing it means publishing the workflow again. Its receipt carries no version and no save time whatever the document
+claims, and is refused where a stored table's receipt is read (INLINE_RECEIPT_REFUSED: stored_tables.inline_refused).
 """
 
 import hashlib
@@ -66,7 +70,9 @@ def evaluate_inline(parameters):
         if "profile" in doc:
             out = _model(doc, inputs, out)
         else:
-            fmt = INLINE_FORMATS.get(doc.get("schema"))
+            schema = doc.get("schema")
+            # 0.5.42: a schema written as a list or an object is no format (it was a TypeError)
+            fmt = INLINE_FORMATS.get(schema) if isinstance(schema, str) else None
             if fmt is None:
                 raise RouteTableError(
                     "STORED_TABLE_FORMAT_UNKNOWN",
@@ -78,9 +84,9 @@ def evaluate_inline(parameters):
                 raise RouteTableError(
                     "ROUTE_TABLE_INVALID", "文档要带表名 table", "table_json.table"
                 )
-            out = stored_tables.evaluate_stored(doc["table"], fmt, inputs, lambda _table: doc)
-            if type(out.get("source")) is dict:
-                out["source"]["kind"] = "INLINE"
+            out = stored_tables.evaluate_stored(
+                doc["table"], fmt, inputs, lambda _table: doc, kind=stored_tables.SOURCE_INLINE
+            )
         pin = parameters.get("expected_sha256")
         source = out.get("source") or {}
         digest = source.get("content_sha256") or source.get("model_sha256")
@@ -113,7 +119,7 @@ def _model(model, inputs, out):
             "table_json.parameters.%s" % marked[0],
         )
     out["source"] = {
-        "kind": "INLINE",
+        "kind": stored_tables.SOURCE_INLINE,
         "table": None,
         "version": None,
         "saved_at": None,
