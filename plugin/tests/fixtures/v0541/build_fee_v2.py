@@ -945,7 +945,7 @@ def build_capability(p1, sources):
 
 def build_search_info(p1, sha):
     known = {
-        "path": ["parameters", "request", "key", "order_id", "quality"],
+        "path": ["parameters", "request", "key", "对象.id", "quality"],
         "op": "eq",
         "value": "KNOWN",
     }
@@ -956,7 +956,7 @@ def build_search_info(p1, sha):
         rules.append({"rule_id": rid, "output_template_ref": ref, "rows": [[known]]})
         templates[ref] = tpl(
             "PASS",
-            {"actions": [], "capability_id": cid, "bindings": {"orderKey": "request:order_id"}},
+            {"actions": [], "capability_id": cid, "bindings": {"orderKey": "request:对象.id"}},
             "有订单号就调" + name,
         )
         why[rid] = {"why": "测试补的：从请求的订单号出发调" + name}

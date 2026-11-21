@@ -5,6 +5,8 @@
 改法：表名 solution.search.fact.M_P_02_04_01.ee1aebd3 → solution.search.info.M_P_02_04_01.ee1aebd3；25 个参数（8 个请求里给的量、
 17 个前几轮查到的事实）合成 request、calc、info 三组；条件 [parameters, X, quality | value] → [parameters, request | info, key, X, …]；
 bindings 的来源由参数名改成 request:<字段> / info:<原值号>；结果键 facts → infos。规则、情形、依据照抄。
+请求号照合同 场景方案调用/v5 的请求号清单起（0.5.42，Brian 11-21「放进 0.5.42」：存表时核，不在清单里拒存；协调 11-21 定用请求结构线那份）：
+8 个请求量里 6 个对上 v5 的字段（见 RENAME；关联的订单、预估写 关联对象.<关联组>.<关系>.<键>）；subject_pid（主体的乘客号）、ws_date（工单日期）v5 没有，改成表外算出的量（calc 组，号不变）。
 能力表：3dfeb488 嵌的那张（旧名、旧行形、facts）改到新名、facts 改 infos，钉它的新内容摘要。新名存表要新行形（业务模式、角色、
 主体实体），与这次对拍无关，夹具不改行形，测试里当作已存下的一版直接写进存储（读的路径收旧行形）。
 对拍：六组固定入参（金样那几组）加 300 组随机的「哪些量已知、取什么值」（种子固定），比每一轮成立的规则号与每条的能力号、
@@ -25,6 +27,32 @@ import capture_v0540_goldens as G  # noqa: E402
 import dify_plugin  # noqa: E402,F401
 
 TABLE = "solution.search.info.M_P_02_04_01.ee1aebd3"
+# 0.5.42: the request ids of v5 the request inputs are (the coupon is the complaint's object; the order and the estimate
+# related, written 关联对象.<关联组>.<关系>.<键> as the list's template; group and relation names are this fixture's)
+RENAME = {
+    "business_type": "关联对象.coupon_usage_context.COUPON_USED_ON_ORDER.业务线",
+    "coupon_id": "对象.id",
+    "order_id": "关联对象.coupon_usage_context.COUPON_USED_ON_ORDER.id",
+    "subject_uid": "身份.主体uid",
+    "worksheet_id": "身份.锚点.工单号",
+    "estimate_id": "关联对象.coupon_estimate_context.COUPON_USED_ON_ESTIMATE.id",
+}
+CALC = ("subject_pid", "ws_date")  # not in v5: worked out outside the table
+
+
+def placer(req):
+    """A v1 parameter name → (group, key) in the v2 table."""
+
+    def place(n):
+        if n in CALC:
+            return "calc", n
+        if n in req:
+            return "request", RENAME[n]
+        return "info", n
+
+    return place
+
+
 GROUP = {"type": "group"}  # 0.5.41 (Brian 11-20, HOLD (a)): a fixed input writes only its type
 
 
@@ -42,7 +70,8 @@ def catalog_v2():
 def search_v2(catalog_sha):
     old = G.load_json("coupon_3dfeb488_search.json")
     req = set(old["declare"]["request_inputs"])
-    group = lambda n: "request" if n in req else "info"  # noqa: E731
+    assert req == set(RENAME) | set(CALC)
+    place = placer(req)
     m = old["model"]
     rules = []
     for r in m["rules"]:
@@ -52,7 +81,8 @@ def search_v2(catalog_sha):
                 [
                     dict(
                         c,
-                        path=["parameters", group(c["path"][1]), "key", c["path"][1], c["path"][2]],
+                        path=["parameters", place(c["path"][1])[0], "key"]
+                        + [place(c["path"][1])[1], c["path"][2]],
                     )
                     for c in w
                 ]
@@ -64,7 +94,7 @@ def search_v2(catalog_sha):
     for t in templates.values():
         lit = t["data"]["result"]["literal"]
         if "bindings" in lit:
-            lit["bindings"] = {k: "%s:%s" % (group(v), v) for k, v in lit["bindings"].items()}
+            lit["bindings"] = {k: "%s:%s" % place(v) for k, v in lit["bindings"].items()}
         if "facts" in lit:
             lit["infos"] = lit.pop("facts")
     d = {
@@ -119,6 +149,7 @@ def rounds():
 def compare(v1_load, v2_load):
     old = G.load_json("coupon_3dfeb488_search.json")
     req = set(old["declare"]["request_inputs"])
+    place = placer(req)
     from dmn_client import stored_tables
 
     same, diffs = 0, []
@@ -135,8 +166,8 @@ def compare(v1_load, v2_load):
             "decision-table/v2",
             {
                 "parameters": {
-                    "request": {n: rec(v) for n, v in given.items() if n in req},
-                    "info": {n: rec(v) for n, v in given.items() if n not in req},
+                    g: {place(n)[1]: rec(v) for n, v in given.items() if place(n)[0] == g}
+                    for g in ("request", "calc", "info")
                 }
             },
             v2_load,
@@ -147,10 +178,7 @@ def compare(v1_load, v2_load):
             for h in env["result"]["decisions"]:
                 lit = dict(h["data"]["result"])
                 if not v2:
-                    lit["bindings"] = {
-                        k: "%s:%s" % ("request" if v in req else "info", v)
-                        for k, v in lit["bindings"].items()
-                    }
+                    lit["bindings"] = {k: "%s:%s" % place(v) for k, v in lit["bindings"].items()}
                     if "facts" in lit:
                         lit["infos"] = lit.pop("facts")
                 out.append(lit)
