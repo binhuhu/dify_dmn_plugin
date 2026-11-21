@@ -1,4 +1,4 @@
-# JSON 决策工具 0.5.42（单人串行维护）
+# JSON 决策工具 0.5.43-rc1（单人串行维护）
 
 这是同一仓库的独立 JSON 安装包 `hu8627/dmn_json`。原有 `hu8627/dmn` 外部 XML 插件和其他已安装插件保留，不卸载、不替换。新建“内置 JSON 决策表 / evaluate_json_table”节点无需 Key、引擎地址或外部服务。现有外部工具仍通过原插件配置 Node 服务，未配置时返回 INVALID_CONFIGURATION。两个包的模型格式和语义不能互换。
 
@@ -36,7 +36,7 @@ AND 中 FALSE 优先于 UNKNOWN。FIRST 的已选规则之前存在 UNKNOWN 或 
 
 ## 构建与验收
 
-从仓库根目录运行 `python scripts/stage-builtin.py /tmp/dmn-json-0.5.42`，然后用已安装的官方 Dify CLI：`dify plugin package /tmp/dmn-json-0.5.42 -o hu8627-dmn_json-0.5.42.difypkg`。没有 CLI 时 staging 目录不是安装包，不用普通 zip 冒充 difypkg。不重试已拒绝的下载/API，不修改旧 Release。包未签名，遵循平台签名策略。
+从仓库根目录运行 `python scripts/stage-builtin.py /tmp/dmn-json-0.5.43-rc1`，然后用已安装的官方 Dify CLI：`dify plugin package /tmp/dmn-json-0.5.43-rc1 -o hu8627-dmn_json-0.5.43-rc1.difypkg`。没有 CLI 时 staging 目录不是安装包，不用普通 zip 冒充 difypkg。不重试已拒绝的下载/API，不修改旧 Release。包未签名，遵循平台签名策略。
 
 依赖沿用仓库固定 requirements.txt；首次安装仍需要平台正常解析 Python 依赖。免 Key/无外部决策服务指工具调用路径，不是离线安装保证。目标 UI 安装与真实调用仍需验收。
 
@@ -55,6 +55,8 @@ v2 表（`dmn-json.route-table/v2`）自带场景目录和方案登记，支持�
 0.5.28：写手登记留空（默认）或只写一个词 OPEN = 开放模式：不要签名，五张表重新直接存，能在 AgentHub 里运行维护应用的人都能写（写入五张表仍只认维护应用；带签名的请求和编辑端点不收；插件不记改动人）；缺失或仅注释也算 OPEN，误删全部写手会自动开放。宿主 Web App/API 若允许匿名调用，调用者同样可能修改五张表；登记里有写手 = 签名模式，同 0.5.24–0.5.27。方案层四张表名 `solution.search.fact` / `fact.feature` / `feature.reality` / `reality.strategy` + `.<场景号>`，声明可不写 role（表名即角色）；旧名 `disposal.strategy` / `disposal.status` 照收。见 [0.5.28 发布说明](https://github.com/binhuhu/dify_dmn_plugin/blob/v0.5.29/docs/releases/v0.5.28.md)。
 
 0.5.29：对成功保存、草稿、发布、撤销和草稿删除尝试记录旁路归属，失败不改变业务写入结果；宿主 user_id 与 via 均不独立认证，只有 writer_verified 表示 HMAC 已核验。历史身份字段仅向钉定维护应用返回；撤销/删除记录为独立操作，不改原版本作者。详见 [0.5.29 发布说明](https://github.com/binhuhu/dify_dmn_plugin/blob/v0.5.29/docs/releases/v0.5.29.md)。
+
+0.5.43-rc1（候选，未发布）：交付链六张表改五段最终名——`trigger.scene.topic`、`trigger.scene.entity`、`trigger.supplement.requirements`、`trigger.capability.catalog`、`accept.scene.acceptance`、`accept.issue.acceptance`（路由、资源去向两张不变）。照 0.5.20 的首存：窗口那天把现存名的头版原样存成最终名、版本号沿用、能 `op=undo`；首存之前按最终名读就读到现存名那张表（回执 `alias_of`），首存之后前面每个名（含 0.5.20 的旧名）都读到最终名的表（回执 `read_as`）且只读（`STORED_TABLE_ALIAS_READ_ONLY`，说该用的名）。按旧名的读按名按天计数，`op=alias_reads` 读回。不带最终名的调用回答与 0.5.42 逐字节相同（按 0.5.20 旧名的读多记一个计数键）。见仓库 docs/releases/v0.5.43.md。
 
 0.5.42（发版准备，未发布）：存表自动闸——开放模式下存表只加自动闸、不加人工闸（全链路评审 2-5）：① 随表用例（存表请求可带 `cases`，照读方原路跑、这一版改了用例的答案就拒，漂移与 2 版内回滚只报黄；`op=cases` / `cases_check` / `cases_save`）；② 7 张交付表新引入的场景号要在场景与话题表里、声明了 `fact:` 来源的受理事实要有供给方（能力表是新写法 infos 时只报黄）；③ 路由表改动过、存后能调用的方案读已发布开始变量核登记入参，只拒变坏。7 张交付表的存表回执多 `auto_gate` 与黄项。按号判的两种 v2 表（原值 → 事实、事实 → 特征）每个号可以写没中时的结论（`ids.<号>.default = {state, value, gap?}`，对应 DMN 的默认输出）：这个号一条规则都没成立、也没有判不了的时照它给，回执 `filled: DEFAULT`；没写的照旧未知。新写法 v2 的方案层表存表时核读的请求的号（条件里的 `request` 号与查询表 bindings 的 `request:<号>`）在不在合同 v5 的请求的号清单里（请求结构线生成的那份，39 个号加关联对象、关联要求两个模板；`身份.主体uid` 只给查询表），不在回 400 `STORED_TABLE_REQUEST_ID_UNKNOWN`（v1 与读表、求值不核）；缺口的 `gap.assoc_id` 写法同补充要求表的关联组。另：节点里试跑的表回执不带版次、不能当存表回执接进下游（`INLINE_RECEIPT_REFUSED`）；表文档 `schema` 写成列表或对象回 400（原 503）；`convert_dmn_xml` 导入线 4 MiB、导回的表按存表线 1 MiB 核，v1 UNIQUE 表拆行导成 ANY。其余调用形状的回答与 0.5.41 逐字节相同。见仓库 docs/releases/v0.5.42.md。
 

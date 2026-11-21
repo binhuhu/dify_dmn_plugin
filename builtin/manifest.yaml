@@ -1,4 +1,4 @@
-version: 0.5.42
+version: 0.5.43-rc1
 type: plugin
 author: hu8627
 name: dmn_json
