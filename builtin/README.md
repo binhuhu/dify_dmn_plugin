@@ -1,4 +1,4 @@
-# JSON 决策工具 0.5.41（单人串行维护）
+# JSON 决策工具 0.5.42（单人串行维护）
 
 这是同一仓库的独立 JSON 安装包 `hu8627/dmn_json`。原有 `hu8627/dmn` 外部 XML 插件和其他已安装插件保留，不卸载、不替换。新建“内置 JSON 决策表 / evaluate_json_table”节点无需 Key、引擎地址或外部服务。现有外部工具仍通过原插件配置 Node 服务，未配置时返回 INVALID_CONFIGURATION。两个包的模型格式和语义不能互换。
 
@@ -36,7 +36,7 @@ AND 中 FALSE 优先于 UNKNOWN。FIRST 的已选规则之前存在 UNKNOWN 或 
 
 ## 构建与验收
 
-从仓库根目录运行 `python scripts/stage-builtin.py /tmp/dmn-json-0.5.41`，然后用已安装的官方 Dify CLI：`dify plugin package /tmp/dmn-json-0.5.41 -o hu8627-dmn_json-0.5.41.difypkg`。没有 CLI 时 staging 目录不是安装包，不用普通 zip 冒充 difypkg。不重试已拒绝的下载/API，不修改旧 Release。包未签名，遵循平台签名策略。
+从仓库根目录运行 `python scripts/stage-builtin.py /tmp/dmn-json-0.5.42`，然后用已安装的官方 Dify CLI：`dify plugin package /tmp/dmn-json-0.5.42 -o hu8627-dmn_json-0.5.42.difypkg`。没有 CLI 时 staging 目录不是安装包，不用普通 zip 冒充 difypkg。不重试已拒绝的下载/API，不修改旧 Release。包未签名，遵循平台签名策略。
 
 依赖沿用仓库固定 requirements.txt；首次安装仍需要平台正常解析 Python 依赖。免 Key/无外部决策服务指工具调用路径，不是离线安装保证。目标 UI 安装与真实调用仍需验收。
 
@@ -56,7 +56,9 @@ v2 表（`dmn-json.route-table/v2`）自带场景目录和方案登记，支持�
 
 0.5.29：对成功保存、草稿、发布、撤销和草稿删除尝试记录旁路归属，失败不改变业务写入结果；宿主 user_id 与 via 均不独立认证，只有 writer_verified 表示 HMAC 已核验。历史身份字段仅向钉定维护应用返回；撤销/删除记录为独立操作，不改原版本作者。详见 [0.5.29 发布说明](https://github.com/binhuhu/dify_dmn_plugin/blob/v0.5.29/docs/releases/v0.5.29.md)。
 
-0.5.41（发版准备，未发布）：方案层新写法 v2（`dmn-json.decision-table/v2`）——查询拆成查询 → 原值 `search.info`、原值 → 事实 `info.fact` 两张表，一个方案五张表、每张一个决策；输入按位置固定（请求、算出的量、原值三组，事实、特征、现实三张上游表），条件按号取 `[parameters, 输入, key, 号, 部分]`，原值 → 事实与事实 → 特征按号判（一个号判不了只这个号未知）；存表两头核（读的号要在上游定义里、上游删号改类型要没人在读）。头版是旧写法 v1 的表名照收 v1、可单向改存 v2；**没有头版的方案层表名只收 v2**。所有表一套安全线，1 MiB 体积线是真正的边界（规则与结果模板 2048、一条规则的情形与一个 in 的取值 1024，只会让原来拒的表能存）。能力表新名下 facts / infos 两种行形都收，改存 infos 后单向。旧写法停收开关 `op=setting`（`solution.v1_writes`，默认照收），新写法词表 `op=v2_vocabulary`；`convert_dmn_xml` 导出 v2。v1 的存表检查、求值、摘要、回执与 0.5.40 相同，`op=vocabulary` 逐字节不变。见仓库 docs/releases/v0.5.41.md。
+0.5.42（发版准备，未发布）：存表自动闸——开放模式下存表只加自动闸、不加人工闸（全链路评审 2-5）：① 随表用例（存表请求可带 `cases`，照读方原路跑、这一版改了用例的答案就拒，漂移与 2 版内回滚只报黄；`op=cases` / `cases_check` / `cases_save`）；② 7 张交付表新引入的场景号要在场景与话题表里、声明了 `fact:` 来源的受理事实要有供给方（能力表是新写法 infos 时只报黄）；③ 路由表改动过、存后能调用的方案读已发布开始变量核登记入参，只拒变坏。7 张交付表的存表回执多 `auto_gate` 与黄项。按号判的两种 v2 表（原值 → 事实、事实 → 特征）每个号可以写没中时的结论（`ids.<号>.default = {state, value, gap?}`，对应 DMN 的默认输出）：这个号一条规则都没成立、也没有判不了的时照它给，回执 `filled: DEFAULT`；没写的照旧未知。新写法 v2 的方案层表存表时核读的请求的号（条件里的 `request` 号与查询表 bindings 的 `request:<号>`）在不在合同 v5 的请求的号清单里（请求结构线生成的那份，39 个号加关联对象、关联要求两个模板；`身份.主体uid` 只给查询表），不在回 400 `STORED_TABLE_REQUEST_ID_UNKNOWN`（v1 与读表、求值不核）；缺口的 `gap.assoc_id` 写法同补充要求表的关联组。另：节点里试跑的表回执不带版次、不能当存表回执接进下游（`INLINE_RECEIPT_REFUSED`）；表文档 `schema` 写成列表或对象回 400（原 503）；`convert_dmn_xml` 导入线 4 MiB、导回的表按存表线 1 MiB 核，v1 UNIQUE 表拆行导成 ANY。其余调用形状的回答与 0.5.41 逐字节相同。见仓库 docs/releases/v0.5.42.md。
+
+0.5.41（GitHub 预发布）：方案层新写法 v2（`dmn-json.decision-table/v2`）——查询拆成查询 → 原值 `search.info`、原值 → 事实 `info.fact` 两张表，一个方案五张表、每张一个决策；输入按位置固定（请求、算出的量、原值三组，事实、特征、现实三张上游表），条件按号取 `[parameters, 输入, key, 号, 部分]`，原值 → 事实与事实 → 特征按号判（一个号判不了只这个号未知）；存表两头核（读的号要在上游定义里、上游删号改类型要没人在读）。头版是旧写法 v1 的表名照收 v1、可单向改存 v2；**没有头版的方案层表名只收 v2**。所有表一套安全线，1 MiB 体积线是真正的边界（规则与结果模板 2048、一条规则的情形与一个 in 的取值 1024，只会让原来拒的表能存）。能力表新名下 facts / infos 两种行形都收，改存 infos 后单向。旧写法停收开关 `op=setting`（`solution.v1_writes`，默认照收），新写法词表 `op=v2_vocabulary`；`convert_dmn_xml` 导出 v2。v1 的存表检查、求值、摘要、回执与 0.5.40 相同，`op=vocabulary` 逐字节不变。见仓库 docs/releases/v0.5.41.md。
 
 0.5.40（GitHub 预发布）：存表分两类——场景与话题表 `target.scene.topic` 是场景目录与场景定义的正本，只收受控入口签名的写入（81 存表入口 `ops-store-entry` 的 RSA 公钥随发布带，在 `plugin/dmn_client/controlled_tables.json`），开放模式直存、整包发布与回滚、删历史版次一律回 403 `STORED_TABLE_CONTROLLED_ENTRY_REQUIRED`；其余存表都是策略配置，照常直接配。能力表改四段表名 `support.target.capability.catalog`（旧名只读），种类、业务模式与适用角色 `roles` 在表里配，插件只核写法。新读法 `op=scene_catalog`（场景轻目录）、`op=capability_vocabulary`。别的线：新工具 `convert_dmn_xml`（标准 DMN XML 互转），`evaluate_json_table` 收内嵌存表结构。0.5.39 跳过。见仓库 docs/releases/v0.5.40.md。
 
