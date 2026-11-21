@@ -3,6 +3,7 @@
 
 用法：mutate-save-gate.py [--plugin <插件目录>] [--python <解释器>] [--only 1,2] [--out <结果.json>]
 在插件目录的一份临时拷贝里改，不碰原目录。
+用例要读 git 外的真实表夹具（plugin/tests/real_fixtures.py）：设 DMN_REAL_FIXTURES 或放在默认目录；缺了就停，不当活下来算。
 """
 
 import argparse
@@ -623,7 +624,13 @@ def run(plugin, python, only, out_path):
         tree,
         ignore=shutil.ignore_patterns(".venv", "__pycache__", ".pytest_cache"),
     )
-    env = dict(os.environ, PYTHONDONTWRITEBYTECODE="1", PYTHONHASHSEED="0")
+    # 真实表夹具在 git 外（plugin/tests/real_fixtures.py）：缺了不许静默跳过，未变异的那一遍就红
+    env = dict(
+        os.environ,
+        PYTHONDONTWRITEBYTECODE="1",
+        PYTHONHASHSEED="0",
+        DMN_REQUIRE_REAL_FIXTURES="1",
+    )
     rows = []
     try:
         base = subprocess.run(
