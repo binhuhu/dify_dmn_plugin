@@ -2,7 +2,7 @@
 
 import json
 
-from dmn_client import declarations, save_gate, scene_id
+from dmn_client import alias_reads, declarations, save_gate, scene_id
 from dmn_client.client import EngineError, json_object, strict_json_loads
 from dmn_client.route_table import (
     ROUTE_SCHEMAS,
@@ -105,6 +105,7 @@ def run_op(
         # history a version pin on the name refers to (a standard name: one chain; an old name: its own, frozen)
         if op == "table":
             doc = tables.load(table)
+            alias_reads.note(tables, table, doc.get("table") if doc else None)  # 0.5.43
             return 200, {
                 "table": table,
                 "version": doc["version"] if doc else 0,
@@ -123,6 +124,8 @@ def run_op(
             if not raw.isdigit() or int(raw) < 1:
                 return error(400, "ROUTE_TABLE_INVALID", "版本号必须是正整数", "v")
             doc = tables.version(table, int(raw))
+            if doc:
+                alias_reads.note(tables, table, doc.get("table"))  # 0.5.43
             return (
                 (200, {"table": table, "doc": doc, **read_names(table, doc.get("table"))})
                 if doc

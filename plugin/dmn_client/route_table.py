@@ -24,7 +24,9 @@ from dmn_client.table_names import (
     delivery_name,
     full_spelled,
     old_name,
+    pair_name,
     read_as,
+    renamed,
     storage_name,
 )
 
@@ -333,7 +335,12 @@ def validate_doc(doc, resources=None, *, validate_declaration=True):
 
 
 def _route_table_name(doc):
-    from dmn_client.stored_tables import handle_prefixed, reserved_name, task_prefixed  # noqa
+    from dmn_client.stored_tables import (
+        FINAL_PREFIXES,
+        handle_prefixed,
+        reserved_name,
+        task_prefixed,
+    )  # noqa
 
     table = delivery_name(doc.get("table"))  # 2026-11-16: named in full, it is the table it spells
     _need(
@@ -350,6 +357,12 @@ def _route_table_name(doc):
         "handle. 开头的名字留给交付处理流程的决策表（handle.<对象>.<判断>），路由表不能用"
         if handle_prefixed(table)
         else "<任务类型>.<流程>. 开头的名字留给各任务类型的表，路由表不能用",
+        "table",
+    )
+    _need(
+        not table.startswith(FINAL_PREFIXES),
+        "STORED_TABLE_NAME",
+        "trigger.* / accept.* 是交付链表最终名的流程（触发、受理；0.5.43），路由表不能用",
         "table",
     )
     _need(
@@ -1908,7 +1921,7 @@ class StorageTables:
         """I22: the old name's version keys above its head (left by a save that died before its head), probed up to
         MAX_HISTORY above it, as standard_keys (plugin storage cannot list keys)."""
         table = delivery_name(table)
-        old = old_name(storage_name(table))
+        old = old_name(pair_name(table))  # 0.5.43: a final name's own name before
         head = self._read(self.key(old))
         h = head["version"] if isinstance(head, dict) and type(head.get("version")) is int else 0
         keys = [self.key(old, k) for k in range(h + 1, h + MAX_HISTORY + 1)]
@@ -1935,7 +1948,14 @@ class StorageTables:
         - 2026-11-18: the capability table's old name, platform.capability.catalog (a read-only alias): unpinned, the
           new name's table once that holds one; pinned or a version pin, and before, its own (what 0.5.38 stored there).
           A table of another format under the old name (0.5.38 let a route table take any free name) stays its own.
-        - Any other name: itself."""
+        - Any other name: itself.
+        0.5.43 (a chain of names): an old name that is read from its next name's storage reads where that name reads
+        (target.scene_entity → target.scene.entity → trigger.scene.entity once the last is stored); a standard name before
+        its first store reads where its old name reads; so does a version below its first stored one."""
+        return self._where(table, version, pinned)
+
+    def _where(self, table, version=None, pinned=False, known=None):
+        """where(); known: the state (st, rec) of table as a standard name, when the caller has just read it."""
         table = delivery_name(table)
         if table == CAPABILITY_OLD_NAME:
             from dmn_client.capability_catalog import SCHEMA as CAPABILITY_SCHEMA  # noqa
@@ -1947,22 +1967,33 @@ class StorageTables:
                 isinstance(own, dict) and own.get("schema") == CAPABILITY_SCHEMA
             ):
                 return table
-            return CAPABILITY_TABLE if self._read(self.key(CAPABILITY_TABLE)) is not None else table
+            # 0.5.43: the new name's table, wherever that name reads now
+            return (
+                self._where(CAPABILITY_TABLE)
+                if self._read(self.key(CAPABILITY_TABLE)) is not None
+                else table
+            )
         std = alias_of(table)
-        if std is not None:
-            if pinned or version is not None:
-                return table
-            st, rec = self.state(std)
-            return std if self._standard_reads(std, st, rec) else table
         old = old_name(table)
+        if std is not None:
+            if not (pinned or version is not None):
+                st, rec = self.state(std)
+                if self._standard_reads(std, st, rec):
+                    return self._where(std, known=(st, rec))
+            if old is None:
+                return table
         if old is None:
             return table
-        st, rec = self.state(table)
+        st, rec = known if known is not None else self.state(table)
         if self._standard_reads(table, st, rec):
-            return old if version is not None and version < rec["old_head_version"] else table
+            return (
+                self._where(old, version, pinned)
+                if version is not None and version < rec["old_head_version"]
+                else table
+            )
         if rec is None:
             self._alias_collision_check(table, version)
-        return old
+        return self._where(old, version, pinned)
 
     def _alias_collision_check(self, table, version=None):
         # 0.5.13: with no first record, a table of its own under a standard name is not one this plugin wrote
@@ -1996,7 +2027,8 @@ class StorageTables:
         table = delivery_name(table)
         _need(type(n) is int and n >= 1, "ROUTE_TABLE_INVALID", "版本号必须是正整数", "version")
         self.key(table, n)
-        if storage_name(table) not in STANDARD:
+        # 0.5.43: a final name of a table outside the five reads as a standard name (below), its first name as before
+        if storage_name(table) not in STANDARD and old_name(table) is None:
             # 0.5.35: a table outside the five, as R2 below for a standard name: its history ends at its head (a version
             # key above it is half-written, never read), and the head is its own version when that key is gone (a
             # clean-up that read a stale head took it for a half-written one). head: the head, when the caller has it
@@ -2010,9 +2042,15 @@ class StorageTables:
                 doc = self._read(self.key(table, n))
                 return head if doc is None and n == head["version"] else doc
         name = self.where(table, version=n)
-        if name == table and old_name(table) is not None:
-            # R2: the standard name's own history ends at its head; a version key above it is an orphan, never read
-            head = self._read(self.key(table))
+        if name != table and storage_name(name) not in STANDARD and old_name(name) is None:
+            return self.version(
+                name, n
+            )  # 0.5.43: the version of the name before, outside the five, as that one reads it
+        if old_name(name) is not None and (name == table or renamed(table)):
+            # R2: the standard name's own history ends at its head; a version key above it is an orphan, never read.
+            # 0.5.43 (rc1 review R7): a final name read before its first store reads the name before it as that name
+            # reads itself, orphans included (an old name's reads stay as 0.5.42 answers them)
+            head = self._read(self.key(name))
             if isinstance(head, dict) and type(head.get("version")) is int and n > head["version"]:
                 return None
         doc = self._read(self.key(name, n))
@@ -2030,13 +2068,21 @@ class StorageTables:
         table = delivery_name(table)
         if table == CAPABILITY_OLD_NAME:
             return self.find_content(CAPABILITY_TABLE, sha) or self._find_own(table, sha)
-        std = alias_of(table) or (table if old_name(table) is not None else None)
-        if std is not None:
-            st, rec = self.state(std)
-            if self._standard_reads(std, st, rec):
-                n = rec["old_head_version"]
-                windows = [(std, self._read(self.key(std)), max(n - 1, 0))]
-                windows.append((old_name(std), self._read(self.key(old_name(std))), 0))
+        # 0.5.43: along a chain, from the name that is read from its own storage now back to the chain's first name
+        live = self.where(table) if (alias_of(table) or old_name(table)) is not None else table
+        if old_name(live) is not None:
+            st, rec = self.state(live)
+            if self._standard_reads(live, st, rec):
+                windows = []
+                name = live
+                while old_name(name) is not None:
+                    st, rec = (st, rec) if name == live else self.state(name)
+                    if not self._standard_reads(name, st, rec):
+                        break
+                    n = rec["old_head_version"]
+                    windows.append((name, self._read(self.key(name)), max(n - 1, 0)))
+                    name = old_name(name)
+                windows.append((name, self._read(self.key(name)), 0))
                 for name, head, floor in windows:
                     if head is None or type(head.get("version")) is not int:
                         continue
@@ -2328,12 +2374,14 @@ class StorageTables:
         # table writes facts (0.5.40's row form, fact_id) or infos (raw values, info_id), one of the two in every row. Once
         # the head is in infos it takes only infos (one way: a query -> info table of the new writing pins only an infos
         # version); with no head, or a head in facts, both are taken
-        head = self.load(CC.TABLE)
+        # 0.5.43: the head of the table this save is for (the capability table under any of its names reads one head;
+        # the trial copy, its own)
+        head = self.load(clean["table"])
         _need(
             head is None or CC.info_key(head) != CC.INFOS or CC.info_key(clean) == CC.INFOS,
             "CAPABILITY_TABLE_INVALID",
             "能力表 %s 已改存成 infos 写法（第 %s 版起）：改存是单向的，不再收 facts 写法；能力给出的原值写 infos，每项写 info_id"
-            % (CC.TABLE, head.get("version") if isinstance(head, dict) else "?"),
+            % (clean["table"], head.get("version") if isinstance(head, dict) else "?"),
             "capabilities[0].facts",
         )
         scene = self.load(SCENE_ENTITY_TABLE)
@@ -2391,20 +2439,30 @@ class StorageTables:
             )  # the stored name, whoever called
         name = raw.get("table")
         std = alias_of(name)
+        renaming = ()
         if std is not None:
             st, rec = self.state(
                 std
             )  # I13 / I14: asked of storage now; a failure raises, never "OLD"
             _need(
-                st == OLD, "STORED_TABLE_ALIAS_READ_ONLY", _read_only(name, std, st, rec), "table"
+                st == OLD,
+                "STORED_TABLE_ALIAS_READ_ONLY",
+                _read_only(name, std, st, rec, self.where(name) if st == NEW else std),
+                "table",
             )
-            guard = (std, _mark(rec), "old")
-            return self._save(
-                doc, expected_version, new_id, gate_report, gate, schema_transition, guard
-            )
+            if old_name(name) is None and not renamed(std):
+                guard = (std, _mark(rec), "old")
+                return self._save(
+                    doc, expected_version, new_id, gate_report, gate, schema_transition, guard
+                )
+            # 0.5.43: the name is saved as before (a standard name of the five, or a name of its own), and its final
+            # name's first record is checked before its head and after it, as an old name's is (I19, I20)
+            renaming = ((std, _mark(rec), "old"),)
         if old_name(name) is not None:
             st, rec = self.state(name)
             if st in (OLD, COPYING):
+                if renamed(name):
+                    self._before_rename(name)
                 return self._first_store(
                     doc, expected_version, rec, new_id, gate_report, gate, schema_transition
                 )
@@ -2419,10 +2477,61 @@ class StorageTables:
                 return replay
             guard = (name, _mark(rec), "standard")
             return self._save(
-                doc, expected_version, new_id, gate_report, gate, schema_transition, guard
+                doc,
+                expected_version,
+                new_id,
+                gate_report,
+                gate,
+                schema_transition,
+                guard,
+                renaming=renaming,
             )
         return self._save(
-            doc, expected_version, new_id, gate_report, gate, schema_transition, take_back=take_back
+            doc,
+            expected_version,
+            new_id,
+            gate_report,
+            gate,
+            schema_transition,
+            take_back=take_back,
+            renaming=renaming,
+        )
+
+    def _before_rename(self, table):
+        """0.5.43: a final name's first store copies the head of the name before it from that name's own storage, so that
+        name must read its own storage: it has no name before it, or its own first store is done (NEW)."""
+        old = old_name(table)
+        if old_name(old) is None:
+            return
+        st, _ = self.state(old)
+        _need(
+            st == NEW,
+            "STORED_TABLE_IN_PROGRESS",
+            "%s 还不能首存：它前一个名 %s 的首存没做完（%s）。先做完 %s 的首存，再首存 %s"
+            % (table, old, st, old, table),
+            "table",
+        )
+
+    def _before_rename_still(self, table, mine, record):
+        """0.5.43 (rc1 review R1): the name before is read again after this first store's COPYING is written. An undo of
+        that name's own first store writes its UNDOING and then reads this name's record (_undo_later_still): whichever
+        writes second sees the other, so the two never both take effect. Not NEW any more: back to OLD, nothing else
+        written."""
+        old = old_name(table)
+        if not renamed(table) or old_name(old) is None:
+            return
+        try:
+            st, _ = self.state(old)
+        except RouteTableError:
+            st = None
+        if st == NEW:
+            return
+        self._put_record(table, mine, dict(record, state=OLD), mine[2])
+        raise RouteTableError(
+            "STORED_TABLE_IN_PROGRESS",
+            "%s 的首存没有生效（一个版本键都没写）：首存期间它前一个名 %s 的首存状态变了（%s）。读最新状态后再定"
+            % (table, old, st or "读不出"),
+            "table",
         )
 
     def _references(self, raw):
@@ -2506,9 +2615,11 @@ class StorageTables:
         schema_transition,
         guard=None,
         take_back=True,
+        renaming=(),
     ):
         """An ordinary save (0.5.19's), with the first-record checks before its head and after it for the five
-        (guard)."""
+        (guard). renaming (0.5.43): the first records of the final names after this one, checked at the same two points
+        as an old name's guard; they change nothing else of the save."""
         from dmn_client import decision_v2, stored_tables  # noqa
 
         self._references(doc if isinstance(doc, dict) else {})
@@ -2576,6 +2687,8 @@ class StorageTables:
             # storage calls exactly, and a save it stops has written nothing. A state change after it is caught after
             # the head (I20; a copy also by its own old-head checks, I11)
             self._before_head(guard, table, n)
+        for g in renaming:
+            self._before_head(g, table, n)
         # T1: 0.5.19's guard under every name: a version key that exists is another save's (or a crash's orphan)
         taken = self.storage.exist(self.key(table, n))
         if taken and guard is None and take_back:
@@ -2686,6 +2799,8 @@ class StorageTables:
                 )
             if guard is not None:
                 self._after_head(guard, table, n)
+            for g in renaming:
+                self._after_head(g, table, n)
         except RouteTableError:
             if guard is not None and guard[2] == "standard":
                 self._withdraw(guard[0], table, n, clean["save_id"])
@@ -2877,7 +2992,9 @@ class StorageTables:
         if with_gate:
             keys.append(self.gate_key(table, save_id))
         if with_cases:  # 2026-11-20: the suite this save brought, written before its table
-            keys.append("route-table:" + delivery_name(table) + ":cp:" + save_id)
+            from dmn_client import save_gate  # noqa
+
+            keys.append(save_gate.pending_key(table, save_id))  # 0.5.43: where the save wrote it
         try:
             for key in keys:
                 if self.storage.exist(key):
@@ -3036,6 +3153,7 @@ class StorageTables:
         )
         record["state"] = COPYING
         mine = mark if retry else self._put_record(table, mark, record, x)  # COPYING first (I21)
+        self._before_rename_still(table, mine, record)
         self._overtaken(table, mine, record, stored["version"], new_id)
         if report is not None:
             self.storage.set(self.gate_key(table, x), canon(report).encode("utf-8"))
@@ -3208,9 +3326,12 @@ class StorageTables:
         its other keys, an old-name version key above the head (an orphan) and the index entry it added; last the record
         as OLD (kept: its epoch keeps growing, I18). The same request again at any point finishes it."""
         table = delivery_name(table)
-        std = storage_name(table)
+        std = pair_name(
+            table
+        )  # 0.5.43: a final name's own first store; an old name's, its standard name's
         old = old_name(std)
         _need(old is not None, "ROUTE_TABLE_INVALID", "只有五张策略表有首存可撤销", "table")
+        self._no_later_store(std)
         try:
             mark, rec = self._record(std)
         except RouteTableError as exc:
@@ -3258,6 +3379,7 @@ class StorageTables:
                 undo_head_save_id=(head or {}).get("save_id") if m is not None else None,
             )
             mine = self._put_record(std, mark, undoing, new_id())
+            self._undo_later_still(std, mine, rec)
             now = self._read(self.key(std))
             finished = (now or {}).get("save_id") == rec.get("save_id")
             if m is None and head is None and rec["state"] == COPYING and finished:
@@ -3401,11 +3523,47 @@ class StorageTables:
         }
         return (RAW, 0, hashlib.sha256(raw).hexdigest()), rec
 
+    def _undo_later_still(self, std, mine, rec):
+        """0.5.43 (rc1 review R1): the name after is read again after this undo's UNDOING is written (the other half of
+        _before_rename_still). A first store after it began meanwhile: the record goes back as it was, nothing else
+        written."""
+        later = alias_of(std)
+        if later is None:
+            return
+        try:
+            st, _ = self.state(later)
+        except RouteTableError:
+            st = None
+        if st == OLD:
+            return
+        self._put_record(std, mine, dict(rec), mine[2])
+        raise RouteTableError(
+            "STORED_TABLE_IN_PROGRESS",
+            "撤销 %s 的首存没有生效：撤销期间 %s 的首存开始了（%s）。先撤销 %s 的首存，再撤销 %s 的"
+            % (std, later, st or "读不出", later, std),
+            "table",
+        )
+
+    def _no_later_store(self, std):
+        """0.5.43: a first store is undone only while no first store after it along the chain has begun (the final name's
+        record is absent or OLD): the later one is undone first."""
+        later = alias_of(std)
+        if later is None:
+            return
+        st, _ = self.state(later)
+        _need(
+            st == OLD,
+            "STORED_TABLE_IN_PROGRESS",
+            "%s 的首存后面还有 %s 的首存（%s）：先撤销 %s 的首存，再撤销 %s 的"
+            % (std, later, st, later, std),
+            "table",
+        )
+
     def standard_keys(self, table):
         """R3: the physical keys under a standard name that 0.5.19's collision check would see (its head and version
         keys; the first record, save records and gate reports it never reads). [] after a clean undo."""
         table = delivery_name(table)
-        std = storage_name(table)
+        std = pair_name(table)
         old = old_name(std)
         _need(old is not None, "ROUTE_TABLE_INVALID", "只有五张策略表有标准名", "table")
         o_head = self._read(self.key(old))
@@ -3660,7 +3818,8 @@ def _aborted(old, n, now):
     )
 
 
-def _read_only(name, std, st, rec):
+def _read_only(name, std, st, rec, writable=None):
+    """writable (0.5.43): the name the table is saved under now (the last of its chain read from its own storage)."""
     if st == COPYING:
         return "旧表名 %s 只读：标准名 %s 正在首存（第 %d 版），首存完成后用标准名存表" % (
             name,
@@ -3669,4 +3828,4 @@ def _read_only(name, std, st, rec):
         )
     if st == UNDOING:
         return "旧表名 %s 暂不收存表：标准名 %s 正在撤销首存" % (name, std)
-    return "旧表名 %s 只读（过渡期别名），存表请用标准名 %s" % (name, std)
+    return "旧表名 %s 只读（过渡期别名），存表请用标准名 %s" % (name, writable or std)

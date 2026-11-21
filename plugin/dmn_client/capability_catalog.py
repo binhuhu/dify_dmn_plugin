@@ -44,13 +44,28 @@ import re
 import unicodedata
 
 from dmn_client.route_table import RouteTableError, digest
-from dmn_client.table_names import CAPABILITY_OLD_NAME, CAPABILITY_TABLE
+from dmn_client.table_names import CAPABILITY_OLD_NAME, CAPABILITY_TABLE, storage_name
 
 SCHEMA = "dmn-json.capability-catalog/v1"
 FORMAT = "capability-catalog/v1"
 TABLE = CAPABILITY_TABLE  # support.target.capability.catalog in full (Brian 11-18 00:49)
 OLD_TABLE = CAPABILITY_OLD_NAME  # read-only alias
 TABLES = (TABLE, OLD_TABLE)  # the names a capability-catalog document or pin may carry
+# 0.5.43-rc1 (协调定 309): the trial chain's copy of the capability table before the window. Written and checked as the
+# capability table is (the new row form, infos one way by its own head, the scene-entity table's kinds); outside the
+# store auto gate (the capability table is not one of the seven); a query → info table of the new writing may pin it. Its
+# own storage and versions: not an alias of the capability table, and nothing reads it unless named
+TRIAL_TABLE = "trial.trigger.capability.catalog"
+
+
+def named(table):
+    """Whether a name may hold a capability table: one of TABLES (or the final name trigger.capability.catalog, the same
+    table), or the trial copy. A full spelling (support.…) counts as the name it spells here (storage_name takes it off);
+    a document's table and a pin are refused it by their own name rules before this is asked. The trial copy has no full
+    spelling."""
+    return isinstance(table, str) and (storage_name(table) in TABLES or table == TRIAL_TABLE)
+
+
 NAME_RULE = "能力表的表名只能是 %s（全名 support.%s；旧名 %s 只读：照读，不再新存）" % (
     TABLE,
     TABLE,

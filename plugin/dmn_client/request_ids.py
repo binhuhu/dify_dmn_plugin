@@ -8,7 +8,9 @@ schema/vectors/v5/request_keys.py; the list is in v5's frozen set, so the copy c
 SOURCE and LOCK_SHA256 — a test pins them). An id is on the list when:
 - it is one of the list's 号 (a contract field path joined by「.」), and the table's kind may read it (「只给表种」: e.g.
   身份.主体uid only for search.info, to bind a capability's input; 「只给」names those kinds);
-- or it fills in one of the 模板 (关联对象.<关联组>.<关系>.<键>, 关联要求.<关联组>.<键>): <关联组> and <关系> are checked for
+- or it fills in one of the 模板 (0.5.43, the list of 合同 v5's second re-pin candidate, §21「补充」: 补充.组.<关联组>.<键>,
+  补充.组.<关联组>.对象.<关系>.<键>; 0.5.42's list had 关联对象.<关联组>.<关系>.<键>, 关联要求.<关联组>.<键> and the five
+  受理回执.补充.* ids, which the old writing now projects onto 补充.*): <关联组> and <关系> are checked for
   their writing only (the template's 关联组写法 / 关系写法), <键> must be one of the template's 键, and the id is at most
   MAX_LENGTH characters (the list's 号的长度, decision_v2.ID_MAX).
 Types and values the list gives are not checked in 0.5.42 (协调 11-21: with the slots of reply texts, in 0.5.43).
@@ -21,12 +23,13 @@ from pathlib import Path
 
 LIST_FILE = Path(__file__).with_name("request_keys_v5.json")
 LIST_NAME = "场景方案调用.v5.request_keys.json"
-LIST_SHA256 = "b5b107939ce217eedcd9370d66435678f0abfb0dde819ba2905bada5858b0392"
+LIST_SHA256 = "2eef92b505f94dcb0925893766cfdb83244a70ae2a5dc9952dcebe83ca35775c"
 SOURCE = (
-    "服务方案仓 00_governance/contracts/chain-io/schema/场景方案调用.v5.request_keys.json @ 76abe165f"
-    "（分支 claude/solution-request-standard-20261120，头 1549f781b；合同 v5 重钉候选，正本由 Brian 提交）"
+    "服务方案仓 00_governance/contracts/chain-io/schema/场景方案调用.v5.request_keys.json @ 2bc0c90f2"
+    "（分支 claude/solution-request-standard-20261120，清单最后改在 33eb06de6；合同 v5 二次重钉候选，含 §21「补充」，"
+    "正本由 Brian 提交）"
 )
-LOCK_SHA256 = "4d3dc6897f9ad16186755edc24e59a8fabcfdda7639bcc7ec8c5fe0bf828c6f5"  # schema/vectors/v5/freeze.lock.json 的 lock_sha256
+LOCK_SHA256 = "78793ce2fc28da5409376d02050d821cfe1d2020028645cbc5cb5cc0682f0cfa"  # schema/vectors/v5/freeze.lock.json 的 lock_sha256
 CONTRACT = "场景方案调用/v5"
 GROUP, RELATION, KEY = "<关联组>", "<关系>", "<键>"
 MAX_LENGTH = 128

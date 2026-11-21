@@ -48,7 +48,7 @@ from dmn_client.route_table import (
     canon,
     digest,
 )
-from dmn_client.table_names import storage_name
+from dmn_client.table_names import full_spelled, storage_name
 
 SCHEMA = stored_tables.SCHEMA_DECISION_V2
 FORMAT = stored_tables.FORMAT_DECISION_V2
@@ -929,7 +929,13 @@ def _check_declaration(declare, clean):
         _declare(
             type(pin) is dict
             and set(pin) == {"table", "content_sha256"}
-            and pin["table"] == capability_catalog.TABLE
+            # 0.5.43: or the final name trigger.capability.catalog (one table), or (rc1, 协调定 309) the trial copy
+            and type(pin["table"]) is str
+            and not full_spelled(pin["table"])
+            and (
+                storage_name(pin["table"]) == capability_catalog.TABLE
+                or pin["table"] == capability_catalog.TRIAL_TABLE
+            )
             and type(pin["content_sha256"]) is str
             and declarations.HEX64.match(pin["content_sha256"]) is not None,
             "capability_table = {table: %s, content_sha256: 那一版能力表的内容摘要}：原值号对着能力表的 infos 核，"
@@ -1504,7 +1510,7 @@ def check_request_ids(clean):
         not unknown,
         REQUEST_ID_UNKNOWN,
         "表 %s 读的请求的号 %s 不在合同「%s」的请求的号清单里%s（%s，sha256 %s…，%d 个号、%d 个模板）：照清单起号"
-        "（号 = 合同字段路径用「.」连，例 对象.id、身份.锚点.进线ms；关联对象写 关联对象.<关联组>.<关系>.<键>）；"
+        "（号 = 合同字段路径用「.」连，例 对象.id、身份.锚点.进线ms；补充的组写 补充.组.<关联组>.<键>、补充.组.<关联组>.对象.<关系>.<键>）；"
         "清单没有的走合同改版，或在表外算成 calc:"
         % (
             clean["table"],

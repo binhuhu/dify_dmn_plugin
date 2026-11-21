@@ -27,6 +27,7 @@ UNKNOWN (AND: FALSE wins). Save requires that guard, so a round never blocks on 
 from dmn_client import capability_catalog
 from dmn_client.declarations import HEX64, _need, _need_model
 from dmn_client.route_table import RouteTableError
+from dmn_client.table_names import full_spelled, storage_name
 
 RESULT_KEYS = ("actions", "capability_id", "bindings", "facts")
 GUARD = "KNOWN"
@@ -98,7 +99,12 @@ def declaration(out, declare, model):
     _need(
         type(pin) is dict
         and set(pin) == {"table", "content_sha256"}
-        and pin["table"] in capability_catalog.TABLES
+        and type(pin["table"]) is str
+        and not full_spelled(
+            pin["table"]
+        )  # a reference names the stored name, never the full spelling
+        and storage_name(pin["table"])
+        in capability_catalog.TABLES  # 0.5.43: or trigger.capability.catalog
         and type(pin["content_sha256"]) is str
         and HEX64.match(pin["content_sha256"]) is not None,
         "capability_table = {table: %s（旧名 %s 照收）, content_sha256: 那一版能力表的内容摘要}"

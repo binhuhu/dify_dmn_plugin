@@ -23,7 +23,7 @@ key of the answer is 提议，待项目维护者确认.
 
 import re
 
-from dmn_client import scene_id
+from dmn_client import alias_reads, scene_id
 from dmn_client.route_table import RouteTableError, StorageTables, digest
 from dmn_client.stored_tables import (
     FORMAT_SCENE_TOPIC,
@@ -33,6 +33,7 @@ from dmn_client.stored_tables import (
     content_sha256,
     validate,
 )
+from dmn_client.table_names import read_names, storage_name
 
 OP = "catalog"
 SCHEMA = "dmn-json.catalog/v1"  # 提议，待项目维护者确认
@@ -182,7 +183,7 @@ def scenes_read(storage, table, version, body):
     )
     name = table or TABLE_SCENE_TOPIC
     _need(
-        name in SCENE_TOPIC_TABLES,
+        storage_name(name) in SCENE_TOPIC_TABLES,  # 0.5.43: or the final name trigger.scene.topic
         "CATALOG_REQUEST_INVALID",
         "场景轻目录只读场景与话题表：表参数不写，或写 " + " / ".join(SCENE_TOPIC_TABLES),
         "table",
@@ -219,7 +220,9 @@ def scenes_read(storage, table, version, body):
     _need(
         type(doc) is dict
         and doc.get("schema") == SCHEMA_SCENE_TOPIC
-        and doc.get("table") == name
+        # 0.5.43: the table under a name before or after this one along its chain is this table
+        and type(doc.get("table")) is str
+        and storage_name(doc["table"]) == storage_name(name)
         and type(doc.get("version")) is int
         and doc["version"] >= 1
         and (asked == "" or doc["version"] == int(asked))
@@ -244,9 +247,11 @@ def scenes_read(storage, table, version, body):
         "content_sha256",
     )
     scenes = [_scene_row(r) for r in clean["rows"]]
+    alias_reads.note(tables, name, doc["table"])  # 0.5.43
     return 200, {
         "schema": SCENE_SCHEMA,
         "table": name,
+        **read_names(name, doc["table"]),  # 0.5.43: as op=table says it
         "format": FORMAT_SCENE_TOPIC,
         "version": doc["version"],
         "content_sha256": doc["content_sha256"],

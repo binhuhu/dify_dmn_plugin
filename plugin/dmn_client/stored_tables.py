@@ -168,6 +168,12 @@ TABLE_SUPPLEMENT_PREFIX = "supplement."
 TABLE_RESOURCE_SUFFIX = ".resource"
 TABLE_TARGET_PREFIX = "target."
 TABLE_TRIAGE_PREFIX = "triage."
+# 0.5.43 (DMN 2.0 §一「流程五段」, Brian 11-21 10:10): the final names' workflows — trigger (触发, locate's) and accept
+# (受理, triage's). 0.5.43-rc1 takes only the six final names under them (table_names.RENAMED, each following its table's
+# rules); no other table settles there, and a route table may not take them
+TABLE_TRIGGER_PREFIX = "trigger."
+TABLE_ACCEPT_PREFIX = "accept."
+FINAL_PREFIXES = (TABLE_TRIGGER_PREFIX, TABLE_ACCEPT_PREFIX)
 TABLE_SOLUTION_PREFIX = "solution."
 # 2026-11-16 (Brian「补进去」): delivery's handle workflow, the fourth of the four every task type has. Its tables are
 # handle.<object>.<judgment> (support.handle.<object>.<judgment> with the task type left out, as target. and triage. are)
@@ -311,6 +317,7 @@ def reserved_name(table):
         or table.endswith(TABLE_RESOURCE_SUFFIX)
         or table.startswith(tuple(POLICY_OWNERS))
         or table.startswith(TABLE_SOLUTION_PREFIX)
+        or table.startswith(FINAL_PREFIXES)  # 0.5.43
     )
 
 
@@ -1353,7 +1360,9 @@ def _scene_topic_row(row, p, intents, topics, prev_scene):
 def _validate_scene_topic(doc):
     table = _table(
         doc,
-        lambda t: t in SCENE_TOPIC_TABLES,
+        lambda t: (
+            storage_name(t) in SCENE_TOPIC_TABLES
+        ),  # 0.5.43: or its final name trigger.scene.topic
         "场景与话题表的表名只能是 " + " 或试验用的 ".join(SCENE_TOPIC_TABLES),
     )
     intent_types = _intent_types(doc.get("intent_types"))
@@ -1497,7 +1506,9 @@ def validate(doc, *, validate_declaration=True):
         clean = capability_catalog.validate(
             doc,
             lambda d: _table(
-                d, lambda t: t in capability_catalog.TABLES, capability_catalog.NAME_RULE
+                d,
+                capability_catalog.named,  # 0.5.43: or trigger.capability.catalog, or the trial copy
+                capability_catalog.NAME_RULE,
             ),
             _note,
         )
@@ -2320,7 +2331,7 @@ def evaluate_stored(
             return out
         _need(table_name(table), "ROUTE_TABLE_INVALID", "表名格式不对", "table")
         _need(
-            fmt != FORMAT_SCENE_TOPIC or table in SCENE_TOPIC_TABLES,
+            fmt != FORMAT_SCENE_TOPIC or storage_name(table) in SCENE_TOPIC_TABLES,
             "STORED_TABLE_NAME",
             "场景与话题表的表名只能是 " + " 或试验用的 ".join(SCENE_TOPIC_TABLES),
             "table",
@@ -2329,7 +2340,7 @@ def evaluate_stored(
             # one way, as the scene-topic table: another format read at this name keeps 0.5.32's answer (adversarial
             # review 3, L1); a stored catalog and a table of another format never share the name (a save refuses a
             # schema change)
-            fmt != FORMAT_CAPABILITY or table in capability_catalog.TABLES,
+            fmt != FORMAT_CAPABILITY or capability_catalog.named(table),
             "STORED_TABLE_NAME",
             capability_catalog.NAME_RULE,
             "table",

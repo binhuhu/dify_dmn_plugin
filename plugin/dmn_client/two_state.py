@@ -24,7 +24,7 @@ from datetime import datetime, timedelta, timezone
 
 import rfc8785
 
-from dmn_client import catalog, controlled, save_gate, scene_bundle, settings
+from dmn_client import alias_reads, catalog, controlled, save_gate, scene_bundle, settings
 from dmn_client.client import EngineError, json_object
 from dmn_client.route_store import CONFLICT, DEFAULT_TABLE, MAX_REQUEST, UNAVAILABLE, error, run_op
 from dmn_client.route_table import (
@@ -52,7 +52,7 @@ from dmn_client.storage_care import (
 )
 from dmn_client.storage_care import full as storage_full
 from dmn_client.stored_tables import TABLE_SCENE_TOPIC
-from dmn_client.table_names import STANDARD, delivery_name, old_name, storage_name
+from dmn_client.table_names import STANDARD, delivery_name, old_name, renamed, storage_name
 from dmn_client.vocabulary import (
     V2_VOCABULARY,
     capability_declared,
@@ -659,6 +659,10 @@ def controlled_target(op, table, body):
         return hit[-1] if hit else None
     if op in ("publish", "undo") and is_five(table) and controlled.listed(table):
         return storage_name(table)
+    if op == "undo" and renamed(table) and controlled.listed(table):
+        # 0.5.43 (rc1 review R2): a final name's first store is undone under that name; the scene-topic table's undo
+        # writes it as much as a save does, so it is a controlled write too. An old name's undo is refused as before
+        return storage_name(table)
     return None
 
 
@@ -746,6 +750,14 @@ def _run_entry(
         op == V2_VOCABULARY
     ):  # 0.5.41: the new writing's words (format v2, fixed inputs, by-id paths, lines); no body
         return 200, v2_declared()
+    if (
+        op == alias_reads.OP
+    ):  # 0.5.43: the old names' read counts; read-only, for any app; no table, no body
+        storage = Watched(storage)
+        try:
+            return 200, alias_reads.read_back(storage)
+        except Exception as exc:  # rc1 review R4: a storage failure is answered as every other op's (503), never raised
+            return failed(storage, exc)
     # 2026-11-16: support.<name> is the table <name>. A writer signs the table as it was sent, so the signature is
     # checked against that spelling (third review M2); every rule and every key uses the stored name.
     named = table  # op=scene_catalog: a table parameter left empty is the scene-topic table, not DEFAULT_TABLE
@@ -915,6 +927,9 @@ def _run_entry(
         if op == "writers":
             return 200, _writers_read(storage, writers, caller_app)
         need = has_writer or (op in SIGNED_ON_FIVE and is_five(table)) or op in DRAFT_OPS[1:]
+        # 0.5.43 (rc1 review R2b): a final name's first store of a table saved only with a writer in signed mode is
+        # undone only with one (open mode: as its save, no writer)
+        need = need or (op == "undo" and renamed(table) and storage_name(table) in SCENE_SIGNED)
         scene_save = (
             op == "save"
             and isinstance(parsed, dict)

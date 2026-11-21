@@ -38,7 +38,29 @@ from dmn_client.route_table import (
     _need,
     canon,
 )
-from dmn_client.table_names import STANDARD, delivery_name, storage_name
+from dmn_client.table_names import (
+    STANDARD,
+    alias_of,
+    delivery_name,
+    pair_name,
+    renamed,
+    storage_name,
+)
+
+
+def _kept(storage, table):
+    """The five's versions, and (0.5.43) a chain's once a first store along it began: a final name's versions, and the
+    versions of every name before a final name whose first store began (the final name reads the versions below its
+    first stored one from them, and an undo moves them back). Before that a name keeps 0.5.42's rule."""
+    if storage_name(table) in STANDARD or renamed(table):
+        return True
+    later = alias_of(table)
+    while later is not None:
+        if StorageTables(storage).state(later)[0] != "OLD":
+            return True
+        later = alias_of(later)
+    return False
+
 
 LOG = logging.getLogger(__name__)
 FULL_CODE = "STORED_TABLE_STORAGE_FULL"
@@ -367,7 +389,7 @@ def _orphans(storage, table, have, head, now, confirmed=()):
         sid = _sid(e["save_id"])
         child = e["parent_save_id"] == head_sid
         answered = sid is not None and _sidecar(table, "by", sid) in e["keys"]
-        if storage_name(table) in STANDARD:
+        if _kept(storage, table):
             why = KEPT_FIVE
         elif not child:
             why = KEPT_ROLLED_BACK
@@ -404,7 +426,9 @@ def _pinned_versions(doc):
 def _table_keys(table):
     std = storage_name(table)
     return ["route-table:" + std + ":draft"] + (
-        ["route-table:" + std + ":first"] if delivery_name(table) in STANDARD else []
+        ["route-table:" + pair_name(table) + ":first"]
+        if delivery_name(table) in STANDARD or renamed(table)
+        else []
     )
 
 
@@ -434,8 +458,8 @@ def usage(storage, table):
         + sum(e["bytes"] for e in versions + orphans)
         + sum(len(b) for b in extra),
         # old versions: not the five's, not a capability table's (pinned); half-written ones: any table but the five
-        "prunable": storage_name(table) not in STANDARD and not _pinned_versions(doc),
-        "half_written_prunable": storage_name(table) not in STANDARD,
+        "prunable": not _kept(storage, table) and not _pinned_versions(doc),
+        "half_written_prunable": not _kept(storage, table),
     }
 
 
@@ -566,7 +590,7 @@ def prune(storage, table, body, now=lambda: datetime.now(timezone.utc)):
     half way is finished by planning and running again. A half-written version goes only when its parent is the head
     read here, it is old enough, and confirm names it; and then only its version key goes."""
     _need(
-        storage_name(table) not in STANDARD,
+        not _kept(storage, table),
         "STORED_TABLE_PRUNE_NOT_SUPPORTED",
         "%s 是交付链表：它的历史是放行依据，首存撤销也要读它，不清理旧版次" % table,
         "table",

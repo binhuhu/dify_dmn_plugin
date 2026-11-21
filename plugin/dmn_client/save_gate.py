@@ -30,7 +30,7 @@ import time
 
 from dmn_client import scene_id
 from dmn_client.route_table import CALLABLE, RouteTableError, _need, canon, digest
-from dmn_client.table_names import CAPABILITY_TABLE, delivery_name, storage_name
+from dmn_client.table_names import CAPABILITY_TABLE, delivery_name, renamed, storage_name
 
 SCHEMA_CASES = "dmn-json.table-cases/v1"
 CASES_SAVE = "cases_save"
@@ -121,17 +121,29 @@ FETCH_APP = contextvars.ContextVar("save_gate_fetch_app", default=None)
 INCOMING_SCENES = contextvars.ContextVar("save_gate_incoming_scenes", default=())
 
 
+def suite_name(table):
+    """0.5.43: the name a table's suite is kept under: a final name keeps its table's (the name before it), so the suite
+    goes on with the first store and back with its undo; any other name its own."""
+    return storage_name(table) if renamed(table) else delivery_name(table)
+
+
 def cases_key(table):
-    return "route-table:" + delivery_name(table) + ":c"
+    return "route-table:" + suite_name(table) + ":c"
 
 
 def pending_key(table, save_id):
-    return "route-table:" + delivery_name(table) + ":cp:" + save_id
+    return "route-table:" + suite_name(table) + ":cp:" + save_id
+
+
+def gated(table):
+    """One of the seven: under its standard name, or (0.5.43) under its final name."""
+    name = delivery_name(table)
+    return name in GATED or (renamed(name) and storage_name(name) in GATED)
 
 
 def receipt_wanted(table, suite):
     """Only the seven under their standard names (an old name's save keeps its 0.5.19 receipt), or a table with a suite."""
-    return delivery_name(table) in GATED or suite is not None
+    return gated(table) or suite is not None
 
 
 # ── the suite ────────────────────────────────────────────────────────────────
@@ -548,7 +560,7 @@ def catalog_ids(doc):
 
 def check_catalog(tables, table, cur, cand):
     red, yellow = [], []
-    if table == CATALOG:
+    if storage_name(table) == CATALOG:  # 0.5.43: or trigger.scene.topic
         # the catalog itself: ids other tables still use that this version drops are only reported (the controlled entry
         # and the renumbering window's step-by-step approvals govern it, R-108)
         drops = catalog_ids(cur) - catalog_ids(cand)
@@ -770,7 +782,7 @@ def _registry_infos(pairs):
 
 def check_suppliers(tables, table, cur, cand):
     red, yellow = [], []
-    if table not in ACCEPTANCE:
+    if storage_name(table) not in ACCEPTANCE:  # 0.5.43: or accept.*
         return red, yellow
     pairs, unbound, undeclared = fact_uses(cand)
     if undeclared:
@@ -881,7 +893,7 @@ def check_suppliers_kept(tables, table, cand):
         )
     # reported on the delivery tables that supply facts (their receipts carry the gate's); the capability table's receipt
     # stays 0.5.41's (independent review m5): the acceptance table's next save reports it there
-    yellow = [_registry_infos(unknown)] if unknown and delivery_name(table) in GATED else []
+    yellow = [_registry_infos(unknown)] if unknown and gated(table) else []
     return red, yellow
 
 
@@ -1139,7 +1151,7 @@ def run(tables, table, cur, clean, content, sent=None, report_only=False, defer=
     )
     cases = {"suite_sha256": None, "ran": 0, "passed": 0}
     if suite is None:
-        if delivery_name(table) in GATED:
+        if gated(table):
             out.warnings.append(
                 {
                     "code": "TABLE_CASES_MISSING",
@@ -1233,7 +1245,7 @@ def run(tables, table, cur, clean, content, sent=None, report_only=False, defer=
     out.cases = cases
     unchecked = []
     # ② and ③ are the seven delivery tables' (under their standard names); every other table gets ① only
-    delivery = delivery_name(table) in GATED
+    delivery = gated(table)
     for check in (check_catalog, check_suppliers) if delivery else ():
         r, y = check(tables, table, cur, clean)
         reds += [(code, msg, None) for code, msg in r]
