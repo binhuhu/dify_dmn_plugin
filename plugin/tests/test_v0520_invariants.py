@@ -1164,7 +1164,8 @@ def test_i26_a_failed_check_after_a_save_is_said_in_the_receipt():
     body = dict(bump(body_of(s, RESOURCE)), note="三", expected_version=N)
     status, out = run_op(NoIndex(s.data), "save", "", body=body)
     assert status == 200 and out["version"] == N + 1, out
-    assert [w["code"] for w in out["warnings"]] == ["WARNINGS_UNCHECKED"]
+    # 2026-11-20 (存表自动闸): a standard-name delivery table's receipt also says it has no suite yet (its own line)
+    assert [w["code"] for w in out["warnings"]] == ["WARNINGS_UNCHECKED", "TABLE_CASES_MISSING"]
 
 
 def test_i26_a_failed_state_read_on_the_table_parameter_is_503_not_read_only():

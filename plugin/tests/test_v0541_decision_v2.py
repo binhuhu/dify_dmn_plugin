@@ -230,11 +230,11 @@ def test_a_group_missing_one_field_leaves_only_that_id_unknown():
     out = F.ev(
         s,
         F.FACT_FEATURE,
-        {"fact": fact, "calc": {}, "request": {"target.issue_branch": record("fee")}},
+        {"fact": fact, "calc": {}, "request": {"身份.意图": record("fee")}},
     )
     reads = out["result"]["reads"]
     assert reads["calc"] == {"bill.rise_ratio": "UNKNOWN"}
-    assert reads["request"] == {"target.issue_branch": "KNOWN"}
+    assert reads["request"] == {"身份.意图": "KNOWN"}
     assert F.keys(out)["N_FEE"]["value"] is True
 
 
@@ -546,7 +546,7 @@ def test_a_json_typed_id_may_be_asked_if_it_is_null(op, value):
         k("fact", "order.points", "state"),
         k("fact", "order.points", "quality"),
         k("calc", "bill.rise_ratio"),
-        k("request", "target.issue_branch"),
+        k("request", "身份.意图"),
     ],
 )
 def test_no_v2_condition_takes_exists(path):
@@ -841,12 +841,12 @@ def search_storage():
 def test_search_info_saves_and_evaluates_one_round():
     s, sha = search_storage()
     F.saved(s, F.search_info(sha))
-    out = F.ev(s, F.SEARCH_INFO, {"request": {"order_id": record("o1")}})
+    out = F.ev(s, F.SEARCH_INFO, {"request": {"对象.id": record("o1")}})
     assert out["result"]["selected_rule_ids"] == ["S_DETAIL"]
     out = F.ev(
         s,
         F.SEARCH_INFO,
-        {"request": {"order_id": record("o1")}, "info": {"ORDER.kind_code": record("1")}},
+        {"request": {"对象.id": record("o1")}, "info": {"ORDER.kind_code": record("1")}},
     )
     assert out["result"]["selected_rule_ids"] == ["S_DETAIL", "S_ROUTE"]
     assert (
@@ -909,7 +909,7 @@ def unreachable(d):
         (
             lambda d: d["rules"][0].update(rows=[[known("request", "worksheet_id")]]),
             "DECISION_TABLE_INVALID",
-            "入参来自 request:order_id",
+            "入参来自 request:对象.id",
         ),
     ],
 )

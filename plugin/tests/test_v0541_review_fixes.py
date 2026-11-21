@@ -451,9 +451,9 @@ def test_a_search_rule_that_reads_a_value_asks_it_is_known_first():
     body = F.search_info(F.catalog_sha())
     route = body["decision"]["rules"][1]
     # the guard on ORDER.kind_code taken away; the binding no longer uses it, so only the read itself is left
-    route["rows"] = [[known("request", "order_id"), c(k("info", "ORDER.kind_code"), "eq", "1")]]
+    route["rows"] = [[known("request", "对象.id"), c(k("info", "ORDER.kind_code"), "eq", "1")]]
     tpl = body["decision"]["result_templates"]["route"]["data"]["result"]["literal"]
-    tpl["bindings"] = {"orderKey": "request:order_id"}
+    tpl["bindings"] = {"orderKey": "request:对象.id"}
     e = refused(body, "DECISION_TABLE_INVALID", storage=s, word="读了 info:ORDER.kind_code 的值")
     assert "先问它已知" in e["message"]
     route["rows"][0].insert(1, known("info", "ORDER.kind_code"))

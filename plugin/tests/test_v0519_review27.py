@@ -287,6 +287,26 @@ def test_2a_author_and_rule_are_gap_values_and_a_list_is_accepted():
         refused(d)
 
 
+@pytest.mark.parametrize("assoc_id", ["Coupon_usage", "coupon-usage", "订单组", " x", "x" * 65])
+def test_a_gap_s_association_group_takes_the_one_writing(assoc_id):
+    """0.5.42（协调 11-21）：gap.assoc_id 的写法同补充要求表与请求的号清单的关联组（原来只核非空）。"""
+    listed = [
+        {
+            "code": "ORDER_OR_ESTIMATE",
+            "owner": "OPERATOR",
+            "kind": "ENTITY",
+            "any_of": [{"entity_type": "ORDER"}],
+            "assoc_id": assoc_id,
+        }
+    ]
+    d = feature(
+        "array",
+        wait=tpl("UNKNOWN", {"actions": [], "feature_id": "F_A", "value": None, "gap": listed}),
+    )
+    err = refused(d)
+    assert err.path.endswith(".assoc_id") and err.message == "gap.assoc_id 是关联组编号"
+
+
 # ── 2b · 第 12 条：动作每项恰好 code / capability_id / executor / money ───────
 
 

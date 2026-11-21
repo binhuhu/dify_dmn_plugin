@@ -258,8 +258,8 @@ def fact_feature():
                 "N_BRANCH",
                 "branch",
                 [
-                    known("request", "target.issue_branch"),
-                    c(k("request", "target.issue_branch"), "eq", "fee"),
+                    known("request", "身份.意图"),
+                    c(k("request", "身份.意图"), "eq", "fee"),
                 ],
             ),
         ],
@@ -524,13 +524,13 @@ def search_info(catalog_sha):
             rule(
                 "S_DETAIL",
                 "detail",
-                [known("request", "order_id")],
+                [known("request", "对象.id")],
             ),
             rule(
                 "S_ROUTE",
                 "route",
                 [
-                    known("request", "order_id"),
+                    known("request", "对象.id"),
                     known("info", "ORDER.kind_code"),
                     c(k("info", "ORDER.kind_code"), "eq", "1"),
                 ],
@@ -539,13 +539,13 @@ def search_info(catalog_sha):
         {
             "detail": tpl(
                 "PASS",
-                {"capability_id": "toy.order.detail", "bindings": {"orderKey": "request:order_id"}},
+                {"capability_id": "toy.order.detail", "bindings": {"orderKey": "request:对象.id"}},
             ),
             "route": tpl(
                 "PASS",
                 {
                     "capability_id": "toy.order.route",
-                    "bindings": {"orderKey": "request:order_id", "kind": "info:ORDER.kind_code"},
+                    "bindings": {"orderKey": "request:对象.id", "kind": "info:ORDER.kind_code"},
                     "infos": ["ROUTE.class"],
                 },
             ),

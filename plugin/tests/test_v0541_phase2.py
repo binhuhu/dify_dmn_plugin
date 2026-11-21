@@ -812,7 +812,8 @@ def test_op_v2_vocabulary_is_the_new_writing_s_declaration():
     assert out["inputs"]["parameter_shapes"]["group"] == {"type": "group"}
     assert out["paths"]["by_id"] == ["parameters", "<输入>", "key", "<号>", "<部分>"]
     assert out["ids"]["capability_info_id"] == "info_id"
-    assert out["conclusions"]["filled"] == ["CONFLICT", "INDETERMINATE", "NO_RULE"]
+    # 0.5.42: DEFAULT = 照这个号没中时的结论给（ids.<号>.default）
+    assert out["conclusions"]["filled"] == ["CONFLICT", "INDETERMINATE", "NO_RULE", "DEFAULT"]
     assert "STORED_TABLE_ID_IN_USE" in out["codes"]["refusals"]
     # 协调 11-20 评审第 11 条：头版闸与改存、declare.ids、登记值的码、第 6–9 条的新规矩
     assert out["tables"]["head_gate"]["no_head"].startswith("只收 v2")

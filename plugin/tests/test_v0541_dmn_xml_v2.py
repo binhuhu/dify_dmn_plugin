@@ -85,14 +85,15 @@ def test_the_benchmark_tables_come_back_word_for_word(name):
 
 
 def test_the_fee_reality_table_exports_and_comes_back_though_its_xml_is_over_the_import_line():
+    """0.5.41：XML 2.7 MB 过了 1 MiB 的导入线，经工具导不回（已知限制第四条）。0.5.42 导入线对齐到 4 MiB（XML）+ 存表线
+    1 MiB（导回的表）：经工具导得回、逐字一样。"""
     body = load("fee_v2_reality.json")
     xml, warnings, clean = dmn_xml_v2.export_doc(body)
-    assert len(xml.encode()) > dmn_xml.MAX_XML_BYTES  # the converter's import line (1 MiB of XML)
+    assert 1024 * 1024 < len(xml.encode()) <= dmn_xml.MAX_XML_BYTES
     back = dmn_xml_v2.import_doc(xml, limit=False)["document"]["decision"]
     assert canon(back) == canon(clean["decision"])
-    with pytest.raises(DmnXmlError) as err:
-        dmn_xml_v2.import_doc(xml)
-    assert err.value.code == "DMN_XML_INVALID"
+    via = dmn_xml.convert({"direction": "import", "dmn_xml": xml})
+    assert via["status"] == "SUCCEEDED" and canon(via["model"]) == canon(clean["decision"])
 
 
 def test_a_by_id_condition_is_a_filter_then_the_first_item():
@@ -119,8 +120,8 @@ def test_a_by_id_condition_is_a_filter_then_the_first_item():
         "number",
     ) in cols
     assert (
-        'request[field = "target.issue_branch"][1].value',
-        k("request", "target.issue_branch"),
+        'request[field = "身份.意图"][1].value',
+        k("request", "身份.意图"),
         "string",
     ) in cols
 
@@ -279,7 +280,8 @@ def test_a_bare_v2_decision_needs_its_table_document():
 
 
 def test_a_v1_export_answers_as_before():
-    """v1 照旧：结果没有 document 键；UNIQUE 表里一条规则拆成几行时照旧导成 UNIQUE（已知限制，见发布说明）。"""
+    """v1 照旧：结果没有 document 键。0.5.42 起 UNIQUE 表里一条规则拆成几行时照 v2 导成 ANY（0.5.41 导成 UNIQUE，已知限制
+    第三条；发布说明 v0.5.42 第一节），导回还是 UNIQUE、模型一字不差。"""
     sys.path.insert(0, str(Path(__file__).resolve().parent))
     m = {
         "profile": "service-decision-table-v1",
@@ -327,8 +329,37 @@ def test_a_v1_export_answers_as_before():
     out = dmn_xml.convert({"direction": "export", "model_json": json.dumps(m)})
     assert out["status"] == "SUCCEEDED" and "document" not in out
     table = ET.fromstring(out["dmn_xml"]).find(".//d:decisionTable", NS)
-    assert table.get("hitPolicy") == "UNIQUE" and len(table.findall("d:rule", NS)) == 2
-    assert copy.deepcopy(out["warnings"]) == []
+    assert table.get("hitPolicy") == "ANY" and len(table.findall("d:rule", NS)) == 2
+    assert len(out["warnings"]) == 1 and "导成 ANY" in out["warnings"][0]
+    back = dmn_xml.convert({"direction": "import", "dmn_xml": out["dmn_xml"]})
+    assert back["status"] == "SUCCEEDED" and back["model"]["hit_policy"] == "UNIQUE"
+    assert (
+        back["model"]["rules"][0]["when_any"] == m["rules"][0]["when_any"]
+    )  # 模板名 v1 本来不带回
+    # ANY 只认导出时由 UNIQUE 改写的表：扩展元素里没有 hit_policy 的 ANY 照旧拒
+    bare = out["dmn_xml"].replace('"hit_policy":"UNIQUE",', "")  # 扩展元素是排好键的规范 JSON
+    assert bare != out["dmn_xml"]
+    refused = dmn_xml.convert({"direction": "import", "dmn_xml": bare})
+    assert refused["status"] == "FAILED" and refused["error"]["path"] == "decisionTable.hitPolicy"
+    # 0.5.41 导出的（UNIQUE 照写、扩展元素没有 hit_policy）照旧导回 UNIQUE
+    old = bare.replace('hitPolicy="ANY"', 'hitPolicy="UNIQUE"')
+    again = dmn_xml.convert({"direction": "import", "dmn_xml": old})
+    assert again["status"] == "SUCCEEDED" and again["model"] == back["model"]
+    # 不拆行的 UNIQUE 表、别的命中策略：导出一字不变（扩展元素不加 hit_policy）
+    one = copy.deepcopy(m)
+    one["rules"][0] = {
+        "rule_id": "R1",
+        "when": m["rules"][0]["when_any"][0],
+        "output_template_ref": "t",
+    }
+    plain = dmn_xml.convert({"direction": "export", "model_json": one})
+    assert 'hitPolicy="UNIQUE"' in plain["dmn_xml"] and "hit_policy" not in plain["dmn_xml"]
+    assert plain["warnings"] == []
+    first = dict(copy.deepcopy(m), hit_policy="FIRST")
+    assert (
+        'hitPolicy="FIRST"'
+        in dmn_xml.convert({"direction": "export", "model_json": first})["dmn_xml"]
+    )
 
 
 def test_a_path_that_is_not_one_of_the_table_s_is_refused_even_with_its_expression():
@@ -357,10 +388,8 @@ def test_the_rows_of_one_rule_keep_one_output():
 def test_a_writing_a_cell_cannot_keep_is_said():
     """只有一个值的 in 写成单元格就是等于：导回语义一样、字面不一样，导出时写明。"""
     body = F.fact_feature()
-    body["decision"]["rules"][5]["rows"][0][1] = c(
-        k("request", "target.issue_branch"), "in", ["fee"]
-    )
+    body["decision"]["rules"][5]["rows"][0][1] = c(k("request", "身份.意图"), "in", ["fee"])
     xml, warnings, clean = dmn_xml_v2.export_doc(body)
     assert any("逐字" in w for w in warnings)
     back = dmn_xml_v2.import_doc(xml)["document"]["decision"]
-    assert c(k("request", "target.issue_branch"), "eq", "fee") in back["rules"][5]["rows"][0]
+    assert c(k("request", "身份.意图"), "eq", "fee") in back["rules"][5]["rows"][0]
