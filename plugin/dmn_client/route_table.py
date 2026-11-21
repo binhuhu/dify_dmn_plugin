@@ -864,7 +864,7 @@ def route_callability(doc):
     return callable_keys, not_callable, unrouted
 
 
-def callability_gate(prev, clean, sent=None):
+def callability_gate(prev, clean, sent=None, relax=None, live_scenes=None):
     """0.5.23 (D13): a v3 save may not leave the route table less callable than the v3 version it replaces. Refused,
     in this order: a solution row that newly points at an app that is not CURRENT, or whose app is no longer CURRENT
     (ROUTE_TABLE_SOLUTION_NOT_CALLABLE); a row whose solution was callable removed with nothing in its place
@@ -876,7 +876,12 @@ def callability_gate(prev, clean, sent=None):
     left alone (a parked GATED / SHADOW app, an app already unrouted), so only a save that makes things worse is
     refused and one that repairs them passes. The first v3 store (from v2 or nothing) is not compared, and a first
     store under a standard name is not either: it copies the old head unchanged (I12), so it cannot change callability. Paths index the
-    rows as sent (sent), which validate_doc may reorder: the editor maps routes[i] back onto its own draft."""
+    rows as sent (sent), which validate_doc may reorder: the editor maps routes[i] back onto its own draft. relax
+    (0.5.43-rc2): relax(code, message) -> True when a rollback reports that refusal instead (save_gate.relax_late); the
+    checks after it still run. live_scenes (0.5.43-rc2, 协调定 358): the scene ids (canonical) of the scene-topic table's
+    head; a removed row whose scene is not among them is no live route, so removing it is not ROUTE_TABLE_SOLUTION_LOST
+    (an app no row names any more is still ROUTE_TABLE_CURRENT_UNROUTED). None: not known (no gate, no scene-topic
+    table), every removed callable row counts as before. Returns the removed rows of retired scenes (sorted keys)."""
     if clean.get("schema") != SCHEMA_V3 or not prev or prev.get("schema") != SCHEMA_V3:
         return
     was_ok, was_bad, _ = route_callability(prev)
@@ -920,17 +925,22 @@ def callability_gate(prev, clean, sent=None):
             ),
             "routes[%d].target.app_id" % index[key],
         )
-    lost = sorted((k for k in was_ok if k not in index), key=str)
-    _need(
-        not lost,
-        "ROUTE_TABLE_SOLUTION_LOST",
-        "%s 原来有能调的方案，这次存表把这一行删了、也没给别的去向%s：要挂起就改成转接或资源去向，要换方案就改指新的 CURRENT 应用"
-        % (
-            _row_shown(lost[0]) if lost else "",
+    gone = sorted((k for k in was_ok if k not in index), key=str)
+    from dmn_client.scene_id import canonical  # noqa
+
+    retired = [k for k in gone if live_scenes is not None and canonical(k[0]) not in live_scenes]
+    lost = [k for k in gone if k not in retired]
+    if lost:
+        text = "%s 原来有能调的方案，这次存表把这一行删了、也没给别的去向%s：要挂起就改成转接或资源去向，要换方案就改指新的 CURRENT 应用" % (
+            _row_shown(lost[0]),
             "（另有 %d 行）" % (len(lost) - 1) if len(lost) > 1 else "",
-        ),
-        "routes",
-    )
+        )
+        _need(
+            relax is not None and relax("ROUTE_TABLE_SOLUTION_LOST", text),
+            "ROUTE_TABLE_SOLUTION_LOST",
+            text,
+            "routes",
+        )
     newly = sorted(
         unrouted & was_named
     )  # named before, named by no row now; a new or unrouted app is left alone
@@ -942,6 +952,7 @@ def callability_gate(prev, clean, sent=None):
         % (newly[0][:8] if newly else ""),
         "solutions.%s.status" % (newly[0] if newly else ""),
     )
+    return retired
 
 
 def _validate_v2(doc, resources=None):
@@ -2707,7 +2718,17 @@ class StorageTables:
         report = gate_report_of(gate_report, content)
         # 0.5.23 (D13): after every refusal v0.5.22 gives (they keep their order and codes), before the caller's gate;
         # reads only cur, so I19 / I20 are unaffected
-        callability_gate(cur, clean, doc)
+        retired = callability_gate(
+            cur,
+            clean,
+            doc,
+            relax=(lambda code, text: save_gate.relax_late(auto, code, text))
+            if auto is not None
+            else None,
+            live_scenes=getattr(auto, "live_scenes", None),
+        )
+        if retired and auto is not None:
+            save_gate.note_retired_rows(auto, retired)
         # 2026-11-20 (全链路评审 2-5): the pre-save auto gate's refusal (worked out before the version check), after every
         # refusal above, before the caller's gate
         if auto_refusal is not None:

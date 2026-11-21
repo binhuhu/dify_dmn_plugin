@@ -29,7 +29,7 @@ import re
 import time
 
 from dmn_client import scene_id
-from dmn_client.route_table import CALLABLE, RouteTableError, _need, canon, digest
+from dmn_client.route_table import CALLABLE, ROUTE_SCHEMAS, RouteTableError, _need, canon, digest
 from dmn_client.table_names import CAPABILITY_TABLE, delivery_name, renamed, storage_name
 
 SCHEMA_CASES = "dmn-json.table-cases/v1"
@@ -112,8 +112,31 @@ PROSE = frozenset(("note", "why", "basis", "definition", "declare", "supersedes"
 NOISE = frozenset(("note", "why", "basis"))
 # a save whose content equals one of the last RESTORE_WINDOW versions before the head is a rollback: the table's own
 # suite failing on it is reported, not refused. Older content is not a rollback (a version-16 save sent again from
-# history is checked like any other)
-RESTORE_WINDOW = 2
+# history is checked like any other). 0.5.43-rc2: 3 (was 2) — the renumbering window's route table goes back from its
+# third step to the version before the window (32 → 29) in one save; "equals" is the whole document as stored, not the
+# content digest (restore_of)
+RESTORE_WINDOW = 3
+# 0.5.43-rc2: the refusals a rollback reports instead (with the version it goes back to). Only these two: the ones the
+# renumbering window's rollback of items 20–27 meets (SCENE_NOT_IN_CATALOG on the scene-entity, supplement, acceptance and
+# route tables, ROUTE_TABLE_SOLUTION_LOST on the route table, release notes v0.5.43 rc2). Every other refusal stands on a
+# rollback: the live start forms (③), the suppliers (② b), the other callability refusals, the format and version checks
+RESTORE_RELAXED = frozenset(("SCENE_NOT_IN_CATALOG", "ROUTE_TABLE_SOLUTION_LOST"))
+# what a stored version carries that is not what was saved, and the two keys a rollback may change: its name (a final
+# name's rollback to a version saved under the name before it) and its prose note
+RESTORE_IGNORED = frozenset(
+    (
+        "table",
+        "note",
+        "version",
+        "saved_at",
+        "content_sha256",
+        "save_id",
+        "parent_save_id",
+        "gate_report_sha256",
+        "schema_transition",
+        "supersedes",
+    )
+)
 
 # ③: the session's read of a published app's start form, set by the tool / the endpoint around one call; None outside
 FETCH_APP = contextvars.ContextVar("save_gate_fetch_app", default=None)
@@ -1123,6 +1146,127 @@ def _contract_unchecked(apps):
 class Outcome:
     def __init__(self):
         self.warnings, self.receipt, self.write, self.reads = [], None, None, None
+        self.restore = None  # 0.5.43-rc2: {"version", "save_id"} of the version this save goes back to (restore_of)
+        self.relaxed = []  # 0.5.43-rc2: the refusals it reported instead (RESTORE_RELAXED)
+        # 0.5.43-rc2 (协调定 358): a route table's save: the scene ids of the scene-topic table's head (and of a bundle's
+        # incoming scenes), worked out here before the version check; route_table.callability_gate reads it. None: no
+        # scene-topic table or not a route table
+        self.live_scenes = None
+
+
+def _as_saved(doc):
+    return canon({k: v for k, v in doc.items() if k not in RESTORE_IGNORED})
+
+
+def restore_of(tables, table, cur, clean):
+    """0.5.43-rc2: the stored version this save goes back to, or None. A rollback is a save whose whole document (all
+    but RESTORE_IGNORED) equals one of the RESTORE_WINDOW versions before the head, the nearest first. Not the content
+    digest: a route table's digest leaves out its scene directory and a decision table's its declaration, so content
+    that differs there would pass as a rollback. Content equal to the head is no rollback (nothing goes back)."""
+    if not isinstance(cur, dict) or type(cur.get("version")) is not int:
+        return None
+    want = _as_saved(clean)
+    if _as_saved(cur) == want:
+        return None
+    for k in range(cur["version"] - 1, max(cur["version"] - RESTORE_WINDOW, 1) - 1, -1):
+        try:
+            doc = tables.version(table, k)
+        except Exception:  # an unreadable version is no rollback target; the save goes on as rc1 (review, low)
+            continue
+        if isinstance(doc, dict) and doc.get("version") == k and _as_saved(doc) == want:
+            return doc
+    return None
+
+
+def relax(out, items):
+    """0.5.43-rc2: on a rollback (out.restore), the refusals in RESTORE_RELAXED among items [(code, message, detail)]
+    are reported instead, naming the version; returns the ones that still refuse."""
+    if out.restore is None:
+        return list(items)
+    keep = []
+    for item in items:
+        code, msg = item[0], item[1]
+        if code not in RESTORE_RELAXED:
+            keep.append(item)
+            continue
+        out.relaxed.append(code)
+        out.warnings.append(
+            {
+                "code": code,
+                "restore": True,
+                "restored_version": out.restore["version"],
+                "message": _relaxed_text(code, msg, out.restore["version"]),
+            }
+        )
+    return keep
+
+
+def _relaxed_text(code, msg, k):
+    """What a relaxed refusal says: saved, and what the rollback brings back (not the refusal's own advice)."""
+    if code == "SCENE_NOT_IN_CATALOG":
+        m = re.search(r"新引入的场景号 (.+?) 不在场景与话题表（第 (\S+?) 版）里", msg)
+        if m:
+            return "回滚到第 %d 版的内容，已存：这一版带回的场景号 %s 不在场景与话题表（第 %s 版）里，只报不拦（不是回滚就会拒）" % (
+                k,
+                m.group(1),
+                m.group(2),
+            )
+    if code == "ROUTE_TABLE_SOLUTION_LOST":
+        row = msg.split(" 原来有能调的方案", 1)[0]
+        more = re.search(r"（另有 \d+ 行）", msg)
+        return "回滚到第 %d 版的内容，已存：头版上 %s 这一行能调的方案行%s回滚后没有了，只报不拦（不是回滚就会拒）" % (
+            k,
+            row,
+            "（" + more.group(0)[1:-1] + "同样）" if more else "",
+        )
+    return "回滚到第 %d 版的内容，已存，只报不拦（不是回滚就会拒）：%s" % (k, msg)
+
+
+def _restore_warning(out):
+    return {
+        "code": "TABLE_RESTORE",
+        "restored_version": out.restore["version"],
+        "restored_save_id": out.restore["save_id"],
+        "relaxed": sorted(set(out.relaxed)),
+        "message": "这次存的整份内容等于第 %d 版（头版之前 %d 版以内）：按回滚认%s"
+        % (
+            out.restore["version"],
+            RESTORE_WINDOW,
+            "，%s 只报不拦" % "、".join(sorted(set(out.relaxed))) if out.relaxed else "",
+        ),
+    }
+
+
+def note_retired_rows(out, keys):
+    """0.5.43-rc2 (协调定 358): removed solution rows of scenes the scene-topic table no longer has: reported, not
+    ROUTE_TABLE_SOLUTION_LOST."""
+    shown = ["%s · %s · %s" % (scene_id.canonical(k[0]), k[1], k[2]) for k in keys]
+    out.warnings.append(
+        {
+            "code": "ROUTE_TABLE_RETIRED_SCENE_ROWS_REMOVED",
+            "count": len(keys),
+            "examples": shown[:SHOWN],
+            "message": "删了 %d 行能调的方案行（如 %s）：它们的场景号已不在场景与话题表头版里，不是活路由，只报不拦；"
+            "删后没有任何行指着的 CURRENT 方案照旧要转 CANDIDATE 或 RETIRED" % (len(keys), "、".join(shown[:SHOWN])),
+        }
+    )
+    if out.receipt is not None:
+        out.receipt["yellow"] = len(out.warnings)
+
+
+def relax_late(out, code, message):
+    """A refusal raised after the gate (route_table.callability_gate) on a rollback: reported if relaxed (True), the
+    rollback warning and receipt brought up to date."""
+    if out is None or out.restore is None or code not in RESTORE_RELAXED:
+        return False
+    relax(out, [(code, message, None)])
+    for i, w in enumerate(out.warnings):
+        if w.get("code") == "TABLE_RESTORE":
+            out.warnings[i] = _restore_warning(out)
+    if out.receipt is not None:
+        out.receipt["restore"] = dict(out.receipt.get("restore") or {}, relaxed=sorted(set(out.relaxed)))
+        out.receipt["yellow"] = len(out.warnings)
+    return True
 
 
 def _refuse(code, message, detail=None):
@@ -1150,6 +1294,13 @@ def run(tables, table, cur, clean, content, sent=None, report_only=False, defer=
         version=(head_version if type(head_version) is int else 0) + 1,
     )
     cases = {"suite_sha256": None, "ran": 0, "passed": 0}
+    back = restore_of(tables, table, cur, clean)
+    if clean.get("schema") in ROUTE_SCHEMAS:
+        topic = tables.load(CATALOG)
+        if isinstance(topic, dict):
+            out.live_scenes = frozenset(catalog_ids(topic) | set(INCOMING_SCENES.get()))
+    if back is not None:
+        out.restore = {"version": back["version"], "save_id": back.get("save_id")}
     if suite is None:
         if gated(table):
             out.warnings.append(
@@ -1191,13 +1342,7 @@ def run(tables, table, cur, clean, content, sent=None, report_only=False, defer=
                     }
                 )
             if failed:
-                older = tables.find_content(table, content)
-                restore = (
-                    isinstance(older, dict)
-                    and type(older.get("version")) is int
-                    and type(cur.get("version")) is int
-                    and 0 < cur["version"] - older["version"] <= RESTORE_WINDOW
-                )
+                restore = out.restore is not None
         if failed and restore:
             out.warnings.append(
                 {
@@ -1254,6 +1399,11 @@ def run(tables, table, cur, clean, content, sent=None, report_only=False, defer=
     r, y = check_suppliers_kept(tables, table, clean)
     reds += [(code, msg, None) for code, msg in r]
     out.warnings += y
+    # 0.5.43-rc2: a rollback reports RESTORE_RELAXED instead, before ③ (which runs only without a red: a rollback's live
+    # start forms are still read and still refuse)
+    reds = relax(out, reds)
+    if out.restore is not None:
+        out.warnings.append(_restore_warning(out))
     # the other delivery tables' suites that read this table: reported (on the seven, or a table with a suite)
     dep_yellow, dep_proposed = check_dependents(tables, table, candidate)
     if dep_proposed and report_only:
@@ -1273,6 +1423,7 @@ def run(tables, table, cur, clean, content, sent=None, report_only=False, defer=
             "red": len(reds),
             "yellow": len(out.warnings),
             **({"contract_unchecked": unchecked} if unchecked else {}),
+            **({"restore": dict(out.restore, relaxed=sorted(set(out.relaxed)))} if out.restore else {}),
         }
     return out
 
