@@ -4,6 +4,7 @@ import json
 
 from dify_plugin import Tool
 
+from dmn_client.alias_reads import Counting
 from dmn_client.route_table import StorageTables
 from dmn_client.stored_tables import evaluate_stored
 
@@ -15,7 +16,8 @@ def _text(value):
 
 class EvaluateStoredTableTool(Tool):
     def _invoke(self, tool_parameters):
-        tables = StorageTables(self.session.storage)
+        # 0.5.43: an old name's read is counted (dmn_client.alias_reads)
+        tables = Counting(StorageTables(self.session.storage))
         result = evaluate_stored(
             (tool_parameters.get("table") or "").strip(),
             (tool_parameters.get("format") or "").strip(),

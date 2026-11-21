@@ -7,6 +7,7 @@ import json
 
 from dify_plugin import Tool
 
+from dmn_client.alias_reads import OP as ALIAS_READS
 from dmn_client.catalog import OP as CATALOG
 from dmn_client.catalog import SCENE_OP as SCENE_CATALOG
 from dmn_client.route_store import CHECK, OPS, UNDO, error
@@ -43,6 +44,7 @@ class RouteTableStoreTool(Tool):
             and op != SCENE_CATALOG
             and op != V2_VOCABULARY
             and op != SETTING
+            and op != ALIAS_READS
             and op not in GATE_OPS
         ):
             # the list is 0.5.38's, word for word (coordination ruling 152: an old call answers as it did);

@@ -2,6 +2,7 @@
 
 from dify_plugin import Tool
 
+from dmn_client.alias_reads import Counting
 from dmn_client.route_table import StorageTables
 from dmn_client.solution_invoke import invoke_solution
 
@@ -11,11 +12,12 @@ DEFAULT_TABLE = "dispatch.route"
 class InvokeSolutionTool(Tool):
     def _invoke(self, tool_parameters):
         table = (tool_parameters.get("table") or DEFAULT_TABLE).strip()
+        tables = Counting(StorageTables(self.session.storage))  # 0.5.43: old names' reads counted
         receipt = invoke_solution(
             tool_parameters.get("app_id"),
             tool_parameters.get("inputs_json"),
             table,
-            load=lambda name: StorageTables(self.session.storage).load(name),
+            load=tables.load,
             invoke=lambda app_id, inputs: self.session.app.workflow.invoke(
                 app_id=app_id, inputs=inputs, response_mode="streaming"
             ),
