@@ -875,7 +875,7 @@ def test_a_suite_remembers_what_it_read_and_a_table_it_never_read_runs_nothing()
     assert status == 200 and calls == [ROUTE]  # the resource suite is not run for a route save
 
 
-def test_a_rollback_is_only_the_last_two_versions_and_never_with_a_failing_suite():
+def test_a_rollback_is_only_the_last_three_versions_and_never_with_a_failing_suite():
     st = with_suites(ROUTE)
     orig = _body(st, ROUTE, note="原样")
     status, out = save(st, orig, ROUTE)
@@ -891,8 +891,9 @@ def test_a_rollback_is_only_the_last_two_versions_and_never_with_a_failing_suite
     status, out = save(st, dict(back, cases=check["proposed_cases"]), ROUTE)
     assert status == 400 and out["error"]["code"] == "TABLE_CASE_FAILED", out
     assert st.data[save_gate.cases_key(ROUTE)] == record
-    # two more saves that change no answer: the old content is three versions back, no longer a rollback
-    for note in ("说明一", "说明二"):
+    # three more saves that change no answer: the old content is four versions back, no longer a rollback (0.5.43-rc2:
+    # the window is three versions, was two)
+    for note in ("说明一", "说明二", "说明三"):
         status, out = save(st, _body(st, ROUTE, note=note), ROUTE)
         assert status == 200, out
     back["expected_version"] = head(st, ROUTE)["version"]
