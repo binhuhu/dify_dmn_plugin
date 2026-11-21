@@ -1,4 +1,4 @@
-# JSON 决策工具 0.5.43-rc1（单人串行维护）
+# JSON 决策工具 0.5.43-rc2（单人串行维护）
 
 这是同一仓库的独立 JSON 安装包 `hu8627/dmn_json`。原有 `hu8627/dmn` 外部 XML 插件和其他已安装插件保留，不卸载、不替换。新建“内置 JSON 决策表 / evaluate_json_table”节点无需 Key、引擎地址或外部服务。现有外部工具仍通过原插件配置 Node 服务，未配置时返回 INVALID_CONFIGURATION。两个包的模型格式和语义不能互换。
 
@@ -36,7 +36,7 @@ AND 中 FALSE 优先于 UNKNOWN。FIRST 的已选规则之前存在 UNKNOWN 或 
 
 ## 构建与验收
 
-从仓库根目录运行 `python scripts/stage-builtin.py /tmp/dmn-json-0.5.43-rc1`，然后用已安装的官方 Dify CLI：`dify plugin package /tmp/dmn-json-0.5.43-rc1 -o hu8627-dmn_json-0.5.43-rc1.difypkg`。没有 CLI 时 staging 目录不是安装包，不用普通 zip 冒充 difypkg。不重试已拒绝的下载/API，不修改旧 Release。包未签名，遵循平台签名策略。
+从仓库根目录运行 `python scripts/stage-builtin.py /tmp/dmn-json-0.5.43-rc2`，然后用已安装的官方 Dify CLI：`dify plugin package /tmp/dmn-json-0.5.43-rc2 -o hu8627-dmn_json-0.5.43-rc2.difypkg`。没有 CLI 时 staging 目录不是安装包，不用普通 zip 冒充 difypkg。不重试已拒绝的下载/API，不修改旧 Release。包未签名，遵循平台签名策略。
 
 依赖沿用仓库固定 requirements.txt；首次安装仍需要平台正常解析 Python 依赖。免 Key/无外部决策服务指工具调用路径，不是离线安装保证。目标 UI 安装与真实调用仍需验收。
 
@@ -55,6 +55,8 @@ v2 表（`dmn-json.route-table/v2`）自带场景目录和方案登记，支持�
 0.5.28：写手登记留空（默认）或只写一个词 OPEN = 开放模式：不要签名，五张表重新直接存，能在 AgentHub 里运行维护应用的人都能写（写入五张表仍只认维护应用；带签名的请求和编辑端点不收；插件不记改动人）；缺失或仅注释也算 OPEN，误删全部写手会自动开放。宿主 Web App/API 若允许匿名调用，调用者同样可能修改五张表；登记里有写手 = 签名模式，同 0.5.24–0.5.27。方案层四张表名 `solution.search.fact` / `fact.feature` / `feature.reality` / `reality.strategy` + `.<场景号>`，声明可不写 role（表名即角色）；旧名 `disposal.strategy` / `disposal.status` 照收。见 [0.5.28 发布说明](https://github.com/binhuhu/dify_dmn_plugin/blob/v0.5.29/docs/releases/v0.5.28.md)。
 
 0.5.29：对成功保存、草稿、发布、撤销和草稿删除尝试记录旁路归属，失败不改变业务写入结果；宿主 user_id 与 via 均不独立认证，只有 writer_verified 表示 HMAC 已核验。历史身份字段仅向钉定维护应用返回；撤销/删除记录为独立操作，不改原版本作者。详见 [0.5.29 发布说明](https://github.com/binhuhu/dify_dmn_plugin/blob/v0.5.29/docs/releases/v0.5.29.md)。
+
+0.5.43-rc2（候选，未发布）：在 rc1 之上只改存前自动闸的「回滚」认定（协调定 347，换号窗口第 20–27 件要能退回上一版内容）。存的整份内容（表名、说明与存储元数据除外）等于头版之前 3 版以内的一版才算回滚（rc1 是 2 版，且按内容摘要认）；回滚时 `SCENE_NOT_IN_CATALOG`、`ROUTE_TABLE_SOLUTION_LOST` 两码照报为警告（带 `restore`、`restored_version`），另报一条 `TABLE_RESTORE`，回执 `auto_gate.restore` 写回到哪一版、放了哪几码；其余拒存码照拦，新内容、窗口外的旧版照拦。见[发布说明](docs/releases/v0.5.43.md)第十六节。
 
 0.5.43-rc1（候选，未发布）：交付链六张表改五段最终名——`trigger.scene.topic`、`trigger.scene.entity`、`trigger.supplement.requirements`、`trigger.capability.catalog`、`accept.scene.acceptance`、`accept.issue.acceptance`（路由、资源去向两张不变）。照 0.5.20 的首存：窗口那天把现存名的头版原样存成最终名、版本号沿用、能 `op=undo`；首存之前按最终名读就读到现存名那张表（回执 `alias_of`），首存之后前面每个名（含 0.5.20 的旧名）都读到最终名的表（回执 `read_as`）且只读（`STORED_TABLE_ALIAS_READ_ONLY`，说该用的名）。按旧名的读按名按天计数，`op=alias_reads` 读回。不带最终名的调用回答与 0.5.42 逐字节相同（按 0.5.20 旧名的读多记一个计数键）。见仓库 docs/releases/v0.5.43.md。
 
