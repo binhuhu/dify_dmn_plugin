@@ -1,0 +1,4394 @@
+{
+ "cases": [
+  {
+   "expect": {
+    "error": null,
+    "execution_status": "SUCCEEDED",
+    "output_port": "ok",
+    "outputs": {
+     "decision": {
+      "actions": [
+       {
+        "intent_id": "control",
+        "kind": "CONTROL",
+        "route_ref": "routed"
+       }
+      ],
+      "data": {
+       "app_id": null,
+       "resource_entry_json": "null",
+       "resource_id": "human.second_line",
+       "resource_kind": "HUMAN",
+       "resource_name": "人工 · 二线客服工单",
+       "resource_status": "TO_CONFIRM",
+       "route_kind": "RESOURCE",
+       "route_state": "routed",
+       "solution": null,
+       "solution_inputs_json": null,
+       "solution_name": null,
+       "transfer_to": null,
+       "trial": {
+        "attached": false,
+        "bucket": null,
+        "primary_app_id": null,
+        "share": null,
+        "side": "PRIMARY",
+        "split": "NOT_ATTACHED",
+        "trial_app_id": null
+       }
+      },
+      "state": "ROUTED"
+     }
+    }
+   },
+   "id": "dispatch.route.001",
+   "params": {
+    "inputs_json": "{\"parameter_snapshot\": {\"schema_version\": \"service-decision-dsl.parameter-snapshot.v2\", \"prepared_for\": {\"workflow_id\": \"DISPATCH\", \"phase_id\": \"D1\", \"step_id\": \"D1.S2\", \"node_id\": \"N1\"}, \"subject_scope_ref\": \"{}\", \"as_of\": \"2026-11-18T00:00:00+00:00\", \"parameters\": {\"scene_id\": {\"quality\": \"KNOWN\", \"value\": \"P_08_01_01\", \"source_refs\": [\"gate:issue-0\"]}, \"issue_type\": {\"quality\": \"KNOWN\", \"value\": \"COMPLAINT\", \"source_refs\": [\"gate:issue-0\"]}, \"phase\": {\"quality\": \"KNOWN\", \"value\": \"STAGE_2\", \"source_refs\": [\"gate:issue-0\"]}}, \"provenance\": {\"issue_key\": \"issue-0\"}}, \"runtime_snapshot\": {}}",
+    "node_ref": "{\"workflow_id\":\"DISPATCH\",\"phase_id\":\"D1\",\"step_id\":\"D1.S2\",\"node_id\":\"N1\"}"
+   },
+   "reader": "r1",
+   "why": "生成：结论类 0c89b80f（取自调用 C:route:0000:P_08_01_01:COMPLAINT:STAGE_2）"
+  },
+  {
+   "expect": {
+    "error": null,
+    "execution_status": "SUCCEEDED",
+    "output_port": "ok",
+    "outputs": {
+     "decision": {
+      "actions": [
+       {
+        "intent_id": "control",
+        "kind": "CONTROL",
+        "route_ref": "routed"
+       }
+      ],
+      "data": {
+       "app_id": null,
+       "resource_entry_json": "{\"app_id\":\"7b281885-e5ec-4e13-b61e-f3b7e7e068a2\",\"kind\":\"AGENTHUB_APP\"}",
+       "resource_id": "self_service.knowledge",
+       "resource_kind": "SELF_SERVICE",
+       "resource_name": "自助 · 问知识库（咨询答复）",
+       "resource_status": "TO_CONFIRM",
+       "route_kind": "RESOURCE",
+       "route_state": "routed",
+       "solution": null,
+       "solution_inputs_json": null,
+       "solution_name": null,
+       "transfer_to": null,
+       "trial": {
+        "attached": false,
+        "bucket": null,
+        "primary_app_id": null,
+        "share": null,
+        "side": "PRIMARY",
+        "split": "NOT_ATTACHED",
+        "trial_app_id": null
+       }
+      },
+      "state": "ROUTED"
+     }
+    }
+   },
+   "id": "dispatch.route.002",
+   "params": {
+    "inputs_json": "{\"parameter_snapshot\": {\"schema_version\": \"service-decision-dsl.parameter-snapshot.v2\", \"prepared_for\": {\"workflow_id\": \"DISPATCH\", \"phase_id\": \"D1\", \"step_id\": \"D1.S2\", \"node_id\": \"N1\"}, \"subject_scope_ref\": \"{}\", \"as_of\": \"2026-11-18T00:00:00+00:00\", \"parameters\": {\"scene_id\": {\"quality\": \"KNOWN\", \"value\": \"P_05_02_01\", \"source_refs\": [\"gate:issue-2\"]}, \"issue_type\": {\"quality\": \"KNOWN\", \"value\": \"CONSULT\", \"source_refs\": [\"gate:issue-2\"]}, \"phase\": {\"quality\": \"KNOWN\", \"value\": \"STAGE_1\", \"source_refs\": [\"gate:issue-2\"]}}, \"provenance\": {\"issue_key\": \"issue-2\"}}, \"runtime_snapshot\": {}}",
+    "node_ref": "{\"workflow_id\":\"DISPATCH\",\"phase_id\":\"D1\",\"step_id\":\"D1.S2\",\"node_id\":\"N1\"}"
+   },
+   "reader": "r1",
+   "why": "生成：结论类 036b6793（取自调用 C:route:0002:P_05_02_01:CONSULT:STAGE_1）"
+  },
+  {
+   "expect": {
+    "error": null,
+    "execution_status": "SUCCEEDED",
+    "output_port": "ok",
+    "outputs": {
+     "decision": {
+      "actions": [
+       {
+        "intent_id": "control",
+        "kind": "CONTROL",
+        "route_ref": "routed"
+       }
+      ],
+      "data": {
+       "app_id": null,
+       "resource_entry_json": "null",
+       "resource_id": "human.first_line",
+       "resource_kind": "HUMAN",
+       "resource_name": "人工 · 一线",
+       "resource_status": "TO_CONFIRM",
+       "route_kind": "RESOURCE",
+       "route_state": "routed",
+       "solution": null,
+       "solution_inputs_json": null,
+       "solution_name": null,
+       "transfer_to": null,
+       "trial": {
+        "attached": false,
+        "bucket": null,
+        "primary_app_id": null,
+        "share": null,
+        "side": "PRIMARY",
+        "split": "NOT_ATTACHED",
+        "trial_app_id": null
+       }
+      },
+      "state": "ROUTED"
+     }
+    }
+   },
+   "id": "dispatch.route.003",
+   "params": {
+    "inputs_json": "{\"parameter_snapshot\": {\"schema_version\": \"service-decision-dsl.parameter-snapshot.v2\", \"prepared_for\": {\"workflow_id\": \"DISPATCH\", \"phase_id\": \"D1\", \"step_id\": \"D1.S2\", \"node_id\": \"N1\"}, \"subject_scope_ref\": \"{}\", \"as_of\": \"2026-11-18T00:00:00+00:00\", \"parameters\": {\"scene_id\": {\"quality\": \"KNOWN\", \"value\": \"P_03_02_08\", \"source_refs\": [\"gate:issue-3\"]}, \"issue_type\": {\"quality\": \"KNOWN\", \"value\": \"COMPLAINT\", \"source_refs\": [\"gate:issue-3\"]}, \"phase\": {\"quality\": \"KNOWN\", \"value\": \"STAGE_1\", \"source_refs\": [\"gate:issue-3\"]}}, \"provenance\": {\"issue_key\": \"issue-3\"}}, \"runtime_snapshot\": {}}",
+    "node_ref": "{\"workflow_id\":\"DISPATCH\",\"phase_id\":\"D1\",\"step_id\":\"D1.S2\",\"node_id\":\"N1\"}"
+   },
+   "reader": "r1",
+   "why": "生成：结论类 de4b8a88（取自调用 C:route:0003:P_03_02_08:COMPLAINT:STAGE_1）"
+  },
+  {
+   "expect": {
+    "error": null,
+    "execution_status": "SUCCEEDED",
+    "output_port": "ok",
+    "outputs": {
+     "decision": {
+      "actions": [
+       {
+        "intent_id": "control",
+        "kind": "CONTROL",
+        "route_ref": "routed"
+       }
+      ],
+      "data": {
+       "app_id": null,
+       "resource_entry_json": "{\"kind\":\"TRANSFER\",\"to\":\"SAFETY\"}",
+       "resource_id": "safety.transfer",
+       "resource_kind": "SAFETY",
+       "resource_name": "转安全",
+       "resource_status": "CONFIRMED",
+       "route_kind": "RESOURCE",
+       "route_state": "routed",
+       "solution": null,
+       "solution_inputs_json": null,
+       "solution_name": null,
+       "transfer_to": null,
+       "trial": {
+        "attached": false,
+        "bucket": null,
+        "primary_app_id": null,
+        "share": null,
+        "side": "PRIMARY",
+        "split": "NOT_ATTACHED",
+        "trial_app_id": null
+       }
+      },
+      "state": "ROUTED"
+     }
+    }
+   },
+   "id": "dispatch.route.004",
+   "params": {
+    "inputs_json": "{\"parameter_snapshot\": {\"schema_version\": \"service-decision-dsl.parameter-snapshot.v2\", \"prepared_for\": {\"workflow_id\": \"DISPATCH\", \"phase_id\": \"D1\", \"step_id\": \"D1.S2\", \"node_id\": \"N1\"}, \"subject_scope_ref\": \"{}\", \"as_of\": \"2026-11-18T00:00:00+00:00\", \"parameters\": {\"scene_id\": {\"quality\": \"KNOWN\", \"value\": \"P_07_03_14\", \"source_refs\": [\"gate:issue-5\"]}, \"issue_type\": {\"quality\": \"KNOWN\", \"value\": \"COMPLAINT\", \"source_refs\": [\"gate:issue-5\"]}, \"phase\": {\"quality\": \"KNOWN\", \"value\": \"STAGE_2\", \"source_refs\": [\"gate:issue-5\"]}}, \"provenance\": {\"issue_key\": \"issue-5\"}}, \"runtime_snapshot\": {}}",
+    "node_ref": "{\"workflow_id\":\"DISPATCH\",\"phase_id\":\"D1\",\"step_id\":\"D1.S2\",\"node_id\":\"N1\"}"
+   },
+   "reader": "r1",
+   "why": "生成：结论类 142067d1（取自调用 C:route:0005:P_07_03_14:COMPLAINT:STAGE_2）"
+  },
+  {
+   "expect": {
+    "error": null,
+    "execution_status": "SUCCEEDED",
+    "output_port": "ok",
+    "outputs": {
+     "decision": {
+      "actions": [
+       {
+        "intent_id": "control",
+        "kind": "CONTROL",
+        "route_ref": "routed"
+       }
+      ],
+      "data": {
+       "app_id": null,
+       "resource_entry_json": "null",
+       "resource_id": "specialist.group",
+       "resource_kind": "SPECIALIST",
+       "resource_name": "专组",
+       "resource_status": "TO_CONFIRM",
+       "route_kind": "RESOURCE",
+       "route_state": "routed",
+       "solution": null,
+       "solution_inputs_json": null,
+       "solution_name": null,
+       "transfer_to": null,
+       "trial": {
+        "attached": false,
+        "bucket": null,
+        "primary_app_id": null,
+        "share": null,
+        "side": "PRIMARY",
+        "split": "NOT_ATTACHED",
+        "trial_app_id": null
+       }
+      },
+      "state": "ROUTED"
+     }
+    }
+   },
+   "id": "dispatch.route.005",
+   "params": {
+    "inputs_json": "{\"parameter_snapshot\": {\"schema_version\": \"service-decision-dsl.parameter-snapshot.v2\", \"prepared_for\": {\"workflow_id\": \"DISPATCH\", \"phase_id\": \"D1\", \"step_id\": \"D1.S2\", \"node_id\": \"N1\"}, \"subject_scope_ref\": \"{}\", \"as_of\": \"2026-11-18T00:00:00+00:00\", \"parameters\": {\"scene_id\": {\"quality\": \"KNOWN\", \"value\": \"P_03_02_04\", \"source_refs\": [\"gate:issue-8\"]}, \"issue_type\": {\"quality\": \"KNOWN\", \"value\": \"COMPLAINT\", \"source_refs\": [\"gate:issue-8\"]}, \"phase\": {\"quality\": \"KNOWN\", \"value\": \"STAGE_3\", \"source_refs\": [\"gate:issue-8\"]}}, \"provenance\": {\"issue_key\": \"issue-8\"}}, \"runtime_snapshot\": {}}",
+    "node_ref": "{\"workflow_id\":\"DISPATCH\",\"phase_id\":\"D1\",\"step_id\":\"D1.S2\",\"node_id\":\"N1\"}"
+   },
+   "reader": "r1",
+   "why": "生成：结论类 6c1e3d76（取自调用 C:route:0008:P_03_02_04:COMPLAINT:STAGE_3）"
+  },
+  {
+   "expect": {
+    "error": null,
+    "execution_status": "SUCCEEDED",
+    "output_port": "ok",
+    "outputs": {
+     "decision": {
+      "actions": [
+       {
+        "intent_id": "control",
+        "kind": "CONTROL",
+        "route_ref": "routed"
+       }
+      ],
+      "data": {
+       "app_id": null,
+       "resource_entry_json": "{\"kind\":\"TRANSFER\",\"to\":\"SAFETY\"}",
+       "resource_id": "safety.transfer",
+       "resource_kind": "SAFETY",
+       "resource_name": "转安全",
+       "resource_status": "CONFIRMED",
+       "route_kind": "TRANSFER",
+       "route_state": "routed",
+       "solution": null,
+       "solution_inputs_json": null,
+       "solution_name": null,
+       "transfer_to": "SAFETY",
+       "trial": {
+        "attached": false,
+        "bucket": null,
+        "primary_app_id": null,
+        "share": null,
+        "side": "PRIMARY",
+        "split": "NOT_ATTACHED",
+        "trial_app_id": null
+       }
+      },
+      "state": "ROUTED"
+     }
+    }
+   },
+   "id": "dispatch.route.006",
+   "params": {
+    "inputs_json": "{\"parameter_snapshot\": {\"schema_version\": \"service-decision-dsl.parameter-snapshot.v2\", \"prepared_for\": {\"workflow_id\": \"DISPATCH\", \"phase_id\": \"D1\", \"step_id\": \"D1.S2\", \"node_id\": \"N1\"}, \"subject_scope_ref\": \"{}\", \"as_of\": \"2026-11-18T00:00:00+00:00\", \"parameters\": {\"scene_id\": {\"quality\": \"KNOWN\", \"value\": \"P_07_02_09\", \"source_refs\": [\"gate:issue-13\"]}, \"issue_type\": {\"quality\": \"KNOWN\", \"value\": \"COMPLAINT\", \"source_refs\": [\"gate:issue-13\"]}, \"phase\": {\"quality\": \"KNOWN\", \"value\": \"STAGE_1\", \"source_refs\": [\"gate:issue-13\"]}}, \"provenance\": {\"issue_key\": \"issue-13\"}}, \"runtime_snapshot\": {}}",
+    "node_ref": "{\"workflow_id\":\"DISPATCH\",\"phase_id\":\"D1\",\"step_id\":\"D1.S2\",\"node_id\":\"N1\"}"
+   },
+   "reader": "r1",
+   "why": "生成：结论类 3a557c04（取自调用 C:route:0013:P_07_02_09:COMPLAINT:STAGE_1）"
+  },
+  {
+   "expect": {
+    "error": null,
+    "execution_status": "SUCCEEDED",
+    "output_port": "ok",
+    "outputs": {
+     "decision": {
+      "actions": [
+       {
+        "intent_id": "control",
+        "kind": "CONTROL",
+        "route_ref": "routed"
+       }
+      ],
+      "data": {
+       "app_id": null,
+       "resource_entry_json": "null",
+       "resource_id": "human.consult",
+       "resource_kind": "HUMAN",
+       "resource_name": "人工 · 咨询坐席",
+       "resource_status": "TO_CONFIRM",
+       "route_kind": "RESOURCE",
+       "route_state": "routed",
+       "solution": null,
+       "solution_inputs_json": null,
+       "solution_name": null,
+       "transfer_to": null,
+       "trial": {
+        "attached": false,
+        "bucket": null,
+        "primary_app_id": null,
+        "share": null,
+        "side": "PRIMARY",
+        "split": "NOT_ATTACHED",
+        "trial_app_id": null
+       }
+      },
+      "state": "ROUTED"
+     }
+    }
+   },
+   "id": "dispatch.route.007",
+   "params": {
+    "inputs_json": "{\"parameter_snapshot\": {\"schema_version\": \"service-decision-dsl.parameter-snapshot.v2\", \"prepared_for\": {\"workflow_id\": \"DISPATCH\", \"phase_id\": \"D1\", \"step_id\": \"D1.S2\", \"node_id\": \"N1\"}, \"subject_scope_ref\": \"{}\", \"as_of\": \"2026-11-18T00:00:00+00:00\", \"parameters\": {\"scene_id\": {\"quality\": \"KNOWN\", \"value\": \"P_03_02_05\", \"source_refs\": [\"gate:issue-14\"]}, \"issue_type\": {\"quality\": \"KNOWN\", \"value\": \"CONSULT\", \"source_refs\": [\"gate:issue-14\"]}, \"phase\": {\"quality\": \"KNOWN\", \"value\": \"STAGE_1\", \"source_refs\": [\"gate:issue-14\"]}}, \"provenance\": {\"issue_key\": \"issue-14\"}}, \"runtime_snapshot\": {}}",
+    "node_ref": "{\"workflow_id\":\"DISPATCH\",\"phase_id\":\"D1\",\"step_id\":\"D1.S2\",\"node_id\":\"N1\"}"
+   },
+   "reader": "r1",
+   "why": "生成：结论类 a2078362（取自调用 C:route:0014:P_03_02_05:CONSULT:STAGE_1）"
+  },
+  {
+   "expect": {
+    "error": null,
+    "execution_status": "SUCCEEDED",
+    "output_port": "ok",
+    "outputs": {
+     "decision": {
+      "actions": [
+       {
+        "intent_id": "control",
+        "kind": "CONTROL",
+        "route_ref": "routed"
+       }
+      ],
+      "data": {
+       "app_id": null,
+       "resource_entry_json": "null",
+       "resource_id": "human.feedback",
+       "resource_kind": "HUMAN",
+       "resource_name": "人工 · 意见反馈受理",
+       "resource_status": "TO_CONFIRM",
+       "route_kind": "RESOURCE",
+       "route_state": "routed",
+       "solution": null,
+       "solution_inputs_json": null,
+       "solution_name": null,
+       "transfer_to": null,
+       "trial": {
+        "attached": false,
+        "bucket": null,
+        "primary_app_id": null,
+        "share": null,
+        "side": "PRIMARY",
+        "split": "NOT_ATTACHED",
+        "trial_app_id": null
+       }
+      },
+      "state": "ROUTED"
+     }
+    }
+   },
+   "id": "dispatch.route.008",
+   "params": {
+    "inputs_json": "{\"parameter_snapshot\": {\"schema_version\": \"service-decision-dsl.parameter-snapshot.v2\", \"prepared_for\": {\"workflow_id\": \"DISPATCH\", \"phase_id\": \"D1\", \"step_id\": \"D1.S2\", \"node_id\": \"N1\"}, \"subject_scope_ref\": \"{}\", \"as_of\": \"2026-11-18T00:00:00+00:00\", \"parameters\": {\"scene_id\": {\"quality\": \"KNOWN\", \"value\": \"P_05_01_05\", \"source_refs\": [\"gate:issue-22\"]}, \"issue_type\": {\"quality\": \"KNOWN\", \"value\": \"FEEDBACK\", \"source_refs\": [\"gate:issue-22\"]}, \"phase\": {\"quality\": \"KNOWN\", \"value\": \"STAGE_1\", \"source_refs\": [\"gate:issue-22\"]}}, \"provenance\": {\"issue_key\": \"issue-22\"}}, \"runtime_snapshot\": {}}",
+    "node_ref": "{\"workflow_id\":\"DISPATCH\",\"phase_id\":\"D1\",\"step_id\":\"D1.S2\",\"node_id\":\"N1\"}"
+   },
+   "reader": "r1",
+   "why": "生成：结论类 95c444a8（取自调用 C:route:0022:P_05_01_05:FEEDBACK:STAGE_1）"
+  },
+  {
+   "expect": {
+    "error": null,
+    "execution_status": "SUCCEEDED",
+    "output_port": "ok",
+    "outputs": {
+     "decision": {
+      "actions": [
+       {
+        "intent_id": "control",
+        "kind": "CONTROL",
+        "route_ref": "unregistered"
+       }
+      ],
+      "data": {
+       "app_id": null,
+       "resource_entry_json": null,
+       "resource_id": null,
+       "resource_kind": null,
+       "resource_name": null,
+       "resource_status": null,
+       "route_kind": null,
+       "route_state": "unregistered",
+       "solution": null,
+       "solution_inputs_json": null,
+       "solution_name": null,
+       "transfer_to": null,
+       "trial": {
+        "attached": false,
+        "bucket": null,
+        "primary_app_id": null,
+        "share": null,
+        "side": "PRIMARY",
+        "split": "NOT_ATTACHED",
+        "trial_app_id": null
+       }
+      },
+      "state": "UNREGISTERED"
+     }
+    }
+   },
+   "id": "dispatch.route.009",
+   "params": {
+    "inputs_json": "{\"parameter_snapshot\": {\"schema_version\": \"service-decision-dsl.parameter-snapshot.v2\", \"prepared_for\": {\"workflow_id\": \"DISPATCH\", \"phase_id\": \"D1\", \"step_id\": \"D1.S2\", \"node_id\": \"N1\"}, \"subject_scope_ref\": \"{}\", \"as_of\": \"2026-11-18T00:00:00+00:00\", \"parameters\": {\"scene_id\": {\"quality\": \"KNOWN\", \"value\": \"P_02_04_01\", \"source_refs\": [\"gate:issue-49\"]}, \"issue_type\": {\"quality\": \"KNOWN\", \"value\": \"CONSULT\", \"source_refs\": [\"gate:issue-49\"]}, \"phase\": {\"quality\": \"KNOWN\", \"value\": \"STAGE_9\", \"source_refs\": [\"gate:issue-49\"]}}, \"provenance\": {\"issue_key\": \"issue-49\"}}, \"runtime_snapshot\": {}}",
+    "node_ref": "{\"workflow_id\":\"DISPATCH\",\"phase_id\":\"D1\",\"step_id\":\"D1.S2\",\"node_id\":\"N1\"}"
+   },
+   "reader": "r1",
+   "why": "生成：结论类 e4a08f93（取自调用 C:route:0049:P_02_04_01:CONSULT:STAGE_9）"
+  },
+  {
+   "expect": {
+    "error": null,
+    "execution_status": "SUCCEEDED",
+    "output_port": "ok",
+    "outputs": {
+     "decision": {
+      "actions": [
+       {
+        "intent_id": "control",
+        "kind": "CONTROL",
+        "route_ref": "routed"
+       }
+      ],
+      "data": {
+       "app_id": "d6be0341-b1fd-4383-9e3e-1f247b33c97d",
+       "resource_entry_json": null,
+       "resource_id": null,
+       "resource_kind": null,
+       "resource_name": null,
+       "resource_status": null,
+       "route_kind": "SOLUTION_APP",
+       "route_state": "routed",
+       "solution": {
+        "app_id": "d6be0341-b1fd-4383-9e3e-1f247b33c97d",
+        "gate_code": null,
+        "intents": [
+         "REPORT_PROBLEM"
+        ],
+        "request_contract": "场景方案调用/v4",
+        "status": "CURRENT",
+        "topics": [
+         "destination_change_refused",
+         "destination_not_reached",
+         "wrong_dropoff",
+         "driver_forced_early_dropoff",
+         "driver_ended_trip_early",
+         "rider_ended_trip_early"
+        ]
+       },
+       "solution_inputs_json": "[\"call_id\",\"request_json\"]",
+       "solution_name": "ESE-乘客-B-SOLUTION-WF-履约-P_04_03_07-未送达与送错目的地",
+       "transfer_to": null,
+       "trial": {
+        "attached": false,
+        "bucket": null,
+        "primary_app_id": "d6be0341-b1fd-4383-9e3e-1f247b33c97d",
+        "share": null,
+        "side": "PRIMARY",
+        "split": "NOT_ATTACHED",
+        "trial_app_id": null
+       }
+      },
+      "state": "ROUTED"
+     }
+    }
+   },
+   "id": "dispatch.route.010",
+   "params": {
+    "inputs_json": "{\"parameter_snapshot\": {\"schema_version\": \"service-decision-dsl.parameter-snapshot.v2\", \"prepared_for\": {\"workflow_id\": \"DISPATCH\", \"phase_id\": \"D1\", \"step_id\": \"D1.S2\", \"node_id\": \"N1\"}, \"subject_scope_ref\": \"{}\", \"as_of\": \"2026-11-18T00:00:00+00:00\", \"parameters\": {\"scene_id\": {\"quality\": \"KNOWN\", \"value\": \"P_04_03_07\", \"source_refs\": [\"gate:issue-117\"]}, \"issue_type\": {\"quality\": \"KNOWN\", \"value\": \"COMPLAINT\", \"source_refs\": [\"gate:issue-117\"]}, \"phase\": {\"quality\": \"KNOWN\", \"value\": \"STAGE_1\", \"source_refs\": [\"gate:issue-117\"]}}, \"provenance\": {\"issue_key\": \"issue-117\"}}, \"runtime_snapshot\": {}}",
+    "node_ref": "{\"workflow_id\":\"DISPATCH\",\"phase_id\":\"D1\",\"step_id\":\"D1.S2\",\"node_id\":\"N1\"}"
+   },
+   "reader": "r1",
+   "why": "生成：结论类 488d27ac（取自调用 C:route:0117:P_04_03_07:COMPLAINT:STAGE_1）"
+  },
+  {
+   "expect": {
+    "error": null,
+    "execution_status": "SUCCEEDED",
+    "output_port": "ok",
+    "outputs": {
+     "decision": {
+      "actions": [
+       {
+        "intent_id": "control",
+        "kind": "CONTROL",
+        "route_ref": "routed"
+       }
+      ],
+      "data": {
+       "app_id": "1a545f43-bfb6-4615-80df-08f1e6de35d4",
+       "resource_entry_json": null,
+       "resource_id": null,
+       "resource_kind": null,
+       "resource_name": null,
+       "resource_status": null,
+       "route_kind": "SOLUTION_APP",
+       "route_state": "routed",
+       "solution": {
+        "app_id": "1a545f43-bfb6-4615-80df-08f1e6de35d4",
+        "gate_code": null,
+        "intents": [
+         "REPORT_PROBLEM",
+         "APPEAL",
+         "REQUEST_SERVICE",
+         "CONSULT_OPERATION",
+         "CONSULT_RULE",
+         "QUERY_RECORD"
+        ],
+        "request_contract": "场景方案调用/v5",
+        "status": "CURRENT",
+        "topics": [
+         "coupon_unselectable",
+         "coupon_not_deducted",
+         "coupon_order_deduction_issue",
+         "coupon_submit_failed",
+         "coupon_deduction_mismatch",
+         "coupon_use",
+         "coupon_auto_deduction_dispute",
+         "coupon_auto_setting_request",
+         "coupon_records_query",
+         "coupon_redeem_issue",
+         "coupon_extend_request",
+         "coupon_validity_dispute",
+         "coupon_visibility_issue"
+        ]
+       },
+       "solution_inputs_json": "[\"call_id\",\"request_json\"]",
+       "solution_name": "ESE-乘客-B-SOLUTION-WF-营销-P_02_04_01-优惠券使用V3",
+       "transfer_to": null,
+       "trial": {
+        "attached": false,
+        "bucket": null,
+        "primary_app_id": "1a545f43-bfb6-4615-80df-08f1e6de35d4",
+        "share": null,
+        "side": "PRIMARY",
+        "split": "NOT_ATTACHED",
+        "trial_app_id": null
+       }
+      },
+      "state": "ROUTED"
+     }
+    }
+   },
+   "id": "dispatch.route.011",
+   "params": {
+    "inputs_json": "{\"parameter_snapshot\": {\"schema_version\": \"service-decision-dsl.parameter-snapshot.v2\", \"prepared_for\": {\"workflow_id\": \"DISPATCH\", \"phase_id\": \"D1\", \"step_id\": \"D1.S2\", \"node_id\": \"N1\"}, \"subject_scope_ref\": \"{}\", \"as_of\": \"2026-11-18T00:00:00+00:00\", \"parameters\": {\"scene_id\": {\"quality\": \"KNOWN\", \"value\": \"P_02_04_01\", \"source_refs\": [\"gate:issue-284\"]}, \"issue_type\": {\"quality\": \"KNOWN\", \"value\": \"COMPLAINT\", \"source_refs\": [\"gate:issue-284\"]}, \"phase\": {\"quality\": \"KNOWN\", \"value\": \"STAGE_1\", \"source_refs\": [\"gate:issue-284\"]}}, \"provenance\": {\"issue_key\": \"issue-284\"}}, \"runtime_snapshot\": {}}",
+    "node_ref": "{\"workflow_id\":\"DISPATCH\",\"phase_id\":\"D1\",\"step_id\":\"D1.S2\",\"node_id\":\"N1\"}"
+   },
+   "reader": "r1",
+   "why": "生成：结论类 3f7958e6（取自调用 C:route:0284:P_02_04_01:COMPLAINT:STAGE_1）"
+  },
+  {
+   "expect": {
+    "error": null,
+    "execution_status": "SUCCEEDED",
+    "output_port": "ok",
+    "outputs": {
+     "decision": {
+      "actions": [
+       {
+        "intent_id": "control",
+        "kind": "CONTROL",
+        "route_ref": "routed"
+       }
+      ],
+      "data": {
+       "app_id": "e141f7a4-03e0-415d-a439-a3a044dea953",
+       "resource_entry_json": null,
+       "resource_id": null,
+       "resource_kind": null,
+       "resource_name": null,
+       "resource_status": null,
+       "route_kind": "SOLUTION_APP",
+       "route_state": "routed",
+       "solution": {
+        "app_id": "e141f7a4-03e0-415d-a439-a3a044dea953",
+        "gate_code": null,
+        "intents": [
+         "APPEAL",
+         "REPORT_PROBLEM",
+         "REQUEST_SERVICE",
+         "CONSULT_OPERATION",
+         "CONSULT_RULE",
+         "QUERY_RECORD",
+         "SUGGESTION"
+        ],
+        "request_contract": "场景方案调用/v4.2",
+        "status": "CURRENT",
+        "topics": [
+         "base_fare_amount_dispute",
+         "fare_structure_rule_dispute",
+         "estimate_actual_difference",
+         "price_notice_dispute",
+         "fare_estimate_preorder_issue",
+         "fare_estimate_rule_dispute",
+         "bill_adjustment_operation_issue",
+         "bill_adjustment_amount_dispute",
+         "bill_amount_dispute",
+         "bill_endpoints_amount_difference",
+         "fare_structure",
+         "fare_structure_records_query",
+         "fare_estimate",
+         "fare_estimate_records_query",
+         "bill_review_adjustment",
+         "bill_review_records_query"
+        ]
+       },
+       "solution_inputs_json": "[\"call_id\",\"request_json\"]",
+       "solution_name": "ESE-乘客-A-SOLUTION-WF-费用-P_05_01_01-计价规则与收费标准",
+       "transfer_to": null,
+       "trial": {
+        "attached": false,
+        "bucket": null,
+        "primary_app_id": "e141f7a4-03e0-415d-a439-a3a044dea953",
+        "share": null,
+        "side": "PRIMARY",
+        "split": "NOT_ATTACHED",
+        "trial_app_id": null
+       }
+      },
+      "state": "ROUTED"
+     }
+    }
+   },
+   "id": "dispatch.route.012",
+   "params": {
+    "inputs_json": "{\"parameter_snapshot\": {\"schema_version\": \"service-decision-dsl.parameter-snapshot.v2\", \"prepared_for\": {\"workflow_id\": \"DISPATCH\", \"phase_id\": \"D1\", \"step_id\": \"D1.S2\", \"node_id\": \"N1\"}, \"subject_scope_ref\": \"{}\", \"as_of\": \"2026-11-18T00:00:00+00:00\", \"parameters\": {\"scene_id\": {\"quality\": \"KNOWN\", \"value\": \"P_05_01_01\", \"source_refs\": [\"gate:issue-412\"]}, \"issue_type\": {\"quality\": \"KNOWN\", \"value\": \"COMPLAINT\", \"source_refs\": [\"gate:issue-412\"]}, \"phase\": {\"quality\": \"KNOWN\", \"value\": \"STAGE_1\", \"source_refs\": [\"gate:issue-412\"]}}, \"provenance\": {\"issue_key\": \"issue-412\"}}, \"runtime_snapshot\": {}}",
+    "node_ref": "{\"workflow_id\":\"DISPATCH\",\"phase_id\":\"D1\",\"step_id\":\"D1.S2\",\"node_id\":\"N1\"}"
+   },
+   "reader": "r1",
+   "why": "生成：结论类 33f52a68（取自调用 C:route:0412:P_05_01_01:COMPLAINT:STAGE_1）"
+  },
+  {
+   "expect": {
+    "error": null,
+    "execution_status": "SUCCEEDED",
+    "output_port": "ok",
+    "outputs": {
+     "decision": {
+      "actions": [
+       {
+        "intent_id": "control",
+        "kind": "CONTROL",
+        "route_ref": "routed"
+       }
+      ],
+      "data": {
+       "app_id": "15ad3cd8-256d-4f6b-a6e3-3b802cdec1e4",
+       "resource_entry_json": null,
+       "resource_id": null,
+       "resource_kind": null,
+       "resource_name": null,
+       "resource_status": null,
+       "route_kind": "SOLUTION_APP",
+       "route_state": "routed",
+       "solution": {
+        "app_id": "15ad3cd8-256d-4f6b-a6e3-3b802cdec1e4",
+        "gate_code": null,
+        "intents": [
+         "REPORT_PROBLEM"
+        ],
+        "request_contract": "场景方案调用/v4.2",
+        "status": "CURRENT",
+        "topics": [
+         "driver_cancelled_after_acceptance",
+         "driver_no_show"
+        ]
+       },
+       "solution_inputs_json": "[\"call_id\",\"request_json\"]",
+       "solution_name": "15ad3cd8",
+       "transfer_to": null,
+       "trial": {
+        "attached": true,
+        "bucket": null,
+        "primary_app_id": "15ad3cd8-256d-4f6b-a6e3-3b802cdec1e4",
+        "share": 10,
+        "side": "PRIMARY",
+        "split": "NO_SPLIT_KEY",
+        "trial_app_id": "6727d647-b4aa-4bce-bad1-5b345bbf61e5"
+       }
+      },
+      "state": "ROUTED"
+     }
+    }
+   },
+   "id": "dispatch.route.013",
+   "params": {
+    "inputs_json": "{\"parameter_snapshot\": {\"schema_version\": \"service-decision-dsl.parameter-snapshot.v2\", \"prepared_for\": {\"workflow_id\": \"DISPATCH\", \"phase_id\": \"D1\", \"step_id\": \"D1.S2\", \"node_id\": \"N1\"}, \"subject_scope_ref\": \"{}\", \"as_of\": \"2026-11-18T00:00:00+00:00\", \"parameters\": {\"scene_id\": {\"quality\": \"KNOWN\", \"value\": \"P_04_01_01\", \"source_refs\": [\"gate:issue-459\"]}, \"issue_type\": {\"quality\": \"KNOWN\", \"value\": \"COMPLAINT\", \"source_refs\": [\"gate:issue-459\"]}, \"phase\": {\"quality\": \"KNOWN\", \"value\": \"STAGE_1\", \"source_refs\": [\"gate:issue-459\"]}}, \"provenance\": {\"issue_key\": \"issue-459\"}}, \"runtime_snapshot\": {}}",
+    "node_ref": "{\"workflow_id\":\"DISPATCH\",\"phase_id\":\"D1\",\"step_id\":\"D1.S2\",\"node_id\":\"N1\"}"
+   },
+   "reader": "r1",
+   "why": "生成：结论类 a99529d9（取自调用 C:route:0459:P_04_01_01:COMPLAINT:STAGE_1）"
+  },
+  {
+   "expect": {
+    "error": null,
+    "execution_status": "SUCCEEDED",
+    "output_port": "ok",
+    "outputs": {
+     "decision": {
+      "actions": [
+       {
+        "intent_id": "control",
+        "kind": "CONTROL",
+        "route_ref": "routed"
+       }
+      ],
+      "data": {
+       "app_id": "e141f7a4-03e0-415d-a439-a3a044dea953",
+       "resource_entry_json": null,
+       "resource_id": null,
+       "resource_kind": null,
+       "resource_name": null,
+       "resource_status": null,
+       "route_kind": "SOLUTION_APP",
+       "route_state": "routed",
+       "solution": {
+        "app_id": "e141f7a4-03e0-415d-a439-a3a044dea953",
+        "gate_code": null,
+        "intents": [
+         "APPEAL",
+         "REPORT_PROBLEM",
+         "REQUEST_SERVICE",
+         "CONSULT_OPERATION",
+         "CONSULT_RULE",
+         "QUERY_RECORD",
+         "SUGGESTION"
+        ],
+        "request_contract": "场景方案调用/v4.2",
+        "status": "CURRENT",
+        "topics": [
+         "base_fare_amount_dispute",
+         "fare_structure_rule_dispute",
+         "estimate_actual_difference",
+         "price_notice_dispute",
+         "fare_estimate_preorder_issue",
+         "fare_estimate_rule_dispute",
+         "bill_adjustment_operation_issue",
+         "bill_adjustment_amount_dispute",
+         "bill_amount_dispute",
+         "bill_endpoints_amount_difference",
+         "fare_structure",
+         "fare_structure_records_query",
+         "fare_estimate",
+         "fare_estimate_records_query",
+         "bill_review_adjustment",
+         "bill_review_records_query"
+        ]
+       },
+       "solution_inputs_json": "[\"call_id\",\"request_json\"]",
+       "solution_name": "ESE-乘客-A-SOLUTION-WF-费用-P_05_01_01-计价规则与收费标准",
+       "transfer_to": null,
+       "trial": {
+        "attached": false,
+        "bucket": null,
+        "primary_app_id": "e141f7a4-03e0-415d-a439-a3a044dea953",
+        "share": null,
+        "side": "PRIMARY",
+        "split": "NOT_ATTACHED",
+        "trial_app_id": null
+       }
+      },
+      "state": "ROUTED"
+     }
+    }
+   },
+   "id": "dispatch.route.014",
+   "params": {
+    "inputs_json": "{\"parameter_snapshot\": {\"schema_version\": \"service-decision-dsl.parameter-snapshot.v2\", \"prepared_for\": {\"workflow_id\": \"DISPATCH\", \"phase_id\": \"D1\", \"step_id\": \"D1.S2\", \"node_id\": \"N1\"}, \"subject_scope_ref\": \"{}\", \"as_of\": \"2026-11-18T00:00:00+00:00\", \"parameters\": {\"scene_id\": {\"quality\": \"KNOWN\", \"value\": \"P_05_01_06\", \"source_refs\": [\"gate:issue-509\"]}, \"issue_type\": {\"quality\": \"KNOWN\", \"value\": \"COMPLAINT\", \"source_refs\": [\"gate:issue-509\"]}, \"phase\": {\"quality\": \"KNOWN\", \"value\": \"STAGE_1\", \"source_refs\": [\"gate:issue-509\"]}}, \"provenance\": {\"issue_key\": \"issue-509\"}}, \"runtime_snapshot\": {}}",
+    "node_ref": "{\"workflow_id\":\"DISPATCH\",\"phase_id\":\"D1\",\"step_id\":\"D1.S2\",\"node_id\":\"N1\"}"
+   },
+   "reader": "r1",
+   "why": "生成：方案行 e141f7a4（取自调用 C:route:0509:P_05_01_06:COMPLAINT:STAGE_1）"
+  },
+  {
+   "expect": {
+    "error": null,
+    "execution_status": "SUCCEEDED",
+    "output_port": "ok",
+    "outputs": {
+     "decision": {
+      "actions": [
+       {
+        "intent_id": "control",
+        "kind": "CONTROL",
+        "route_ref": "routed"
+       }
+      ],
+      "data": {
+       "app_id": "0e3512a7-562c-47b6-8bec-63b3a57a3ec8",
+       "resource_entry_json": null,
+       "resource_id": null,
+       "resource_kind": null,
+       "resource_name": null,
+       "resource_status": null,
+       "route_kind": "SOLUTION_APP",
+       "route_state": "routed",
+       "solution": {
+        "app_id": "0e3512a7-562c-47b6-8bec-63b3a57a3ec8",
+        "gate_code": null,
+        "intents": [
+         "REPORT_PROBLEM",
+         "CONSULT_RULE"
+        ],
+        "request_contract": "场景方案调用/v4",
+        "status": "CURRENT",
+        "topics": [
+         "driver_pickup_late",
+         "pickup_punctuality_rule"
+        ]
+       },
+       "solution_inputs_json": "[\"call_id\",\"request_json\"]",
+       "solution_name": "ESE-乘客-B-SOLUTION-WF-履约-P_04_01_06-司机接驾迟到",
+       "transfer_to": null,
+       "trial": {
+        "attached": false,
+        "bucket": null,
+        "primary_app_id": "0e3512a7-562c-47b6-8bec-63b3a57a3ec8",
+        "share": null,
+        "side": "PRIMARY",
+        "split": "NOT_ATTACHED",
+        "trial_app_id": null
+       }
+      },
+      "state": "ROUTED"
+     }
+    }
+   },
+   "id": "dispatch.route.015",
+   "params": {
+    "inputs_json": "{\"parameter_snapshot\": {\"schema_version\": \"service-decision-dsl.parameter-snapshot.v2\", \"prepared_for\": {\"workflow_id\": \"DISPATCH\", \"phase_id\": \"D1\", \"step_id\": \"D1.S2\", \"node_id\": \"N1\"}, \"subject_scope_ref\": \"{}\", \"as_of\": \"2026-11-18T00:00:00+00:00\", \"parameters\": {\"scene_id\": {\"quality\": \"KNOWN\", \"value\": \"P_04_01_06\", \"source_refs\": [\"gate:issue-614\"]}, \"issue_type\": {\"quality\": \"KNOWN\", \"value\": \"COMPLAINT\", \"source_refs\": [\"gate:issue-614\"]}, \"phase\": {\"quality\": \"KNOWN\", \"value\": \"STAGE_1\", \"source_refs\": [\"gate:issue-614\"]}}, \"provenance\": {\"issue_key\": \"issue-614\"}}, \"runtime_snapshot\": {}}",
+    "node_ref": "{\"workflow_id\":\"DISPATCH\",\"phase_id\":\"D1\",\"step_id\":\"D1.S2\",\"node_id\":\"N1\"}"
+   },
+   "reader": "r1",
+   "why": "生成：结论类 63034d28（取自调用 C:route:0614:P_04_01_06:COMPLAINT:STAGE_1）"
+  },
+  {
+   "expect": {
+    "error": null,
+    "execution_status": "SUCCEEDED",
+    "output_port": "ok",
+    "outputs": {
+     "decision": {
+      "actions": [
+       {
+        "intent_id": "control",
+        "kind": "CONTROL",
+        "route_ref": "routed"
+       }
+      ],
+      "data": {
+       "app_id": "5ce88d4f-799c-4427-93c3-f7bf7d4d7db5",
+       "resource_entry_json": null,
+       "resource_id": null,
+       "resource_kind": null,
+       "resource_name": null,
+       "resource_status": null,
+       "route_kind": "SOLUTION_APP",
+       "route_state": "routed",
+       "solution": {
+        "app_id": "5ce88d4f-799c-4427-93c3-f7bf7d4d7db5",
+        "gate_code": null,
+        "intents": [
+         "REPORT_PROBLEM",
+         "REQUEST_SERVICE",
+         "CONSULT_RULE"
+        ],
+        "request_contract": "场景方案调用/v4",
+        "status": "CURRENT",
+        "topics": [
+         "pickup_meeting_assistance",
+         "pickup_meeting_failed",
+         "pickup_meeting_rule"
+        ]
+       },
+       "solution_inputs_json": "[\"call_id\",\"request_json\"]",
+       "solution_name": "ESE-乘客-B-SOLUTION-WF-履约-P_04_01_03-上车点碰面协调",
+       "transfer_to": null,
+       "trial": {
+        "attached": false,
+        "bucket": null,
+        "primary_app_id": "5ce88d4f-799c-4427-93c3-f7bf7d4d7db5",
+        "share": null,
+        "side": "PRIMARY",
+        "split": "NOT_ATTACHED",
+        "trial_app_id": null
+       }
+      },
+      "state": "ROUTED"
+     }
+    }
+   },
+   "id": "dispatch.route.016",
+   "params": {
+    "inputs_json": "{\"parameter_snapshot\": {\"schema_version\": \"service-decision-dsl.parameter-snapshot.v2\", \"prepared_for\": {\"workflow_id\": \"DISPATCH\", \"phase_id\": \"D1\", \"step_id\": \"D1.S2\", \"node_id\": \"N1\"}, \"subject_scope_ref\": \"{}\", \"as_of\": \"2026-11-18T00:00:00+00:00\", \"parameters\": {\"scene_id\": {\"quality\": \"KNOWN\", \"value\": \"P_04_01_03\", \"source_refs\": [\"gate:issue-709\"]}, \"issue_type\": {\"quality\": \"KNOWN\", \"value\": \"COMPLAINT\", \"source_refs\": [\"gate:issue-709\"]}, \"phase\": {\"quality\": \"KNOWN\", \"value\": \"STAGE_1\", \"source_refs\": [\"gate:issue-709\"]}}, \"provenance\": {\"issue_key\": \"issue-709\"}}, \"runtime_snapshot\": {}}",
+    "node_ref": "{\"workflow_id\":\"DISPATCH\",\"phase_id\":\"D1\",\"step_id\":\"D1.S2\",\"node_id\":\"N1\"}"
+   },
+   "reader": "r1",
+   "why": "生成：结论类 993e0b1c（取自调用 C:route:0709:P_04_01_03:COMPLAINT:STAGE_1）"
+  },
+  {
+   "expect": {
+    "error": null,
+    "execution_status": "SUCCEEDED",
+    "output_port": "ok",
+    "outputs": {
+     "decision": {
+      "actions": [
+       {
+        "intent_id": "control",
+        "kind": "CONTROL",
+        "route_ref": "routed"
+       }
+      ],
+      "data": {
+       "app_id": "d6be0341-b1fd-4383-9e3e-1f247b33c97d",
+       "resource_entry_json": null,
+       "resource_id": null,
+       "resource_kind": null,
+       "resource_name": null,
+       "resource_status": null,
+       "route_kind": "SOLUTION_APP",
+       "route_state": "routed",
+       "solution": {
+        "app_id": "d6be0341-b1fd-4383-9e3e-1f247b33c97d",
+        "gate_code": null,
+        "intents": [
+         "REPORT_PROBLEM"
+        ],
+        "request_contract": "场景方案调用/v4",
+        "status": "CURRENT",
+        "topics": [
+         "destination_change_refused",
+         "destination_not_reached",
+         "wrong_dropoff",
+         "driver_forced_early_dropoff",
+         "driver_ended_trip_early",
+         "rider_ended_trip_early"
+        ]
+       },
+       "solution_inputs_json": "[\"call_id\",\"request_json\"]",
+       "solution_name": "ESE-乘客-B-SOLUTION-WF-履约-P_04_03_07-未送达与送错目的地",
+       "transfer_to": null,
+       "trial": {
+        "attached": false,
+        "bucket": null,
+        "primary_app_id": "d6be0341-b1fd-4383-9e3e-1f247b33c97d",
+        "share": null,
+        "side": "PRIMARY",
+        "split": "NOT_ATTACHED",
+        "trial_app_id": null
+       }
+      },
+      "state": "ROUTED"
+     }
+    }
+   },
+   "id": "dispatch.route.017",
+   "params": {
+    "inputs_json": "{\"parameter_snapshot\": {\"schema_version\": \"service-decision-dsl.parameter-snapshot.v2\", \"prepared_for\": {\"workflow_id\": \"DISPATCH\", \"phase_id\": \"D1\", \"step_id\": \"D1.S2\", \"node_id\": \"N1\"}, \"subject_scope_ref\": \"{}\", \"as_of\": \"2026-11-18T00:00:00+00:00\", \"parameters\": {\"scene_id\": {\"quality\": \"KNOWN\", \"value\": \"P_04_03_01\", \"source_refs\": [\"gate:issue-953\"]}, \"issue_type\": {\"quality\": \"KNOWN\", \"value\": \"COMPLAINT\", \"source_refs\": [\"gate:issue-953\"]}, \"phase\": {\"quality\": \"KNOWN\", \"value\": \"STAGE_1\", \"source_refs\": [\"gate:issue-953\"]}}, \"provenance\": {\"issue_key\": \"issue-953\"}}, \"runtime_snapshot\": {}}",
+    "node_ref": "{\"workflow_id\":\"DISPATCH\",\"phase_id\":\"D1\",\"step_id\":\"D1.S2\",\"node_id\":\"N1\"}"
+   },
+   "reader": "r1",
+   "why": "生成：方案行 d6be0341（取自调用 C:route:0953:P_04_03_01:COMPLAINT:STAGE_1）"
+  },
+  {
+   "expect": {
+    "error": null,
+    "execution_status": "SUCCEEDED",
+    "output_port": "ok",
+    "outputs": {
+     "decision": {
+      "actions": [
+       {
+        "intent_id": "control",
+        "kind": "CONTROL",
+        "route_ref": "routed"
+       }
+      ],
+      "data": {
+       "app_id": "33dd52ed-2ad5-4786-97b6-d33bcce4afde",
+       "resource_entry_json": null,
+       "resource_id": null,
+       "resource_kind": null,
+       "resource_name": null,
+       "resource_status": null,
+       "route_kind": "SOLUTION_APP",
+       "route_state": "routed",
+       "solution": {
+        "app_id": "33dd52ed-2ad5-4786-97b6-d33bcce4afde",
+        "gate_code": null,
+        "intents": [
+         "REPORT_PROBLEM",
+         "APPEAL"
+        ],
+        "request_contract": "场景方案调用/v5",
+        "status": "CURRENT",
+        "topics": [
+         "base_fare_amount_dispute",
+         "bill_adjustment_amount_dispute",
+         "bill_adjustment_operation_issue",
+         "bill_amount_dispute",
+         "bill_endpoints_amount_difference",
+         "carpool_price_dispute",
+         "carpool_split_fee_dispute",
+         "cross_city_fee_dispute",
+         "dynamic_price_dispute",
+         "estimate_actual_difference",
+         "extra_distance_fee_dispute",
+         "extra_duration_fee_dispute",
+         "fixed_price_mode_switch_dispute",
+         "fixed_price_settlement_dispute",
+         "in_trip_waiting_fee_dispute",
+         "peak_service_fee_dispute",
+         "pickup_waiting_fee_dispute",
+         "return_trip_fee_dispute",
+         "vehicle_tier_charge_dispute"
+        ]
+       },
+       "solution_inputs_json": "[\"call_id\",\"request_json\"]",
+       "solution_name": "账单基础费超出预估",
+       "transfer_to": null,
+       "trial": {
+        "attached": false,
+        "bucket": null,
+        "primary_app_id": "33dd52ed-2ad5-4786-97b6-d33bcce4afde",
+        "share": null,
+        "side": "PRIMARY",
+        "split": "NOT_ATTACHED",
+        "trial_app_id": null
+       }
+      },
+      "state": "ROUTED"
+     }
+    }
+   },
+   "id": "dispatch.route.018",
+   "params": {
+    "inputs_json": "{\"parameter_snapshot\": {\"schema_version\": \"service-decision-dsl.parameter-snapshot.v2\", \"prepared_for\": {\"workflow_id\": \"DISPATCH\", \"phase_id\": \"D1\", \"step_id\": \"D1.S2\", \"node_id\": \"N1\"}, \"subject_scope_ref\": \"{}\", \"as_of\": \"2026-11-18T00:00:00+00:00\", \"parameters\": {\"scene_id\": {\"quality\": \"KNOWN\", \"value\": \"P_05_05_01\", \"source_refs\": [\"gate:issue-997\"]}, \"issue_type\": {\"quality\": \"KNOWN\", \"value\": \"COMPLAINT\", \"source_refs\": [\"gate:issue-997\"]}, \"phase\": {\"quality\": \"KNOWN\", \"value\": \"STAGE_1\", \"source_refs\": [\"gate:issue-997\"]}}, \"provenance\": {\"issue_key\": \"issue-997\"}}, \"runtime_snapshot\": {}}",
+    "node_ref": "{\"workflow_id\":\"DISPATCH\",\"phase_id\":\"D1\",\"step_id\":\"D1.S2\",\"node_id\":\"N1\"}"
+   },
+   "reader": "r1",
+   "why": "生成：结论类 117116d1（取自调用 C:route:0997:P_05_05_01:COMPLAINT:STAGE_1）"
+  },
+  {
+   "expect": {
+    "error": null,
+    "execution_status": "SUCCEEDED",
+    "output_port": "ok",
+    "outputs": {
+     "decision": {
+      "actions": [
+       {
+        "intent_id": "control",
+        "kind": "CONTROL",
+        "route_ref": "routed"
+       }
+      ],
+      "data": {
+       "app_id": null,
+       "resource_entry_json": "null",
+       "resource_id": "human.first_line",
+       "resource_kind": "HUMAN",
+       "resource_name": "人工 · 一线",
+       "resource_status": "TO_CONFIRM",
+       "route_kind": "RESOURCE",
+       "route_state": "routed",
+       "solution": null,
+       "solution_inputs_json": null,
+       "solution_name": null,
+       "transfer_to": null,
+       "trial": {
+        "attached": false,
+        "bucket": null,
+        "primary_app_id": null,
+        "share": null,
+        "side": "PRIMARY",
+        "split": "NOT_ATTACHED",
+        "trial_app_id": null
+       }
+      },
+      "state": "ROUTED"
+     }
+    }
+   },
+   "id": "dispatch.route.019",
+   "params": {
+    "inputs_json": "{\"parameter_snapshot\": {\"schema_version\": \"service-decision-dsl.parameter-snapshot.v2\", \"prepared_for\": {\"workflow_id\": \"DISPATCH\", \"phase_id\": \"D1\", \"step_id\": \"D1.S2\", \"node_id\": \"N1\"}, \"subject_scope_ref\": \"{}\", \"as_of\": \"2026-11-18T00:00:00+00:00\", \"parameters\": {\"scene_id\": {\"quality\": \"KNOWN\", \"value\": \"P_01_01_01\", \"source_refs\": [\"gate:issue-0\"]}, \"issue_type\": {\"quality\": \"KNOWN\", \"value\": \"COMPLAINT\", \"source_refs\": [\"gate:issue-0\"]}, \"phase\": {\"quality\": \"KNOWN\", \"value\": \"STAGE_1\", \"source_refs\": [\"gate:issue-0\"]}}, \"provenance\": {\"issue_key\": \"issue-0\"}}, \"runtime_snapshot\": {}}",
+    "node_ref": "{\"workflow_id\":\"DISPATCH\",\"phase_id\":\"D1\",\"step_id\":\"D1.S2\",\"node_id\":\"N1\"}"
+   },
+   "reader": "r1",
+   "why": "生成：按表补：（COMPLAINT, STAGE_1）× 结论 de4b8a88（取自调用 T:row:P_01_01_01:COMPLAINT:STAGE_1）"
+  },
+  {
+   "expect": {
+    "error": null,
+    "execution_status": "SUCCEEDED",
+    "output_port": "ok",
+    "outputs": {
+     "decision": {
+      "actions": [
+       {
+        "intent_id": "control",
+        "kind": "CONTROL",
+        "route_ref": "routed"
+       }
+      ],
+      "data": {
+       "app_id": null,
+       "resource_entry_json": "null",
+       "resource_id": "human.second_line",
+       "resource_kind": "HUMAN",
+       "resource_name": "人工 · 二线客服工单",
+       "resource_status": "TO_CONFIRM",
+       "route_kind": "RESOURCE",
+       "route_state": "routed",
+       "solution": null,
+       "solution_inputs_json": null,
+       "solution_name": null,
+       "transfer_to": null,
+       "trial": {
+        "attached": false,
+        "bucket": null,
+        "primary_app_id": null,
+        "share": null,
+        "side": "PRIMARY",
+        "split": "NOT_ATTACHED",
+        "trial_app_id": null
+       }
+      },
+      "state": "ROUTED"
+     }
+    }
+   },
+   "id": "dispatch.route.020",
+   "params": {
+    "inputs_json": "{\"parameter_snapshot\": {\"schema_version\": \"service-decision-dsl.parameter-snapshot.v2\", \"prepared_for\": {\"workflow_id\": \"DISPATCH\", \"phase_id\": \"D1\", \"step_id\": \"D1.S2\", \"node_id\": \"N1\"}, \"subject_scope_ref\": \"{}\", \"as_of\": \"2026-11-18T00:00:00+00:00\", \"parameters\": {\"scene_id\": {\"quality\": \"KNOWN\", \"value\": \"P_01_01_01\", \"source_refs\": [\"gate:issue-0\"]}, \"issue_type\": {\"quality\": \"KNOWN\", \"value\": \"COMPLAINT\", \"source_refs\": [\"gate:issue-0\"]}, \"phase\": {\"quality\": \"KNOWN\", \"value\": \"STAGE_2\", \"source_refs\": [\"gate:issue-0\"]}}, \"provenance\": {\"issue_key\": \"issue-0\"}}, \"runtime_snapshot\": {}}",
+    "node_ref": "{\"workflow_id\":\"DISPATCH\",\"phase_id\":\"D1\",\"step_id\":\"D1.S2\",\"node_id\":\"N1\"}"
+   },
+   "reader": "r1",
+   "why": "生成：按表补：（COMPLAINT, STAGE_2）× 结论 0c89b80f（取自调用 T:row:P_01_01_01:COMPLAINT:STAGE_2）"
+  },
+  {
+   "expect": {
+    "error": null,
+    "execution_status": "SUCCEEDED",
+    "output_port": "ok",
+    "outputs": {
+     "decision": {
+      "actions": [
+       {
+        "intent_id": "control",
+        "kind": "CONTROL",
+        "route_ref": "routed"
+       }
+      ],
+      "data": {
+       "app_id": null,
+       "resource_entry_json": "null",
+       "resource_id": "specialist.group",
+       "resource_kind": "SPECIALIST",
+       "resource_name": "专组",
+       "resource_status": "TO_CONFIRM",
+       "route_kind": "RESOURCE",
+       "route_state": "routed",
+       "solution": null,
+       "solution_inputs_json": null,
+       "solution_name": null,
+       "transfer_to": null,
+       "trial": {
+        "attached": false,
+        "bucket": null,
+        "primary_app_id": null,
+        "share": null,
+        "side": "PRIMARY",
+        "split": "NOT_ATTACHED",
+        "trial_app_id": null
+       }
+      },
+      "state": "ROUTED"
+     }
+    }
+   },
+   "id": "dispatch.route.021",
+   "params": {
+    "inputs_json": "{\"parameter_snapshot\": {\"schema_version\": \"service-decision-dsl.parameter-snapshot.v2\", \"prepared_for\": {\"workflow_id\": \"DISPATCH\", \"phase_id\": \"D1\", \"step_id\": \"D1.S2\", \"node_id\": \"N1\"}, \"subject_scope_ref\": \"{}\", \"as_of\": \"2026-11-18T00:00:00+00:00\", \"parameters\": {\"scene_id\": {\"quality\": \"KNOWN\", \"value\": \"P_01_01_01\", \"source_refs\": [\"gate:issue-0\"]}, \"issue_type\": {\"quality\": \"KNOWN\", \"value\": \"COMPLAINT\", \"source_refs\": [\"gate:issue-0\"]}, \"phase\": {\"quality\": \"KNOWN\", \"value\": \"STAGE_3\", \"source_refs\": [\"gate:issue-0\"]}}, \"provenance\": {\"issue_key\": \"issue-0\"}}, \"runtime_snapshot\": {}}",
+    "node_ref": "{\"workflow_id\":\"DISPATCH\",\"phase_id\":\"D1\",\"step_id\":\"D1.S2\",\"node_id\":\"N1\"}"
+   },
+   "reader": "r1",
+   "why": "生成：按表补：（COMPLAINT, STAGE_3）× 结论 6c1e3d76（取自调用 T:row:P_01_01_01:COMPLAINT:STAGE_3）"
+  },
+  {
+   "expect": {
+    "error": null,
+    "execution_status": "SUCCEEDED",
+    "output_port": "ok",
+    "outputs": {
+     "decision": {
+      "actions": [
+       {
+        "intent_id": "control",
+        "kind": "CONTROL",
+        "route_ref": "routed"
+       }
+      ],
+      "data": {
+       "app_id": null,
+       "resource_entry_json": "{\"app_id\":\"7b281885-e5ec-4e13-b61e-f3b7e7e068a2\",\"kind\":\"AGENTHUB_APP\"}",
+       "resource_id": "self_service.knowledge",
+       "resource_kind": "SELF_SERVICE",
+       "resource_name": "自助 · 问知识库（咨询答复）",
+       "resource_status": "TO_CONFIRM",
+       "route_kind": "RESOURCE",
+       "route_state": "routed",
+       "solution": null,
+       "solution_inputs_json": null,
+       "solution_name": null,
+       "transfer_to": null,
+       "trial": {
+        "attached": false,
+        "bucket": null,
+        "primary_app_id": null,
+        "share": null,
+        "side": "PRIMARY",
+        "split": "NOT_ATTACHED",
+        "trial_app_id": null
+       }
+      },
+      "state": "ROUTED"
+     }
+    }
+   },
+   "id": "dispatch.route.022",
+   "params": {
+    "inputs_json": "{\"parameter_snapshot\": {\"schema_version\": \"service-decision-dsl.parameter-snapshot.v2\", \"prepared_for\": {\"workflow_id\": \"DISPATCH\", \"phase_id\": \"D1\", \"step_id\": \"D1.S2\", \"node_id\": \"N1\"}, \"subject_scope_ref\": \"{}\", \"as_of\": \"2026-11-18T00:00:00+00:00\", \"parameters\": {\"scene_id\": {\"quality\": \"KNOWN\", \"value\": \"P_01_01_01\", \"source_refs\": [\"gate:issue-0\"]}, \"issue_type\": {\"quality\": \"KNOWN\", \"value\": \"CONSULT\", \"source_refs\": [\"gate:issue-0\"]}, \"phase\": {\"quality\": \"KNOWN\", \"value\": \"STAGE_1\", \"source_refs\": [\"gate:issue-0\"]}}, \"provenance\": {\"issue_key\": \"issue-0\"}}, \"runtime_snapshot\": {}}",
+    "node_ref": "{\"workflow_id\":\"DISPATCH\",\"phase_id\":\"D1\",\"step_id\":\"D1.S2\",\"node_id\":\"N1\"}"
+   },
+   "reader": "r1",
+   "why": "生成：按表补：（CONSULT, STAGE_1）× 结论 036b6793（取自调用 T:row:P_01_01_01:CONSULT:STAGE_1）"
+  },
+  {
+   "expect": {
+    "error": null,
+    "execution_status": "SUCCEEDED",
+    "output_port": "ok",
+    "outputs": {
+     "decision": {
+      "actions": [
+       {
+        "intent_id": "control",
+        "kind": "CONTROL",
+        "route_ref": "routed"
+       }
+      ],
+      "data": {
+       "app_id": null,
+       "resource_entry_json": "null",
+       "resource_id": "human.consult",
+       "resource_kind": "HUMAN",
+       "resource_name": "人工 · 咨询坐席",
+       "resource_status": "TO_CONFIRM",
+       "route_kind": "RESOURCE",
+       "route_state": "routed",
+       "solution": null,
+       "solution_inputs_json": null,
+       "solution_name": null,
+       "transfer_to": null,
+       "trial": {
+        "attached": false,
+        "bucket": null,
+        "primary_app_id": null,
+        "share": null,
+        "side": "PRIMARY",
+        "split": "NOT_ATTACHED",
+        "trial_app_id": null
+       }
+      },
+      "state": "ROUTED"
+     }
+    }
+   },
+   "id": "dispatch.route.023",
+   "params": {
+    "inputs_json": "{\"parameter_snapshot\": {\"schema_version\": \"service-decision-dsl.parameter-snapshot.v2\", \"prepared_for\": {\"workflow_id\": \"DISPATCH\", \"phase_id\": \"D1\", \"step_id\": \"D1.S2\", \"node_id\": \"N1\"}, \"subject_scope_ref\": \"{}\", \"as_of\": \"2026-11-18T00:00:00+00:00\", \"parameters\": {\"scene_id\": {\"quality\": \"KNOWN\", \"value\": \"P_01_01_05\", \"source_refs\": [\"gate:issue-0\"]}, \"issue_type\": {\"quality\": \"KNOWN\", \"value\": \"CONSULT\", \"source_refs\": [\"gate:issue-0\"]}, \"phase\": {\"quality\": \"KNOWN\", \"value\": \"STAGE_1\", \"source_refs\": [\"gate:issue-0\"]}}, \"provenance\": {\"issue_key\": \"issue-0\"}}, \"runtime_snapshot\": {}}",
+    "node_ref": "{\"workflow_id\":\"DISPATCH\",\"phase_id\":\"D1\",\"step_id\":\"D1.S2\",\"node_id\":\"N1\"}"
+   },
+   "reader": "r1",
+   "why": "生成：按表补：（CONSULT, STAGE_1）× 结论 a2078362（取自调用 T:row:P_01_01_05:CONSULT:STAGE_1）"
+  },
+  {
+   "expect": {
+    "error": null,
+    "execution_status": "SUCCEEDED",
+    "output_port": "ok",
+    "outputs": {
+     "decision": {
+      "actions": [
+       {
+        "intent_id": "control",
+        "kind": "CONTROL",
+        "route_ref": "routed"
+       }
+      ],
+      "data": {
+       "app_id": null,
+       "resource_entry_json": "null",
+       "resource_id": "human.second_line",
+       "resource_kind": "HUMAN",
+       "resource_name": "人工 · 二线客服工单",
+       "resource_status": "TO_CONFIRM",
+       "route_kind": "RESOURCE",
+       "route_state": "routed",
+       "solution": null,
+       "solution_inputs_json": null,
+       "solution_name": null,
+       "transfer_to": null,
+       "trial": {
+        "attached": false,
+        "bucket": null,
+        "primary_app_id": null,
+        "share": null,
+        "side": "PRIMARY",
+        "split": "NOT_ATTACHED",
+        "trial_app_id": null
+       }
+      },
+      "state": "ROUTED"
+     }
+    }
+   },
+   "id": "dispatch.route.024",
+   "params": {
+    "inputs_json": "{\"parameter_snapshot\": {\"schema_version\": \"service-decision-dsl.parameter-snapshot.v2\", \"prepared_for\": {\"workflow_id\": \"DISPATCH\", \"phase_id\": \"D1\", \"step_id\": \"D1.S2\", \"node_id\": \"N1\"}, \"subject_scope_ref\": \"{}\", \"as_of\": \"2026-11-18T00:00:00+00:00\", \"parameters\": {\"scene_id\": {\"quality\": \"KNOWN\", \"value\": \"P_02_02_01\", \"source_refs\": [\"gate:issue-0\"]}, \"issue_type\": {\"quality\": \"KNOWN\", \"value\": \"COMPLAINT\", \"source_refs\": [\"gate:issue-0\"]}, \"phase\": {\"quality\": \"KNOWN\", \"value\": \"STAGE_1\", \"source_refs\": [\"gate:issue-0\"]}}, \"provenance\": {\"issue_key\": \"issue-0\"}}, \"runtime_snapshot\": {}}",
+    "node_ref": "{\"workflow_id\":\"DISPATCH\",\"phase_id\":\"D1\",\"step_id\":\"D1.S2\",\"node_id\":\"N1\"}"
+   },
+   "reader": "r1",
+   "why": "生成：按表补：（COMPLAINT, STAGE_1）× 结论 0c89b80f（取自调用 T:row:P_02_02_01:COMPLAINT:STAGE_1）"
+  },
+  {
+   "expect": {
+    "error": null,
+    "execution_status": "SUCCEEDED",
+    "output_port": "ok",
+    "outputs": {
+     "decision": {
+      "actions": [
+       {
+        "intent_id": "control",
+        "kind": "CONTROL",
+        "route_ref": "routed"
+       }
+      ],
+      "data": {
+       "app_id": "1a545f43-bfb6-4615-80df-08f1e6de35d4",
+       "resource_entry_json": null,
+       "resource_id": null,
+       "resource_kind": null,
+       "resource_name": null,
+       "resource_status": null,
+       "route_kind": "SOLUTION_APP",
+       "route_state": "routed",
+       "solution": {
+        "app_id": "1a545f43-bfb6-4615-80df-08f1e6de35d4",
+        "gate_code": null,
+        "intents": [
+         "REPORT_PROBLEM",
+         "APPEAL",
+         "REQUEST_SERVICE",
+         "CONSULT_OPERATION",
+         "CONSULT_RULE",
+         "QUERY_RECORD"
+        ],
+        "request_contract": "场景方案调用/v5",
+        "status": "CURRENT",
+        "topics": [
+         "coupon_unselectable",
+         "coupon_not_deducted",
+         "coupon_order_deduction_issue",
+         "coupon_submit_failed",
+         "coupon_deduction_mismatch",
+         "coupon_use",
+         "coupon_auto_deduction_dispute",
+         "coupon_auto_setting_request",
+         "coupon_records_query",
+         "coupon_redeem_issue",
+         "coupon_extend_request",
+         "coupon_validity_dispute",
+         "coupon_visibility_issue"
+        ]
+       },
+       "solution_inputs_json": "[\"call_id\",\"request_json\"]",
+       "solution_name": "ESE-乘客-B-SOLUTION-WF-营销-P_02_04_01-优惠券使用V3",
+       "transfer_to": null,
+       "trial": {
+        "attached": false,
+        "bucket": null,
+        "primary_app_id": "1a545f43-bfb6-4615-80df-08f1e6de35d4",
+        "share": null,
+        "side": "PRIMARY",
+        "split": "NOT_ATTACHED",
+        "trial_app_id": null
+       }
+      },
+      "state": "ROUTED"
+     }
+    }
+   },
+   "id": "dispatch.route.025",
+   "params": {
+    "inputs_json": "{\"parameter_snapshot\": {\"schema_version\": \"service-decision-dsl.parameter-snapshot.v2\", \"prepared_for\": {\"workflow_id\": \"DISPATCH\", \"phase_id\": \"D1\", \"step_id\": \"D1.S2\", \"node_id\": \"N1\"}, \"subject_scope_ref\": \"{}\", \"as_of\": \"2026-11-18T00:00:00+00:00\", \"parameters\": {\"scene_id\": {\"quality\": \"KNOWN\", \"value\": \"P_02_04_01\", \"source_refs\": [\"gate:issue-0\"]}, \"issue_type\": {\"quality\": \"KNOWN\", \"value\": \"COMPLAINT\", \"source_refs\": [\"gate:issue-0\"]}, \"phase\": {\"quality\": \"KNOWN\", \"value\": \"STAGE_1\", \"source_refs\": [\"gate:issue-0\"]}}, \"provenance\": {\"issue_key\": \"issue-0\"}}, \"runtime_snapshot\": {}}",
+    "node_ref": "{\"workflow_id\":\"DISPATCH\",\"phase_id\":\"D1\",\"step_id\":\"D1.S2\",\"node_id\":\"N1\"}"
+   },
+   "reader": "r1",
+   "why": "生成：按表补：（COMPLAINT, STAGE_1）× 结论 3f7958e6（取自调用 T:row:P_02_04_01:COMPLAINT:STAGE_1）"
+  },
+  {
+   "expect": {
+    "error": null,
+    "execution_status": "SUCCEEDED",
+    "output_port": "ok",
+    "outputs": {
+     "decision": {
+      "actions": [
+       {
+        "intent_id": "control",
+        "kind": "CONTROL",
+        "route_ref": "routed"
+       }
+      ],
+      "data": {
+       "app_id": "15ad3cd8-256d-4f6b-a6e3-3b802cdec1e4",
+       "resource_entry_json": null,
+       "resource_id": null,
+       "resource_kind": null,
+       "resource_name": null,
+       "resource_status": null,
+       "route_kind": "SOLUTION_APP",
+       "route_state": "routed",
+       "solution": {
+        "app_id": "15ad3cd8-256d-4f6b-a6e3-3b802cdec1e4",
+        "gate_code": null,
+        "intents": [
+         "REPORT_PROBLEM"
+        ],
+        "request_contract": "场景方案调用/v4.2",
+        "status": "CURRENT",
+        "topics": [
+         "driver_cancelled_after_acceptance",
+         "driver_no_show"
+        ]
+       },
+       "solution_inputs_json": "[\"call_id\",\"request_json\"]",
+       "solution_name": "15ad3cd8",
+       "transfer_to": null,
+       "trial": {
+        "attached": true,
+        "bucket": null,
+        "primary_app_id": "15ad3cd8-256d-4f6b-a6e3-3b802cdec1e4",
+        "share": 10,
+        "side": "PRIMARY",
+        "split": "NO_SPLIT_KEY",
+        "trial_app_id": "6727d647-b4aa-4bce-bad1-5b345bbf61e5"
+       }
+      },
+      "state": "ROUTED"
+     }
+    }
+   },
+   "id": "dispatch.route.026",
+   "params": {
+    "inputs_json": "{\"parameter_snapshot\": {\"schema_version\": \"service-decision-dsl.parameter-snapshot.v2\", \"prepared_for\": {\"workflow_id\": \"DISPATCH\", \"phase_id\": \"D1\", \"step_id\": \"D1.S2\", \"node_id\": \"N1\"}, \"subject_scope_ref\": \"{}\", \"as_of\": \"2026-11-18T00:00:00+00:00\", \"parameters\": {\"scene_id\": {\"quality\": \"KNOWN\", \"value\": \"P_04_01_01\", \"source_refs\": [\"gate:issue-0\"]}, \"issue_type\": {\"quality\": \"KNOWN\", \"value\": \"COMPLAINT\", \"source_refs\": [\"gate:issue-0\"]}, \"phase\": {\"quality\": \"KNOWN\", \"value\": \"STAGE_1\", \"source_refs\": [\"gate:issue-0\"]}}, \"provenance\": {\"issue_key\": \"issue-0\"}}, \"runtime_snapshot\": {}}",
+    "node_ref": "{\"workflow_id\":\"DISPATCH\",\"phase_id\":\"D1\",\"step_id\":\"D1.S2\",\"node_id\":\"N1\"}"
+   },
+   "reader": "r1",
+   "why": "生成：按表补：（COMPLAINT, STAGE_1）× 结论 a99529d9（取自调用 T:row:P_04_01_01:COMPLAINT:STAGE_1）"
+  },
+  {
+   "expect": {
+    "error": null,
+    "execution_status": "SUCCEEDED",
+    "output_port": "ok",
+    "outputs": {
+     "decision": {
+      "actions": [
+       {
+        "intent_id": "control",
+        "kind": "CONTROL",
+        "route_ref": "routed"
+       }
+      ],
+      "data": {
+       "app_id": "5ce88d4f-799c-4427-93c3-f7bf7d4d7db5",
+       "resource_entry_json": null,
+       "resource_id": null,
+       "resource_kind": null,
+       "resource_name": null,
+       "resource_status": null,
+       "route_kind": "SOLUTION_APP",
+       "route_state": "routed",
+       "solution": {
+        "app_id": "5ce88d4f-799c-4427-93c3-f7bf7d4d7db5",
+        "gate_code": null,
+        "intents": [
+         "REPORT_PROBLEM",
+         "REQUEST_SERVICE",
+         "CONSULT_RULE"
+        ],
+        "request_contract": "场景方案调用/v4",
+        "status": "CURRENT",
+        "topics": [
+         "pickup_meeting_assistance",
+         "pickup_meeting_failed",
+         "pickup_meeting_rule"
+        ]
+       },
+       "solution_inputs_json": "[\"call_id\",\"request_json\"]",
+       "solution_name": "ESE-乘客-B-SOLUTION-WF-履约-P_04_01_03-上车点碰面协调",
+       "transfer_to": null,
+       "trial": {
+        "attached": false,
+        "bucket": null,
+        "primary_app_id": "5ce88d4f-799c-4427-93c3-f7bf7d4d7db5",
+        "share": null,
+        "side": "PRIMARY",
+        "split": "NOT_ATTACHED",
+        "trial_app_id": null
+       }
+      },
+      "state": "ROUTED"
+     }
+    }
+   },
+   "id": "dispatch.route.027",
+   "params": {
+    "inputs_json": "{\"parameter_snapshot\": {\"schema_version\": \"service-decision-dsl.parameter-snapshot.v2\", \"prepared_for\": {\"workflow_id\": \"DISPATCH\", \"phase_id\": \"D1\", \"step_id\": \"D1.S2\", \"node_id\": \"N1\"}, \"subject_scope_ref\": \"{}\", \"as_of\": \"2026-11-18T00:00:00+00:00\", \"parameters\": {\"scene_id\": {\"quality\": \"KNOWN\", \"value\": \"P_04_01_03\", \"source_refs\": [\"gate:issue-0\"]}, \"issue_type\": {\"quality\": \"KNOWN\", \"value\": \"COMPLAINT\", \"source_refs\": [\"gate:issue-0\"]}, \"phase\": {\"quality\": \"KNOWN\", \"value\": \"STAGE_1\", \"source_refs\": [\"gate:issue-0\"]}}, \"provenance\": {\"issue_key\": \"issue-0\"}}, \"runtime_snapshot\": {}}",
+    "node_ref": "{\"workflow_id\":\"DISPATCH\",\"phase_id\":\"D1\",\"step_id\":\"D1.S2\",\"node_id\":\"N1\"}"
+   },
+   "reader": "r1",
+   "why": "生成：按表补：（COMPLAINT, STAGE_1）× 结论 993e0b1c（取自调用 T:row:P_04_01_03:COMPLAINT:STAGE_1）"
+  },
+  {
+   "expect": {
+    "error": null,
+    "execution_status": "SUCCEEDED",
+    "output_port": "ok",
+    "outputs": {
+     "decision": {
+      "actions": [
+       {
+        "intent_id": "control",
+        "kind": "CONTROL",
+        "route_ref": "routed"
+       }
+      ],
+      "data": {
+       "app_id": "0e3512a7-562c-47b6-8bec-63b3a57a3ec8",
+       "resource_entry_json": null,
+       "resource_id": null,
+       "resource_kind": null,
+       "resource_name": null,
+       "resource_status": null,
+       "route_kind": "SOLUTION_APP",
+       "route_state": "routed",
+       "solution": {
+        "app_id": "0e3512a7-562c-47b6-8bec-63b3a57a3ec8",
+        "gate_code": null,
+        "intents": [
+         "REPORT_PROBLEM",
+         "CONSULT_RULE"
+        ],
+        "request_contract": "场景方案调用/v4",
+        "status": "CURRENT",
+        "topics": [
+         "driver_pickup_late",
+         "pickup_punctuality_rule"
+        ]
+       },
+       "solution_inputs_json": "[\"call_id\",\"request_json\"]",
+       "solution_name": "ESE-乘客-B-SOLUTION-WF-履约-P_04_01_06-司机接驾迟到",
+       "transfer_to": null,
+       "trial": {
+        "attached": false,
+        "bucket": null,
+        "primary_app_id": "0e3512a7-562c-47b6-8bec-63b3a57a3ec8",
+        "share": null,
+        "side": "PRIMARY",
+        "split": "NOT_ATTACHED",
+        "trial_app_id": null
+       }
+      },
+      "state": "ROUTED"
+     }
+    }
+   },
+   "id": "dispatch.route.028",
+   "params": {
+    "inputs_json": "{\"parameter_snapshot\": {\"schema_version\": \"service-decision-dsl.parameter-snapshot.v2\", \"prepared_for\": {\"workflow_id\": \"DISPATCH\", \"phase_id\": \"D1\", \"step_id\": \"D1.S2\", \"node_id\": \"N1\"}, \"subject_scope_ref\": \"{}\", \"as_of\": \"2026-11-18T00:00:00+00:00\", \"parameters\": {\"scene_id\": {\"quality\": \"KNOWN\", \"value\": \"P_04_01_06\", \"source_refs\": [\"gate:issue-0\"]}, \"issue_type\": {\"quality\": \"KNOWN\", \"value\": \"COMPLAINT\", \"source_refs\": [\"gate:issue-0\"]}, \"phase\": {\"quality\": \"KNOWN\", \"value\": \"STAGE_1\", \"source_refs\": [\"gate:issue-0\"]}}, \"provenance\": {\"issue_key\": \"issue-0\"}}, \"runtime_snapshot\": {}}",
+    "node_ref": "{\"workflow_id\":\"DISPATCH\",\"phase_id\":\"D1\",\"step_id\":\"D1.S2\",\"node_id\":\"N1\"}"
+   },
+   "reader": "r1",
+   "why": "生成：按表补：（COMPLAINT, STAGE_1）× 结论 63034d28（取自调用 T:row:P_04_01_06:COMPLAINT:STAGE_1）"
+  },
+  {
+   "expect": {
+    "error": null,
+    "execution_status": "SUCCEEDED",
+    "output_port": "ok",
+    "outputs": {
+     "decision": {
+      "actions": [
+       {
+        "intent_id": "control",
+        "kind": "CONTROL",
+        "route_ref": "routed"
+       }
+      ],
+      "data": {
+       "app_id": "d6be0341-b1fd-4383-9e3e-1f247b33c97d",
+       "resource_entry_json": null,
+       "resource_id": null,
+       "resource_kind": null,
+       "resource_name": null,
+       "resource_status": null,
+       "route_kind": "SOLUTION_APP",
+       "route_state": "routed",
+       "solution": {
+        "app_id": "d6be0341-b1fd-4383-9e3e-1f247b33c97d",
+        "gate_code": null,
+        "intents": [
+         "REPORT_PROBLEM"
+        ],
+        "request_contract": "场景方案调用/v4",
+        "status": "CURRENT",
+        "topics": [
+         "destination_change_refused",
+         "destination_not_reached",
+         "wrong_dropoff",
+         "driver_forced_early_dropoff",
+         "driver_ended_trip_early",
+         "rider_ended_trip_early"
+        ]
+       },
+       "solution_inputs_json": "[\"call_id\",\"request_json\"]",
+       "solution_name": "ESE-乘客-B-SOLUTION-WF-履约-P_04_03_07-未送达与送错目的地",
+       "transfer_to": null,
+       "trial": {
+        "attached": false,
+        "bucket": null,
+        "primary_app_id": "d6be0341-b1fd-4383-9e3e-1f247b33c97d",
+        "share": null,
+        "side": "PRIMARY",
+        "split": "NOT_ATTACHED",
+        "trial_app_id": null
+       }
+      },
+      "state": "ROUTED"
+     }
+    }
+   },
+   "id": "dispatch.route.029",
+   "params": {
+    "inputs_json": "{\"parameter_snapshot\": {\"schema_version\": \"service-decision-dsl.parameter-snapshot.v2\", \"prepared_for\": {\"workflow_id\": \"DISPATCH\", \"phase_id\": \"D1\", \"step_id\": \"D1.S2\", \"node_id\": \"N1\"}, \"subject_scope_ref\": \"{}\", \"as_of\": \"2026-11-18T00:00:00+00:00\", \"parameters\": {\"scene_id\": {\"quality\": \"KNOWN\", \"value\": \"P_04_03_01\", \"source_refs\": [\"gate:issue-0\"]}, \"issue_type\": {\"quality\": \"KNOWN\", \"value\": \"COMPLAINT\", \"source_refs\": [\"gate:issue-0\"]}, \"phase\": {\"quality\": \"KNOWN\", \"value\": \"STAGE_1\", \"source_refs\": [\"gate:issue-0\"]}}, \"provenance\": {\"issue_key\": \"issue-0\"}}, \"runtime_snapshot\": {}}",
+    "node_ref": "{\"workflow_id\":\"DISPATCH\",\"phase_id\":\"D1\",\"step_id\":\"D1.S2\",\"node_id\":\"N1\"}"
+   },
+   "reader": "r1",
+   "why": "生成：按表补：（COMPLAINT, STAGE_1）× 结论 488d27ac（取自调用 T:row:P_04_03_01:COMPLAINT:STAGE_1）"
+  },
+  {
+   "expect": {
+    "error": null,
+    "execution_status": "SUCCEEDED",
+    "output_port": "ok",
+    "outputs": {
+     "decision": {
+      "actions": [
+       {
+        "intent_id": "control",
+        "kind": "CONTROL",
+        "route_ref": "routed"
+       }
+      ],
+      "data": {
+       "app_id": "e141f7a4-03e0-415d-a439-a3a044dea953",
+       "resource_entry_json": null,
+       "resource_id": null,
+       "resource_kind": null,
+       "resource_name": null,
+       "resource_status": null,
+       "route_kind": "SOLUTION_APP",
+       "route_state": "routed",
+       "solution": {
+        "app_id": "e141f7a4-03e0-415d-a439-a3a044dea953",
+        "gate_code": null,
+        "intents": [
+         "APPEAL",
+         "REPORT_PROBLEM",
+         "REQUEST_SERVICE",
+         "CONSULT_OPERATION",
+         "CONSULT_RULE",
+         "QUERY_RECORD",
+         "SUGGESTION"
+        ],
+        "request_contract": "场景方案调用/v4.2",
+        "status": "CURRENT",
+        "topics": [
+         "base_fare_amount_dispute",
+         "fare_structure_rule_dispute",
+         "estimate_actual_difference",
+         "price_notice_dispute",
+         "fare_estimate_preorder_issue",
+         "fare_estimate_rule_dispute",
+         "bill_adjustment_operation_issue",
+         "bill_adjustment_amount_dispute",
+         "bill_amount_dispute",
+         "bill_endpoints_amount_difference",
+         "fare_structure",
+         "fare_structure_records_query",
+         "fare_estimate",
+         "fare_estimate_records_query",
+         "bill_review_adjustment",
+         "bill_review_records_query"
+        ]
+       },
+       "solution_inputs_json": "[\"call_id\",\"request_json\"]",
+       "solution_name": "ESE-乘客-A-SOLUTION-WF-费用-P_05_01_01-计价规则与收费标准",
+       "transfer_to": null,
+       "trial": {
+        "attached": false,
+        "bucket": null,
+        "primary_app_id": "e141f7a4-03e0-415d-a439-a3a044dea953",
+        "share": null,
+        "side": "PRIMARY",
+        "split": "NOT_ATTACHED",
+        "trial_app_id": null
+       }
+      },
+      "state": "ROUTED"
+     }
+    }
+   },
+   "id": "dispatch.route.030",
+   "params": {
+    "inputs_json": "{\"parameter_snapshot\": {\"schema_version\": \"service-decision-dsl.parameter-snapshot.v2\", \"prepared_for\": {\"workflow_id\": \"DISPATCH\", \"phase_id\": \"D1\", \"step_id\": \"D1.S2\", \"node_id\": \"N1\"}, \"subject_scope_ref\": \"{}\", \"as_of\": \"2026-11-18T00:00:00+00:00\", \"parameters\": {\"scene_id\": {\"quality\": \"KNOWN\", \"value\": \"P_05_01_01\", \"source_refs\": [\"gate:issue-0\"]}, \"issue_type\": {\"quality\": \"KNOWN\", \"value\": \"COMPLAINT\", \"source_refs\": [\"gate:issue-0\"]}, \"phase\": {\"quality\": \"KNOWN\", \"value\": \"STAGE_1\", \"source_refs\": [\"gate:issue-0\"]}}, \"provenance\": {\"issue_key\": \"issue-0\"}}, \"runtime_snapshot\": {}}",
+    "node_ref": "{\"workflow_id\":\"DISPATCH\",\"phase_id\":\"D1\",\"step_id\":\"D1.S2\",\"node_id\":\"N1\"}"
+   },
+   "reader": "r1",
+   "why": "生成：按表补：（COMPLAINT, STAGE_1）× 结论 33f52a68（取自调用 T:row:P_05_01_01:COMPLAINT:STAGE_1）"
+  },
+  {
+   "expect": {
+    "error": null,
+    "execution_status": "SUCCEEDED",
+    "output_port": "ok",
+    "outputs": {
+     "decision": {
+      "actions": [
+       {
+        "intent_id": "control",
+        "kind": "CONTROL",
+        "route_ref": "routed"
+       }
+      ],
+      "data": {
+       "app_id": null,
+       "resource_entry_json": "null",
+       "resource_id": "human.feedback",
+       "resource_kind": "HUMAN",
+       "resource_name": "人工 · 意见反馈受理",
+       "resource_status": "TO_CONFIRM",
+       "route_kind": "RESOURCE",
+       "route_state": "routed",
+       "solution": null,
+       "solution_inputs_json": null,
+       "solution_name": null,
+       "transfer_to": null,
+       "trial": {
+        "attached": false,
+        "bucket": null,
+        "primary_app_id": null,
+        "share": null,
+        "side": "PRIMARY",
+        "split": "NOT_ATTACHED",
+        "trial_app_id": null
+       }
+      },
+      "state": "ROUTED"
+     }
+    }
+   },
+   "id": "dispatch.route.031",
+   "params": {
+    "inputs_json": "{\"parameter_snapshot\": {\"schema_version\": \"service-decision-dsl.parameter-snapshot.v2\", \"prepared_for\": {\"workflow_id\": \"DISPATCH\", \"phase_id\": \"D1\", \"step_id\": \"D1.S2\", \"node_id\": \"N1\"}, \"subject_scope_ref\": \"{}\", \"as_of\": \"2026-11-18T00:00:00+00:00\", \"parameters\": {\"scene_id\": {\"quality\": \"KNOWN\", \"value\": \"P_05_01_01\", \"source_refs\": [\"gate:issue-0\"]}, \"issue_type\": {\"quality\": \"KNOWN\", \"value\": \"FEEDBACK\", \"source_refs\": [\"gate:issue-0\"]}, \"phase\": {\"quality\": \"KNOWN\", \"value\": \"STAGE_1\", \"source_refs\": [\"gate:issue-0\"]}}, \"provenance\": {\"issue_key\": \"issue-0\"}}, \"runtime_snapshot\": {}}",
+    "node_ref": "{\"workflow_id\":\"DISPATCH\",\"phase_id\":\"D1\",\"step_id\":\"D1.S2\",\"node_id\":\"N1\"}"
+   },
+   "reader": "r1",
+   "why": "生成：按表补：（FEEDBACK, STAGE_1）× 结论 95c444a8（取自调用 T:row:P_05_01_01:FEEDBACK:STAGE_1）"
+  },
+  {
+   "expect": {
+    "error": null,
+    "execution_status": "SUCCEEDED",
+    "output_port": "ok",
+    "outputs": {
+     "decision": {
+      "actions": [
+       {
+        "intent_id": "control",
+        "kind": "CONTROL",
+        "route_ref": "routed"
+       }
+      ],
+      "data": {
+       "app_id": "33dd52ed-2ad5-4786-97b6-d33bcce4afde",
+       "resource_entry_json": null,
+       "resource_id": null,
+       "resource_kind": null,
+       "resource_name": null,
+       "resource_status": null,
+       "route_kind": "SOLUTION_APP",
+       "route_state": "routed",
+       "solution": {
+        "app_id": "33dd52ed-2ad5-4786-97b6-d33bcce4afde",
+        "gate_code": null,
+        "intents": [
+         "REPORT_PROBLEM",
+         "APPEAL"
+        ],
+        "request_contract": "场景方案调用/v5",
+        "status": "CURRENT",
+        "topics": [
+         "base_fare_amount_dispute",
+         "bill_adjustment_amount_dispute",
+         "bill_adjustment_operation_issue",
+         "bill_amount_dispute",
+         "bill_endpoints_amount_difference",
+         "carpool_price_dispute",
+         "carpool_split_fee_dispute",
+         "cross_city_fee_dispute",
+         "dynamic_price_dispute",
+         "estimate_actual_difference",
+         "extra_distance_fee_dispute",
+         "extra_duration_fee_dispute",
+         "fixed_price_mode_switch_dispute",
+         "fixed_price_settlement_dispute",
+         "in_trip_waiting_fee_dispute",
+         "peak_service_fee_dispute",
+         "pickup_waiting_fee_dispute",
+         "return_trip_fee_dispute",
+         "vehicle_tier_charge_dispute"
+        ]
+       },
+       "solution_inputs_json": "[\"call_id\",\"request_json\"]",
+       "solution_name": "账单基础费超出预估",
+       "transfer_to": null,
+       "trial": {
+        "attached": false,
+        "bucket": null,
+        "primary_app_id": "33dd52ed-2ad5-4786-97b6-d33bcce4afde",
+        "share": null,
+        "side": "PRIMARY",
+        "split": "NOT_ATTACHED",
+        "trial_app_id": null
+       }
+      },
+      "state": "ROUTED"
+     }
+    }
+   },
+   "id": "dispatch.route.032",
+   "params": {
+    "inputs_json": "{\"parameter_snapshot\": {\"schema_version\": \"service-decision-dsl.parameter-snapshot.v2\", \"prepared_for\": {\"workflow_id\": \"DISPATCH\", \"phase_id\": \"D1\", \"step_id\": \"D1.S2\", \"node_id\": \"N1\"}, \"subject_scope_ref\": \"{}\", \"as_of\": \"2026-11-18T00:00:00+00:00\", \"parameters\": {\"scene_id\": {\"quality\": \"KNOWN\", \"value\": \"P_05_05_01\", \"source_refs\": [\"gate:issue-0\"]}, \"issue_type\": {\"quality\": \"KNOWN\", \"value\": \"COMPLAINT\", \"source_refs\": [\"gate:issue-0\"]}, \"phase\": {\"quality\": \"KNOWN\", \"value\": \"STAGE_1\", \"source_refs\": [\"gate:issue-0\"]}}, \"provenance\": {\"issue_key\": \"issue-0\"}}, \"runtime_snapshot\": {}}",
+    "node_ref": "{\"workflow_id\":\"DISPATCH\",\"phase_id\":\"D1\",\"step_id\":\"D1.S2\",\"node_id\":\"N1\"}"
+   },
+   "reader": "r1",
+   "why": "生成：按表补：（COMPLAINT, STAGE_1）× 结论 117116d1（取自调用 T:row:P_05_05_01:COMPLAINT:STAGE_1）"
+  },
+  {
+   "expect": {
+    "error": null,
+    "execution_status": "SUCCEEDED",
+    "output_port": "ok",
+    "outputs": {
+     "decision": {
+      "actions": [
+       {
+        "intent_id": "control",
+        "kind": "CONTROL",
+        "route_ref": "routed"
+       }
+      ],
+      "data": {
+       "app_id": null,
+       "resource_entry_json": "{\"kind\":\"TRANSFER\",\"to\":\"SAFETY\"}",
+       "resource_id": "safety.transfer",
+       "resource_kind": "SAFETY",
+       "resource_name": "转安全",
+       "resource_status": "CONFIRMED",
+       "route_kind": "TRANSFER",
+       "route_state": "routed",
+       "solution": null,
+       "solution_inputs_json": null,
+       "solution_name": null,
+       "transfer_to": "SAFETY",
+       "trial": {
+        "attached": false,
+        "bucket": null,
+        "primary_app_id": null,
+        "share": null,
+        "side": "PRIMARY",
+        "split": "NOT_ATTACHED",
+        "trial_app_id": null
+       }
+      },
+      "state": "ROUTED"
+     }
+    }
+   },
+   "id": "dispatch.route.033",
+   "params": {
+    "inputs_json": "{\"parameter_snapshot\": {\"schema_version\": \"service-decision-dsl.parameter-snapshot.v2\", \"prepared_for\": {\"workflow_id\": \"DISPATCH\", \"phase_id\": \"D1\", \"step_id\": \"D1.S2\", \"node_id\": \"N1\"}, \"subject_scope_ref\": \"{}\", \"as_of\": \"2026-11-18T00:00:00+00:00\", \"parameters\": {\"scene_id\": {\"quality\": \"KNOWN\", \"value\": \"P_07_01_01\", \"source_refs\": [\"gate:issue-0\"]}, \"issue_type\": {\"quality\": \"KNOWN\", \"value\": \"COMPLAINT\", \"source_refs\": [\"gate:issue-0\"]}, \"phase\": {\"quality\": \"KNOWN\", \"value\": \"STAGE_1\", \"source_refs\": [\"gate:issue-0\"]}}, \"provenance\": {\"issue_key\": \"issue-0\"}}, \"runtime_snapshot\": {}}",
+    "node_ref": "{\"workflow_id\":\"DISPATCH\",\"phase_id\":\"D1\",\"step_id\":\"D1.S2\",\"node_id\":\"N1\"}"
+   },
+   "reader": "r1",
+   "why": "生成：按表补：（COMPLAINT, STAGE_1）× 结论 3a557c04（取自调用 T:row:P_07_01_01:COMPLAINT:STAGE_1）"
+  },
+  {
+   "expect": {
+    "error": null,
+    "execution_status": "SUCCEEDED",
+    "output_port": "ok",
+    "outputs": {
+     "decision": {
+      "actions": [
+       {
+        "intent_id": "control",
+        "kind": "CONTROL",
+        "route_ref": "routed"
+       }
+      ],
+      "data": {
+       "app_id": null,
+       "resource_entry_json": "{\"kind\":\"TRANSFER\",\"to\":\"SAFETY\"}",
+       "resource_id": "safety.transfer",
+       "resource_kind": "SAFETY",
+       "resource_name": "转安全",
+       "resource_status": "CONFIRMED",
+       "route_kind": "RESOURCE",
+       "route_state": "routed",
+       "solution": null,
+       "solution_inputs_json": null,
+       "solution_name": null,
+       "transfer_to": null,
+       "trial": {
+        "attached": false,
+        "bucket": null,
+        "primary_app_id": null,
+        "share": null,
+        "side": "PRIMARY",
+        "split": "NOT_ATTACHED",
+        "trial_app_id": null
+       }
+      },
+      "state": "ROUTED"
+     }
+    }
+   },
+   "id": "dispatch.route.034",
+   "params": {
+    "inputs_json": "{\"parameter_snapshot\": {\"schema_version\": \"service-decision-dsl.parameter-snapshot.v2\", \"prepared_for\": {\"workflow_id\": \"DISPATCH\", \"phase_id\": \"D1\", \"step_id\": \"D1.S2\", \"node_id\": \"N1\"}, \"subject_scope_ref\": \"{}\", \"as_of\": \"2026-11-18T00:00:00+00:00\", \"parameters\": {\"scene_id\": {\"quality\": \"KNOWN\", \"value\": \"P_07_01_01\", \"source_refs\": [\"gate:issue-0\"]}, \"issue_type\": {\"quality\": \"KNOWN\", \"value\": \"COMPLAINT\", \"source_refs\": [\"gate:issue-0\"]}, \"phase\": {\"quality\": \"KNOWN\", \"value\": \"STAGE_2\", \"source_refs\": [\"gate:issue-0\"]}}, \"provenance\": {\"issue_key\": \"issue-0\"}}, \"runtime_snapshot\": {}}",
+    "node_ref": "{\"workflow_id\":\"DISPATCH\",\"phase_id\":\"D1\",\"step_id\":\"D1.S2\",\"node_id\":\"N1\"}"
+   },
+   "reader": "r1",
+   "why": "生成：按表补：（COMPLAINT, STAGE_2）× 结论 142067d1（取自调用 T:row:P_07_01_01:COMPLAINT:STAGE_2）"
+  },
+  {
+   "expect": {
+    "error": null,
+    "execution_status": "SUCCEEDED",
+    "output_port": "ok",
+    "outputs": {
+     "decision": {
+      "actions": [
+       {
+        "intent_id": "control",
+        "kind": "CONTROL",
+        "route_ref": "routed"
+       }
+      ],
+      "data": {
+       "app_id": null,
+       "resource_entry_json": "{\"kind\":\"TRANSFER\",\"to\":\"SAFETY\"}",
+       "resource_id": "safety.transfer",
+       "resource_kind": "SAFETY",
+       "resource_name": "转安全",
+       "resource_status": "CONFIRMED",
+       "route_kind": "RESOURCE",
+       "route_state": "routed",
+       "solution": null,
+       "solution_inputs_json": null,
+       "solution_name": null,
+       "transfer_to": null,
+       "trial": {
+        "attached": false,
+        "bucket": null,
+        "primary_app_id": null,
+        "share": null,
+        "side": "PRIMARY",
+        "split": "NOT_ATTACHED",
+        "trial_app_id": null
+       }
+      },
+      "state": "ROUTED"
+     }
+    }
+   },
+   "id": "dispatch.route.035",
+   "params": {
+    "inputs_json": "{\"parameter_snapshot\": {\"schema_version\": \"service-decision-dsl.parameter-snapshot.v2\", \"prepared_for\": {\"workflow_id\": \"DISPATCH\", \"phase_id\": \"D1\", \"step_id\": \"D1.S2\", \"node_id\": \"N1\"}, \"subject_scope_ref\": \"{}\", \"as_of\": \"2026-11-18T00:00:00+00:00\", \"parameters\": {\"scene_id\": {\"quality\": \"KNOWN\", \"value\": \"P_07_01_01\", \"source_refs\": [\"gate:issue-0\"]}, \"issue_type\": {\"quality\": \"KNOWN\", \"value\": \"COMPLAINT\", \"source_refs\": [\"gate:issue-0\"]}, \"phase\": {\"quality\": \"KNOWN\", \"value\": \"STAGE_3\", \"source_refs\": [\"gate:issue-0\"]}}, \"provenance\": {\"issue_key\": \"issue-0\"}}, \"runtime_snapshot\": {}}",
+    "node_ref": "{\"workflow_id\":\"DISPATCH\",\"phase_id\":\"D1\",\"step_id\":\"D1.S2\",\"node_id\":\"N1\"}"
+   },
+   "reader": "r1",
+   "why": "生成：按表补：（COMPLAINT, STAGE_3）× 结论 142067d1（取自调用 T:row:P_07_01_01:COMPLAINT:STAGE_3）"
+  },
+  {
+   "expect": {
+    "error": null,
+    "execution_status": "SUCCEEDED",
+    "output_port": "ok",
+    "outputs": {
+     "decision": {
+      "actions": [
+       {
+        "intent_id": "control",
+        "kind": "CONTROL",
+        "route_ref": "routed"
+       }
+      ],
+      "data": {
+       "app_id": null,
+       "resource_entry_json": "{\"kind\":\"TRANSFER\",\"to\":\"SAFETY\"}",
+       "resource_id": "safety.transfer",
+       "resource_kind": "SAFETY",
+       "resource_name": "转安全",
+       "resource_status": "CONFIRMED",
+       "route_kind": "RESOURCE",
+       "route_state": "routed",
+       "solution": null,
+       "solution_inputs_json": null,
+       "solution_name": null,
+       "transfer_to": null,
+       "trial": {
+        "attached": false,
+        "bucket": null,
+        "primary_app_id": null,
+        "share": null,
+        "side": "PRIMARY",
+        "split": "NOT_ATTACHED",
+        "trial_app_id": null
+       }
+      },
+      "state": "ROUTED"
+     }
+    }
+   },
+   "id": "dispatch.route.036",
+   "params": {
+    "inputs_json": "{\"parameter_snapshot\": {\"schema_version\": \"service-decision-dsl.parameter-snapshot.v2\", \"prepared_for\": {\"workflow_id\": \"DISPATCH\", \"phase_id\": \"D1\", \"step_id\": \"D1.S2\", \"node_id\": \"N1\"}, \"subject_scope_ref\": \"{}\", \"as_of\": \"2026-11-18T00:00:00+00:00\", \"parameters\": {\"scene_id\": {\"quality\": \"KNOWN\", \"value\": \"P_07_01_01\", \"source_refs\": [\"gate:issue-0\"]}, \"issue_type\": {\"quality\": \"KNOWN\", \"value\": \"CONSULT\", \"source_refs\": [\"gate:issue-0\"]}, \"phase\": {\"quality\": \"KNOWN\", \"value\": \"STAGE_1\", \"source_refs\": [\"gate:issue-0\"]}}, \"provenance\": {\"issue_key\": \"issue-0\"}}, \"runtime_snapshot\": {}}",
+    "node_ref": "{\"workflow_id\":\"DISPATCH\",\"phase_id\":\"D1\",\"step_id\":\"D1.S2\",\"node_id\":\"N1\"}"
+   },
+   "reader": "r1",
+   "why": "生成：按表补：（CONSULT, STAGE_1）× 结论 142067d1（取自调用 T:row:P_07_01_01:CONSULT:STAGE_1）"
+  },
+  {
+   "expect": {
+    "error": null,
+    "execution_status": "SUCCEEDED",
+    "output_port": "ok",
+    "outputs": {
+     "decision": {
+      "actions": [
+       {
+        "intent_id": "control",
+        "kind": "CONTROL",
+        "route_ref": "routed"
+       }
+      ],
+      "data": {
+       "app_id": null,
+       "resource_entry_json": "{\"kind\":\"TRANSFER\",\"to\":\"SAFETY\"}",
+       "resource_id": "safety.transfer",
+       "resource_kind": "SAFETY",
+       "resource_name": "转安全",
+       "resource_status": "CONFIRMED",
+       "route_kind": "RESOURCE",
+       "route_state": "routed",
+       "solution": null,
+       "solution_inputs_json": null,
+       "solution_name": null,
+       "transfer_to": null,
+       "trial": {
+        "attached": false,
+        "bucket": null,
+        "primary_app_id": null,
+        "share": null,
+        "side": "PRIMARY",
+        "split": "NOT_ATTACHED",
+        "trial_app_id": null
+       }
+      },
+      "state": "ROUTED"
+     }
+    }
+   },
+   "id": "dispatch.route.037",
+   "params": {
+    "inputs_json": "{\"parameter_snapshot\": {\"schema_version\": \"service-decision-dsl.parameter-snapshot.v2\", \"prepared_for\": {\"workflow_id\": \"DISPATCH\", \"phase_id\": \"D1\", \"step_id\": \"D1.S2\", \"node_id\": \"N1\"}, \"subject_scope_ref\": \"{}\", \"as_of\": \"2026-11-18T00:00:00+00:00\", \"parameters\": {\"scene_id\": {\"quality\": \"KNOWN\", \"value\": \"P_07_01_01\", \"source_refs\": [\"gate:issue-0\"]}, \"issue_type\": {\"quality\": \"KNOWN\", \"value\": \"CONSULT\", \"source_refs\": [\"gate:issue-0\"]}, \"phase\": {\"quality\": \"KNOWN\", \"value\": \"STAGE_2\", \"source_refs\": [\"gate:issue-0\"]}}, \"provenance\": {\"issue_key\": \"issue-0\"}}, \"runtime_snapshot\": {}}",
+    "node_ref": "{\"workflow_id\":\"DISPATCH\",\"phase_id\":\"D1\",\"step_id\":\"D1.S2\",\"node_id\":\"N1\"}"
+   },
+   "reader": "r1",
+   "why": "生成：按表补：（CONSULT, STAGE_2）× 结论 142067d1（取自调用 T:row:P_07_01_01:CONSULT:STAGE_2）"
+  },
+  {
+   "expect": {
+    "error": null,
+    "execution_status": "SUCCEEDED",
+    "output_port": "ok",
+    "outputs": {
+     "decision": {
+      "actions": [
+       {
+        "intent_id": "control",
+        "kind": "CONTROL",
+        "route_ref": "routed"
+       }
+      ],
+      "data": {
+       "app_id": null,
+       "resource_entry_json": "{\"kind\":\"TRANSFER\",\"to\":\"SAFETY\"}",
+       "resource_id": "safety.transfer",
+       "resource_kind": "SAFETY",
+       "resource_name": "转安全",
+       "resource_status": "CONFIRMED",
+       "route_kind": "RESOURCE",
+       "route_state": "routed",
+       "solution": null,
+       "solution_inputs_json": null,
+       "solution_name": null,
+       "transfer_to": null,
+       "trial": {
+        "attached": false,
+        "bucket": null,
+        "primary_app_id": null,
+        "share": null,
+        "side": "PRIMARY",
+        "split": "NOT_ATTACHED",
+        "trial_app_id": null
+       }
+      },
+      "state": "ROUTED"
+     }
+    }
+   },
+   "id": "dispatch.route.038",
+   "params": {
+    "inputs_json": "{\"parameter_snapshot\": {\"schema_version\": \"service-decision-dsl.parameter-snapshot.v2\", \"prepared_for\": {\"workflow_id\": \"DISPATCH\", \"phase_id\": \"D1\", \"step_id\": \"D1.S2\", \"node_id\": \"N1\"}, \"subject_scope_ref\": \"{}\", \"as_of\": \"2026-11-18T00:00:00+00:00\", \"parameters\": {\"scene_id\": {\"quality\": \"KNOWN\", \"value\": \"P_07_01_01\", \"source_refs\": [\"gate:issue-0\"]}, \"issue_type\": {\"quality\": \"KNOWN\", \"value\": \"CONSULT\", \"source_refs\": [\"gate:issue-0\"]}, \"phase\": {\"quality\": \"KNOWN\", \"value\": \"STAGE_3\", \"source_refs\": [\"gate:issue-0\"]}}, \"provenance\": {\"issue_key\": \"issue-0\"}}, \"runtime_snapshot\": {}}",
+    "node_ref": "{\"workflow_id\":\"DISPATCH\",\"phase_id\":\"D1\",\"step_id\":\"D1.S2\",\"node_id\":\"N1\"}"
+   },
+   "reader": "r1",
+   "why": "生成：按表补：（CONSULT, STAGE_3）× 结论 142067d1（取自调用 T:row:P_07_01_01:CONSULT:STAGE_3）"
+  },
+  {
+   "expect": {
+    "error": null,
+    "execution_status": "SUCCEEDED",
+    "output_port": "ok",
+    "outputs": {
+     "decision": {
+      "actions": [
+       {
+        "intent_id": "control",
+        "kind": "CONTROL",
+        "route_ref": "routed"
+       }
+      ],
+      "data": {
+       "app_id": null,
+       "resource_entry_json": "{\"kind\":\"TRANSFER\",\"to\":\"SAFETY\"}",
+       "resource_id": "safety.transfer",
+       "resource_kind": "SAFETY",
+       "resource_name": "转安全",
+       "resource_status": "CONFIRMED",
+       "route_kind": "RESOURCE",
+       "route_state": "routed",
+       "solution": null,
+       "solution_inputs_json": null,
+       "solution_name": null,
+       "transfer_to": null,
+       "trial": {
+        "attached": false,
+        "bucket": null,
+        "primary_app_id": null,
+        "share": null,
+        "side": "PRIMARY",
+        "split": "NOT_ATTACHED",
+        "trial_app_id": null
+       }
+      },
+      "state": "ROUTED"
+     }
+    }
+   },
+   "id": "dispatch.route.039",
+   "params": {
+    "inputs_json": "{\"parameter_snapshot\": {\"schema_version\": \"service-decision-dsl.parameter-snapshot.v2\", \"prepared_for\": {\"workflow_id\": \"DISPATCH\", \"phase_id\": \"D1\", \"step_id\": \"D1.S2\", \"node_id\": \"N1\"}, \"subject_scope_ref\": \"{}\", \"as_of\": \"2026-11-18T00:00:00+00:00\", \"parameters\": {\"scene_id\": {\"quality\": \"KNOWN\", \"value\": \"P_07_01_01\", \"source_refs\": [\"gate:issue-0\"]}, \"issue_type\": {\"quality\": \"KNOWN\", \"value\": \"FEEDBACK\", \"source_refs\": [\"gate:issue-0\"]}, \"phase\": {\"quality\": \"KNOWN\", \"value\": \"STAGE_1\", \"source_refs\": [\"gate:issue-0\"]}}, \"provenance\": {\"issue_key\": \"issue-0\"}}, \"runtime_snapshot\": {}}",
+    "node_ref": "{\"workflow_id\":\"DISPATCH\",\"phase_id\":\"D1\",\"step_id\":\"D1.S2\",\"node_id\":\"N1\"}"
+   },
+   "reader": "r1",
+   "why": "生成：按表补：（FEEDBACK, STAGE_1）× 结论 142067d1（取自调用 T:row:P_07_01_01:FEEDBACK:STAGE_1）"
+  },
+  {
+   "expect": {
+    "error": null,
+    "execution_status": "SUCCEEDED",
+    "output_port": "ok",
+    "outputs": {
+     "decision": {
+      "actions": [
+       {
+        "intent_id": "control",
+        "kind": "CONTROL",
+        "route_ref": "routed"
+       }
+      ],
+      "data": {
+       "app_id": null,
+       "resource_entry_json": "{\"kind\":\"TRANSFER\",\"to\":\"SAFETY\"}",
+       "resource_id": "safety.transfer",
+       "resource_kind": "SAFETY",
+       "resource_name": "转安全",
+       "resource_status": "CONFIRMED",
+       "route_kind": "RESOURCE",
+       "route_state": "routed",
+       "solution": null,
+       "solution_inputs_json": null,
+       "solution_name": null,
+       "transfer_to": null,
+       "trial": {
+        "attached": false,
+        "bucket": null,
+        "primary_app_id": null,
+        "share": null,
+        "side": "PRIMARY",
+        "split": "NOT_ATTACHED",
+        "trial_app_id": null
+       }
+      },
+      "state": "ROUTED"
+     }
+    }
+   },
+   "id": "dispatch.route.040",
+   "params": {
+    "inputs_json": "{\"parameter_snapshot\": {\"schema_version\": \"service-decision-dsl.parameter-snapshot.v2\", \"prepared_for\": {\"workflow_id\": \"DISPATCH\", \"phase_id\": \"D1\", \"step_id\": \"D1.S2\", \"node_id\": \"N1\"}, \"subject_scope_ref\": \"{}\", \"as_of\": \"2026-11-18T00:00:00+00:00\", \"parameters\": {\"scene_id\": {\"quality\": \"KNOWN\", \"value\": \"P_07_01_01\", \"source_refs\": [\"gate:issue-0\"]}, \"issue_type\": {\"quality\": \"KNOWN\", \"value\": \"FEEDBACK\", \"source_refs\": [\"gate:issue-0\"]}, \"phase\": {\"quality\": \"KNOWN\", \"value\": \"STAGE_2\", \"source_refs\": [\"gate:issue-0\"]}}, \"provenance\": {\"issue_key\": \"issue-0\"}}, \"runtime_snapshot\": {}}",
+    "node_ref": "{\"workflow_id\":\"DISPATCH\",\"phase_id\":\"D1\",\"step_id\":\"D1.S2\",\"node_id\":\"N1\"}"
+   },
+   "reader": "r1",
+   "why": "生成：按表补：（FEEDBACK, STAGE_2）× 结论 142067d1（取自调用 T:row:P_07_01_01:FEEDBACK:STAGE_2）"
+  },
+  {
+   "expect": {
+    "error": null,
+    "execution_status": "SUCCEEDED",
+    "output_port": "ok",
+    "outputs": {
+     "decision": {
+      "actions": [
+       {
+        "intent_id": "control",
+        "kind": "CONTROL",
+        "route_ref": "routed"
+       }
+      ],
+      "data": {
+       "app_id": null,
+       "resource_entry_json": "{\"kind\":\"TRANSFER\",\"to\":\"SAFETY\"}",
+       "resource_id": "safety.transfer",
+       "resource_kind": "SAFETY",
+       "resource_name": "转安全",
+       "resource_status": "CONFIRMED",
+       "route_kind": "RESOURCE",
+       "route_state": "routed",
+       "solution": null,
+       "solution_inputs_json": null,
+       "solution_name": null,
+       "transfer_to": null,
+       "trial": {
+        "attached": false,
+        "bucket": null,
+        "primary_app_id": null,
+        "share": null,
+        "side": "PRIMARY",
+        "split": "NOT_ATTACHED",
+        "trial_app_id": null
+       }
+      },
+      "state": "ROUTED"
+     }
+    }
+   },
+   "id": "dispatch.route.041",
+   "params": {
+    "inputs_json": "{\"parameter_snapshot\": {\"schema_version\": \"service-decision-dsl.parameter-snapshot.v2\", \"prepared_for\": {\"workflow_id\": \"DISPATCH\", \"phase_id\": \"D1\", \"step_id\": \"D1.S2\", \"node_id\": \"N1\"}, \"subject_scope_ref\": \"{}\", \"as_of\": \"2026-11-18T00:00:00+00:00\", \"parameters\": {\"scene_id\": {\"quality\": \"KNOWN\", \"value\": \"P_07_01_01\", \"source_refs\": [\"gate:issue-0\"]}, \"issue_type\": {\"quality\": \"KNOWN\", \"value\": \"FEEDBACK\", \"source_refs\": [\"gate:issue-0\"]}, \"phase\": {\"quality\": \"KNOWN\", \"value\": \"STAGE_3\", \"source_refs\": [\"gate:issue-0\"]}}, \"provenance\": {\"issue_key\": \"issue-0\"}}, \"runtime_snapshot\": {}}",
+    "node_ref": "{\"workflow_id\":\"DISPATCH\",\"phase_id\":\"D1\",\"step_id\":\"D1.S2\",\"node_id\":\"N1\"}"
+   },
+   "reader": "r1",
+   "why": "生成：按表补：（FEEDBACK, STAGE_3）× 结论 142067d1（取自调用 T:row:P_07_01_01:FEEDBACK:STAGE_3）"
+  },
+  {
+   "expect": {
+    "error": null,
+    "execution_status": "SUCCEEDED",
+    "output_port": "ok",
+    "outputs": {
+     "decision": {
+      "actions": [
+       {
+        "intent_id": "control",
+        "kind": "CONTROL",
+        "route_ref": "routed"
+       }
+      ],
+      "data": {
+       "app_id": null,
+       "resource_entry_json": "{\"kind\":\"TRANSFER\",\"to\":\"SAFETY\"}",
+       "resource_id": "safety.transfer",
+       "resource_kind": "SAFETY",
+       "resource_name": "转安全",
+       "resource_status": "CONFIRMED",
+       "route_kind": "RESOURCE",
+       "route_state": "routed",
+       "solution": null,
+       "solution_inputs_json": null,
+       "solution_name": null,
+       "transfer_to": null,
+       "trial": {
+        "attached": false,
+        "bucket": null,
+        "primary_app_id": null,
+        "share": null,
+        "side": "PRIMARY",
+        "split": "NOT_ATTACHED",
+        "trial_app_id": null
+       }
+      },
+      "state": "ROUTED"
+     }
+    }
+   },
+   "id": "dispatch.route.042",
+   "params": {
+    "inputs_json": "{\"parameter_snapshot\": {\"schema_version\": \"service-decision-dsl.parameter-snapshot.v2\", \"prepared_for\": {\"workflow_id\": \"DISPATCH\", \"phase_id\": \"D1\", \"step_id\": \"D1.S2\", \"node_id\": \"N1\"}, \"subject_scope_ref\": \"{}\", \"as_of\": \"2026-11-18T00:00:00+00:00\", \"parameters\": {\"scene_id\": {\"quality\": \"KNOWN\", \"value\": \"P_07_01_02\", \"source_refs\": [\"gate:issue-0\"]}, \"issue_type\": {\"quality\": \"KNOWN\", \"value\": \"COMPLAINT\", \"source_refs\": [\"gate:issue-0\"]}, \"phase\": {\"quality\": \"KNOWN\", \"value\": \"STAGE_2\", \"source_refs\": [\"gate:issue-0\"]}}, \"provenance\": {\"issue_key\": \"issue-0\"}}, \"runtime_snapshot\": {}}",
+    "node_ref": "{\"workflow_id\":\"DISPATCH\",\"phase_id\":\"D1\",\"step_id\":\"D1.S2\",\"node_id\":\"N1\"}"
+   },
+   "reader": "r1",
+   "why": "生成：按表补：转安全保底 P_07_01_02（COMPLAINT, STAGE_2）（取自调用 T:row:P_07_01_02:COMPLAINT:STAGE_2）"
+  },
+  {
+   "expect": {
+    "error": null,
+    "execution_status": "SUCCEEDED",
+    "output_port": "ok",
+    "outputs": {
+     "decision": {
+      "actions": [
+       {
+        "intent_id": "control",
+        "kind": "CONTROL",
+        "route_ref": "routed"
+       }
+      ],
+      "data": {
+       "app_id": null,
+       "resource_entry_json": "{\"kind\":\"TRANSFER\",\"to\":\"SAFETY\"}",
+       "resource_id": "safety.transfer",
+       "resource_kind": "SAFETY",
+       "resource_name": "转安全",
+       "resource_status": "CONFIRMED",
+       "route_kind": "RESOURCE",
+       "route_state": "routed",
+       "solution": null,
+       "solution_inputs_json": null,
+       "solution_name": null,
+       "transfer_to": null,
+       "trial": {
+        "attached": false,
+        "bucket": null,
+        "primary_app_id": null,
+        "share": null,
+        "side": "PRIMARY",
+        "split": "NOT_ATTACHED",
+        "trial_app_id": null
+       }
+      },
+      "state": "ROUTED"
+     }
+    }
+   },
+   "id": "dispatch.route.043",
+   "params": {
+    "inputs_json": "{\"parameter_snapshot\": {\"schema_version\": \"service-decision-dsl.parameter-snapshot.v2\", \"prepared_for\": {\"workflow_id\": \"DISPATCH\", \"phase_id\": \"D1\", \"step_id\": \"D1.S2\", \"node_id\": \"N1\"}, \"subject_scope_ref\": \"{}\", \"as_of\": \"2026-11-18T00:00:00+00:00\", \"parameters\": {\"scene_id\": {\"quality\": \"KNOWN\", \"value\": \"P_07_01_03\", \"source_refs\": [\"gate:issue-0\"]}, \"issue_type\": {\"quality\": \"KNOWN\", \"value\": \"COMPLAINT\", \"source_refs\": [\"gate:issue-0\"]}, \"phase\": {\"quality\": \"KNOWN\", \"value\": \"STAGE_3\", \"source_refs\": [\"gate:issue-0\"]}}, \"provenance\": {\"issue_key\": \"issue-0\"}}, \"runtime_snapshot\": {}}",
+    "node_ref": "{\"workflow_id\":\"DISPATCH\",\"phase_id\":\"D1\",\"step_id\":\"D1.S2\",\"node_id\":\"N1\"}"
+   },
+   "reader": "r1",
+   "why": "生成：按表补：转安全保底 P_07_01_03（COMPLAINT, STAGE_3）（取自调用 T:row:P_07_01_03:COMPLAINT:STAGE_3）"
+  },
+  {
+   "expect": {
+    "error": null,
+    "execution_status": "SUCCEEDED",
+    "output_port": "ok",
+    "outputs": {
+     "decision": {
+      "actions": [
+       {
+        "intent_id": "control",
+        "kind": "CONTROL",
+        "route_ref": "routed"
+       }
+      ],
+      "data": {
+       "app_id": null,
+       "resource_entry_json": "{\"kind\":\"TRANSFER\",\"to\":\"SAFETY\"}",
+       "resource_id": "safety.transfer",
+       "resource_kind": "SAFETY",
+       "resource_name": "转安全",
+       "resource_status": "CONFIRMED",
+       "route_kind": "RESOURCE",
+       "route_state": "routed",
+       "solution": null,
+       "solution_inputs_json": null,
+       "solution_name": null,
+       "transfer_to": null,
+       "trial": {
+        "attached": false,
+        "bucket": null,
+        "primary_app_id": null,
+        "share": null,
+        "side": "PRIMARY",
+        "split": "NOT_ATTACHED",
+        "trial_app_id": null
+       }
+      },
+      "state": "ROUTED"
+     }
+    }
+   },
+   "id": "dispatch.route.044",
+   "params": {
+    "inputs_json": "{\"parameter_snapshot\": {\"schema_version\": \"service-decision-dsl.parameter-snapshot.v2\", \"prepared_for\": {\"workflow_id\": \"DISPATCH\", \"phase_id\": \"D1\", \"step_id\": \"D1.S2\", \"node_id\": \"N1\"}, \"subject_scope_ref\": \"{}\", \"as_of\": \"2026-11-18T00:00:00+00:00\", \"parameters\": {\"scene_id\": {\"quality\": \"KNOWN\", \"value\": \"P_07_01_04\", \"source_refs\": [\"gate:issue-0\"]}, \"issue_type\": {\"quality\": \"KNOWN\", \"value\": \"CONSULT\", \"source_refs\": [\"gate:issue-0\"]}, \"phase\": {\"quality\": \"KNOWN\", \"value\": \"STAGE_1\", \"source_refs\": [\"gate:issue-0\"]}}, \"provenance\": {\"issue_key\": \"issue-0\"}}, \"runtime_snapshot\": {}}",
+    "node_ref": "{\"workflow_id\":\"DISPATCH\",\"phase_id\":\"D1\",\"step_id\":\"D1.S2\",\"node_id\":\"N1\"}"
+   },
+   "reader": "r1",
+   "why": "生成：按表补：转安全保底 P_07_01_04（CONSULT, STAGE_1）（取自调用 T:row:P_07_01_04:CONSULT:STAGE_1）"
+  },
+  {
+   "expect": {
+    "error": null,
+    "execution_status": "SUCCEEDED",
+    "output_port": "ok",
+    "outputs": {
+     "decision": {
+      "actions": [
+       {
+        "intent_id": "control",
+        "kind": "CONTROL",
+        "route_ref": "routed"
+       }
+      ],
+      "data": {
+       "app_id": null,
+       "resource_entry_json": "{\"kind\":\"TRANSFER\",\"to\":\"SAFETY\"}",
+       "resource_id": "safety.transfer",
+       "resource_kind": "SAFETY",
+       "resource_name": "转安全",
+       "resource_status": "CONFIRMED",
+       "route_kind": "RESOURCE",
+       "route_state": "routed",
+       "solution": null,
+       "solution_inputs_json": null,
+       "solution_name": null,
+       "transfer_to": null,
+       "trial": {
+        "attached": false,
+        "bucket": null,
+        "primary_app_id": null,
+        "share": null,
+        "side": "PRIMARY",
+        "split": "NOT_ATTACHED",
+        "trial_app_id": null
+       }
+      },
+      "state": "ROUTED"
+     }
+    }
+   },
+   "id": "dispatch.route.045",
+   "params": {
+    "inputs_json": "{\"parameter_snapshot\": {\"schema_version\": \"service-decision-dsl.parameter-snapshot.v2\", \"prepared_for\": {\"workflow_id\": \"DISPATCH\", \"phase_id\": \"D1\", \"step_id\": \"D1.S2\", \"node_id\": \"N1\"}, \"subject_scope_ref\": \"{}\", \"as_of\": \"2026-11-18T00:00:00+00:00\", \"parameters\": {\"scene_id\": {\"quality\": \"KNOWN\", \"value\": \"P_07_01_05\", \"source_refs\": [\"gate:issue-0\"]}, \"issue_type\": {\"quality\": \"KNOWN\", \"value\": \"CONSULT\", \"source_refs\": [\"gate:issue-0\"]}, \"phase\": {\"quality\": \"KNOWN\", \"value\": \"STAGE_2\", \"source_refs\": [\"gate:issue-0\"]}}, \"provenance\": {\"issue_key\": \"issue-0\"}}, \"runtime_snapshot\": {}}",
+    "node_ref": "{\"workflow_id\":\"DISPATCH\",\"phase_id\":\"D1\",\"step_id\":\"D1.S2\",\"node_id\":\"N1\"}"
+   },
+   "reader": "r1",
+   "why": "生成：按表补：转安全保底 P_07_01_05（CONSULT, STAGE_2）（取自调用 T:row:P_07_01_05:CONSULT:STAGE_2）"
+  },
+  {
+   "expect": {
+    "error": null,
+    "execution_status": "SUCCEEDED",
+    "output_port": "ok",
+    "outputs": {
+     "decision": {
+      "actions": [
+       {
+        "intent_id": "control",
+        "kind": "CONTROL",
+        "route_ref": "routed"
+       }
+      ],
+      "data": {
+       "app_id": null,
+       "resource_entry_json": "{\"kind\":\"TRANSFER\",\"to\":\"SAFETY\"}",
+       "resource_id": "safety.transfer",
+       "resource_kind": "SAFETY",
+       "resource_name": "转安全",
+       "resource_status": "CONFIRMED",
+       "route_kind": "RESOURCE",
+       "route_state": "routed",
+       "solution": null,
+       "solution_inputs_json": null,
+       "solution_name": null,
+       "transfer_to": null,
+       "trial": {
+        "attached": false,
+        "bucket": null,
+        "primary_app_id": null,
+        "share": null,
+        "side": "PRIMARY",
+        "split": "NOT_ATTACHED",
+        "trial_app_id": null
+       }
+      },
+      "state": "ROUTED"
+     }
+    }
+   },
+   "id": "dispatch.route.046",
+   "params": {
+    "inputs_json": "{\"parameter_snapshot\": {\"schema_version\": \"service-decision-dsl.parameter-snapshot.v2\", \"prepared_for\": {\"workflow_id\": \"DISPATCH\", \"phase_id\": \"D1\", \"step_id\": \"D1.S2\", \"node_id\": \"N1\"}, \"subject_scope_ref\": \"{}\", \"as_of\": \"2026-11-18T00:00:00+00:00\", \"parameters\": {\"scene_id\": {\"quality\": \"KNOWN\", \"value\": \"P_07_01_06\", \"source_refs\": [\"gate:issue-0\"]}, \"issue_type\": {\"quality\": \"KNOWN\", \"value\": \"CONSULT\", \"source_refs\": [\"gate:issue-0\"]}, \"phase\": {\"quality\": \"KNOWN\", \"value\": \"STAGE_3\", \"source_refs\": [\"gate:issue-0\"]}}, \"provenance\": {\"issue_key\": \"issue-0\"}}, \"runtime_snapshot\": {}}",
+    "node_ref": "{\"workflow_id\":\"DISPATCH\",\"phase_id\":\"D1\",\"step_id\":\"D1.S2\",\"node_id\":\"N1\"}"
+   },
+   "reader": "r1",
+   "why": "生成：按表补：转安全保底 P_07_01_06（CONSULT, STAGE_3）（取自调用 T:row:P_07_01_06:CONSULT:STAGE_3）"
+  },
+  {
+   "expect": {
+    "error": null,
+    "execution_status": "SUCCEEDED",
+    "output_port": "ok",
+    "outputs": {
+     "decision": {
+      "actions": [
+       {
+        "intent_id": "control",
+        "kind": "CONTROL",
+        "route_ref": "routed"
+       }
+      ],
+      "data": {
+       "app_id": null,
+       "resource_entry_json": "{\"kind\":\"TRANSFER\",\"to\":\"SAFETY\"}",
+       "resource_id": "safety.transfer",
+       "resource_kind": "SAFETY",
+       "resource_name": "转安全",
+       "resource_status": "CONFIRMED",
+       "route_kind": "RESOURCE",
+       "route_state": "routed",
+       "solution": null,
+       "solution_inputs_json": null,
+       "solution_name": null,
+       "transfer_to": null,
+       "trial": {
+        "attached": false,
+        "bucket": null,
+        "primary_app_id": null,
+        "share": null,
+        "side": "PRIMARY",
+        "split": "NOT_ATTACHED",
+        "trial_app_id": null
+       }
+      },
+      "state": "ROUTED"
+     }
+    }
+   },
+   "id": "dispatch.route.047",
+   "params": {
+    "inputs_json": "{\"parameter_snapshot\": {\"schema_version\": \"service-decision-dsl.parameter-snapshot.v2\", \"prepared_for\": {\"workflow_id\": \"DISPATCH\", \"phase_id\": \"D1\", \"step_id\": \"D1.S2\", \"node_id\": \"N1\"}, \"subject_scope_ref\": \"{}\", \"as_of\": \"2026-11-18T00:00:00+00:00\", \"parameters\": {\"scene_id\": {\"quality\": \"KNOWN\", \"value\": \"P_07_01_07\", \"source_refs\": [\"gate:issue-0\"]}, \"issue_type\": {\"quality\": \"KNOWN\", \"value\": \"FEEDBACK\", \"source_refs\": [\"gate:issue-0\"]}, \"phase\": {\"quality\": \"KNOWN\", \"value\": \"STAGE_1\", \"source_refs\": [\"gate:issue-0\"]}}, \"provenance\": {\"issue_key\": \"issue-0\"}}, \"runtime_snapshot\": {}}",
+    "node_ref": "{\"workflow_id\":\"DISPATCH\",\"phase_id\":\"D1\",\"step_id\":\"D1.S2\",\"node_id\":\"N1\"}"
+   },
+   "reader": "r1",
+   "why": "生成：按表补：转安全保底 P_07_01_07（FEEDBACK, STAGE_1）（取自调用 T:row:P_07_01_07:FEEDBACK:STAGE_1）"
+  },
+  {
+   "expect": {
+    "error": null,
+    "execution_status": "SUCCEEDED",
+    "output_port": "ok",
+    "outputs": {
+     "decision": {
+      "actions": [
+       {
+        "intent_id": "control",
+        "kind": "CONTROL",
+        "route_ref": "routed"
+       }
+      ],
+      "data": {
+       "app_id": null,
+       "resource_entry_json": "{\"kind\":\"TRANSFER\",\"to\":\"SAFETY\"}",
+       "resource_id": "safety.transfer",
+       "resource_kind": "SAFETY",
+       "resource_name": "转安全",
+       "resource_status": "CONFIRMED",
+       "route_kind": "RESOURCE",
+       "route_state": "routed",
+       "solution": null,
+       "solution_inputs_json": null,
+       "solution_name": null,
+       "transfer_to": null,
+       "trial": {
+        "attached": false,
+        "bucket": null,
+        "primary_app_id": null,
+        "share": null,
+        "side": "PRIMARY",
+        "split": "NOT_ATTACHED",
+        "trial_app_id": null
+       }
+      },
+      "state": "ROUTED"
+     }
+    }
+   },
+   "id": "dispatch.route.048",
+   "params": {
+    "inputs_json": "{\"parameter_snapshot\": {\"schema_version\": \"service-decision-dsl.parameter-snapshot.v2\", \"prepared_for\": {\"workflow_id\": \"DISPATCH\", \"phase_id\": \"D1\", \"step_id\": \"D1.S2\", \"node_id\": \"N1\"}, \"subject_scope_ref\": \"{}\", \"as_of\": \"2026-11-18T00:00:00+00:00\", \"parameters\": {\"scene_id\": {\"quality\": \"KNOWN\", \"value\": \"P_07_01_08\", \"source_refs\": [\"gate:issue-0\"]}, \"issue_type\": {\"quality\": \"KNOWN\", \"value\": \"FEEDBACK\", \"source_refs\": [\"gate:issue-0\"]}, \"phase\": {\"quality\": \"KNOWN\", \"value\": \"STAGE_2\", \"source_refs\": [\"gate:issue-0\"]}}, \"provenance\": {\"issue_key\": \"issue-0\"}}, \"runtime_snapshot\": {}}",
+    "node_ref": "{\"workflow_id\":\"DISPATCH\",\"phase_id\":\"D1\",\"step_id\":\"D1.S2\",\"node_id\":\"N1\"}"
+   },
+   "reader": "r1",
+   "why": "生成：按表补：转安全保底 P_07_01_08（FEEDBACK, STAGE_2）（取自调用 T:row:P_07_01_08:FEEDBACK:STAGE_2）"
+  },
+  {
+   "expect": {
+    "error": null,
+    "execution_status": "SUCCEEDED",
+    "output_port": "ok",
+    "outputs": {
+     "decision": {
+      "actions": [
+       {
+        "intent_id": "control",
+        "kind": "CONTROL",
+        "route_ref": "routed"
+       }
+      ],
+      "data": {
+       "app_id": null,
+       "resource_entry_json": "{\"kind\":\"TRANSFER\",\"to\":\"SAFETY\"}",
+       "resource_id": "safety.transfer",
+       "resource_kind": "SAFETY",
+       "resource_name": "转安全",
+       "resource_status": "CONFIRMED",
+       "route_kind": "RESOURCE",
+       "route_state": "routed",
+       "solution": null,
+       "solution_inputs_json": null,
+       "solution_name": null,
+       "transfer_to": null,
+       "trial": {
+        "attached": false,
+        "bucket": null,
+        "primary_app_id": null,
+        "share": null,
+        "side": "PRIMARY",
+        "split": "NOT_ATTACHED",
+        "trial_app_id": null
+       }
+      },
+      "state": "ROUTED"
+     }
+    }
+   },
+   "id": "dispatch.route.049",
+   "params": {
+    "inputs_json": "{\"parameter_snapshot\": {\"schema_version\": \"service-decision-dsl.parameter-snapshot.v2\", \"prepared_for\": {\"workflow_id\": \"DISPATCH\", \"phase_id\": \"D1\", \"step_id\": \"D1.S2\", \"node_id\": \"N1\"}, \"subject_scope_ref\": \"{}\", \"as_of\": \"2026-11-18T00:00:00+00:00\", \"parameters\": {\"scene_id\": {\"quality\": \"KNOWN\", \"value\": \"P_07_01_09\", \"source_refs\": [\"gate:issue-0\"]}, \"issue_type\": {\"quality\": \"KNOWN\", \"value\": \"FEEDBACK\", \"source_refs\": [\"gate:issue-0\"]}, \"phase\": {\"quality\": \"KNOWN\", \"value\": \"STAGE_3\", \"source_refs\": [\"gate:issue-0\"]}}, \"provenance\": {\"issue_key\": \"issue-0\"}}, \"runtime_snapshot\": {}}",
+    "node_ref": "{\"workflow_id\":\"DISPATCH\",\"phase_id\":\"D1\",\"step_id\":\"D1.S2\",\"node_id\":\"N1\"}"
+   },
+   "reader": "r1",
+   "why": "生成：按表补：转安全保底 P_07_01_09（FEEDBACK, STAGE_3）（取自调用 T:row:P_07_01_09:FEEDBACK:STAGE_3）"
+  },
+  {
+   "expect": {
+    "error": null,
+    "execution_status": "SUCCEEDED",
+    "output_port": "ok",
+    "outputs": {
+     "decision": {
+      "actions": [
+       {
+        "intent_id": "control",
+        "kind": "CONTROL",
+        "route_ref": "routed"
+       }
+      ],
+      "data": {
+       "app_id": null,
+       "resource_entry_json": "{\"kind\":\"TRANSFER\",\"to\":\"SAFETY\"}",
+       "resource_id": "safety.transfer",
+       "resource_kind": "SAFETY",
+       "resource_name": "转安全",
+       "resource_status": "CONFIRMED",
+       "route_kind": "TRANSFER",
+       "route_state": "routed",
+       "solution": null,
+       "solution_inputs_json": null,
+       "solution_name": null,
+       "transfer_to": "SAFETY",
+       "trial": {
+        "attached": false,
+        "bucket": null,
+        "primary_app_id": null,
+        "share": null,
+        "side": "PRIMARY",
+        "split": "NOT_ATTACHED",
+        "trial_app_id": null
+       }
+      },
+      "state": "ROUTED"
+     }
+    }
+   },
+   "id": "dispatch.route.050",
+   "params": {
+    "inputs_json": "{\"parameter_snapshot\": {\"schema_version\": \"service-decision-dsl.parameter-snapshot.v2\", \"prepared_for\": {\"workflow_id\": \"DISPATCH\", \"phase_id\": \"D1\", \"step_id\": \"D1.S2\", \"node_id\": \"N1\"}, \"subject_scope_ref\": \"{}\", \"as_of\": \"2026-11-18T00:00:00+00:00\", \"parameters\": {\"scene_id\": {\"quality\": \"KNOWN\", \"value\": \"P_07_02_01\", \"source_refs\": [\"gate:issue-0\"]}, \"issue_type\": {\"quality\": \"KNOWN\", \"value\": \"COMPLAINT\", \"source_refs\": [\"gate:issue-0\"]}, \"phase\": {\"quality\": \"KNOWN\", \"value\": \"STAGE_1\", \"source_refs\": [\"gate:issue-0\"]}}, \"provenance\": {\"issue_key\": \"issue-0\"}}, \"runtime_snapshot\": {}}",
+    "node_ref": "{\"workflow_id\":\"DISPATCH\",\"phase_id\":\"D1\",\"step_id\":\"D1.S2\",\"node_id\":\"N1\"}"
+   },
+   "reader": "r1",
+   "why": "生成：按表补：转安全保底 P_07_02_01（COMPLAINT, STAGE_1）（取自调用 T:row:P_07_02_01:COMPLAINT:STAGE_1）"
+  },
+  {
+   "expect": {
+    "error": null,
+    "execution_status": "SUCCEEDED",
+    "output_port": "ok",
+    "outputs": {
+     "decision": {
+      "actions": [
+       {
+        "intent_id": "control",
+        "kind": "CONTROL",
+        "route_ref": "routed"
+       }
+      ],
+      "data": {
+       "app_id": null,
+       "resource_entry_json": "{\"kind\":\"TRANSFER\",\"to\":\"SAFETY\"}",
+       "resource_id": "safety.transfer",
+       "resource_kind": "SAFETY",
+       "resource_name": "转安全",
+       "resource_status": "CONFIRMED",
+       "route_kind": "RESOURCE",
+       "route_state": "routed",
+       "solution": null,
+       "solution_inputs_json": null,
+       "solution_name": null,
+       "transfer_to": null,
+       "trial": {
+        "attached": false,
+        "bucket": null,
+        "primary_app_id": null,
+        "share": null,
+        "side": "PRIMARY",
+        "split": "NOT_ATTACHED",
+        "trial_app_id": null
+       }
+      },
+      "state": "ROUTED"
+     }
+    }
+   },
+   "id": "dispatch.route.051",
+   "params": {
+    "inputs_json": "{\"parameter_snapshot\": {\"schema_version\": \"service-decision-dsl.parameter-snapshot.v2\", \"prepared_for\": {\"workflow_id\": \"DISPATCH\", \"phase_id\": \"D1\", \"step_id\": \"D1.S2\", \"node_id\": \"N1\"}, \"subject_scope_ref\": \"{}\", \"as_of\": \"2026-11-18T00:00:00+00:00\", \"parameters\": {\"scene_id\": {\"quality\": \"KNOWN\", \"value\": \"P_07_02_02\", \"source_refs\": [\"gate:issue-0\"]}, \"issue_type\": {\"quality\": \"KNOWN\", \"value\": \"COMPLAINT\", \"source_refs\": [\"gate:issue-0\"]}, \"phase\": {\"quality\": \"KNOWN\", \"value\": \"STAGE_2\", \"source_refs\": [\"gate:issue-0\"]}}, \"provenance\": {\"issue_key\": \"issue-0\"}}, \"runtime_snapshot\": {}}",
+    "node_ref": "{\"workflow_id\":\"DISPATCH\",\"phase_id\":\"D1\",\"step_id\":\"D1.S2\",\"node_id\":\"N1\"}"
+   },
+   "reader": "r1",
+   "why": "生成：按表补：转安全保底 P_07_02_02（COMPLAINT, STAGE_2）（取自调用 T:row:P_07_02_02:COMPLAINT:STAGE_2）"
+  },
+  {
+   "expect": {
+    "error": null,
+    "execution_status": "SUCCEEDED",
+    "output_port": "ok",
+    "outputs": {
+     "decision": {
+      "actions": [
+       {
+        "intent_id": "control",
+        "kind": "CONTROL",
+        "route_ref": "routed"
+       }
+      ],
+      "data": {
+       "app_id": null,
+       "resource_entry_json": "{\"kind\":\"TRANSFER\",\"to\":\"SAFETY\"}",
+       "resource_id": "safety.transfer",
+       "resource_kind": "SAFETY",
+       "resource_name": "转安全",
+       "resource_status": "CONFIRMED",
+       "route_kind": "RESOURCE",
+       "route_state": "routed",
+       "solution": null,
+       "solution_inputs_json": null,
+       "solution_name": null,
+       "transfer_to": null,
+       "trial": {
+        "attached": false,
+        "bucket": null,
+        "primary_app_id": null,
+        "share": null,
+        "side": "PRIMARY",
+        "split": "NOT_ATTACHED",
+        "trial_app_id": null
+       }
+      },
+      "state": "ROUTED"
+     }
+    }
+   },
+   "id": "dispatch.route.052",
+   "params": {
+    "inputs_json": "{\"parameter_snapshot\": {\"schema_version\": \"service-decision-dsl.parameter-snapshot.v2\", \"prepared_for\": {\"workflow_id\": \"DISPATCH\", \"phase_id\": \"D1\", \"step_id\": \"D1.S2\", \"node_id\": \"N1\"}, \"subject_scope_ref\": \"{}\", \"as_of\": \"2026-11-18T00:00:00+00:00\", \"parameters\": {\"scene_id\": {\"quality\": \"KNOWN\", \"value\": \"P_07_02_03\", \"source_refs\": [\"gate:issue-0\"]}, \"issue_type\": {\"quality\": \"KNOWN\", \"value\": \"COMPLAINT\", \"source_refs\": [\"gate:issue-0\"]}, \"phase\": {\"quality\": \"KNOWN\", \"value\": \"STAGE_3\", \"source_refs\": [\"gate:issue-0\"]}}, \"provenance\": {\"issue_key\": \"issue-0\"}}, \"runtime_snapshot\": {}}",
+    "node_ref": "{\"workflow_id\":\"DISPATCH\",\"phase_id\":\"D1\",\"step_id\":\"D1.S2\",\"node_id\":\"N1\"}"
+   },
+   "reader": "r1",
+   "why": "生成：按表补：转安全保底 P_07_02_03（COMPLAINT, STAGE_3）（取自调用 T:row:P_07_02_03:COMPLAINT:STAGE_3）"
+  },
+  {
+   "expect": {
+    "error": null,
+    "execution_status": "SUCCEEDED",
+    "output_port": "ok",
+    "outputs": {
+     "decision": {
+      "actions": [
+       {
+        "intent_id": "control",
+        "kind": "CONTROL",
+        "route_ref": "routed"
+       }
+      ],
+      "data": {
+       "app_id": null,
+       "resource_entry_json": "{\"kind\":\"TRANSFER\",\"to\":\"SAFETY\"}",
+       "resource_id": "safety.transfer",
+       "resource_kind": "SAFETY",
+       "resource_name": "转安全",
+       "resource_status": "CONFIRMED",
+       "route_kind": "RESOURCE",
+       "route_state": "routed",
+       "solution": null,
+       "solution_inputs_json": null,
+       "solution_name": null,
+       "transfer_to": null,
+       "trial": {
+        "attached": false,
+        "bucket": null,
+        "primary_app_id": null,
+        "share": null,
+        "side": "PRIMARY",
+        "split": "NOT_ATTACHED",
+        "trial_app_id": null
+       }
+      },
+      "state": "ROUTED"
+     }
+    }
+   },
+   "id": "dispatch.route.053",
+   "params": {
+    "inputs_json": "{\"parameter_snapshot\": {\"schema_version\": \"service-decision-dsl.parameter-snapshot.v2\", \"prepared_for\": {\"workflow_id\": \"DISPATCH\", \"phase_id\": \"D1\", \"step_id\": \"D1.S2\", \"node_id\": \"N1\"}, \"subject_scope_ref\": \"{}\", \"as_of\": \"2026-11-18T00:00:00+00:00\", \"parameters\": {\"scene_id\": {\"quality\": \"KNOWN\", \"value\": \"P_07_02_04\", \"source_refs\": [\"gate:issue-0\"]}, \"issue_type\": {\"quality\": \"KNOWN\", \"value\": \"CONSULT\", \"source_refs\": [\"gate:issue-0\"]}, \"phase\": {\"quality\": \"KNOWN\", \"value\": \"STAGE_1\", \"source_refs\": [\"gate:issue-0\"]}}, \"provenance\": {\"issue_key\": \"issue-0\"}}, \"runtime_snapshot\": {}}",
+    "node_ref": "{\"workflow_id\":\"DISPATCH\",\"phase_id\":\"D1\",\"step_id\":\"D1.S2\",\"node_id\":\"N1\"}"
+   },
+   "reader": "r1",
+   "why": "生成：按表补：转安全保底 P_07_02_04（CONSULT, STAGE_1）（取自调用 T:row:P_07_02_04:CONSULT:STAGE_1）"
+  },
+  {
+   "expect": {
+    "error": null,
+    "execution_status": "SUCCEEDED",
+    "output_port": "ok",
+    "outputs": {
+     "decision": {
+      "actions": [
+       {
+        "intent_id": "control",
+        "kind": "CONTROL",
+        "route_ref": "routed"
+       }
+      ],
+      "data": {
+       "app_id": null,
+       "resource_entry_json": "{\"kind\":\"TRANSFER\",\"to\":\"SAFETY\"}",
+       "resource_id": "safety.transfer",
+       "resource_kind": "SAFETY",
+       "resource_name": "转安全",
+       "resource_status": "CONFIRMED",
+       "route_kind": "RESOURCE",
+       "route_state": "routed",
+       "solution": null,
+       "solution_inputs_json": null,
+       "solution_name": null,
+       "transfer_to": null,
+       "trial": {
+        "attached": false,
+        "bucket": null,
+        "primary_app_id": null,
+        "share": null,
+        "side": "PRIMARY",
+        "split": "NOT_ATTACHED",
+        "trial_app_id": null
+       }
+      },
+      "state": "ROUTED"
+     }
+    }
+   },
+   "id": "dispatch.route.054",
+   "params": {
+    "inputs_json": "{\"parameter_snapshot\": {\"schema_version\": \"service-decision-dsl.parameter-snapshot.v2\", \"prepared_for\": {\"workflow_id\": \"DISPATCH\", \"phase_id\": \"D1\", \"step_id\": \"D1.S2\", \"node_id\": \"N1\"}, \"subject_scope_ref\": \"{}\", \"as_of\": \"2026-11-18T00:00:00+00:00\", \"parameters\": {\"scene_id\": {\"quality\": \"KNOWN\", \"value\": \"P_07_02_05\", \"source_refs\": [\"gate:issue-0\"]}, \"issue_type\": {\"quality\": \"KNOWN\", \"value\": \"CONSULT\", \"source_refs\": [\"gate:issue-0\"]}, \"phase\": {\"quality\": \"KNOWN\", \"value\": \"STAGE_2\", \"source_refs\": [\"gate:issue-0\"]}}, \"provenance\": {\"issue_key\": \"issue-0\"}}, \"runtime_snapshot\": {}}",
+    "node_ref": "{\"workflow_id\":\"DISPATCH\",\"phase_id\":\"D1\",\"step_id\":\"D1.S2\",\"node_id\":\"N1\"}"
+   },
+   "reader": "r1",
+   "why": "生成：按表补：转安全保底 P_07_02_05（CONSULT, STAGE_2）（取自调用 T:row:P_07_02_05:CONSULT:STAGE_2）"
+  },
+  {
+   "expect": {
+    "error": null,
+    "execution_status": "SUCCEEDED",
+    "output_port": "ok",
+    "outputs": {
+     "decision": {
+      "actions": [
+       {
+        "intent_id": "control",
+        "kind": "CONTROL",
+        "route_ref": "routed"
+       }
+      ],
+      "data": {
+       "app_id": null,
+       "resource_entry_json": "{\"kind\":\"TRANSFER\",\"to\":\"SAFETY\"}",
+       "resource_id": "safety.transfer",
+       "resource_kind": "SAFETY",
+       "resource_name": "转安全",
+       "resource_status": "CONFIRMED",
+       "route_kind": "RESOURCE",
+       "route_state": "routed",
+       "solution": null,
+       "solution_inputs_json": null,
+       "solution_name": null,
+       "transfer_to": null,
+       "trial": {
+        "attached": false,
+        "bucket": null,
+        "primary_app_id": null,
+        "share": null,
+        "side": "PRIMARY",
+        "split": "NOT_ATTACHED",
+        "trial_app_id": null
+       }
+      },
+      "state": "ROUTED"
+     }
+    }
+   },
+   "id": "dispatch.route.055",
+   "params": {
+    "inputs_json": "{\"parameter_snapshot\": {\"schema_version\": \"service-decision-dsl.parameter-snapshot.v2\", \"prepared_for\": {\"workflow_id\": \"DISPATCH\", \"phase_id\": \"D1\", \"step_id\": \"D1.S2\", \"node_id\": \"N1\"}, \"subject_scope_ref\": \"{}\", \"as_of\": \"2026-11-18T00:00:00+00:00\", \"parameters\": {\"scene_id\": {\"quality\": \"KNOWN\", \"value\": \"P_07_02_06\", \"source_refs\": [\"gate:issue-0\"]}, \"issue_type\": {\"quality\": \"KNOWN\", \"value\": \"CONSULT\", \"source_refs\": [\"gate:issue-0\"]}, \"phase\": {\"quality\": \"KNOWN\", \"value\": \"STAGE_3\", \"source_refs\": [\"gate:issue-0\"]}}, \"provenance\": {\"issue_key\": \"issue-0\"}}, \"runtime_snapshot\": {}}",
+    "node_ref": "{\"workflow_id\":\"DISPATCH\",\"phase_id\":\"D1\",\"step_id\":\"D1.S2\",\"node_id\":\"N1\"}"
+   },
+   "reader": "r1",
+   "why": "生成：按表补：转安全保底 P_07_02_06（CONSULT, STAGE_3）（取自调用 T:row:P_07_02_06:CONSULT:STAGE_3）"
+  },
+  {
+   "expect": {
+    "error": null,
+    "execution_status": "SUCCEEDED",
+    "output_port": "ok",
+    "outputs": {
+     "decision": {
+      "actions": [
+       {
+        "intent_id": "control",
+        "kind": "CONTROL",
+        "route_ref": "routed"
+       }
+      ],
+      "data": {
+       "app_id": null,
+       "resource_entry_json": "{\"kind\":\"TRANSFER\",\"to\":\"SAFETY\"}",
+       "resource_id": "safety.transfer",
+       "resource_kind": "SAFETY",
+       "resource_name": "转安全",
+       "resource_status": "CONFIRMED",
+       "route_kind": "RESOURCE",
+       "route_state": "routed",
+       "solution": null,
+       "solution_inputs_json": null,
+       "solution_name": null,
+       "transfer_to": null,
+       "trial": {
+        "attached": false,
+        "bucket": null,
+        "primary_app_id": null,
+        "share": null,
+        "side": "PRIMARY",
+        "split": "NOT_ATTACHED",
+        "trial_app_id": null
+       }
+      },
+      "state": "ROUTED"
+     }
+    }
+   },
+   "id": "dispatch.route.056",
+   "params": {
+    "inputs_json": "{\"parameter_snapshot\": {\"schema_version\": \"service-decision-dsl.parameter-snapshot.v2\", \"prepared_for\": {\"workflow_id\": \"DISPATCH\", \"phase_id\": \"D1\", \"step_id\": \"D1.S2\", \"node_id\": \"N1\"}, \"subject_scope_ref\": \"{}\", \"as_of\": \"2026-11-18T00:00:00+00:00\", \"parameters\": {\"scene_id\": {\"quality\": \"KNOWN\", \"value\": \"P_07_02_07\", \"source_refs\": [\"gate:issue-0\"]}, \"issue_type\": {\"quality\": \"KNOWN\", \"value\": \"FEEDBACK\", \"source_refs\": [\"gate:issue-0\"]}, \"phase\": {\"quality\": \"KNOWN\", \"value\": \"STAGE_1\", \"source_refs\": [\"gate:issue-0\"]}}, \"provenance\": {\"issue_key\": \"issue-0\"}}, \"runtime_snapshot\": {}}",
+    "node_ref": "{\"workflow_id\":\"DISPATCH\",\"phase_id\":\"D1\",\"step_id\":\"D1.S2\",\"node_id\":\"N1\"}"
+   },
+   "reader": "r1",
+   "why": "生成：按表补：转安全保底 P_07_02_07（FEEDBACK, STAGE_1）（取自调用 T:row:P_07_02_07:FEEDBACK:STAGE_1）"
+  },
+  {
+   "expect": {
+    "error": null,
+    "execution_status": "SUCCEEDED",
+    "output_port": "ok",
+    "outputs": {
+     "decision": {
+      "actions": [
+       {
+        "intent_id": "control",
+        "kind": "CONTROL",
+        "route_ref": "routed"
+       }
+      ],
+      "data": {
+       "app_id": null,
+       "resource_entry_json": "{\"kind\":\"TRANSFER\",\"to\":\"SAFETY\"}",
+       "resource_id": "safety.transfer",
+       "resource_kind": "SAFETY",
+       "resource_name": "转安全",
+       "resource_status": "CONFIRMED",
+       "route_kind": "RESOURCE",
+       "route_state": "routed",
+       "solution": null,
+       "solution_inputs_json": null,
+       "solution_name": null,
+       "transfer_to": null,
+       "trial": {
+        "attached": false,
+        "bucket": null,
+        "primary_app_id": null,
+        "share": null,
+        "side": "PRIMARY",
+        "split": "NOT_ATTACHED",
+        "trial_app_id": null
+       }
+      },
+      "state": "ROUTED"
+     }
+    }
+   },
+   "id": "dispatch.route.057",
+   "params": {
+    "inputs_json": "{\"parameter_snapshot\": {\"schema_version\": \"service-decision-dsl.parameter-snapshot.v2\", \"prepared_for\": {\"workflow_id\": \"DISPATCH\", \"phase_id\": \"D1\", \"step_id\": \"D1.S2\", \"node_id\": \"N1\"}, \"subject_scope_ref\": \"{}\", \"as_of\": \"2026-11-18T00:00:00+00:00\", \"parameters\": {\"scene_id\": {\"quality\": \"KNOWN\", \"value\": \"P_07_02_08\", \"source_refs\": [\"gate:issue-0\"]}, \"issue_type\": {\"quality\": \"KNOWN\", \"value\": \"FEEDBACK\", \"source_refs\": [\"gate:issue-0\"]}, \"phase\": {\"quality\": \"KNOWN\", \"value\": \"STAGE_2\", \"source_refs\": [\"gate:issue-0\"]}}, \"provenance\": {\"issue_key\": \"issue-0\"}}, \"runtime_snapshot\": {}}",
+    "node_ref": "{\"workflow_id\":\"DISPATCH\",\"phase_id\":\"D1\",\"step_id\":\"D1.S2\",\"node_id\":\"N1\"}"
+   },
+   "reader": "r1",
+   "why": "生成：按表补：转安全保底 P_07_02_08（FEEDBACK, STAGE_2）（取自调用 T:row:P_07_02_08:FEEDBACK:STAGE_2）"
+  },
+  {
+   "expect": {
+    "error": null,
+    "execution_status": "SUCCEEDED",
+    "output_port": "ok",
+    "outputs": {
+     "decision": {
+      "actions": [
+       {
+        "intent_id": "control",
+        "kind": "CONTROL",
+        "route_ref": "routed"
+       }
+      ],
+      "data": {
+       "app_id": null,
+       "resource_entry_json": "{\"kind\":\"TRANSFER\",\"to\":\"SAFETY\"}",
+       "resource_id": "safety.transfer",
+       "resource_kind": "SAFETY",
+       "resource_name": "转安全",
+       "resource_status": "CONFIRMED",
+       "route_kind": "RESOURCE",
+       "route_state": "routed",
+       "solution": null,
+       "solution_inputs_json": null,
+       "solution_name": null,
+       "transfer_to": null,
+       "trial": {
+        "attached": false,
+        "bucket": null,
+        "primary_app_id": null,
+        "share": null,
+        "side": "PRIMARY",
+        "split": "NOT_ATTACHED",
+        "trial_app_id": null
+       }
+      },
+      "state": "ROUTED"
+     }
+    }
+   },
+   "id": "dispatch.route.058",
+   "params": {
+    "inputs_json": "{\"parameter_snapshot\": {\"schema_version\": \"service-decision-dsl.parameter-snapshot.v2\", \"prepared_for\": {\"workflow_id\": \"DISPATCH\", \"phase_id\": \"D1\", \"step_id\": \"D1.S2\", \"node_id\": \"N1\"}, \"subject_scope_ref\": \"{}\", \"as_of\": \"2026-11-18T00:00:00+00:00\", \"parameters\": {\"scene_id\": {\"quality\": \"KNOWN\", \"value\": \"P_07_02_09\", \"source_refs\": [\"gate:issue-0\"]}, \"issue_type\": {\"quality\": \"KNOWN\", \"value\": \"FEEDBACK\", \"source_refs\": [\"gate:issue-0\"]}, \"phase\": {\"quality\": \"KNOWN\", \"value\": \"STAGE_3\", \"source_refs\": [\"gate:issue-0\"]}}, \"provenance\": {\"issue_key\": \"issue-0\"}}, \"runtime_snapshot\": {}}",
+    "node_ref": "{\"workflow_id\":\"DISPATCH\",\"phase_id\":\"D1\",\"step_id\":\"D1.S2\",\"node_id\":\"N1\"}"
+   },
+   "reader": "r1",
+   "why": "生成：按表补：转安全保底 P_07_02_09（FEEDBACK, STAGE_3）（取自调用 T:row:P_07_02_09:FEEDBACK:STAGE_3）"
+  },
+  {
+   "expect": {
+    "error": null,
+    "execution_status": "SUCCEEDED",
+    "output_port": "ok",
+    "outputs": {
+     "decision": {
+      "actions": [
+       {
+        "intent_id": "control",
+        "kind": "CONTROL",
+        "route_ref": "routed"
+       }
+      ],
+      "data": {
+       "app_id": null,
+       "resource_entry_json": "{\"kind\":\"TRANSFER\",\"to\":\"SAFETY\"}",
+       "resource_id": "safety.transfer",
+       "resource_kind": "SAFETY",
+       "resource_name": "转安全",
+       "resource_status": "CONFIRMED",
+       "route_kind": "TRANSFER",
+       "route_state": "routed",
+       "solution": null,
+       "solution_inputs_json": null,
+       "solution_name": null,
+       "transfer_to": "SAFETY",
+       "trial": {
+        "attached": false,
+        "bucket": null,
+        "primary_app_id": null,
+        "share": null,
+        "side": "PRIMARY",
+        "split": "NOT_ATTACHED",
+        "trial_app_id": null
+       }
+      },
+      "state": "ROUTED"
+     }
+    }
+   },
+   "id": "dispatch.route.059",
+   "params": {
+    "inputs_json": "{\"parameter_snapshot\": {\"schema_version\": \"service-decision-dsl.parameter-snapshot.v2\", \"prepared_for\": {\"workflow_id\": \"DISPATCH\", \"phase_id\": \"D1\", \"step_id\": \"D1.S2\", \"node_id\": \"N1\"}, \"subject_scope_ref\": \"{}\", \"as_of\": \"2026-11-18T00:00:00+00:00\", \"parameters\": {\"scene_id\": {\"quality\": \"KNOWN\", \"value\": \"P_07_02_10\", \"source_refs\": [\"gate:issue-0\"]}, \"issue_type\": {\"quality\": \"KNOWN\", \"value\": \"COMPLAINT\", \"source_refs\": [\"gate:issue-0\"]}, \"phase\": {\"quality\": \"KNOWN\", \"value\": \"STAGE_1\", \"source_refs\": [\"gate:issue-0\"]}}, \"provenance\": {\"issue_key\": \"issue-0\"}}, \"runtime_snapshot\": {}}",
+    "node_ref": "{\"workflow_id\":\"DISPATCH\",\"phase_id\":\"D1\",\"step_id\":\"D1.S2\",\"node_id\":\"N1\"}"
+   },
+   "reader": "r1",
+   "why": "生成：按表补：转安全保底 P_07_02_10（COMPLAINT, STAGE_1）（取自调用 T:row:P_07_02_10:COMPLAINT:STAGE_1）"
+  },
+  {
+   "expect": {
+    "error": null,
+    "execution_status": "SUCCEEDED",
+    "output_port": "ok",
+    "outputs": {
+     "decision": {
+      "actions": [
+       {
+        "intent_id": "control",
+        "kind": "CONTROL",
+        "route_ref": "routed"
+       }
+      ],
+      "data": {
+       "app_id": null,
+       "resource_entry_json": "{\"kind\":\"TRANSFER\",\"to\":\"SAFETY\"}",
+       "resource_id": "safety.transfer",
+       "resource_kind": "SAFETY",
+       "resource_name": "转安全",
+       "resource_status": "CONFIRMED",
+       "route_kind": "RESOURCE",
+       "route_state": "routed",
+       "solution": null,
+       "solution_inputs_json": null,
+       "solution_name": null,
+       "transfer_to": null,
+       "trial": {
+        "attached": false,
+        "bucket": null,
+        "primary_app_id": null,
+        "share": null,
+        "side": "PRIMARY",
+        "split": "NOT_ATTACHED",
+        "trial_app_id": null
+       }
+      },
+      "state": "ROUTED"
+     }
+    }
+   },
+   "id": "dispatch.route.060",
+   "params": {
+    "inputs_json": "{\"parameter_snapshot\": {\"schema_version\": \"service-decision-dsl.parameter-snapshot.v2\", \"prepared_for\": {\"workflow_id\": \"DISPATCH\", \"phase_id\": \"D1\", \"step_id\": \"D1.S2\", \"node_id\": \"N1\"}, \"subject_scope_ref\": \"{}\", \"as_of\": \"2026-11-18T00:00:00+00:00\", \"parameters\": {\"scene_id\": {\"quality\": \"KNOWN\", \"value\": \"P_07_02_11\", \"source_refs\": [\"gate:issue-0\"]}, \"issue_type\": {\"quality\": \"KNOWN\", \"value\": \"COMPLAINT\", \"source_refs\": [\"gate:issue-0\"]}, \"phase\": {\"quality\": \"KNOWN\", \"value\": \"STAGE_2\", \"source_refs\": [\"gate:issue-0\"]}}, \"provenance\": {\"issue_key\": \"issue-0\"}}, \"runtime_snapshot\": {}}",
+    "node_ref": "{\"workflow_id\":\"DISPATCH\",\"phase_id\":\"D1\",\"step_id\":\"D1.S2\",\"node_id\":\"N1\"}"
+   },
+   "reader": "r1",
+   "why": "生成：按表补：转安全保底 P_07_02_11（COMPLAINT, STAGE_2）（取自调用 T:row:P_07_02_11:COMPLAINT:STAGE_2）"
+  },
+  {
+   "expect": {
+    "error": null,
+    "execution_status": "SUCCEEDED",
+    "output_port": "ok",
+    "outputs": {
+     "decision": {
+      "actions": [
+       {
+        "intent_id": "control",
+        "kind": "CONTROL",
+        "route_ref": "routed"
+       }
+      ],
+      "data": {
+       "app_id": null,
+       "resource_entry_json": "{\"kind\":\"TRANSFER\",\"to\":\"SAFETY\"}",
+       "resource_id": "safety.transfer",
+       "resource_kind": "SAFETY",
+       "resource_name": "转安全",
+       "resource_status": "CONFIRMED",
+       "route_kind": "RESOURCE",
+       "route_state": "routed",
+       "solution": null,
+       "solution_inputs_json": null,
+       "solution_name": null,
+       "transfer_to": null,
+       "trial": {
+        "attached": false,
+        "bucket": null,
+        "primary_app_id": null,
+        "share": null,
+        "side": "PRIMARY",
+        "split": "NOT_ATTACHED",
+        "trial_app_id": null
+       }
+      },
+      "state": "ROUTED"
+     }
+    }
+   },
+   "id": "dispatch.route.061",
+   "params": {
+    "inputs_json": "{\"parameter_snapshot\": {\"schema_version\": \"service-decision-dsl.parameter-snapshot.v2\", \"prepared_for\": {\"workflow_id\": \"DISPATCH\", \"phase_id\": \"D1\", \"step_id\": \"D1.S2\", \"node_id\": \"N1\"}, \"subject_scope_ref\": \"{}\", \"as_of\": \"2026-11-18T00:00:00+00:00\", \"parameters\": {\"scene_id\": {\"quality\": \"KNOWN\", \"value\": \"P_07_02_12\", \"source_refs\": [\"gate:issue-0\"]}, \"issue_type\": {\"quality\": \"KNOWN\", \"value\": \"COMPLAINT\", \"source_refs\": [\"gate:issue-0\"]}, \"phase\": {\"quality\": \"KNOWN\", \"value\": \"STAGE_3\", \"source_refs\": [\"gate:issue-0\"]}}, \"provenance\": {\"issue_key\": \"issue-0\"}}, \"runtime_snapshot\": {}}",
+    "node_ref": "{\"workflow_id\":\"DISPATCH\",\"phase_id\":\"D1\",\"step_id\":\"D1.S2\",\"node_id\":\"N1\"}"
+   },
+   "reader": "r1",
+   "why": "生成：按表补：转安全保底 P_07_02_12（COMPLAINT, STAGE_3）（取自调用 T:row:P_07_02_12:COMPLAINT:STAGE_3）"
+  },
+  {
+   "expect": {
+    "error": null,
+    "execution_status": "SUCCEEDED",
+    "output_port": "ok",
+    "outputs": {
+     "decision": {
+      "actions": [
+       {
+        "intent_id": "control",
+        "kind": "CONTROL",
+        "route_ref": "routed"
+       }
+      ],
+      "data": {
+       "app_id": null,
+       "resource_entry_json": "{\"kind\":\"TRANSFER\",\"to\":\"SAFETY\"}",
+       "resource_id": "safety.transfer",
+       "resource_kind": "SAFETY",
+       "resource_name": "转安全",
+       "resource_status": "CONFIRMED",
+       "route_kind": "RESOURCE",
+       "route_state": "routed",
+       "solution": null,
+       "solution_inputs_json": null,
+       "solution_name": null,
+       "transfer_to": null,
+       "trial": {
+        "attached": false,
+        "bucket": null,
+        "primary_app_id": null,
+        "share": null,
+        "side": "PRIMARY",
+        "split": "NOT_ATTACHED",
+        "trial_app_id": null
+       }
+      },
+      "state": "ROUTED"
+     }
+    }
+   },
+   "id": "dispatch.route.062",
+   "params": {
+    "inputs_json": "{\"parameter_snapshot\": {\"schema_version\": \"service-decision-dsl.parameter-snapshot.v2\", \"prepared_for\": {\"workflow_id\": \"DISPATCH\", \"phase_id\": \"D1\", \"step_id\": \"D1.S2\", \"node_id\": \"N1\"}, \"subject_scope_ref\": \"{}\", \"as_of\": \"2026-11-18T00:00:00+00:00\", \"parameters\": {\"scene_id\": {\"quality\": \"KNOWN\", \"value\": \"P_07_03_01\", \"source_refs\": [\"gate:issue-0\"]}, \"issue_type\": {\"quality\": \"KNOWN\", \"value\": \"CONSULT\", \"source_refs\": [\"gate:issue-0\"]}, \"phase\": {\"quality\": \"KNOWN\", \"value\": \"STAGE_1\", \"source_refs\": [\"gate:issue-0\"]}}, \"provenance\": {\"issue_key\": \"issue-0\"}}, \"runtime_snapshot\": {}}",
+    "node_ref": "{\"workflow_id\":\"DISPATCH\",\"phase_id\":\"D1\",\"step_id\":\"D1.S2\",\"node_id\":\"N1\"}"
+   },
+   "reader": "r1",
+   "why": "生成：按表补：转安全保底 P_07_03_01（CONSULT, STAGE_1）（取自调用 T:row:P_07_03_01:CONSULT:STAGE_1）"
+  },
+  {
+   "expect": {
+    "error": null,
+    "execution_status": "SUCCEEDED",
+    "output_port": "ok",
+    "outputs": {
+     "decision": {
+      "actions": [
+       {
+        "intent_id": "control",
+        "kind": "CONTROL",
+        "route_ref": "routed"
+       }
+      ],
+      "data": {
+       "app_id": null,
+       "resource_entry_json": "{\"kind\":\"TRANSFER\",\"to\":\"SAFETY\"}",
+       "resource_id": "safety.transfer",
+       "resource_kind": "SAFETY",
+       "resource_name": "转安全",
+       "resource_status": "CONFIRMED",
+       "route_kind": "RESOURCE",
+       "route_state": "routed",
+       "solution": null,
+       "solution_inputs_json": null,
+       "solution_name": null,
+       "transfer_to": null,
+       "trial": {
+        "attached": false,
+        "bucket": null,
+        "primary_app_id": null,
+        "share": null,
+        "side": "PRIMARY",
+        "split": "NOT_ATTACHED",
+        "trial_app_id": null
+       }
+      },
+      "state": "ROUTED"
+     }
+    }
+   },
+   "id": "dispatch.route.063",
+   "params": {
+    "inputs_json": "{\"parameter_snapshot\": {\"schema_version\": \"service-decision-dsl.parameter-snapshot.v2\", \"prepared_for\": {\"workflow_id\": \"DISPATCH\", \"phase_id\": \"D1\", \"step_id\": \"D1.S2\", \"node_id\": \"N1\"}, \"subject_scope_ref\": \"{}\", \"as_of\": \"2026-11-18T00:00:00+00:00\", \"parameters\": {\"scene_id\": {\"quality\": \"KNOWN\", \"value\": \"P_07_03_02\", \"source_refs\": [\"gate:issue-0\"]}, \"issue_type\": {\"quality\": \"KNOWN\", \"value\": \"CONSULT\", \"source_refs\": [\"gate:issue-0\"]}, \"phase\": {\"quality\": \"KNOWN\", \"value\": \"STAGE_2\", \"source_refs\": [\"gate:issue-0\"]}}, \"provenance\": {\"issue_key\": \"issue-0\"}}, \"runtime_snapshot\": {}}",
+    "node_ref": "{\"workflow_id\":\"DISPATCH\",\"phase_id\":\"D1\",\"step_id\":\"D1.S2\",\"node_id\":\"N1\"}"
+   },
+   "reader": "r1",
+   "why": "生成：按表补：转安全保底 P_07_03_02（CONSULT, STAGE_2）（取自调用 T:row:P_07_03_02:CONSULT:STAGE_2）"
+  },
+  {
+   "expect": {
+    "error": null,
+    "execution_status": "SUCCEEDED",
+    "output_port": "ok",
+    "outputs": {
+     "decision": {
+      "actions": [
+       {
+        "intent_id": "control",
+        "kind": "CONTROL",
+        "route_ref": "routed"
+       }
+      ],
+      "data": {
+       "app_id": null,
+       "resource_entry_json": "{\"kind\":\"TRANSFER\",\"to\":\"SAFETY\"}",
+       "resource_id": "safety.transfer",
+       "resource_kind": "SAFETY",
+       "resource_name": "转安全",
+       "resource_status": "CONFIRMED",
+       "route_kind": "RESOURCE",
+       "route_state": "routed",
+       "solution": null,
+       "solution_inputs_json": null,
+       "solution_name": null,
+       "transfer_to": null,
+       "trial": {
+        "attached": false,
+        "bucket": null,
+        "primary_app_id": null,
+        "share": null,
+        "side": "PRIMARY",
+        "split": "NOT_ATTACHED",
+        "trial_app_id": null
+       }
+      },
+      "state": "ROUTED"
+     }
+    }
+   },
+   "id": "dispatch.route.064",
+   "params": {
+    "inputs_json": "{\"parameter_snapshot\": {\"schema_version\": \"service-decision-dsl.parameter-snapshot.v2\", \"prepared_for\": {\"workflow_id\": \"DISPATCH\", \"phase_id\": \"D1\", \"step_id\": \"D1.S2\", \"node_id\": \"N1\"}, \"subject_scope_ref\": \"{}\", \"as_of\": \"2026-11-18T00:00:00+00:00\", \"parameters\": {\"scene_id\": {\"quality\": \"KNOWN\", \"value\": \"P_07_03_03\", \"source_refs\": [\"gate:issue-0\"]}, \"issue_type\": {\"quality\": \"KNOWN\", \"value\": \"CONSULT\", \"source_refs\": [\"gate:issue-0\"]}, \"phase\": {\"quality\": \"KNOWN\", \"value\": \"STAGE_3\", \"source_refs\": [\"gate:issue-0\"]}}, \"provenance\": {\"issue_key\": \"issue-0\"}}, \"runtime_snapshot\": {}}",
+    "node_ref": "{\"workflow_id\":\"DISPATCH\",\"phase_id\":\"D1\",\"step_id\":\"D1.S2\",\"node_id\":\"N1\"}"
+   },
+   "reader": "r1",
+   "why": "生成：按表补：转安全保底 P_07_03_03（CONSULT, STAGE_3）（取自调用 T:row:P_07_03_03:CONSULT:STAGE_3）"
+  },
+  {
+   "expect": {
+    "error": null,
+    "execution_status": "SUCCEEDED",
+    "output_port": "ok",
+    "outputs": {
+     "decision": {
+      "actions": [
+       {
+        "intent_id": "control",
+        "kind": "CONTROL",
+        "route_ref": "routed"
+       }
+      ],
+      "data": {
+       "app_id": null,
+       "resource_entry_json": "{\"kind\":\"TRANSFER\",\"to\":\"SAFETY\"}",
+       "resource_id": "safety.transfer",
+       "resource_kind": "SAFETY",
+       "resource_name": "转安全",
+       "resource_status": "CONFIRMED",
+       "route_kind": "RESOURCE",
+       "route_state": "routed",
+       "solution": null,
+       "solution_inputs_json": null,
+       "solution_name": null,
+       "transfer_to": null,
+       "trial": {
+        "attached": false,
+        "bucket": null,
+        "primary_app_id": null,
+        "share": null,
+        "side": "PRIMARY",
+        "split": "NOT_ATTACHED",
+        "trial_app_id": null
+       }
+      },
+      "state": "ROUTED"
+     }
+    }
+   },
+   "id": "dispatch.route.065",
+   "params": {
+    "inputs_json": "{\"parameter_snapshot\": {\"schema_version\": \"service-decision-dsl.parameter-snapshot.v2\", \"prepared_for\": {\"workflow_id\": \"DISPATCH\", \"phase_id\": \"D1\", \"step_id\": \"D1.S2\", \"node_id\": \"N1\"}, \"subject_scope_ref\": \"{}\", \"as_of\": \"2026-11-18T00:00:00+00:00\", \"parameters\": {\"scene_id\": {\"quality\": \"KNOWN\", \"value\": \"P_07_03_04\", \"source_refs\": [\"gate:issue-0\"]}, \"issue_type\": {\"quality\": \"KNOWN\", \"value\": \"FEEDBACK\", \"source_refs\": [\"gate:issue-0\"]}, \"phase\": {\"quality\": \"KNOWN\", \"value\": \"STAGE_1\", \"source_refs\": [\"gate:issue-0\"]}}, \"provenance\": {\"issue_key\": \"issue-0\"}}, \"runtime_snapshot\": {}}",
+    "node_ref": "{\"workflow_id\":\"DISPATCH\",\"phase_id\":\"D1\",\"step_id\":\"D1.S2\",\"node_id\":\"N1\"}"
+   },
+   "reader": "r1",
+   "why": "生成：按表补：转安全保底 P_07_03_04（FEEDBACK, STAGE_1）（取自调用 T:row:P_07_03_04:FEEDBACK:STAGE_1）"
+  },
+  {
+   "expect": {
+    "error": null,
+    "execution_status": "SUCCEEDED",
+    "output_port": "ok",
+    "outputs": {
+     "decision": {
+      "actions": [
+       {
+        "intent_id": "control",
+        "kind": "CONTROL",
+        "route_ref": "routed"
+       }
+      ],
+      "data": {
+       "app_id": null,
+       "resource_entry_json": "{\"kind\":\"TRANSFER\",\"to\":\"SAFETY\"}",
+       "resource_id": "safety.transfer",
+       "resource_kind": "SAFETY",
+       "resource_name": "转安全",
+       "resource_status": "CONFIRMED",
+       "route_kind": "RESOURCE",
+       "route_state": "routed",
+       "solution": null,
+       "solution_inputs_json": null,
+       "solution_name": null,
+       "transfer_to": null,
+       "trial": {
+        "attached": false,
+        "bucket": null,
+        "primary_app_id": null,
+        "share": null,
+        "side": "PRIMARY",
+        "split": "NOT_ATTACHED",
+        "trial_app_id": null
+       }
+      },
+      "state": "ROUTED"
+     }
+    }
+   },
+   "id": "dispatch.route.066",
+   "params": {
+    "inputs_json": "{\"parameter_snapshot\": {\"schema_version\": \"service-decision-dsl.parameter-snapshot.v2\", \"prepared_for\": {\"workflow_id\": \"DISPATCH\", \"phase_id\": \"D1\", \"step_id\": \"D1.S2\", \"node_id\": \"N1\"}, \"subject_scope_ref\": \"{}\", \"as_of\": \"2026-11-18T00:00:00+00:00\", \"parameters\": {\"scene_id\": {\"quality\": \"KNOWN\", \"value\": \"P_07_03_05\", \"source_refs\": [\"gate:issue-0\"]}, \"issue_type\": {\"quality\": \"KNOWN\", \"value\": \"FEEDBACK\", \"source_refs\": [\"gate:issue-0\"]}, \"phase\": {\"quality\": \"KNOWN\", \"value\": \"STAGE_2\", \"source_refs\": [\"gate:issue-0\"]}}, \"provenance\": {\"issue_key\": \"issue-0\"}}, \"runtime_snapshot\": {}}",
+    "node_ref": "{\"workflow_id\":\"DISPATCH\",\"phase_id\":\"D1\",\"step_id\":\"D1.S2\",\"node_id\":\"N1\"}"
+   },
+   "reader": "r1",
+   "why": "生成：按表补：转安全保底 P_07_03_05（FEEDBACK, STAGE_2）（取自调用 T:row:P_07_03_05:FEEDBACK:STAGE_2）"
+  },
+  {
+   "expect": {
+    "error": null,
+    "execution_status": "SUCCEEDED",
+    "output_port": "ok",
+    "outputs": {
+     "decision": {
+      "actions": [
+       {
+        "intent_id": "control",
+        "kind": "CONTROL",
+        "route_ref": "routed"
+       }
+      ],
+      "data": {
+       "app_id": null,
+       "resource_entry_json": "{\"kind\":\"TRANSFER\",\"to\":\"SAFETY\"}",
+       "resource_id": "safety.transfer",
+       "resource_kind": "SAFETY",
+       "resource_name": "转安全",
+       "resource_status": "CONFIRMED",
+       "route_kind": "RESOURCE",
+       "route_state": "routed",
+       "solution": null,
+       "solution_inputs_json": null,
+       "solution_name": null,
+       "transfer_to": null,
+       "trial": {
+        "attached": false,
+        "bucket": null,
+        "primary_app_id": null,
+        "share": null,
+        "side": "PRIMARY",
+        "split": "NOT_ATTACHED",
+        "trial_app_id": null
+       }
+      },
+      "state": "ROUTED"
+     }
+    }
+   },
+   "id": "dispatch.route.067",
+   "params": {
+    "inputs_json": "{\"parameter_snapshot\": {\"schema_version\": \"service-decision-dsl.parameter-snapshot.v2\", \"prepared_for\": {\"workflow_id\": \"DISPATCH\", \"phase_id\": \"D1\", \"step_id\": \"D1.S2\", \"node_id\": \"N1\"}, \"subject_scope_ref\": \"{}\", \"as_of\": \"2026-11-18T00:00:00+00:00\", \"parameters\": {\"scene_id\": {\"quality\": \"KNOWN\", \"value\": \"P_07_03_06\", \"source_refs\": [\"gate:issue-0\"]}, \"issue_type\": {\"quality\": \"KNOWN\", \"value\": \"FEEDBACK\", \"source_refs\": [\"gate:issue-0\"]}, \"phase\": {\"quality\": \"KNOWN\", \"value\": \"STAGE_3\", \"source_refs\": [\"gate:issue-0\"]}}, \"provenance\": {\"issue_key\": \"issue-0\"}}, \"runtime_snapshot\": {}}",
+    "node_ref": "{\"workflow_id\":\"DISPATCH\",\"phase_id\":\"D1\",\"step_id\":\"D1.S2\",\"node_id\":\"N1\"}"
+   },
+   "reader": "r1",
+   "why": "生成：按表补：转安全保底 P_07_03_06（FEEDBACK, STAGE_3）（取自调用 T:row:P_07_03_06:FEEDBACK:STAGE_3）"
+  },
+  {
+   "expect": {
+    "error": null,
+    "execution_status": "SUCCEEDED",
+    "output_port": "ok",
+    "outputs": {
+     "decision": {
+      "actions": [
+       {
+        "intent_id": "control",
+        "kind": "CONTROL",
+        "route_ref": "routed"
+       }
+      ],
+      "data": {
+       "app_id": null,
+       "resource_entry_json": "{\"kind\":\"TRANSFER\",\"to\":\"SAFETY\"}",
+       "resource_id": "safety.transfer",
+       "resource_kind": "SAFETY",
+       "resource_name": "转安全",
+       "resource_status": "CONFIRMED",
+       "route_kind": "TRANSFER",
+       "route_state": "routed",
+       "solution": null,
+       "solution_inputs_json": null,
+       "solution_name": null,
+       "transfer_to": "SAFETY",
+       "trial": {
+        "attached": false,
+        "bucket": null,
+        "primary_app_id": null,
+        "share": null,
+        "side": "PRIMARY",
+        "split": "NOT_ATTACHED",
+        "trial_app_id": null
+       }
+      },
+      "state": "ROUTED"
+     }
+    }
+   },
+   "id": "dispatch.route.068",
+   "params": {
+    "inputs_json": "{\"parameter_snapshot\": {\"schema_version\": \"service-decision-dsl.parameter-snapshot.v2\", \"prepared_for\": {\"workflow_id\": \"DISPATCH\", \"phase_id\": \"D1\", \"step_id\": \"D1.S2\", \"node_id\": \"N1\"}, \"subject_scope_ref\": \"{}\", \"as_of\": \"2026-11-18T00:00:00+00:00\", \"parameters\": {\"scene_id\": {\"quality\": \"KNOWN\", \"value\": \"P_07_03_07\", \"source_refs\": [\"gate:issue-0\"]}, \"issue_type\": {\"quality\": \"KNOWN\", \"value\": \"COMPLAINT\", \"source_refs\": [\"gate:issue-0\"]}, \"phase\": {\"quality\": \"KNOWN\", \"value\": \"STAGE_1\", \"source_refs\": [\"gate:issue-0\"]}}, \"provenance\": {\"issue_key\": \"issue-0\"}}, \"runtime_snapshot\": {}}",
+    "node_ref": "{\"workflow_id\":\"DISPATCH\",\"phase_id\":\"D1\",\"step_id\":\"D1.S2\",\"node_id\":\"N1\"}"
+   },
+   "reader": "r1",
+   "why": "生成：按表补：转安全保底 P_07_03_07（COMPLAINT, STAGE_1）（取自调用 T:row:P_07_03_07:COMPLAINT:STAGE_1）"
+  },
+  {
+   "expect": {
+    "error": null,
+    "execution_status": "SUCCEEDED",
+    "output_port": "ok",
+    "outputs": {
+     "decision": {
+      "actions": [
+       {
+        "intent_id": "control",
+        "kind": "CONTROL",
+        "route_ref": "routed"
+       }
+      ],
+      "data": {
+       "app_id": null,
+       "resource_entry_json": "{\"kind\":\"TRANSFER\",\"to\":\"SAFETY\"}",
+       "resource_id": "safety.transfer",
+       "resource_kind": "SAFETY",
+       "resource_name": "转安全",
+       "resource_status": "CONFIRMED",
+       "route_kind": "RESOURCE",
+       "route_state": "routed",
+       "solution": null,
+       "solution_inputs_json": null,
+       "solution_name": null,
+       "transfer_to": null,
+       "trial": {
+        "attached": false,
+        "bucket": null,
+        "primary_app_id": null,
+        "share": null,
+        "side": "PRIMARY",
+        "split": "NOT_ATTACHED",
+        "trial_app_id": null
+       }
+      },
+      "state": "ROUTED"
+     }
+    }
+   },
+   "id": "dispatch.route.069",
+   "params": {
+    "inputs_json": "{\"parameter_snapshot\": {\"schema_version\": \"service-decision-dsl.parameter-snapshot.v2\", \"prepared_for\": {\"workflow_id\": \"DISPATCH\", \"phase_id\": \"D1\", \"step_id\": \"D1.S2\", \"node_id\": \"N1\"}, \"subject_scope_ref\": \"{}\", \"as_of\": \"2026-11-18T00:00:00+00:00\", \"parameters\": {\"scene_id\": {\"quality\": \"KNOWN\", \"value\": \"P_07_03_08\", \"source_refs\": [\"gate:issue-0\"]}, \"issue_type\": {\"quality\": \"KNOWN\", \"value\": \"COMPLAINT\", \"source_refs\": [\"gate:issue-0\"]}, \"phase\": {\"quality\": \"KNOWN\", \"value\": \"STAGE_2\", \"source_refs\": [\"gate:issue-0\"]}}, \"provenance\": {\"issue_key\": \"issue-0\"}}, \"runtime_snapshot\": {}}",
+    "node_ref": "{\"workflow_id\":\"DISPATCH\",\"phase_id\":\"D1\",\"step_id\":\"D1.S2\",\"node_id\":\"N1\"}"
+   },
+   "reader": "r1",
+   "why": "生成：按表补：转安全保底 P_07_03_08（COMPLAINT, STAGE_2）（取自调用 T:row:P_07_03_08:COMPLAINT:STAGE_2）"
+  },
+  {
+   "expect": {
+    "error": null,
+    "execution_status": "SUCCEEDED",
+    "output_port": "ok",
+    "outputs": {
+     "decision": {
+      "actions": [
+       {
+        "intent_id": "control",
+        "kind": "CONTROL",
+        "route_ref": "routed"
+       }
+      ],
+      "data": {
+       "app_id": null,
+       "resource_entry_json": "{\"kind\":\"TRANSFER\",\"to\":\"SAFETY\"}",
+       "resource_id": "safety.transfer",
+       "resource_kind": "SAFETY",
+       "resource_name": "转安全",
+       "resource_status": "CONFIRMED",
+       "route_kind": "RESOURCE",
+       "route_state": "routed",
+       "solution": null,
+       "solution_inputs_json": null,
+       "solution_name": null,
+       "transfer_to": null,
+       "trial": {
+        "attached": false,
+        "bucket": null,
+        "primary_app_id": null,
+        "share": null,
+        "side": "PRIMARY",
+        "split": "NOT_ATTACHED",
+        "trial_app_id": null
+       }
+      },
+      "state": "ROUTED"
+     }
+    }
+   },
+   "id": "dispatch.route.070",
+   "params": {
+    "inputs_json": "{\"parameter_snapshot\": {\"schema_version\": \"service-decision-dsl.parameter-snapshot.v2\", \"prepared_for\": {\"workflow_id\": \"DISPATCH\", \"phase_id\": \"D1\", \"step_id\": \"D1.S2\", \"node_id\": \"N1\"}, \"subject_scope_ref\": \"{}\", \"as_of\": \"2026-11-18T00:00:00+00:00\", \"parameters\": {\"scene_id\": {\"quality\": \"KNOWN\", \"value\": \"P_07_03_09\", \"source_refs\": [\"gate:issue-0\"]}, \"issue_type\": {\"quality\": \"KNOWN\", \"value\": \"COMPLAINT\", \"source_refs\": [\"gate:issue-0\"]}, \"phase\": {\"quality\": \"KNOWN\", \"value\": \"STAGE_3\", \"source_refs\": [\"gate:issue-0\"]}}, \"provenance\": {\"issue_key\": \"issue-0\"}}, \"runtime_snapshot\": {}}",
+    "node_ref": "{\"workflow_id\":\"DISPATCH\",\"phase_id\":\"D1\",\"step_id\":\"D1.S2\",\"node_id\":\"N1\"}"
+   },
+   "reader": "r1",
+   "why": "生成：按表补：转安全保底 P_07_03_09（COMPLAINT, STAGE_3）（取自调用 T:row:P_07_03_09:COMPLAINT:STAGE_3）"
+  },
+  {
+   "expect": {
+    "error": null,
+    "execution_status": "SUCCEEDED",
+    "output_port": "ok",
+    "outputs": {
+     "decision": {
+      "actions": [
+       {
+        "intent_id": "control",
+        "kind": "CONTROL",
+        "route_ref": "routed"
+       }
+      ],
+      "data": {
+       "app_id": null,
+       "resource_entry_json": "{\"kind\":\"TRANSFER\",\"to\":\"SAFETY\"}",
+       "resource_id": "safety.transfer",
+       "resource_kind": "SAFETY",
+       "resource_name": "转安全",
+       "resource_status": "CONFIRMED",
+       "route_kind": "RESOURCE",
+       "route_state": "routed",
+       "solution": null,
+       "solution_inputs_json": null,
+       "solution_name": null,
+       "transfer_to": null,
+       "trial": {
+        "attached": false,
+        "bucket": null,
+        "primary_app_id": null,
+        "share": null,
+        "side": "PRIMARY",
+        "split": "NOT_ATTACHED",
+        "trial_app_id": null
+       }
+      },
+      "state": "ROUTED"
+     }
+    }
+   },
+   "id": "dispatch.route.071",
+   "params": {
+    "inputs_json": "{\"parameter_snapshot\": {\"schema_version\": \"service-decision-dsl.parameter-snapshot.v2\", \"prepared_for\": {\"workflow_id\": \"DISPATCH\", \"phase_id\": \"D1\", \"step_id\": \"D1.S2\", \"node_id\": \"N1\"}, \"subject_scope_ref\": \"{}\", \"as_of\": \"2026-11-18T00:00:00+00:00\", \"parameters\": {\"scene_id\": {\"quality\": \"KNOWN\", \"value\": \"P_07_03_10\", \"source_refs\": [\"gate:issue-0\"]}, \"issue_type\": {\"quality\": \"KNOWN\", \"value\": \"CONSULT\", \"source_refs\": [\"gate:issue-0\"]}, \"phase\": {\"quality\": \"KNOWN\", \"value\": \"STAGE_1\", \"source_refs\": [\"gate:issue-0\"]}}, \"provenance\": {\"issue_key\": \"issue-0\"}}, \"runtime_snapshot\": {}}",
+    "node_ref": "{\"workflow_id\":\"DISPATCH\",\"phase_id\":\"D1\",\"step_id\":\"D1.S2\",\"node_id\":\"N1\"}"
+   },
+   "reader": "r1",
+   "why": "生成：按表补：转安全保底 P_07_03_10（CONSULT, STAGE_1）（取自调用 T:row:P_07_03_10:CONSULT:STAGE_1）"
+  },
+  {
+   "expect": {
+    "error": null,
+    "execution_status": "SUCCEEDED",
+    "output_port": "ok",
+    "outputs": {
+     "decision": {
+      "actions": [
+       {
+        "intent_id": "control",
+        "kind": "CONTROL",
+        "route_ref": "routed"
+       }
+      ],
+      "data": {
+       "app_id": null,
+       "resource_entry_json": "{\"kind\":\"TRANSFER\",\"to\":\"SAFETY\"}",
+       "resource_id": "safety.transfer",
+       "resource_kind": "SAFETY",
+       "resource_name": "转安全",
+       "resource_status": "CONFIRMED",
+       "route_kind": "RESOURCE",
+       "route_state": "routed",
+       "solution": null,
+       "solution_inputs_json": null,
+       "solution_name": null,
+       "transfer_to": null,
+       "trial": {
+        "attached": false,
+        "bucket": null,
+        "primary_app_id": null,
+        "share": null,
+        "side": "PRIMARY",
+        "split": "NOT_ATTACHED",
+        "trial_app_id": null
+       }
+      },
+      "state": "ROUTED"
+     }
+    }
+   },
+   "id": "dispatch.route.072",
+   "params": {
+    "inputs_json": "{\"parameter_snapshot\": {\"schema_version\": \"service-decision-dsl.parameter-snapshot.v2\", \"prepared_for\": {\"workflow_id\": \"DISPATCH\", \"phase_id\": \"D1\", \"step_id\": \"D1.S2\", \"node_id\": \"N1\"}, \"subject_scope_ref\": \"{}\", \"as_of\": \"2026-11-18T00:00:00+00:00\", \"parameters\": {\"scene_id\": {\"quality\": \"KNOWN\", \"value\": \"P_07_03_11\", \"source_refs\": [\"gate:issue-0\"]}, \"issue_type\": {\"quality\": \"KNOWN\", \"value\": \"CONSULT\", \"source_refs\": [\"gate:issue-0\"]}, \"phase\": {\"quality\": \"KNOWN\", \"value\": \"STAGE_2\", \"source_refs\": [\"gate:issue-0\"]}}, \"provenance\": {\"issue_key\": \"issue-0\"}}, \"runtime_snapshot\": {}}",
+    "node_ref": "{\"workflow_id\":\"DISPATCH\",\"phase_id\":\"D1\",\"step_id\":\"D1.S2\",\"node_id\":\"N1\"}"
+   },
+   "reader": "r1",
+   "why": "生成：按表补：转安全保底 P_07_03_11（CONSULT, STAGE_2）（取自调用 T:row:P_07_03_11:CONSULT:STAGE_2）"
+  },
+  {
+   "expect": {
+    "error": null,
+    "execution_status": "SUCCEEDED",
+    "output_port": "ok",
+    "outputs": {
+     "decision": {
+      "actions": [
+       {
+        "intent_id": "control",
+        "kind": "CONTROL",
+        "route_ref": "routed"
+       }
+      ],
+      "data": {
+       "app_id": null,
+       "resource_entry_json": "{\"kind\":\"TRANSFER\",\"to\":\"SAFETY\"}",
+       "resource_id": "safety.transfer",
+       "resource_kind": "SAFETY",
+       "resource_name": "转安全",
+       "resource_status": "CONFIRMED",
+       "route_kind": "RESOURCE",
+       "route_state": "routed",
+       "solution": null,
+       "solution_inputs_json": null,
+       "solution_name": null,
+       "transfer_to": null,
+       "trial": {
+        "attached": false,
+        "bucket": null,
+        "primary_app_id": null,
+        "share": null,
+        "side": "PRIMARY",
+        "split": "NOT_ATTACHED",
+        "trial_app_id": null
+       }
+      },
+      "state": "ROUTED"
+     }
+    }
+   },
+   "id": "dispatch.route.073",
+   "params": {
+    "inputs_json": "{\"parameter_snapshot\": {\"schema_version\": \"service-decision-dsl.parameter-snapshot.v2\", \"prepared_for\": {\"workflow_id\": \"DISPATCH\", \"phase_id\": \"D1\", \"step_id\": \"D1.S2\", \"node_id\": \"N1\"}, \"subject_scope_ref\": \"{}\", \"as_of\": \"2026-11-18T00:00:00+00:00\", \"parameters\": {\"scene_id\": {\"quality\": \"KNOWN\", \"value\": \"P_07_03_12\", \"source_refs\": [\"gate:issue-0\"]}, \"issue_type\": {\"quality\": \"KNOWN\", \"value\": \"CONSULT\", \"source_refs\": [\"gate:issue-0\"]}, \"phase\": {\"quality\": \"KNOWN\", \"value\": \"STAGE_3\", \"source_refs\": [\"gate:issue-0\"]}}, \"provenance\": {\"issue_key\": \"issue-0\"}}, \"runtime_snapshot\": {}}",
+    "node_ref": "{\"workflow_id\":\"DISPATCH\",\"phase_id\":\"D1\",\"step_id\":\"D1.S2\",\"node_id\":\"N1\"}"
+   },
+   "reader": "r1",
+   "why": "生成：按表补：转安全保底 P_07_03_12（CONSULT, STAGE_3）（取自调用 T:row:P_07_03_12:CONSULT:STAGE_3）"
+  },
+  {
+   "expect": {
+    "error": null,
+    "execution_status": "SUCCEEDED",
+    "output_port": "ok",
+    "outputs": {
+     "decision": {
+      "actions": [
+       {
+        "intent_id": "control",
+        "kind": "CONTROL",
+        "route_ref": "routed"
+       }
+      ],
+      "data": {
+       "app_id": null,
+       "resource_entry_json": "{\"kind\":\"TRANSFER\",\"to\":\"SAFETY\"}",
+       "resource_id": "safety.transfer",
+       "resource_kind": "SAFETY",
+       "resource_name": "转安全",
+       "resource_status": "CONFIRMED",
+       "route_kind": "RESOURCE",
+       "route_state": "routed",
+       "solution": null,
+       "solution_inputs_json": null,
+       "solution_name": null,
+       "transfer_to": null,
+       "trial": {
+        "attached": false,
+        "bucket": null,
+        "primary_app_id": null,
+        "share": null,
+        "side": "PRIMARY",
+        "split": "NOT_ATTACHED",
+        "trial_app_id": null
+       }
+      },
+      "state": "ROUTED"
+     }
+    }
+   },
+   "id": "dispatch.route.074",
+   "params": {
+    "inputs_json": "{\"parameter_snapshot\": {\"schema_version\": \"service-decision-dsl.parameter-snapshot.v2\", \"prepared_for\": {\"workflow_id\": \"DISPATCH\", \"phase_id\": \"D1\", \"step_id\": \"D1.S2\", \"node_id\": \"N1\"}, \"subject_scope_ref\": \"{}\", \"as_of\": \"2026-11-18T00:00:00+00:00\", \"parameters\": {\"scene_id\": {\"quality\": \"KNOWN\", \"value\": \"P_07_03_13\", \"source_refs\": [\"gate:issue-0\"]}, \"issue_type\": {\"quality\": \"KNOWN\", \"value\": \"FEEDBACK\", \"source_refs\": [\"gate:issue-0\"]}, \"phase\": {\"quality\": \"KNOWN\", \"value\": \"STAGE_1\", \"source_refs\": [\"gate:issue-0\"]}}, \"provenance\": {\"issue_key\": \"issue-0\"}}, \"runtime_snapshot\": {}}",
+    "node_ref": "{\"workflow_id\":\"DISPATCH\",\"phase_id\":\"D1\",\"step_id\":\"D1.S2\",\"node_id\":\"N1\"}"
+   },
+   "reader": "r1",
+   "why": "生成：按表补：转安全保底 P_07_03_13（FEEDBACK, STAGE_1）（取自调用 T:row:P_07_03_13:FEEDBACK:STAGE_1）"
+  },
+  {
+   "expect": {
+    "error": null,
+    "execution_status": "SUCCEEDED",
+    "output_port": "ok",
+    "outputs": {
+     "decision": {
+      "actions": [
+       {
+        "intent_id": "control",
+        "kind": "CONTROL",
+        "route_ref": "routed"
+       }
+      ],
+      "data": {
+       "app_id": null,
+       "resource_entry_json": "{\"kind\":\"TRANSFER\",\"to\":\"SAFETY\"}",
+       "resource_id": "safety.transfer",
+       "resource_kind": "SAFETY",
+       "resource_name": "转安全",
+       "resource_status": "CONFIRMED",
+       "route_kind": "RESOURCE",
+       "route_state": "routed",
+       "solution": null,
+       "solution_inputs_json": null,
+       "solution_name": null,
+       "transfer_to": null,
+       "trial": {
+        "attached": false,
+        "bucket": null,
+        "primary_app_id": null,
+        "share": null,
+        "side": "PRIMARY",
+        "split": "NOT_ATTACHED",
+        "trial_app_id": null
+       }
+      },
+      "state": "ROUTED"
+     }
+    }
+   },
+   "id": "dispatch.route.075",
+   "params": {
+    "inputs_json": "{\"parameter_snapshot\": {\"schema_version\": \"service-decision-dsl.parameter-snapshot.v2\", \"prepared_for\": {\"workflow_id\": \"DISPATCH\", \"phase_id\": \"D1\", \"step_id\": \"D1.S2\", \"node_id\": \"N1\"}, \"subject_scope_ref\": \"{}\", \"as_of\": \"2026-11-18T00:00:00+00:00\", \"parameters\": {\"scene_id\": {\"quality\": \"KNOWN\", \"value\": \"P_07_03_14\", \"source_refs\": [\"gate:issue-0\"]}, \"issue_type\": {\"quality\": \"KNOWN\", \"value\": \"FEEDBACK\", \"source_refs\": [\"gate:issue-0\"]}, \"phase\": {\"quality\": \"KNOWN\", \"value\": \"STAGE_2\", \"source_refs\": [\"gate:issue-0\"]}}, \"provenance\": {\"issue_key\": \"issue-0\"}}, \"runtime_snapshot\": {}}",
+    "node_ref": "{\"workflow_id\":\"DISPATCH\",\"phase_id\":\"D1\",\"step_id\":\"D1.S2\",\"node_id\":\"N1\"}"
+   },
+   "reader": "r1",
+   "why": "生成：按表补：转安全保底 P_07_03_14（FEEDBACK, STAGE_2）（取自调用 T:row:P_07_03_14:FEEDBACK:STAGE_2）"
+  },
+  {
+   "expect": {
+    "error": null,
+    "execution_status": "SUCCEEDED",
+    "output_port": "ok",
+    "outputs": {
+     "decision": {
+      "actions": [
+       {
+        "intent_id": "control",
+        "kind": "CONTROL",
+        "route_ref": "routed"
+       }
+      ],
+      "data": {
+       "app_id": null,
+       "resource_entry_json": "{\"kind\":\"TRANSFER\",\"to\":\"SAFETY\"}",
+       "resource_id": "safety.transfer",
+       "resource_kind": "SAFETY",
+       "resource_name": "转安全",
+       "resource_status": "CONFIRMED",
+       "route_kind": "RESOURCE",
+       "route_state": "routed",
+       "solution": null,
+       "solution_inputs_json": null,
+       "solution_name": null,
+       "transfer_to": null,
+       "trial": {
+        "attached": false,
+        "bucket": null,
+        "primary_app_id": null,
+        "share": null,
+        "side": "PRIMARY",
+        "split": "NOT_ATTACHED",
+        "trial_app_id": null
+       }
+      },
+      "state": "ROUTED"
+     }
+    }
+   },
+   "id": "dispatch.route.076",
+   "params": {
+    "inputs_json": "{\"parameter_snapshot\": {\"schema_version\": \"service-decision-dsl.parameter-snapshot.v2\", \"prepared_for\": {\"workflow_id\": \"DISPATCH\", \"phase_id\": \"D1\", \"step_id\": \"D1.S2\", \"node_id\": \"N1\"}, \"subject_scope_ref\": \"{}\", \"as_of\": \"2026-11-18T00:00:00+00:00\", \"parameters\": {\"scene_id\": {\"quality\": \"KNOWN\", \"value\": \"P_07_03_15\", \"source_refs\": [\"gate:issue-0\"]}, \"issue_type\": {\"quality\": \"KNOWN\", \"value\": \"FEEDBACK\", \"source_refs\": [\"gate:issue-0\"]}, \"phase\": {\"quality\": \"KNOWN\", \"value\": \"STAGE_3\", \"source_refs\": [\"gate:issue-0\"]}}, \"provenance\": {\"issue_key\": \"issue-0\"}}, \"runtime_snapshot\": {}}",
+    "node_ref": "{\"workflow_id\":\"DISPATCH\",\"phase_id\":\"D1\",\"step_id\":\"D1.S2\",\"node_id\":\"N1\"}"
+   },
+   "reader": "r1",
+   "why": "生成：按表补：转安全保底 P_07_03_15（FEEDBACK, STAGE_3）（取自调用 T:row:P_07_03_15:FEEDBACK:STAGE_3）"
+  },
+  {
+   "expect": {
+    "error": null,
+    "execution_status": "SUCCEEDED",
+    "output_port": "ok",
+    "outputs": {
+     "decision": {
+      "actions": [
+       {
+        "intent_id": "control",
+        "kind": "CONTROL",
+        "route_ref": "routed"
+       }
+      ],
+      "data": {
+       "app_id": null,
+       "resource_entry_json": "{\"kind\":\"TRANSFER\",\"to\":\"SAFETY\"}",
+       "resource_id": "safety.transfer",
+       "resource_kind": "SAFETY",
+       "resource_name": "转安全",
+       "resource_status": "CONFIRMED",
+       "route_kind": "TRANSFER",
+       "route_state": "routed",
+       "solution": null,
+       "solution_inputs_json": null,
+       "solution_name": null,
+       "transfer_to": "SAFETY",
+       "trial": {
+        "attached": false,
+        "bucket": null,
+        "primary_app_id": null,
+        "share": null,
+        "side": "PRIMARY",
+        "split": "NOT_ATTACHED",
+        "trial_app_id": null
+       }
+      },
+      "state": "ROUTED"
+     }
+    }
+   },
+   "id": "dispatch.route.077",
+   "params": {
+    "inputs_json": "{\"parameter_snapshot\": {\"schema_version\": \"service-decision-dsl.parameter-snapshot.v2\", \"prepared_for\": {\"workflow_id\": \"DISPATCH\", \"phase_id\": \"D1\", \"step_id\": \"D1.S2\", \"node_id\": \"N1\"}, \"subject_scope_ref\": \"{}\", \"as_of\": \"2026-11-18T00:00:00+00:00\", \"parameters\": {\"scene_id\": {\"quality\": \"KNOWN\", \"value\": \"P_07_03_16\", \"source_refs\": [\"gate:issue-0\"]}, \"issue_type\": {\"quality\": \"KNOWN\", \"value\": \"COMPLAINT\", \"source_refs\": [\"gate:issue-0\"]}, \"phase\": {\"quality\": \"KNOWN\", \"value\": \"STAGE_1\", \"source_refs\": [\"gate:issue-0\"]}}, \"provenance\": {\"issue_key\": \"issue-0\"}}, \"runtime_snapshot\": {}}",
+    "node_ref": "{\"workflow_id\":\"DISPATCH\",\"phase_id\":\"D1\",\"step_id\":\"D1.S2\",\"node_id\":\"N1\"}"
+   },
+   "reader": "r1",
+   "why": "生成：按表补：转安全保底 P_07_03_16（COMPLAINT, STAGE_1）（取自调用 T:row:P_07_03_16:COMPLAINT:STAGE_1）"
+  },
+  {
+   "expect": {
+    "error": null,
+    "execution_status": "SUCCEEDED",
+    "output_port": "ok",
+    "outputs": {
+     "decision": {
+      "actions": [
+       {
+        "intent_id": "control",
+        "kind": "CONTROL",
+        "route_ref": "routed"
+       }
+      ],
+      "data": {
+       "app_id": null,
+       "resource_entry_json": "{\"kind\":\"TRANSFER\",\"to\":\"SAFETY\"}",
+       "resource_id": "safety.transfer",
+       "resource_kind": "SAFETY",
+       "resource_name": "转安全",
+       "resource_status": "CONFIRMED",
+       "route_kind": "RESOURCE",
+       "route_state": "routed",
+       "solution": null,
+       "solution_inputs_json": null,
+       "solution_name": null,
+       "transfer_to": null,
+       "trial": {
+        "attached": false,
+        "bucket": null,
+        "primary_app_id": null,
+        "share": null,
+        "side": "PRIMARY",
+        "split": "NOT_ATTACHED",
+        "trial_app_id": null
+       }
+      },
+      "state": "ROUTED"
+     }
+    }
+   },
+   "id": "dispatch.route.078",
+   "params": {
+    "inputs_json": "{\"parameter_snapshot\": {\"schema_version\": \"service-decision-dsl.parameter-snapshot.v2\", \"prepared_for\": {\"workflow_id\": \"DISPATCH\", \"phase_id\": \"D1\", \"step_id\": \"D1.S2\", \"node_id\": \"N1\"}, \"subject_scope_ref\": \"{}\", \"as_of\": \"2026-11-18T00:00:00+00:00\", \"parameters\": {\"scene_id\": {\"quality\": \"KNOWN\", \"value\": \"P_07_03_17\", \"source_refs\": [\"gate:issue-0\"]}, \"issue_type\": {\"quality\": \"KNOWN\", \"value\": \"COMPLAINT\", \"source_refs\": [\"gate:issue-0\"]}, \"phase\": {\"quality\": \"KNOWN\", \"value\": \"STAGE_2\", \"source_refs\": [\"gate:issue-0\"]}}, \"provenance\": {\"issue_key\": \"issue-0\"}}, \"runtime_snapshot\": {}}",
+    "node_ref": "{\"workflow_id\":\"DISPATCH\",\"phase_id\":\"D1\",\"step_id\":\"D1.S2\",\"node_id\":\"N1\"}"
+   },
+   "reader": "r1",
+   "why": "生成：按表补：转安全保底 P_07_03_17（COMPLAINT, STAGE_2）（取自调用 T:row:P_07_03_17:COMPLAINT:STAGE_2）"
+  },
+  {
+   "expect": {
+    "error": null,
+    "execution_status": "SUCCEEDED",
+    "output_port": "ok",
+    "outputs": {
+     "decision": {
+      "actions": [
+       {
+        "intent_id": "control",
+        "kind": "CONTROL",
+        "route_ref": "routed"
+       }
+      ],
+      "data": {
+       "app_id": null,
+       "resource_entry_json": "{\"kind\":\"TRANSFER\",\"to\":\"SAFETY\"}",
+       "resource_id": "safety.transfer",
+       "resource_kind": "SAFETY",
+       "resource_name": "转安全",
+       "resource_status": "CONFIRMED",
+       "route_kind": "RESOURCE",
+       "route_state": "routed",
+       "solution": null,
+       "solution_inputs_json": null,
+       "solution_name": null,
+       "transfer_to": null,
+       "trial": {
+        "attached": false,
+        "bucket": null,
+        "primary_app_id": null,
+        "share": null,
+        "side": "PRIMARY",
+        "split": "NOT_ATTACHED",
+        "trial_app_id": null
+       }
+      },
+      "state": "ROUTED"
+     }
+    }
+   },
+   "id": "dispatch.route.079",
+   "params": {
+    "inputs_json": "{\"parameter_snapshot\": {\"schema_version\": \"service-decision-dsl.parameter-snapshot.v2\", \"prepared_for\": {\"workflow_id\": \"DISPATCH\", \"phase_id\": \"D1\", \"step_id\": \"D1.S2\", \"node_id\": \"N1\"}, \"subject_scope_ref\": \"{}\", \"as_of\": \"2026-11-18T00:00:00+00:00\", \"parameters\": {\"scene_id\": {\"quality\": \"KNOWN\", \"value\": \"P_07_03_18\", \"source_refs\": [\"gate:issue-0\"]}, \"issue_type\": {\"quality\": \"KNOWN\", \"value\": \"COMPLAINT\", \"source_refs\": [\"gate:issue-0\"]}, \"phase\": {\"quality\": \"KNOWN\", \"value\": \"STAGE_3\", \"source_refs\": [\"gate:issue-0\"]}}, \"provenance\": {\"issue_key\": \"issue-0\"}}, \"runtime_snapshot\": {}}",
+    "node_ref": "{\"workflow_id\":\"DISPATCH\",\"phase_id\":\"D1\",\"step_id\":\"D1.S2\",\"node_id\":\"N1\"}"
+   },
+   "reader": "r1",
+   "why": "生成：按表补：转安全保底 P_07_03_18（COMPLAINT, STAGE_3）（取自调用 T:row:P_07_03_18:COMPLAINT:STAGE_3）"
+  },
+  {
+   "expect": {
+    "error": null,
+    "execution_status": "SUCCEEDED",
+    "output_port": "ok",
+    "outputs": {
+     "decision": {
+      "actions": [
+       {
+        "intent_id": "control",
+        "kind": "CONTROL",
+        "route_ref": "routed"
+       }
+      ],
+      "data": {
+       "app_id": null,
+       "resource_entry_json": "{\"kind\":\"TRANSFER\",\"to\":\"SAFETY\"}",
+       "resource_id": "safety.transfer",
+       "resource_kind": "SAFETY",
+       "resource_name": "转安全",
+       "resource_status": "CONFIRMED",
+       "route_kind": "RESOURCE",
+       "route_state": "routed",
+       "solution": null,
+       "solution_inputs_json": null,
+       "solution_name": null,
+       "transfer_to": null,
+       "trial": {
+        "attached": false,
+        "bucket": null,
+        "primary_app_id": null,
+        "share": null,
+        "side": "PRIMARY",
+        "split": "NOT_ATTACHED",
+        "trial_app_id": null
+       }
+      },
+      "state": "ROUTED"
+     }
+    }
+   },
+   "id": "dispatch.route.080",
+   "params": {
+    "inputs_json": "{\"parameter_snapshot\": {\"schema_version\": \"service-decision-dsl.parameter-snapshot.v2\", \"prepared_for\": {\"workflow_id\": \"DISPATCH\", \"phase_id\": \"D1\", \"step_id\": \"D1.S2\", \"node_id\": \"N1\"}, \"subject_scope_ref\": \"{}\", \"as_of\": \"2026-11-18T00:00:00+00:00\", \"parameters\": {\"scene_id\": {\"quality\": \"KNOWN\", \"value\": \"P_07_03_19\", \"source_refs\": [\"gate:issue-0\"]}, \"issue_type\": {\"quality\": \"KNOWN\", \"value\": \"CONSULT\", \"source_refs\": [\"gate:issue-0\"]}, \"phase\": {\"quality\": \"KNOWN\", \"value\": \"STAGE_1\", \"source_refs\": [\"gate:issue-0\"]}}, \"provenance\": {\"issue_key\": \"issue-0\"}}, \"runtime_snapshot\": {}}",
+    "node_ref": "{\"workflow_id\":\"DISPATCH\",\"phase_id\":\"D1\",\"step_id\":\"D1.S2\",\"node_id\":\"N1\"}"
+   },
+   "reader": "r1",
+   "why": "生成：按表补：转安全保底 P_07_03_19（CONSULT, STAGE_1）（取自调用 T:row:P_07_03_19:CONSULT:STAGE_1）"
+  },
+  {
+   "expect": {
+    "error": null,
+    "execution_status": "SUCCEEDED",
+    "output_port": "ok",
+    "outputs": {
+     "decision": {
+      "actions": [
+       {
+        "intent_id": "control",
+        "kind": "CONTROL",
+        "route_ref": "routed"
+       }
+      ],
+      "data": {
+       "app_id": null,
+       "resource_entry_json": "{\"kind\":\"TRANSFER\",\"to\":\"SAFETY\"}",
+       "resource_id": "safety.transfer",
+       "resource_kind": "SAFETY",
+       "resource_name": "转安全",
+       "resource_status": "CONFIRMED",
+       "route_kind": "RESOURCE",
+       "route_state": "routed",
+       "solution": null,
+       "solution_inputs_json": null,
+       "solution_name": null,
+       "transfer_to": null,
+       "trial": {
+        "attached": false,
+        "bucket": null,
+        "primary_app_id": null,
+        "share": null,
+        "side": "PRIMARY",
+        "split": "NOT_ATTACHED",
+        "trial_app_id": null
+       }
+      },
+      "state": "ROUTED"
+     }
+    }
+   },
+   "id": "dispatch.route.081",
+   "params": {
+    "inputs_json": "{\"parameter_snapshot\": {\"schema_version\": \"service-decision-dsl.parameter-snapshot.v2\", \"prepared_for\": {\"workflow_id\": \"DISPATCH\", \"phase_id\": \"D1\", \"step_id\": \"D1.S2\", \"node_id\": \"N1\"}, \"subject_scope_ref\": \"{}\", \"as_of\": \"2026-11-18T00:00:00+00:00\", \"parameters\": {\"scene_id\": {\"quality\": \"KNOWN\", \"value\": \"P_07_03_20\", \"source_refs\": [\"gate:issue-0\"]}, \"issue_type\": {\"quality\": \"KNOWN\", \"value\": \"CONSULT\", \"source_refs\": [\"gate:issue-0\"]}, \"phase\": {\"quality\": \"KNOWN\", \"value\": \"STAGE_2\", \"source_refs\": [\"gate:issue-0\"]}}, \"provenance\": {\"issue_key\": \"issue-0\"}}, \"runtime_snapshot\": {}}",
+    "node_ref": "{\"workflow_id\":\"DISPATCH\",\"phase_id\":\"D1\",\"step_id\":\"D1.S2\",\"node_id\":\"N1\"}"
+   },
+   "reader": "r1",
+   "why": "生成：按表补：转安全保底 P_07_03_20（CONSULT, STAGE_2）（取自调用 T:row:P_07_03_20:CONSULT:STAGE_2）"
+  },
+  {
+   "expect": {
+    "error": null,
+    "execution_status": "SUCCEEDED",
+    "output_port": "ok",
+    "outputs": {
+     "decision": {
+      "actions": [
+       {
+        "intent_id": "control",
+        "kind": "CONTROL",
+        "route_ref": "routed"
+       }
+      ],
+      "data": {
+       "app_id": null,
+       "resource_entry_json": "{\"kind\":\"TRANSFER\",\"to\":\"SAFETY\"}",
+       "resource_id": "safety.transfer",
+       "resource_kind": "SAFETY",
+       "resource_name": "转安全",
+       "resource_status": "CONFIRMED",
+       "route_kind": "RESOURCE",
+       "route_state": "routed",
+       "solution": null,
+       "solution_inputs_json": null,
+       "solution_name": null,
+       "transfer_to": null,
+       "trial": {
+        "attached": false,
+        "bucket": null,
+        "primary_app_id": null,
+        "share": null,
+        "side": "PRIMARY",
+        "split": "NOT_ATTACHED",
+        "trial_app_id": null
+       }
+      },
+      "state": "ROUTED"
+     }
+    }
+   },
+   "id": "dispatch.route.082",
+   "params": {
+    "inputs_json": "{\"parameter_snapshot\": {\"schema_version\": \"service-decision-dsl.parameter-snapshot.v2\", \"prepared_for\": {\"workflow_id\": \"DISPATCH\", \"phase_id\": \"D1\", \"step_id\": \"D1.S2\", \"node_id\": \"N1\"}, \"subject_scope_ref\": \"{}\", \"as_of\": \"2026-11-18T00:00:00+00:00\", \"parameters\": {\"scene_id\": {\"quality\": \"KNOWN\", \"value\": \"P_07_04_01\", \"source_refs\": [\"gate:issue-0\"]}, \"issue_type\": {\"quality\": \"KNOWN\", \"value\": \"CONSULT\", \"source_refs\": [\"gate:issue-0\"]}, \"phase\": {\"quality\": \"KNOWN\", \"value\": \"STAGE_3\", \"source_refs\": [\"gate:issue-0\"]}}, \"provenance\": {\"issue_key\": \"issue-0\"}}, \"runtime_snapshot\": {}}",
+    "node_ref": "{\"workflow_id\":\"DISPATCH\",\"phase_id\":\"D1\",\"step_id\":\"D1.S2\",\"node_id\":\"N1\"}"
+   },
+   "reader": "r1",
+   "why": "生成：按表补：转安全保底 P_07_04_01（CONSULT, STAGE_3）（取自调用 T:row:P_07_04_01:CONSULT:STAGE_3）"
+  }
+ ],
+ "checked_against": {
+  "calls": {
+   "C_bill.jsonl": "0f7a1c1309d75a4b2e3f1d1d30a7eebab8fa9b64b80d9929f965da06746beedb",
+   "C_cap.jsonl": "1f916f219baa7673e2e57baae5be94230d8ec72dd9bf0b053dbc19046aa61b57",
+   "C_invoke.jsonl": "2f93c8e1b096a6474273345c0a3340757d6e65eef7a48316dfe77b36f9e181a0",
+   "C_json.jsonl": "6e1b6ec62beeaaebad08b5384a037653570c5c9ad40eb1ce9133d0bcddc3bbd9",
+   "C_json_new.jsonl": "3e05cd2c458f8e412790fe55b96e3eaa080ed17d861ca44beb5e4b31e34c28b3",
+   "C_keyed.jsonl": "d99443c49db4fc8afc70a1740b7b1067da3ce5ee22cc64516867382d1db86c9e",
+   "C_locate.jsonl": "379e6019c18b8fd8aba20ffe4b63b371ca07aff83340772a3de2db2445b408bb",
+   "C_orch.jsonl": "3c0f552ac2de485f20f2a1923c1d1337299f5b59cf6e5c7e20c477dff8239054",
+   "C_random.jsonl": "10196fcc6204bd7be4363569657395b5830850d089c6892bf11030b3191c0eef",
+   "C_route.jsonl": "1745bf86ebfccac1387a672a17065476fedde46541d82034e35c1238c0764319",
+   "C_solution.jsonl": "d8f3e199a19118a664398b00829d1c46d688cab04cb023f908490dcfbcb2da93",
+   "C_triage.jsonl": "a6c753a339fb0348def1734b80627833c8b80248d160846f95159b01c61f88da",
+   "C_triage_golden.jsonl": "d0b347c261c04f8f405306fb8a3d963724f8a1fb0e0a6f868b8514b8726ebd00"
+  },
+  "content_sha256": "178b894bab7eebf4a157d3e2e08d70429c7868dc438d2c6bd96891579977e9fc",
+  "save_id": "520d67cbf1e9487cb2e406d080638489",
+  "version": 28
+ },
+ "note": "由 scripts/gen-table-cases.py 从头版与读方调用形状生成：期望 = 头版的答案（只比结论）",
+ "readers": {
+  "r1": {
+   "params": {
+    "definition_bundle_json": "{\"schema_version\":\"service-decision-dsl.node-architecture.v2\",\"example_only\":false,\"deployment\":{\"action_backend\":\"HOST\",\"business_enabled\":false,\"enabled_node_kinds\":[\"DECISION\",\"EXCLUSIVE\",\"START\",\"END\"],\"runtime_owner\":\"HOST\"},\"workflows\":[{\"workflow_id\":\"DISPATCH\",\"version\":\"4.0.0\",\"flow_type\":\"LOCATE\",\"scope\":\"EXAMPLE_FRAGMENT\",\"entry_phase\":\"D1\",\"domain_id\":\"passenger\",\"scene_ref\":null,\"phases\":[{\"phase_id\":\"D1\",\"entry_step\":\"D1.S2\",\"steps\":[{\"step_id\":\"D1.S2\",\"name\":\"受理路由表\",\"purpose\":\"场景 id × 问题类型 × 处理阶段 → 路由目标（解决方案 app / 知识库）\",\"version\":\"4.0.0\",\"profile\":\"decision-step-v2\",\"entry_node\":\"S\",\"main_decision_node\":\"N1\",\"max_attempts\":1,\"reentry_exhausted_exit\":\"error\",\"exits\":{\"routed\":{\"class\":\"RETURN\",\"destination\":{\"kind\":\"RETURN\",\"outcome\":\"routed\"}},\"unregistered\":{\"class\":\"RETURN\",\"destination\":{\"kind\":\"RETURN\",\"outcome\":\"unregistered\"}},\"error\":{\"class\":\"TECHNICAL\",\"destination\":{\"kind\":\"RETURN\",\"outcome\":\"error\"}}},\"graph\":{\"nodes\":[{\"category\":\"EVENT\",\"kind\":\"START\",\"name\":\"开始路由\",\"node_id\":\"S\",\"ports\":[\"ok\"]},{\"category\":\"EXECUTION\",\"kind\":\"DECISION\",\"model_ref\":\"dispatch.route@4.3.0\",\"name\":\"场景 × 类型 × 处理阶段 → 路由目标\",\"node_id\":\"N1\",\"ports\":[\"ok\",\"blocked\",\"error\"],\"input_bindings\":{\"scene_id\":{\"from\":{\"path\":[\"parameters\",\"scene_id\"],\"source\":\"context\"},\"source_format\":\"PARAMETER\"},\"issue_type\":{\"from\":{\"path\":[\"parameters\",\"issue_type\"],\"source\":\"context\"},\"source_format\":\"PARAMETER\"},\"phase\":{\"from\":{\"path\":[\"parameters\",\"phase\"],\"source\":\"context\"},\"source_format\":\"PARAMETER\"},\"split_key\":{\"from\":{\"path\":[\"parameters\",\"split_key\"],\"source\":\"context\"},\"source_format\":\"PARAMETER\"}}},{\"category\":\"GATEWAY\",\"kind\":\"EXCLUSIVE\",\"mode\":\"SPLIT\",\"name\":\"消费路由结果\",\"node_id\":\"G\",\"ports\":[\"routed\",\"unregistered\",\"error\"],\"selector\":{\"node_id\":\"N1\",\"source\":\"DECISION_CONTROL\"}},{\"category\":\"EVENT\",\"exit_ref\":\"routed\",\"kind\":\"END\",\"name\":\"routed\",\"node_id\":\"E_routed\",\"ports\":[]},{\"category\":\"EVENT\",\"exit_ref\":\"unregistered\",\"kind\":\"END\",\"name\":\"unregistered\",\"node_id\":\"E_unregistered\",\"ports\":[]},{\"category\":\"EVENT\",\"exit_ref\":\"error\",\"kind\":\"END\",\"name\":\"error\",\"node_id\":\"E_error\",\"ports\":[]}],\"edges\":[{\"edge_id\":\"start\",\"source\":\"S\",\"source_port\":\"ok\",\"target\":\"N1\"},{\"edge_id\":\"decision\",\"source\":\"N1\",\"source_port\":\"ok\",\"target\":\"G\"},{\"edge_id\":\"exit-routed\",\"source\":\"G\",\"source_port\":\"routed\",\"target\":\"E_routed\"},{\"edge_id\":\"exit-unregistered\",\"source\":\"G\",\"source_port\":\"unregistered\",\"target\":\"E_unregistered\"},{\"edge_id\":\"exit-error\",\"source\":\"G\",\"source_port\":\"error\",\"target\":\"E_error\"},{\"edge_id\":\"failure-blocked\",\"source\":\"N1\",\"source_port\":\"blocked\",\"target\":\"E_error\"},{\"edge_id\":\"failure-error\",\"source\":\"N1\",\"source_port\":\"error\",\"target\":\"E_error\"}]}}]}]}],\"models\":{\"dispatch.route@4.3.0\":{\"profile\":\"service-decision-table-v1\",\"version\":\"4.3.0\",\"source\":{\"kind\":\"PLUGIN_STORAGE\",\"table\":\"dispatch.route\",\"format\":\"routing-table/v5\"}}},\"capabilities\":{},\"asset_locks\":{}}",
+    "execution_context_json": "{\"workflow_run_id\": \"run-r0\", \"step_run_id\": \"run-r0:admission\", \"attempt_id\": \"req-0\", \"node_run_id\": \"run-r0:decision\", \"activation_ref\": \"passenger-admission:issue-0\", \"subject_scope_ref\": \"{}\", \"authorization_context_ref\": \"parent-0\", \"as_of\": \"2026-11-18T00:00:00+00:00\"}"
+   },
+   "tool": "evaluate_decision"
+  }
+ },
+ "schema": "dmn-json.table-cases/v1",
+ "table": "triage.dispatch.route"
+}

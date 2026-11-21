@@ -1,0 +1,157 @@
+{
+ "cases": [
+  {
+   "expect": {
+    "error": null,
+    "result": {
+     "associations": [
+      {
+       "any_of": [
+        {
+         "entity_type": "ORDER",
+         "proof": "AGENT_PICK",
+         "relation": "COUPON_USED_ON_ORDER"
+        },
+        {
+         "entity_type": "ESTIMATE",
+         "proof": "VERIFIED_QUERY",
+         "relation": "COUPON_EVALUATED_IN_ESTIMATE"
+        }
+       ],
+       "assoc_id": "coupon_usage_context",
+       "label": "订单或预估",
+       "min_satisfied": 1,
+       "on": "COUPON",
+       "routing": "NON_BLOCKING"
+      }
+     ],
+     "declared": true,
+     "gap_code": null,
+     "items": [],
+     "scene_id": "P_02_04_01",
+     "state": "NONE"
+    },
+    "status": "SUCCEEDED"
+   },
+   "id": "supplement.requirements.001",
+   "params": {
+    "inputs_json": "{\"scene_id\": \"P_02_04_01\"}"
+   },
+   "reader": "r1",
+   "why": "生成：结论类 b2aefdb5（取自调用 C:pin:triage.supplement.requirements:1:-）"
+  },
+  {
+   "expect": {
+    "error": null,
+    "result": {
+     "associations": [
+      {
+       "any_of": [
+        {
+         "entity_type": "ORDER",
+         "proof": "AGENT_PICK",
+         "relation": "COUPON_USED_ON_ORDER"
+        },
+        {
+         "entity_type": "ESTIMATE",
+         "proof": "VERIFIED_QUERY",
+         "relation": "COUPON_EVALUATED_IN_ESTIMATE"
+        }
+       ],
+       "assoc_id": "coupon_usage_context",
+       "label": "订单或预估",
+       "min_satisfied": 1,
+       "on": "COUPON",
+       "routing": "NON_BLOCKING"
+      }
+     ],
+     "declared": true,
+     "gap_code": null,
+     "items": [],
+     "scene_id": "M_P_02_04_01",
+     "state": "NONE"
+    },
+    "status": "SUCCEEDED"
+   },
+   "id": "supplement.requirements.002",
+   "params": {
+    "inputs_json": "{\"scene_id\": \"M_P_02_04_01\"}"
+   },
+   "reader": "r2",
+   "why": "生成：结论类 cb25f7dd（取自调用 C:triage:supplement:supplement.requirements:v1:M_P_02_04_01）"
+  },
+  {
+   "expect": {
+    "error": null,
+    "result": {
+     "declared": false,
+     "gap_code": "SUPPLEMENT_UNDECLARED",
+     "items": [],
+     "scene_id": "P_99_99_99",
+     "state": "UNDECLARED"
+    },
+    "status": "SUCCEEDED"
+   },
+   "id": "supplement.requirements.003",
+   "params": {
+    "inputs_json": "{\"scene_id\": \"P_99_99_99\"}"
+   },
+   "reader": "r2",
+   "why": "生成：结论类 3a26e76c（取自调用 C:triage:supplement:supplement.requirements:v1:P_99_99_99）"
+  },
+  {
+   "expect": {
+    "error": {
+     "code": "INPUT_INVALID"
+    },
+    "result": null,
+    "status": "FAILED"
+   },
+   "id": "supplement.requirements.004",
+   "params": {
+    "inputs_json": "{\"scene_id\": \"\"}"
+   },
+   "reader": "r2",
+   "why": "生成：结论类 c0dc3ade（取自调用 C:triage:supplement:supplement.requirements:v1:empty）"
+  }
+ ],
+ "checked_against": {
+  "calls": {
+   "C_bill.jsonl": "0f7a1c1309d75a4b2e3f1d1d30a7eebab8fa9b64b80d9929f965da06746beedb",
+   "C_cap.jsonl": "1f916f219baa7673e2e57baae5be94230d8ec72dd9bf0b053dbc19046aa61b57",
+   "C_invoke.jsonl": "2f93c8e1b096a6474273345c0a3340757d6e65eef7a48316dfe77b36f9e181a0",
+   "C_json.jsonl": "6e1b6ec62beeaaebad08b5384a037653570c5c9ad40eb1ce9133d0bcddc3bbd9",
+   "C_json_new.jsonl": "3e05cd2c458f8e412790fe55b96e3eaa080ed17d861ca44beb5e4b31e34c28b3",
+   "C_keyed.jsonl": "d99443c49db4fc8afc70a1740b7b1067da3ce5ee22cc64516867382d1db86c9e",
+   "C_locate.jsonl": "379e6019c18b8fd8aba20ffe4b63b371ca07aff83340772a3de2db2445b408bb",
+   "C_orch.jsonl": "3c0f552ac2de485f20f2a1923c1d1337299f5b59cf6e5c7e20c477dff8239054",
+   "C_random.jsonl": "10196fcc6204bd7be4363569657395b5830850d089c6892bf11030b3191c0eef",
+   "C_route.jsonl": "1745bf86ebfccac1387a672a17065476fedde46541d82034e35c1238c0764319",
+   "C_solution.jsonl": "d8f3e199a19118a664398b00829d1c46d688cab04cb023f908490dcfbcb2da93",
+   "C_triage.jsonl": "a6c753a339fb0348def1734b80627833c8b80248d160846f95159b01c61f88da",
+   "C_triage_golden.jsonl": "d0b347c261c04f8f405306fb8a3d963724f8a1fb0e0a6f868b8514b8726ebd00"
+  },
+  "content_sha256": "e5ad1ad5441d7dbf458796c90fd7e665a42e62ff94533151a5e66b5c7f36af3c",
+  "save_id": "5b5455a74e004e21b17ca957a1c73efb",
+  "version": 4
+ },
+ "note": "由 scripts/gen-table-cases.py 从头版与读方调用形状生成：期望 = 头版的答案（只比结论）",
+ "readers": {
+  "r1": {
+   "params": {
+    "format": "supplement-requirements/v2",
+    "table": "triage.supplement.requirements"
+   },
+   "tool": "evaluate_stored_table"
+  },
+  "r2": {
+   "params": {
+    "format": "supplement-requirements/v1",
+    "table": "supplement.requirements"
+   },
+   "tool": "evaluate_stored_table"
+  }
+ },
+ "schema": "dmn-json.table-cases/v1",
+ "table": "triage.supplement.requirements"
+}
