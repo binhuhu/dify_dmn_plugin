@@ -3,7 +3,7 @@
 
 现网各图不调 convert_dmn_xml（全链路无影响对跑闸的语料里没有它），所以这一块另做金样；evaluate_json_table 与存表在对跑闸里也有。
 
-跑法（任一棵插件树的 plugin 目录，代码取那棵树的；输入只用本仓 tests/fixtures/v0541 的夹具与本文件写死的表）：
+跑法（任一棵插件树的 plugin 目录，代码取那棵树的；输入只用真实表快照 v0541/ 的夹具（git 外，见 tests/real_fixtures.py）与本文件写死的表）：
   <python> -I tests/fixtures/v0542/capture_v0541_goldens.py <那棵树的 plugin 目录> <输出文件>
 只读夹具，不读别的文件、不调接口；存表只用内存存储、只走拒绝路径（回答里没有时刻与存表号）。
 """
@@ -11,11 +11,19 @@
 import copy
 import hashlib
 import json
+import os
 import sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-FIXTURES = HERE.parent / "v0541"
+# 真实表夹具在 git 外，放法见 tests/real_fixtures.py
+FIXTURES = (
+    Path(
+        os.environ.get("DMN_REAL_FIXTURES")
+        or Path.home() / ".local" / "share" / "dmn-plugin-real-fixtures"
+    )
+    / "v0541"
+)
 FEE = (
     "fee_p1.json",
     "fee_p2.json",

@@ -40,7 +40,7 @@
   "status": "SUCCEEDED"
  },
  "export:coupon_v2_search_info.json": {
-  "sha256": "d2eaa8a22d23e10ee238fdb8c67abfe40592f7bb2f0331a2eef913c7ae87387b",
+  "sha256": "b38f100a9c465b1324134914477c1d1df364bb337239c806bc71bd430deb78cf",
   "status": "SUCCEEDED"
  },
  "export:crossing_COLLECT:doc": {
@@ -180,7 +180,7 @@
   "status": "SUCCEEDED"
  },
  "import:coupon_v2_search_info.json": {
-  "sha256": "74cbafb8594250d6a1ac1980aaa57f8ec3acfc397975171b6dc8734809c48f9f",
+  "sha256": "ae5b49cabbeb9db9dea7388537e44fc1e1393bab7799d25e8b82323ad3d56cc7",
   "status": "SUCCEEDED"
  },
  "import:crossing_COLLECT:False": {
