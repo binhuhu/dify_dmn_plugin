@@ -5,6 +5,7 @@ import copy
 import json
 
 import pytest
+import real_fixtures
 import v2_fixtures as F
 from test_v0541_decision_v2 import refused, seed_v1, tpl, v1_reality
 from v2_fixtures import INFO_FACT, c, k, known, record
@@ -615,6 +616,7 @@ def test_a_v2_table_reads_no_v1_upstream_and_a_v1_save_is_not_checked():
     assert F.saved(s, v1)["version"] == 2
 
 
+@real_fixtures.uses("v0541")
 def test_the_fee_chain_and_the_coupon_query_pass_both_ends():
     """标杆两条：费用四张 v2 表按链路顺序存（读方都在上游之后），券的查询 → 原值表对着钉住的能力表。"""
     import test_v0541_fee_v2 as T

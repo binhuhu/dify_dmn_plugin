@@ -1,6 +1,7 @@
 """存表自动闸（全链路评审 2-5）：随表用例、跨表核、路由表方案现网入参。
 
-夹具：tests/fixtures/save_gate/tables 是 11-18 采集的 7 张交付表头版（来历见同目录 PROVENANCE.sha256），suites 是
+夹具：真实表快照 save_gate/（在 git 外，见 tests/real_fixtures.py）里 tables 是 11-18 采集的 7 张交付表头版（来历见同目录
+PROVENANCE.sha256），suites 是
 scripts/gen-table-cases.py 从这 7 张头版与全链路无影响闸语料生成的用例集。存储照现网来历写：五张先按旧名存、再按标准名
 首存、再存现网那一版；场景与话题表、受理条件表直接存（同全链路无影响闸 make-seed）。
 """
@@ -8,9 +9,9 @@ scripts/gen-table-cases.py 从这 7 张头版与全链路无影响闸语料生�
 import copy
 import json
 import time
-from pathlib import Path
 
 import pytest
+import real_fixtures
 
 from dmn_client import route_table, save_gate
 from dmn_client.route_store import run_op
@@ -18,7 +19,6 @@ from dmn_client.table_names import STANDARD
 from dmn_client.two_state import MAINTENANCE_APP, run_entry
 from dmn_client.vocabulary import REQUEST_KEYS, declared
 
-FIX = Path(__file__).parent / "fixtures" / "save_gate"
 ROUTE = "triage.dispatch.route"
 TOPIC = "target.scene.topic"
 ENTITY = "target.scene.entity"
@@ -67,11 +67,15 @@ class Storage:
 
 
 def head_doc(table):
-    return json.loads((FIX / "tables" / (table + ".json")).read_text())["doc"]
+    return json.loads((real_fixtures.need("save_gate") / "tables" / (table + ".json")).read_text())[
+        "doc"
+    ]
 
 
 def suite_of(table):
-    return json.loads((FIX / "suites" / (table + ".cases.json")).read_text())
+    return json.loads(
+        (real_fixtures.need("save_gate") / "suites" / (table + ".cases.json")).read_text()
+    )
 
 
 def strip(doc):

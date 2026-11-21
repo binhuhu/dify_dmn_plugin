@@ -8,6 +8,7 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 
 import pytest
+import real_fixtures
 import v2_fixtures as F
 from v2_fixtures import c, k, known
 
@@ -16,7 +17,6 @@ from dmn_client.dmn_xml import DmnXmlError
 from dmn_client.route_table import canon
 
 NS = {"d": dmn_xml.EXPORT_NAMESPACE}
-HERE = Path(__file__).resolve().parent / "fixtures" / "v0541"
 
 
 def round_trip(body, **kw):
@@ -65,7 +65,7 @@ def test_every_toy_table_comes_back_word_for_word(build):
 
 
 def load(name):
-    return json.loads((HERE / name).read_text(encoding="utf-8"))
+    return json.loads((real_fixtures.need("v0541") / name).read_text(encoding="utf-8"))
 
 
 @pytest.mark.parametrize(

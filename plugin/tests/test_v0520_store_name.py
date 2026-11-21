@@ -322,7 +322,9 @@ def test_the_standard_names_are_the_storage_names_and_the_old_names_their_aliase
     assert table_names.ALIASES == STD
     for std, old in OLD.items():
         assert table_names.storage_name(old) == table_names.storage_name(std) == std
-        assert table_names.alias_of(old) == std and table_names.alias_of(std) is None
+        # 0.5.43: a standard name moved to a final name has that one after it (the route and resource names have none)
+        assert table_names.alias_of(old) == std
+        assert table_names.alias_of(std) == table_names.RENAMED_FROM.get(std)
         assert table_names.old_name(std) == old and table_names.old_name(old) is None
         assert StorageTables.key(std) == "route-table:" + std  # the key of the name itself
 

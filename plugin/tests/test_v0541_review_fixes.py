@@ -4,9 +4,9 @@
 import copy
 import json
 import time
-from pathlib import Path
 
 import pytest
+import real_fixtures
 import v2_fixtures as F
 from test_v0541_decision_v2 import refused
 from v2_fixtures import INFO_FACT, c, k, known, record
@@ -16,8 +16,6 @@ from dmn_client import decision_v2, dmn_xml, inline_table, route_store, settings
 from dmn_client.route_table import StorageTables, digest
 from dmn_client.stored_tables import validate
 from dmn_client.two_state import MAINTENANCE_APP, run_entry
-
-HERE = Path(__file__).resolve().parent / "fixtures" / "v0541"
 
 
 def setting(storage, body=None, caller_app=MAINTENANCE_APP):
@@ -371,7 +369,7 @@ def test_a_spent_budget_says_the_analysis_was_limited(monkeypatch):
 
 
 def real_catalog(name):
-    return json.loads((HERE / name).read_text(encoding="utf-8"))
+    return json.loads((real_fixtures.need("v0541") / name).read_text(encoding="utf-8"))
 
 
 def save_catalog(storage, body, expected):

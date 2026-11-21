@@ -1,6 +1,6 @@
 """0.5.41 上线闸（需求单「不能变的」）：v1 的存表检查、求值、摘要、回执与 0.5.40 逐字节一致。
 
-金样 tests/fixtures/v0541/goldens_v0540.json 是在 0.5.40 发布树（4de42e2，代码未动）上跑 capture_v0540_goldens.py 得到的；
+金样 goldens_v0540.json（真实表快照 v0541/，在 git 外，见 tests/real_fixtures.py）是在 0.5.40 发布树（4de42e2，代码未动）上跑 capture_v0540_goldens.py 得到的；
 这里用 0.5.41 的代码再跑一遍，一位不差。夹具从真样本抄：费用标杆 M_P_05_02_02 的四张表（两片特征决策集 38 个决策、按
 {from_table, model} 读的现实表、处置表）与六种口径 342 张次的入参；券查询过渡版 3dfeb488 嵌在图里的查询 → 事实表（34 行，
 SEARCH_CAPABILITY，钉旧名 platform.capability.catalog）与 17 个能力的能力表（facts）。
@@ -11,6 +11,7 @@ import sys
 from pathlib import Path
 
 import pytest
+import real_fixtures
 
 HERE = Path(__file__).resolve().parent / "fixtures" / "v0541"
 sys.path.insert(0, str(HERE))
@@ -20,9 +21,14 @@ import capture_v0540_goldens as G  # noqa: E402
 from dmn_client import capability_catalog, declarations, search_plan, stored_tables  # noqa: E402
 from dmn_client.route_table import StorageTables  # noqa: E402
 
-GOLDEN = json.loads((HERE / "goldens_v0540.json").read_text(encoding="utf-8"))
+GOLDEN = (
+    json.loads((G.DATA / "goldens_v0540.json").read_text(encoding="utf-8"))
+    if real_fixtures.available("v0541")
+    else {}
+)
 
 
+@real_fixtures.uses("v0541")
 def test_the_fee_tables_check_and_digest_as_in_0540():
     bodies = G.fee_bodies()
     for key in G.ORDER:
@@ -49,6 +55,7 @@ def fee_store():
     return storage, receipts
 
 
+@real_fixtures.uses("v0541")
 def test_the_fee_saves_answer_as_in_0540(fee_store):
     storage, receipts = fee_store
     got = {k: G.sha(v) for k, v in receipts.items()}
@@ -58,6 +65,7 @@ def test_the_fee_saves_answer_as_in_0540(fee_store):
     assert stored == GOLDEN["fee"]["stored_sha256"]
 
 
+@real_fixtures.uses("v0541")
 def test_the_342_fee_evaluations_answer_as_in_0540(fee_store):
     storage, _ = fee_store
     bodies = G.fee_bodies()
@@ -77,6 +85,7 @@ def test_the_342_fee_evaluations_answer_as_in_0540(fee_store):
     assert not differ, differ[:10]
 
 
+@real_fixtures.uses("v0541")
 def test_a_v1_head_takes_v1_again_with_the_same_content(fee_store):
     """The heads are v1: a resave of the same bodies is taken (version 2), with the digest 0.5.40 gave."""
     storage, _ = fee_store
@@ -93,6 +102,7 @@ def test_a_v1_head_takes_v1_again_with_the_same_content(fee_store):
         assert out["doc"]["content_sha256"] == GOLDEN["fee"]["tables"][key]["content_sha256"]
 
 
+@real_fixtures.uses("v0541")
 def test_the_fee_tables_on_fresh_names_take_only_v2():
     """0.5.41's one change on this path: a solution-layer name with no head no longer takes v1 (需求单第 7 件过渡推广)."""
     storage = G.MemoryStorage()
@@ -103,6 +113,7 @@ def test_the_fee_tables_on_fresh_names_take_only_v2():
     assert (status, out["error"]["code"]) == (400, "STORED_TABLE_V2_ONLY")
 
 
+@real_fixtures.uses("v0541")
 def test_the_3dfeb488_tables_check_digest_and_evaluate_as_in_0540():
     search = G.load_json("coupon_3dfeb488_search.json")
     cap = G.load_json("coupon_3dfeb488_capability.json")

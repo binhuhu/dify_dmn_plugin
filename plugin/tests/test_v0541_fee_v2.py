@@ -2,7 +2,7 @@
 
 - 费用标杆 M_P_05_02_02：v1 四张表（两片特征决策集 + 现实 + 处置）改写成 v2 四张（原值 → 事实、一个 COLLECT 的事实 → 特征、
   现实、处置），六种口径 342 张次逐单对拍——第一片 37 个特征、现实、处置全部一样。改法、体积、n37 两条路的大小见
-  fixtures/v0541/build_fee_v2.py 与 fee_v2_说明.json。
+  fixtures/v0541/build_fee_v2.py 与 fee_v2_说明.json（说明在真实表快照 v0541/，git 外，见 tests/real_fixtures.py）。
 - 券查询过渡版 3dfeb488 的查询表（v1 SEARCH_CAPABILITY，34 条规则）改写成 v2 查询 → 原值表（SEARCH_INFO），306 组入参逐轮对拍。
 """
 
@@ -10,6 +10,8 @@ import copy
 import json
 import sys
 from pathlib import Path
+
+import real_fixtures
 
 HERE = Path(__file__).resolve().parent / "fixtures" / "v0541"
 sys.path.insert(0, str(HERE))
@@ -20,9 +22,14 @@ import build_fee_v2 as B  # noqa: E402
 from dmn_client import capability_catalog, declarations, route_store, stored_tables  # noqa: E402
 from dmn_client.route_table import StorageTables, canon  # noqa: E402
 
-NOTES = json.loads((HERE / "fee_v2_说明.json").read_text(encoding="utf-8"))
+NOTES = (
+    json.loads((B.DATA / "fee_v2_说明.json").read_text(encoding="utf-8"))
+    if real_fixtures.available("v0541")
+    else {}
+)
 
 
+@real_fixtures.uses("v0541")
 def test_the_fee_v2_tables_are_what_the_builder_makes():
     b = B.load()
     sources, kinds = B.p1_sources(b["p1"]), B.param_kind(b["p1"])
@@ -39,6 +46,7 @@ def test_the_fee_v2_tables_are_what_the_builder_makes():
     assert {k: canon(v) for k, v in built.items()} == {k: canon(v) for k, v in B.v2_docs().items()}
 
 
+@real_fixtures.uses("v0541")
 def test_the_fee_v2_tables_save_with_their_fixed_inputs():
     docs = B.v2_docs()
     tables = StorageTables(B.v2_storage(docs))
@@ -68,6 +76,7 @@ def test_the_fee_v2_tables_save_with_their_fixed_inputs():
     assert not [w for w in declarations.warnings(clean) if w["code"] == "KEY_RULES_MAY_OVERLAP"]
 
 
+@real_fixtures.uses("v0541")
 def test_the_fee_v2_chain_answers_as_the_v1_tables_order_by_order():
     counts, diffs = B.compare()
     recorded = NOTES["与现在四张表逐单对拍"]
@@ -76,6 +85,7 @@ def test_the_fee_v2_chain_answers_as_the_v1_tables_order_by_order():
     assert diffs == []
 
 
+@real_fixtures.uses("v0541")
 def test_the_reality_table_with_n37_written_in_saves_under_the_1_mib_line():
     """n37 写进现实表（甲）：现实表内容约 740 KiB，超过 0.5.40 的存表线（内容 512 KiB、请求 832 KiB）；0.5.41 起内容线 1 MiB、
     请求线 1344 KiB，经存表接口（route_store，量体积）存得进去。"""
@@ -91,6 +101,7 @@ def test_the_reality_table_with_n37_written_in_saves_under_the_1_mib_line():
     assert (status, out["version"]) == (200, 2), out
 
 
+@real_fixtures.uses("v0541")
 def test_n37_rewritten_by_facts_does_not_fit_one_rule():
     """n37 用事实重写（乙）：补上前面各条的否定以后，第 5 条就过了一条规则 128 种情形，第 6 条起超过 3000 种（算不下去）。"""
     by_facts = NOTES["n37 乙（用事实重写）n37 每条规则在事实层的情形数"]["补上前面各条的否定以后"]
@@ -125,12 +136,14 @@ def coupon_storages():
     return (lambda _t: v1_doc), StorageTables(storage).load
 
 
+@real_fixtures.uses("v0541")
 def test_the_coupon_search_info_v2_answers_as_the_v1_query_table_round_by_round():
     v1_load, v2_load = coupon_storages()
     same, diffs = C.compare(v1_load, v2_load)
     assert diffs == [] and same == len(C.rounds()) == 306
 
 
+@real_fixtures.uses("v0541")
 def test_the_coupon_search_info_v2_is_what_the_builder_makes():
     cap = C.catalog_v2()
     sha = capability_catalog.content_sha256(

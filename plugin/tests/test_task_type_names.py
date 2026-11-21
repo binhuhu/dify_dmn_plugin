@@ -391,10 +391,15 @@ def test_a_route_table_may_not_take_any_name_under_a_task_type_and_workflow():
 def test_saving_a_route_table_under_a_task_name_is_refused_and_says_why():
     from test_route_table import doc as route_doc
 
-    for name in ("quality.triage.main", "rollout.handle.main", "support.trigger.main"):
+    for name in ("quality.triage.main", "rollout.handle.main"):
         status, out = save(FakeStorage(), route_doc(table=name))
         assert _error((status, out)) == ("STORED_TABLE_NAME", "table"), name
         assert "<任务类型>.<流程>. 开头的名字留给各任务类型的表" in out["error"]["message"]
+    # 0.5.43: support.trigger.main is the full spelling of trigger.main, a final names' workflow (触发)
+    for name in ("support.trigger.main", "trigger.main", "accept.main"):
+        status, out = save(FakeStorage(), route_doc(table=name))
+        assert _error((status, out)) == ("STORED_TABLE_NAME", "table"), name
+        assert "trigger.* / accept.* 是交付链表最终名的流程" in out["error"]["message"]
 
 
 @pytest.mark.parametrize(
@@ -464,7 +469,6 @@ def test_the_full_spelling_of_a_delivery_name_and_what_is_not_one():
     # not full spellings: an old name, a workflow that is not delivery's, another task type, a bare prefix, a non-string
     for name in (
         "support.dispatch.route",
-        "support.trigger.task.rule",
         "support.handler.x",
         "support.handle",
         "quality.triage.a.b",
@@ -476,6 +480,9 @@ def test_the_full_spelling_of_a_delivery_name_and_what_is_not_one():
         assert delivery_name(name) == name
     # delivery's handle workflow is spelled in full like its other three
     assert delivery_name("support.handle.x") == "handle.x"
+    # 0.5.43: so are the final names' workflows trigger and accept
+    assert delivery_name("support.trigger.task.rule") == "trigger.task.rule"
+    assert delivery_name("support.accept.issue.acceptance") == "accept.issue.acceptance"
     # one table, three names: the full spelling, the standard name, the old name
     assert (
         storage_name("support.triage.dispatch.route")

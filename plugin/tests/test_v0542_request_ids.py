@@ -12,6 +12,7 @@ import os
 from pathlib import Path
 
 import pytest
+import real_fixtures
 import v2_fixtures as F
 
 from dmn_client import request_ids
@@ -21,7 +22,6 @@ from dmn_client.stored_tables import content_sha256, validate
 from dmn_client.vocabulary import v2_declared
 
 CODE = "STORED_TABLE_REQUEST_ID_UNKNOWN"
-FIXTURES = Path(__file__).resolve().parent / "fixtures" / "v0541"
 # 合同原件（服务方案仓 chain-io/schema/场景方案调用.v5.request_keys.json）：设 DMN_REQUEST_IDS_SOURCE 指过去就逐字节比
 SOURCE = os.environ.get("DMN_REQUEST_IDS_SOURCE", "")
 
@@ -41,7 +41,11 @@ def test_the_embedded_list_is_the_one_pinned():
         request_ids.count() == len(doc["号"])
         and request_ids.template_count() == len(doc["模板"]) == 2
     )
-    assert request_ids.names()[-2:] == ["关联对象.<关联组>.<关系>.<键>", "关联要求.<关联组>.<键>"]
+    # 0.5.43：合同 v5 二次重钉候选的清单（§21「补充」）
+    assert request_ids.names()[-2:] == [
+        "补充.组.<关联组>.<键>",
+        "补充.组.<关联组>.对象.<关系>.<键>",
+    ]
     left_out = {i["路径"] for i in doc["不进清单"]}
     assert {"合同", "对象详情"} <= left_out
 
@@ -58,14 +62,19 @@ def test_the_embedded_list_is_a_byte_for_byte_copy_of_the_contract_s():
         ("身份.锚点.进线ms", "身份.锚点.进线ms"),
         ("身份.意图", "身份.意图"),
         ("定位回执.必要.依据", "定位回执.必要.依据"),
-        ("关联对象.coupon_usage_context.COUPON_USED_ON_ORDER.id", "关联对象.<关联组>.<关系>.<键>"),
-        ("关联对象.g.REL.业务线", "关联对象.<关联组>.<关系>.<键>"),
+        ("补充.来源", "补充.来源"),
+        ("补充.表摘要", "补充.表摘要"),
         (
-            "关联对象.g" + "x" * 63 + ".R" + "Z" * 54 + ".数量",
-            "关联对象.<关联组>.<关系>.<键>",
+            "补充.组.coupon_usage_context.对象.COUPON_USED_ON_ORDER.id",
+            "补充.组.<关联组>.对象.<关系>.<键>",
+        ),
+        ("补充.组.g.对象.REL.业务线", "补充.组.<关联组>.对象.<关系>.<键>"),
+        (
+            "补充.组.g" + "x" * 63 + ".对象.R" + "Z" * 51 + ".数量",  # 拼出的号 128 个字
+            "补充.组.<关联组>.对象.<关系>.<键>",
         ),  # 正好 128 个字
-        ("关联要求.coupon_usage_context.至少", "关联要求.<关联组>.<键>"),
-        ("关联要求.g.任一", "关联要求.<关联组>.<键>"),
+        ("补充.组.coupon_usage_context.状态", "补充.组.<关联组>.<键>"),
+        ("补充.组.g.状态", "补充.组.<关联组>.<键>"),
     ],
 )
 def test_an_id_is_the_entry_it_fills_in(ident, entry):
@@ -86,20 +95,31 @@ def test_an_id_is_the_entry_it_fills_in(ident, entry):
         "对象.id.x",
         "对象.id\n",
         "对象.ID",
-        "关联对象.ORDER.id",  # 券试点那套的写法
-        "关联对象.Grp.REL.id",  # 关联组小写字母开头
-        "关联对象.1g.REL.id",
-        "关联对象.g" + "x" * 64 + ".REL.id",  # 关联组 1–64 位
-        "关联对象.g" + "x" * 63 + ".R" + "Z" * 55 + ".数量",  # 拼出的号 129 个字（号长上限 128）
-        "关联对象.g.RE.id",  # 关系 3–64 位
-        "关联对象.g.rel.id",
-        "关联对象.g.REL.id\n",
-        "关联对象.g.REL.订单号",  # 键不在模板里
-        "关联对象.g.REL",
-        "关联对象.g.REL.id.x",
-        "关联对象.<关联组>.<关系>.id",
-        "关联要求.g.REL.至少",  # 关联要求没有关系那一段
-        "关联要求.g.id",
+        # 0.5.42 清单里有、0.5.43 换的清单里没有的（旧写法由投影投成 补充.*）
+        "关联对象.g.REL.id",
+        "关联要求.g.至少",
+        "受理回执.补充.依据",
+        "受理回执.补充.结论",
+        "补充.结论",
+        "补充.组.Grp.对象.REL.id",  # 关联组小写字母开头
+        "补充.组.1g.对象.REL.id",
+        "补充.组.g" + "x" * 64 + ".对象.REL.id",  # 关联组 1–64 位
+        "补充.组.g"
+        + "x" * 63
+        + ".对象.R"
+        + "Z" * 52
+        + ".数量",  # 拼出的号 129 个字（号长上限 128）
+        "补充.组.g.对象.RE.id",  # 关系 3–64 位
+        "补充.组.g.对象.rel.id",
+        "补充.组.g.对象.REL.id\n",
+        "补充.组.g.对象.REL.订单号",  # 键不在模板里
+        "补充.组.g.对象.REL",
+        "补充.组.g.对象.REL.id.x",
+        "补充.组.g.REL.id",  # 少了 对象 那一段
+        "补充.组.<关联组>.对象.<关系>.id",
+        "补充.组.g.对象.REL.状态",  # 状态 是组的键，不是对象的键
+        "补充.组.g.id",
+        "补充.组.g",
         "",
         None,
         1,
@@ -159,7 +179,7 @@ def refused(table_name, body):
 def test_each_of_the_five_refuses_a_request_id_v5_has_not(table_name):
     body = F.builders()[table_name]()
     s = F.upstream_storage(table_name)
-    status, out = F.save(s, read_request(body, "关联对象.g.REL.id"))
+    status, out = F.save(s, read_request(body, "补充.组.g.对象.REL.id"))
     assert status == 200, out  # an id of the list is taken
     err = refused(table_name, read_request(body, "order_id"))
     assert (err["code"], err["path"]) == (CODE, "decision")
@@ -291,7 +311,8 @@ def test_a_v1_table_is_never_checked():
     """券查询过渡版 3dfeb488（v1）读 order_id、subject_pid、ws_date 这些 v5 没有的量，照存。"""
     from dmn_client.route_table import StorageTables  # noqa
 
-    load = lambda n: json.loads((FIXTURES / n).read_text(encoding="utf-8"))  # noqa: E731
+    here = real_fixtures.need("v0541")
+    load = lambda n: json.loads((here / n).read_text(encoding="utf-8"))  # noqa: E731
     v1 = load("coupon_3dfeb488_search.json")
     assert {"order_id", "subject_pid", "ws_date"} <= set(v1["declare"]["request_inputs"])
     from dmn_client import capability_catalog  # noqa
@@ -332,7 +353,7 @@ def test_the_vocabulary_names_the_list():
     assert got["list"] == request_ids.LIST_NAME
     assert got["sha256"] == request_ids.LIST_SHA256
     assert got["count"] + got["template_count"] == len(got["ids"]) and got["template_count"] == 2
-    assert "关联对象.<关联组>.<关系>.<键>" in got["ids"] and got["checked_on"] == "save"
+    assert "补充.组.<关联组>.对象.<关系>.<键>" in got["ids"] and got["checked_on"] == "save"
     assert got["source"] == request_ids.SOURCE and got["lock_sha256"] == request_ids.LOCK_SHA256
     assert got["types_checked"] is False
     assert CODE in v2_declared()["codes"]["refusals"]

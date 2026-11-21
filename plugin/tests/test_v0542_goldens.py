@@ -3,11 +3,16 @@
 
 金样 tests/fixtures/v0542/goldens_v0541.json 是在 0.5.41 发布树上跑 capture_v0541_goldens.py 得到的（每条回答的摘要）；
 这里用 0.5.42 的代码跑同一份输入。现网各图的调用形状另由全链路无影响对跑闸逐字节比（发布说明第十一节）。
+
+0.5.43（换请求的号清单）：券 v2 查询表夹具 coupon_v2_search_info.json 的三个请求号从 关联对象.* 改成 补充.组.*.对象.*（只换号的前缀），
+它的两条金样（export / import）照原法在 0.5.41 发布树 9dad080 上用新夹具重取；其余 100 条重取后与原金样逐字节同。
 """
 
 import json
 import sys
 from pathlib import Path
+
+import real_fixtures
 
 HERE = Path(__file__).resolve().parent / "fixtures" / "v0542"
 sys.path.insert(0, str(HERE))
@@ -39,6 +44,7 @@ INTENDED = {
 }
 
 
+@real_fixtures.uses("v0541")
 def test_every_answer_is_0_5_41_s_but_the_intended_ones():
     gold = json.loads((HERE / "goldens_v0541.json").read_text(encoding="utf-8"))
     now = G.capture(Path(__file__).resolve().parents[1])

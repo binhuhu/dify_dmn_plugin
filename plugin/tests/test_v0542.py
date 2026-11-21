@@ -12,9 +12,9 @@ import json
 import re
 import time
 import tracemalloc
-from pathlib import Path
 
 import pytest
+import real_fixtures
 import v2_fixtures as F
 from test_set_internal_reads import reader
 from test_v0515_mechanisms import flag_model, records, set_doc
@@ -33,8 +33,6 @@ from dmn_client.inline_table import evaluate_inline
 from dmn_client.route_table import canon
 from tests.test_dmn_xml import STORED
 from tests.test_inline_table import DOC, inputs
-
-V0541 = Path(__file__).resolve().parent / "fixtures" / "v0541"
 
 # ── 一、节点里试跑的回执 ─────────────────────────────────────────────────────
 
@@ -323,7 +321,7 @@ def test_the_lines_go_together():
 @pytest.mark.parametrize("name", ["fee_v2_fact_feature.json", "fee_v2_reality.json"])
 def test_the_fee_tables_come_back_through_the_tool(name):
     """0.5.41 两张费用 v2 表导出的 XML 过了 1 MiB 的导入线（事实 → 特征 148 KiB → 1.8 MB，现实 757 KiB → 2.7 MB）。"""
-    body = json.loads((V0541 / name).read_text())
+    body = json.loads((real_fixtures.need("v0541") / name).read_text())
     out = dmn_xml.convert({"direction": "export", "model_json": body})
     assert out["status"] == "SUCCEEDED" and all("导入线" not in w for w in out["warnings"])
     assert 1024 * 1024 < len(out["dmn_xml"].encode()) <= dmn_xml.MAX_XML_BYTES
