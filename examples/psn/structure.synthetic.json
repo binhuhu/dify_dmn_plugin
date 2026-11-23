@@ -8,11 +8,11 @@
     "name": "Synthetic DELIVERY",
     "phases": [
       {
-        "id": "O1",
-        "name": "Synthetic O1",
+        "id": "I1",
+        "name": "Synthetic I1",
         "steps": [
           {
-            "id": "O1.S1",
+            "id": "I1.S1",
             "name": "Synthetic step 1",
             "nodes": [
               {
@@ -25,7 +25,7 @@
               },
               {
                 "node_key": "delivery_node_1",
-                "ref": "DELIVERY/O1.S1.N1",
+                "ref": "DELIVERY/I1.S1.N1",
                 "kind": "TRANSFORM",
                 "order": 10,
                 "status": "ACTIVE",
@@ -33,21 +33,27 @@
               },
               {
                 "node_key": "delivery_mode_gate",
-                "ref": null,
+                "ref": "DELIVERY/I1.S1.N2",
                 "kind": "GATE",
                 "order": 20,
                 "status": "ACTIVE",
                 "name": "Synthetic mode gate"
               }
             ]
-          },
+          }
+        ]
+      },
+      {
+        "id": "T1",
+        "name": "Synthetic T1",
+        "steps": [
           {
-            "id": "O1.S2",
+            "id": "T1.S1",
             "name": "Synthetic step 2",
             "nodes": [
               {
                 "node_key": "delivery_node_2",
-                "ref": "DELIVERY/O1.S2.N1",
+                "ref": "DELIVERY/T1.S1.N1",
                 "kind": "TRANSFORM",
                 "order": 10,
                 "status": "ACTIVE",
@@ -58,28 +64,28 @@
         ]
       },
       {
-        "id": "O2",
-        "name": "Synthetic O2",
+        "id": "A1",
+        "name": "Synthetic A1",
         "steps": []
       },
       {
-        "id": "O3",
-        "name": "Synthetic O3",
+        "id": "D1",
+        "name": "Synthetic D1",
         "steps": []
       },
       {
-        "id": "O4",
-        "name": "Synthetic O4",
+        "id": "S1",
+        "name": "Synthetic S1",
         "steps": []
       },
       {
-        "id": "O5",
-        "name": "Synthetic O5",
+        "id": "H1",
+        "name": "Synthetic H1",
         "steps": []
       },
       {
-        "id": "O6",
-        "name": "Synthetic O6",
+        "id": "E1",
+        "name": "Synthetic E1",
         "steps": []
       }
     ],
@@ -124,21 +130,6 @@
                 ]
               }
             ]
-          },
-          {
-            "id": "T2",
-            "name": "Synthetic T2",
-            "steps": []
-          },
-          {
-            "id": "T3",
-            "name": "Synthetic T3",
-            "steps": []
-          },
-          {
-            "id": "T4",
-            "name": "Synthetic T4",
-            "steps": []
           }
         ]
       },
@@ -150,30 +141,36 @@
         "name": "Synthetic DISPATCH",
         "phases": [
           {
-            "id": "D1",
-            "name": "Synthetic D1",
+            "id": "A1",
+            "name": "Synthetic A1",
             "steps": [
               {
-                "id": "D1.S1",
+                "id": "A1.S1",
                 "name": "Synthetic step 1",
                 "nodes": [
                   {
                     "node_key": "dispatch_node_1",
-                    "ref": "DISPATCH/D1.S1.N1",
+                    "ref": "DISPATCH/A1.S1.N1",
                     "kind": "TRANSFORM",
                     "order": 10,
                     "status": "ACTIVE",
                     "name": "Synthetic dispatch_node_1"
                   }
                 ]
-              },
+              }
+            ]
+          },
+          {
+            "id": "D1",
+            "name": "Synthetic D1",
+            "steps": [
               {
-                "id": "D1.S2",
+                "id": "D1.S1",
                 "name": "Synthetic step 2",
                 "nodes": [
                   {
                     "node_key": "dispatch_node_2",
-                    "ref": "DISPATCH/D1.S2.N1",
+                    "ref": "DISPATCH/D1.S1.N1",
                     "kind": "TRANSFORM",
                     "order": 10,
                     "status": "ACTIVE",
