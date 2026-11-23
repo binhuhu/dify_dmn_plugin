@@ -479,15 +479,18 @@ def check(declare, clean, schema, *, budget=None):
             "资源去向的决策表命中 FIRST（具体在前、兜底在后）",
             "model.hit_policy",
         )
+        # 0.5.44 (定 371): resource_id may be declared nullable — a known "no id" (the contract's null with its note), so
+        # still KNOWN and still required; only nullable is opened
         _need_model(
             type(rid) is dict
             and rid.get("type") == "string"
             and rid.get("record_required") is True
-            and rid.get("nullable") is False
             and rid.get("allowed_quality") == ["KNOWN"],
-            "资源去向的决策表要有参数 resource_id（string，必有，不可空，只收 KNOWN）",
+            "资源去向的决策表要有参数 resource_id（string，必有，只收 KNOWN；可空写 nullable: true）",
             "model.parameters.resource_id",
         )
+        if rid["nullable"]:
+            _nullable_resource(model)
         _need(
             type(declare.get("states")) is list,
             "资源去向的 states 写成列表（这张表用到的 state）",
@@ -1296,6 +1299,71 @@ def _code(value, label, path):
         label
         + " 是编码（没有就写 null）：照平台编码原样写，不带空格、空白和不可见字符，最多 64 个字符",
         path,
+    )
+
+
+RESOURCE_ID_VALUE = ["parameters", "resource_id", "value"]
+
+
+def _resource_id_named(value):
+    """A concrete resource id on a nullable table's eq / in: a non-empty string (never null, never "")."""
+    return type(value) is str and bool(value.strip())
+
+
+def _nullable_resource(model):
+    """0.5.44 (定 371, DMN 2.0 §五 RESOURCE): a nullable resource_id is caught by exactly one "is empty" combination.
+    - every combination of every rule writes one resource_id condition, so a misspelt or unlisted id hits no rule
+      (NO_MATCH, the error shows) and no rule without one catches it;
+    - that condition is eq / in on concrete ids, or is_null: true — ne, exists, is_null: false, ordering, a quality
+      path and null inside in would take the empty id into the wrong row (or block the read);
+    - exactly one is_null: true: none lets the empty id fall silently to NO_MATCH, a second one never hits under FIRST;
+    - that one catches every empty id: its combination (a lone when, or that item of when_any) carries no other
+      condition, since any other one (channel eq ..., in: [] ...) lets the empty id fall silently to NO_MATCH.
+    No special key, no special id value: "is empty" is the condition is_null the tables already have."""
+    empty = []
+    for i, r in enumerate(model["rules"]):
+        p = "model.rules[%d]" % i
+        many = "when_any" in r
+        for k, w in enumerate(r["when_any"] if many else [r["when"]]):
+            q = p + (".when_any[%d]" % k if many else ".when")
+            mine = [(j, c) for j, c in enumerate(w) if c["path"][:2] == RESOURCE_ID_VALUE[:2]]
+            _need_model(mine, "资源编号可空的表，每条规则都要写资源编号条件", q)
+            _need_model(
+                len(mine) == 1,
+                "资源编号可空的表，每条规则（when_any 的每种组合）只写一条资源编号条件",
+                "%s[%d]" % (q, mine[-1][0]),
+            )
+            j, c = mine[0]
+            null = c["op"] == "is_null" and c["value"] is True
+            _need_model(
+                c["path"] == RESOURCE_ID_VALUE
+                and (
+                    null
+                    or (c["op"] == "eq" and _resource_id_named(c["value"]))
+                    or (
+                        c["op"] == "in"
+                        and c["value"]
+                        and all(_resource_id_named(x) for x in c["value"])
+                    )
+                ),
+                "资源编号可空的表，资源编号只用 eq / in 比具体编号，或写为空（is_null: true）",
+                "%s[%d]" % (q, j),
+            )
+            if null:
+                empty.append(("%s[%d]" % (q, j), q, len(w)))
+    _need_model(empty, "资源编号可空，就要有一行写明资源编号为空（is_null: true）", "model.rules")
+    if len(empty) > 1:
+        raise RouteTableError(
+            "TABLE_DECLARATION_INVALID",
+            "资源编号可空的表只写一处资源编号为空（FIRST 下后一处永远不会命中）："
+            + "、".join(e[0] for e in empty[:5]),
+            empty[1][0],
+        )
+    _, q, n = empty[0]
+    _need_model(
+        n == 1,
+        "资源编号可空的表，「为空」那一种情形只能写资源编号为空这一条条件，别的条件会让空值落成没中",
+        q,
     )
 
 

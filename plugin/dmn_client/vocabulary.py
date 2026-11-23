@@ -208,6 +208,11 @@ def capability_declared():
             "row_optional_keys_new_form": list(CC.NEW_OPTIONAL_KEYS),
             "row_optional_keys_0538_form": list(CC.OLD_OPTIONAL_KEYS),
             "fact_keys": list(CC.FACT_KEYS),
+            # 0.5.44 (协调定 370 ①): the keys an item may carry besides its own; alternate_of was never listed before.
+            # infos (new name, trial copy): alternate_of, call_ref (its own call, written as the row's); facts: alternate_of
+            "fact_optional_keys": list(CC.FACT_OPTIONAL_KEYS),
+            "info_keys": list(CC.INFO_KEYS),
+            "info_optional_keys": list(CC.INFO_OPTIONAL_KEYS),
             "service_keys": list(CC.SERVICE_KEYS),
             "list_filters": list(CC.LIST_FILTERS),
             "list_filters_new_form": list(CC.MODE_FILTERS),

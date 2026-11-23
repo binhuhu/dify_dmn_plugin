@@ -424,11 +424,18 @@ def _pinned_versions(doc):
 
 
 def _table_keys(table):
+    from dmn_client.table_lifecycle import table_keys  # noqa
+
     std = storage_name(table)
-    return ["route-table:" + std + ":draft"] + (
-        ["route-table:" + pair_name(table) + ":first"]
-        if delivery_name(table) in STANDARD or renamed(table)
-        else []
+    return (
+        ["route-table:" + std + ":draft"]
+        + (
+            ["route-table:" + pair_name(table) + ":first"]
+            if delivery_name(table) in STANDARD or renamed(table)
+            else []
+        )
+        # 0.5.44 (表停用与恢复): the lifecycle record and the refused runtime reads' count, when there
+        + table_keys(table)
     )
 
 

@@ -117,8 +117,9 @@ def validate_snapshot(prepared):
     return model, params
 
 
-MAX_COMBINATIONS = 128  # 0.5.19: as stored tables (dmn_client.stored_tables.MAX_COMBINATIONS)
-MAX_CONDITIONS = 32
+# as stored tables (dmn_client.stored_tables): 0.5.19 the same lines; 0.5.44 brought back in step (1024 / 128)
+MAX_COMBINATIONS = 1024
+MAX_CONDITIONS = 128
 
 
 def rule_combinations(rule):

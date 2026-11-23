@@ -24,7 +24,15 @@ from datetime import datetime, timedelta, timezone
 
 import rfc8785
 
-from dmn_client import alias_reads, catalog, controlled, save_gate, scene_bundle, settings
+from dmn_client import (
+    alias_reads,
+    catalog,
+    controlled,
+    save_gate,
+    scene_bundle,
+    settings,
+    table_lifecycle,
+)
 from dmn_client.client import EngineError, json_object
 from dmn_client.route_store import CONFLICT, DEFAULT_TABLE, MAX_REQUEST, UNAVAILABLE, error, run_op
 from dmn_client.route_table import (
@@ -72,7 +80,15 @@ SIG_PREFIX = "dmn-store-sig/1"
 # draft, and discard a draft; it may not publish, undo, clean up, roll a bundle back, or save a scene table directly.
 AGENT = "AGENT"
 KINDS = ("PERSON", "SESSION", "SCRIPT", "APP", AGENT)
-AGENT_REFUSED = ("publish", "undo", "save", PRUNE, *scene_bundle.AGENT_REFUSED)
+# 0.5.44 (表停用与恢复 第六节): deactivate / reactivate are refused to an agent writer too
+AGENT_REFUSED = (
+    "publish",
+    "undo",
+    "save",
+    PRUNE,
+    *scene_bundle.AGENT_REFUSED,
+    *table_lifecycle.MUTATIONS,
+)
 # 2026-11-13: the two tables a scene needs that are not among the five (they have no draft and no publish). In signed
 # mode a save of either carries a writer's signature, so every write to the six tables of a scene names its writer; in
 # open mode they are saved as before.
@@ -91,6 +107,19 @@ DRAFT_OPS = ("draft", "draft_save", "draft_discard", "publish")
 # (indep 中-1): the pin is part of the release, not a storage switch, so no writer key can move it; another
 # maintenance app is another release.
 MAINTENANCE_APP = "3c016f44-73a2-49b0-ad9b-37b578c46545"  # 路由表维护
+# 0.5.44 (Brian 11-23 13:54「收进 0.5.44」; 14:5x「同意，收进闸」for handle.): which tables only the maintenance app
+# writes is decided by the kind of the table, read off its stored name, not by a list of names. The main chain's policy
+# tables are delivery's tables under its trigger, accept, triage and handle workflows: stored under target. / triage. /
+# handle. (the final names trigger. / accept. store there until their first store; old names such as dispatch.route and
+# full spellings such as support.handle.<object>.<judgment> map there through storage_name, the one place a name is
+# normalised). In open mode a write to any of them (save, undo, the draft operations) comes only from the pinned
+# maintenance app, whoever runs it; in signed mode a write without a writer's signature is checked the same way. The
+# controlled tables (the scene-topic table) are left to their own tier: a write to one comes only through a controlled
+# entry, from the same app (controlled.py), and everything else about them is answered as before.
+# Not of this kind, and written from whatever app holds the store tool: solution-layer tables (solution., p2.), which
+# the solution groups store themselves (Brian 11-18「除了场景表其他策略表都是可以团队开发配置的」), the other task
+# types' tables, and trial names (trial.*).
+MAINTAINED_PREFIXES = ("target.", "triage.", "trigger.", "accept.", "handle.")
 WRITERS_OPS = ("writers",)
 ROLLBACK_KEYS = (
     "from_version",
@@ -152,6 +181,16 @@ def is_five(table):
     return isinstance(table, str) and storage_name(table) in FIVE
 
 
+def maintained(table):
+    """0.5.44: whether a table is one of the main chain's policy tables, which only the pinned maintenance app writes
+    (MAINTAINED_PREFIXES). Any spelling of a name counts as its stored name. A controlled table (the scene-topic
+    table) is its own tier (controlled.py) and is answered as before."""
+    name = storage_name(table) if isinstance(table, str) else None
+    if not isinstance(name, str) or controlled.listed(name):
+        return False
+    return name.startswith(MAINTAINED_PREFIXES)
+
+
 def draft_key(table):
     """One draft per table: an old name and its standard name share it (review round 1)."""
     StorageTables.key(table)  # the name check of every storage key
@@ -171,6 +210,20 @@ def check_caller(storage, caller_app):
         "写手登记只认「路由表维护」应用 %s… 节点里的那份；这次调用来自 %s：签名的写入只经那个应用"
         % (pinned[:8], (caller_app or "不明的应用")[:8]),
         "writers",
+    )
+
+
+def check_maintainer(storage, caller_app, table):
+    """0.5.44: a write to one of the main chain's policy tables (maintained) counts only from the pinned maintenance
+    app; the code is the pin's own."""
+    pinned = pinned_app(storage)
+    _need(
+        isinstance(caller_app, str) and caller_app == pinned,
+        "STORED_TABLE_WRITERS_APP_REJECTED",
+        "%s 是主链路策略表（交付的触发、受理、分配、处理各段的表）：存、撤销、草稿与发布只认「路由表维护」应用 %s…；"
+        "这次调用来自 %s。经那个应用存，或交维护的人存"
+        % (str(table)[:128], pinned[:8], (caller_app or "不明的应用")[:8]),
+        "table",
     )
 
 
@@ -636,7 +689,7 @@ def open_mode(writers):
 BUNDLE_WRITES = ("bundle_publish", "bundle_rollback")
 
 
-def controlled_target(op, table, body):
+def controlled_target(op, table, body, storage=None):
     """The stored name of the controlled table this call would write, or None: then nothing here looks at the call
     and it goes on exactly as before."""
     if op == "save":
@@ -657,6 +710,18 @@ def controlled_target(op, table, body):
     if op in BUNDLE_WRITES:
         hit = [t for t in scene_bundle.TABLES.values() if controlled.listed(t)]
         return hit[-1] if hit else None
+    if op in table_lifecycle.MUTATIONS:
+        # 0.5.44 (表停用与恢复 第六节): a group with a controlled table is signed as a controlled table, all of it
+        parsed, refused = _parse(body) if body not in (None, "") else ({}, None)
+        if refused is not None:
+            names = []
+        elif isinstance(parsed, dict) and "abort" in parsed:
+            # an abort's group is the one its intent record lists, whatever the request's tables look like (or none)
+            names = table_lifecycle.abort_tables(storage, parsed) if storage is not None else []
+        else:
+            names = table_lifecycle.request_tables(parsed)
+        hit = [n for n in names if controlled.listed(n)]
+        return storage_name(hit[0]) if hit else None
     if op in ("publish", "undo") and is_five(table) and controlled.listed(table):
         return storage_name(table)
     if op == "undo" and renamed(table) and controlled.listed(table):
@@ -682,13 +747,24 @@ def run_entry(
     controlled entry's signature, whatever the mode, and comes only from the pinned maintenance app; it is then run as
     any other call with the entry taken off the body, and the request is taken once. Every other call is as before."""
     try:
-        target = controlled_target(op, table, body)
+        target = controlled_target(op, table, body, storage)
     except Exception:  # whatever reading the body raises, the call below answers as before
         target = None
     if target is None:
-        return _run_entry(
+        result = _run_entry(
             storage, op, table, version, body, writers, now, new_id, caller_app, caller_user
         )
+        # 0.5.44 (表停用与恢复 E4): a maintenance read of a table that has a lifecycle record says its state; every other
+        # answer is left as it is
+        watched = Watched(storage)
+        try:
+            return table_lifecycle.annotate(
+                watched, op, table, result, caller_app == MAINTENANCE_APP
+            )
+        except RouteTableError as exc:
+            return error(_status(exc.code), exc.code, exc.message, exc.path)
+        except Exception as exc:
+            return failed(watched, exc)
     sent = table or DEFAULT_TABLE
     vstr = "" if version is None else str(version)
     storage = Watched(storage)
@@ -784,7 +860,7 @@ def _run_entry(
                 "writer",
             )
 
-        def recorded(result, who=None):
+        def actor(who=None):
             by = {
                 "user": _context_text(caller_user),
                 "user_verified": False,
@@ -795,7 +871,10 @@ def _run_entry(
             }
             if entry is not None:  # 2026-11-18: a controlled entry's write says which entry
                 by["entry"], by["entry_verified"] = entry["id"], True
-            return _record(storage, op, table, result, by, caller_app == MAINTENANCE_APP)
+            return by
+
+        def recorded(result, who=None):
+            return _record(storage, op, table, result, actor(who), caller_app == MAINTENANCE_APP)
 
         if op in scene_bundle.OPS:
             if refused:
@@ -869,6 +948,9 @@ def _run_entry(
             rest = {k: v for k, v in parsed.items() if k != "writer"}
             forward = json.dumps(rest, ensure_ascii=False) if rest else None
             if op != save_gate.CASES_SAVE:
+                # 0.5.44 (E2): a deactivated table is not checked for a save
+                if op == "cases_check":
+                    table_lifecycle.check_suite_write(storage, rest.get("table") or table)
                 return run_op(storage, op, table, version, forward)
             check_caller(storage, caller_app)
             with _MUTATION_LOCK:
@@ -876,7 +958,34 @@ def _run_entry(
                 if not opened:
                     parse_writers(writers)
                     who = verify(writers, parsed.get("writer"), op, sent, vstr, parsed, now())
+                # 0.5.44 (E2 / E5): a deactivated table's suite is frozen; a suite never names a deactivated table
+                table_lifecycle.check_suite_write(
+                    storage, rest.get("table") or table, rest.get("cases")
+                )
                 return recorded(run_op(storage, op, table, version, forward), who)
+        if op in table_lifecycle.OPS:
+            # 0.5.44 (表停用与恢复 第六节): op=lifecycle is a read for any app. deactivate / reactivate: only from the pinned
+            # maintenance app (in open mode the one gate: open mode has no writer to tell an agent by), one at a time in this
+            # process; in signed mode with a writer's signature, never an agent's. A controlled table's group came through a
+            # controlled entry (run_entry). No request receipt: the request id is derived, a replay is the same request
+            if refused:
+                return refused
+            rest = {k: v for k, v in parsed.items() if k != "writer"}
+            if op == table_lifecycle.READ:
+                return 200, table_lifecycle.read(
+                    storage, named or None, caller_app == MAINTENANCE_APP
+                )
+            check_caller(storage, caller_app)
+            with _MUTATION_LOCK:
+                who = None
+                if not opened:
+                    parse_writers(writers)
+                    who = verify(writers, parsed.get("writer"), op, sent, vstr, parsed, now())
+                    _agent_may(who, op)
+                return recorded(
+                    table_lifecycle.run(storage, op, rest, actor(who), now, entry is not None),
+                    who,
+                )
         if op in CARE_OPS:
             if refused:
                 return refused
@@ -937,18 +1046,27 @@ def _run_entry(
             and storage_name(parsed.get("table")) in SCENE_SIGNED
         )
         need = need or (scene_save and not opened)
+        # 0.5.44: a write to one of the main chain's policy tables comes only from the maintenance app, by the table's
+        # kind (maintained); a save's table is the one in its body (the table parameter may be the default), the other
+        # writes name it
+        if op == "save":
+            written = parsed.get("table") if isinstance(parsed, dict) else None
+        else:
+            written = table
+        writes_maintained = (
+            op == "save" or op in SIGNED_ON_FIVE or op in DRAFT_OPS[1:]
+        ) and maintained(written)
         who = None
         if opened:
             if refused and (op in DRAFT_OPS[1:] or op in SIGNED_ON_FIVE):
                 return refused
-            # a save's table is the one in its body (the table parameter may be the default); the others name it
             writes_five = (
                 (op == "save" and isinstance(parsed, dict) and is_five(parsed.get("table")))
                 or (op in SIGNED_ON_FIVE or op in DRAFT_OPS[1:])
                 and is_five(table)
             )
-            if writes_five:
-                check_caller(storage, caller_app)
+            if writes_maintained:
+                check_maintainer(storage, caller_app, written)
             if op == "save" and writes_five:
                 # the checks a draft of the five gets (review 0.5.28 adv 中-1): no unregistered top-level key, and no
                 # reference to a table outside the five
@@ -963,6 +1081,10 @@ def _run_entry(
                 )
                 _inside_five(parsed)
             need = False
+        elif writes_maintained and not need:
+            # signed mode, a write that carries no writer (the five's drafts and publish always need one, so this is a
+            # save or undo of the others): the same pin; with a writer the check below makes it
+            check_maintainer(storage, caller_app, written)
         if need:
             if refused:
                 return refused
@@ -1049,6 +1171,9 @@ def _record(storage, op, table, result, by, show_history=False):
     status, out = result
     if status != 200 or not isinstance(out, dict):
         return result
+    if op in table_lifecycle.MUTATIONS:
+        # 0.5.44 (表停用与恢复 第七节): one operation record per group, keyed by the derived request id
+        return status, table_lifecycle.persist_operation(storage, out, by)
     if op in ("undo", "draft_discard") or (
         op == PRUNE and out.get("applied") is True and out.get("keys", 0) > 0
     ):

@@ -31,6 +31,9 @@ Two row forms:
   entity, no roles column": ordering by a bill, a passenger's and a driver's bill are two rows. One capability id may take
   several rows when their (business mode x role) combinations do not overlap; within one business mode x role, one query
   row per subject entity x result entity x kind.
+- 0.5.44 (协调定 370 ①): an item of infos may carry its own call_ref (written and checked as the row's; not the row's own
+  again). Without it the item is got by the row's call, with it by its own; both take the row's inputs and fan_out. The
+  one-row rule above is unchanged; facts take no call_ref (0.5.38 frozen). A table without it is 0.5.43's, byte for byte.
 
 Reads: by capability_id (the row; with business_mode and / or role when the id has several rows), or a list filtered by
 domain / entity / kind / face, and in the new form by business_mode / role / subject_entity too (business mode x role x
@@ -102,6 +105,13 @@ FACT_KEYS = ("fact_id", "name", "field", "type", "unit", "object")
 FACTS = "facts"
 INFOS = "infos"
 INFO_KEYS = ("info_id", "name", "field", "type", "unit", "object")
+# what an item may carry besides its keys. 0.5.44 (协调定 370 ①, docs/capability-info-call-ref-and-nullable-resource-id-
+# design.md §一): an item of infos may name its own call (call_ref, written and checked as the row's); without it the item
+# is got by the row's call. The row's call_ref stays required: the row's main call. The item's call takes the row's
+# inputs and fan_out (another set of inputs is another capability, another row); its field is a path in its own call's
+# return. facts (0.5.38's writing, under either name) stay frozen: alternate_of only.
+FACT_OPTIONAL_KEYS = ("alternate_of",)
+INFO_OPTIONAL_KEYS = ("alternate_of", "call_ref")
 ITEM_ID = {FACTS: "fact_id", INFOS: "info_id"}
 LIST_FILTERS = ("domain", "entity", "kind", "face")
 
@@ -288,16 +298,41 @@ def _info_id(value, path):
     return value
 
 
+def _call_ref(ref, path):
+    """A call reference, a row's or (0.5.44) an item of infos': one check for both, so the two cannot drift apart."""
+    _code(
+        ref,
+        CALL_REF_RE,
+        "call_ref = registry:<服务>/<操作>（服务小写字母开头，只含小写字母、数字、-；操作只含字母、数字、_ . -）："
+        "只写登记引用，不写地址、端口、协议、账号",
+        path,
+    )
+    op = ref.split("/", 1)[1]
+    segments = [x for x in re.split(r"[._-]", op) if x]
+    _need(
+        not (CREDENTIAL_SEGMENTS & {x.lower() for x in segments})
+        and not any(stem in op.lower() for stem in CREDENTIAL_STEMS)
+        and not any(KEY_LIKE.match(x) for x in segments),
+        "call_ref 只写登记引用，不写口令、密钥、签名之类",
+        path,
+    )
+    return ref
+
+
 def _fact(raw, q, moded=False, key=FACTS):
     if key == INFOS:
         _need(
-            type(raw) is dict and set(INFO_KEYS) <= set(raw) <= set(INFO_KEYS) | {"alternate_of"},
-            "原值 = " + " / ".join(INFO_KEYS) + "（+ alternate_of：这个原值的主来源能力）",
+            type(raw) is dict
+            and set(INFO_KEYS) <= set(raw) <= set(INFO_KEYS) | set(INFO_OPTIONAL_KEYS),
+            "原值 = "
+            + " / ".join(INFO_KEYS)
+            + "（+ alternate_of：这个原值的主来源能力；+ call_ref：取这个原值走的调用，不写就走行的 call_ref）",
             q,
         )
     else:
         _need(
-            type(raw) is dict and set(FACT_KEYS) <= set(raw) <= set(FACT_KEYS) | {"alternate_of"},
+            type(raw) is dict
+            and set(FACT_KEYS) <= set(raw) <= set(FACT_KEYS) | set(FACT_OPTIONAL_KEYS),
             "事实 = " + " / ".join(FACT_KEYS) + "（+ alternate_of：这条事实的主来源能力）",
             q,
         )
@@ -336,6 +371,8 @@ def _fact(raw, q, moded=False, key=FACTS):
         out["alternate_of"] = _code(
             raw["alternate_of"], CAPABILITY_RE, "alternate_of = 主来源的能力号", q + ".alternate_of"
         )
+    if "call_ref" in raw:  # infos only (the key check above refuses it in facts)
+        out["call_ref"] = _call_ref(raw["call_ref"], q + ".call_ref")
     return out
 
 
@@ -589,23 +626,14 @@ def _row(raw, p, prev, moded=False, key=FACTS):
             p + ".fan_out.max",
         )
         fan = {"input": fan["input"], "max": fan["max"]}
-    ref = raw["call_ref"]
-    _code(
-        ref,
-        CALL_REF_RE,
-        "call_ref = registry:<服务>/<操作>（服务小写字母开头，只含小写字母、数字、-；操作只含字母、数字、_ . -）："
-        "只写登记引用，不写地址、端口、协议、账号",
-        p + ".call_ref",
-    )
-    op = ref.split("/", 1)[1]
-    segments = [x for x in re.split(r"[._-]", op) if x]
-    _need(
-        not (CREDENTIAL_SEGMENTS & {x.lower() for x in segments})
-        and not any(stem in op.lower() for stem in CREDENTIAL_STEMS)
-        and not any(KEY_LIKE.match(x) for x in segments),
-        "call_ref 只写登记引用，不写口令、密钥、签名之类",
-        p + ".call_ref",
-    )
+    ref = _call_ref(raw["call_ref"], p + ".call_ref")
+    # 0.5.44: an item's own call is written only when it is not the row's (one meaning, one writing, one digest)
+    for i, f in enumerate(facts):
+        _need(
+            f.get("call_ref") != ref,
+            "原值的 call_ref 和行的 call_ref 相同就不写（不写就走行的调用）",
+            "%s.%s[%d].call_ref" % (p, key, i),
+        )
     out = {
         "capability_id": cid,
         "name": _text(raw["name"], 40, "能力显示名", p + ".name"),

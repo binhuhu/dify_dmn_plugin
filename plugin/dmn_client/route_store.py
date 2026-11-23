@@ -40,7 +40,8 @@ MAX_REQUEST = MAX_BODY + MAX_DECLARE + 64 * 1024
 DEFAULT_TABLE = "dispatch.route"
 # 0.5.24 (AQE-E-02): the route formats' keys live in the declared vocabulary, with every other format's
 V1_KEYS, V2_KEYS = ROUTE_V1_KEYS, ROUTE_V2_KEYS
-CONFLICT = ("ROUTE_TABLE_STALE", "ROUTE_TABLE_RACE")
+# 0.5.44 (表停用与恢复): TABLE_DEACTIVATED (a deactivated table's content is frozen) is a conflict, 409
+CONFLICT = ("ROUTE_TABLE_STALE", "ROUTE_TABLE_RACE", "TABLE_DEACTIVATED")
 UNAVAILABLE = (
     "STORED_TABLE_UNAVAILABLE",
 )  # 0.5.20 (I26): the first-store state cannot be told: 503, as a storage failure

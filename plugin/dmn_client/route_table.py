@@ -2208,8 +2208,10 @@ class StorageTables:
         return list(out.values())
 
     def _one_state(self, clean):
-        """one state."""
-        for name in self.route_tables():
+        """one state. 0.5.44 (表停用与恢复 E1): a deactivated route table is not looked at (table_lifecycle)."""
+        from dmn_client import table_lifecycle  # noqa
+
+        for name in table_lifecycle.active_route_tables(self):
             if storage_name(name) == storage_name(clean["table"]):
                 continue
             other = self.load(name)
@@ -2240,6 +2242,10 @@ class StorageTables:
         from dmn_client import decision_v2, stored_tables  # noqa
 
         self.cross_warnings = []  # 0.5.41: warnings of the cross-table check for the save receipt (never a refusal)
+        from dmn_client import table_lifecycle  # noqa
+
+        # 0.5.44 (表停用与恢复 E2 / E5): a deactivated table's own save stops here; new content never names one
+        table_lifecycle.cross_check(self, clean)
         if clean["schema"] in ROUTE_SCHEMAS:
             self._one_state(clean)
         if clean["schema"] == stored_tables.SCHEMA_DECISION_V2:
@@ -2693,6 +2699,10 @@ class StorageTables:
                 auto_refusal = exc
         n = have + 1
         skipped = []
+        from dmn_client import table_lifecycle  # noqa
+
+        # 0.5.44 (E2): the freeze read again right before the first write
+        table_lifecycle.frozen_check(self, table)
         if guard is not None:
             # I19 before the version check, under both names: from that check to its head a save makes 0.5.19's
             # storage calls exactly, and a save it stops has written nothing. A state change after it is caught after
@@ -2826,6 +2836,8 @@ class StorageTables:
             if guard is not None and guard[2] == "standard":
                 self._withdraw(guard[0], table, n, clean["save_id"])
             raise
+        # 0.5.44 (表停用与恢复 4.1): the lifecycle record read again after the head (I19 / I20's way); never a refusal
+        table_lifecycle.after_head(self, table, clean)
         self.skipped = skipped
         if auto is not None and auto.write is not None:
             self._move_suite(table, clean, auto)
@@ -3637,6 +3649,10 @@ class StorageTables:
                 "table",
             )
         fix = self._references_to(std)
+        from dmn_client import table_lifecycle  # noqa
+
+        # 0.5.44 (E6): never rename a deactivated table's reference
+        table_lifecycle.check_undo_fixes(self, fix)
         for name, head in fix:
             # I23: a reference fix saves version h+1 of the partner; a version key there that is not this undo's own fix
             # is a crashed save's leftover, which 0.5.19's rule refuses: say so now, before anything is written
@@ -3790,6 +3806,7 @@ class StorageTables:
     def old_name_references(self):
         """I15: stored heads that still name an old name whose standard name has its first store (a later version can
         drop the aliases only when this is empty). [] while no table of the five is NEW. Storage failures raise (I26)."""
+        from dmn_client import table_lifecycle  # noqa
         from dmn_client.table_names import STANDARD  # noqa
 
         done = {std for std in STANDARD if self.state(std)[0] == NEW}
@@ -3821,6 +3838,8 @@ class StorageTables:
                             "standard": alias_of(ref),
                             "message": "%s 第 %s 版的 %s 还写旧名 %s，下次存表改成 %s；全部改完才能去掉别名"
                             % (who.get("table"), who.get("version"), path, ref, alias_of(ref)),
+                            # 0.5.44: a deactivated table is listed too, and says so
+                            **table_lifecycle.reference_note(self, who.get("table")),
                         }
                     )
         return out

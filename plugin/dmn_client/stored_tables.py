@@ -123,7 +123,9 @@ MODEL_KEY_RE = re.compile(r"^[a-z][a-z0-9_]{0,47}$")
 # digested as before. (A v2 decision does not count its no-match template: dmn_client.decision_v2.)
 MAX_PARAMETERS = 32
 MAX_RULES = 2048
-MAX_CONDITIONS = 32
+# 0.5.44 (Brian 11-23「照 128 改」): conditions of one situation 128 (was 32). The by-id spelling asks "known" before
+# every value it reads, so 32 held about 13 business conditions and tables already sat on the line.
+MAX_CONDITIONS = 128
 # 0.5.18: condition combinations in one rule (when_any); 0.5.19: 32 → 128, each still ≤ 32 conditions; 0.5.41: 1024
 MAX_COMBINATIONS = 1024
 MAX_TEMPLATES = 2048
