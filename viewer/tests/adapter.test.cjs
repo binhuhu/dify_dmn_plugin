@@ -186,10 +186,14 @@ test("psn-structure/v1 imports as Process then Workflows, read only", () => {
     nodes.filter((n) => typeof n.ref === "string").length,
   );
   // node_id is display-only: the raw node stays exactly as in the file.
+  // A numbered node (the gate too, since 11-19) is shown by its ref; an EVENT by its key.
   const gate = nodes.find((n) => n.node_key === "delivery_mode_gate");
-  assert.equal(gate.node_id, "delivery_mode_gate");
-  assert.equal(gate.ref, null);
+  assert.equal(gate.node_id, "DELIVERY/I1.S1.N2");
+  assert.equal(gate.ref, "DELIVERY/I1.S1.N2");
   assert.equal("node_id" in JSON.parse(JSON.stringify(gate)), false);
+  const start = nodes.find((n) => n.node_key === "delivery_start");
+  assert.equal(start.node_id, "delivery_start");
+  assert.equal(start.ref, null);
 });
 test("psn nodes show in order, file order breaking ties", () => {
   const b = psn();

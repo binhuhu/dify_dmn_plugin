@@ -345,12 +345,29 @@ test("psn structure: every ref is searchable and opens its node", async (t) => {
   $("search").value = "delivery_mode_gate";
   $("search").oninput();
   $("tree").querySelector("button").click();
-  assert.match($("detail").textContent, /不编号（GATE/);
+  assert.match($("detail").textContent, /编号：DELIVERY\/I1\.S1\.N2/);
   assert.match(
     $("detail").textContent,
-    /DELIVERY > O1 > O1\.S1 > delivery_mode_gate/,
+    /DELIVERY > I1 > I1\.S1 > I1\.S1\.N2/,
   );
   assert.doesNotMatch($("detail").textContent, /"node_id"/);
+});
+test("psn structure: a gate still in gates_pending_number reads 待补号, an EVENT 不编号", async (t) => {
+  const { $, importFile } = await setup(t);
+  const stock = JSON.parse(psnText());
+  const step = stock.process.phases[0].steps[0];
+  step.nodes.find((n) => n.node_key === "delivery_mode_gate").ref = null;
+  stock.process.gates_pending_number = ["delivery_mode_gate"];
+  await importFile(JSON.stringify(stock), "stock.json");
+  $("search").value = "delivery_mode_gate";
+  $("search").oninput();
+  $("tree").querySelector("button").click();
+  assert.match($("detail").textContent, /编号：待补号（分支闸存量/);
+  $("close").click();
+  $("search").value = "delivery_start";
+  $("search").oninput();
+  $("tree").querySelector("button").click();
+  assert.match($("detail").textContent, /编号：不编号（EVENT/);
 });
 test("psn structure with a version field is refused and the view kept", async (t) => {
   const { $, importFile } = await setup(t);
