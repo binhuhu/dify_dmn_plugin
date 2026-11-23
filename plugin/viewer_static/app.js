@@ -138,8 +138,11 @@ function directory() {
     tree.append(el("p", "没有匹配的名称、ID 或 ruleID"));
 }
 const psnLabels = (n) => [n.ref, n.node_key, n.kind];
+// Only EVENT nodes carry no number; an if-else gate without one is stock waiting for its
+// number (gates_pending_number), Brian 11-19「每个节点都编号」.
+const psnNoRef = (n) => (n.kind === "GATE" ? "待补号" : "不编号");
 const psnText = (n) =>
-  `${n.ref ?? "不编号"} · ${n.name || n.node_key}${n.status === "retired" ? " · 已退役" : ""}`;
+  `${n.ref ?? psnNoRef(n)} · ${n.name || n.node_key}${n.status === "retired" ? " · 已退役" : ""}`;
 // PSN search covers the whole structure: matches in other workflows are listed
 // below the current one and open there.
 function otherMatches(tree, current, query) {
@@ -194,7 +197,7 @@ function detail(w, p, s, n, origin, ruleId) {
   );
   if (projection.psn) {
     [
-      `编号：${n.ref ?? "不编号（" + n.kind + " 节点只归属 Step）"}`,
+      `编号：${n.ref ?? (n.kind === "GATE" ? "待补号（分支闸存量，列在 gates_pending_number）" : "不编号（" + n.kind + " 节点只归属 Step）")}`,
       `node_key：${n.node_key}`,
       `kind：${n.kind ?? "未提供"}`,
       `状态：${n.status === "retired" ? "已退役" : (n.status ?? "未提供")}`,
@@ -455,7 +458,7 @@ function psnButton(n) {
   b.append(
     el("small", `${n.kind || "未提供"}${retired ? " · 已退役" : ""}`),
     el("span", n.name || n.node_key),
-    el("small", n.ref ?? "不编号"),
+    el("small", n.ref ?? psnNoRef(n)),
     el("small", n.node_key),
   );
   return b;
