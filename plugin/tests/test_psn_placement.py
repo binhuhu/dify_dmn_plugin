@@ -29,6 +29,7 @@ KEYS = {
     "SOLUTION": "SOLUTION.coupon-use",
     "HANDLE": "HANDLE",
     "KNOWLEDGE": "KNOWLEDGE.consult",
+    "FETCH": "FETCH.locate-query",
 }
 
 
@@ -238,13 +239,9 @@ def invoke_solution():
 def test_invoke_solution_is_a_call():
     assert dify_kind(invoke_solution()) == "CALL" and category(invoke_solution()) == "CALL"
     assert dify_kind(dmn()) == "DECISION" and category(dmn()) == "DECISION"
-    rows = [
-        r if r[0] != "solution_call" else ("solution_call", "O4.S1", invoke_solution())
-        for r in delivery_layout()
-    ]
-    report = run("DELIVERY", rows, DELIVERY_FAILABLE)
+    report = run("DELIVERY", delivery_layout(), DELIVERY_FAILABLE)
     assert placement(report) == set()
-    on_call = {i["code"] for i in report["issues"] if i.get("node_key") == "solution_call"}
+    on_call = {i["code"] for i in report["issues"] if i.get("node_key") == "solve_call"}
     assert not on_call & {
         "KIND_MISMATCH",
         "NODE_REF_MISSING",
@@ -252,10 +249,9 @@ def test_invoke_solution_is_a_call():
         "MISPLACED_NODE",
         "SILENT_DMN_DEFAULT",
     }
-    stray = [*rows, ("stray_solve", "O2.S2", invoke_solution())]
-    assert placement(run("DELIVERY", stray, (*DELIVERY_FAILABLE, "stray_solve"))) == {
-        ("MISPLACED_NODE", "stray_solve")
-    }
+    stray = [*delivery_layout(), ("stray_solve", "T1.S2", invoke_solution())]
+    report = run("DELIVERY", stray, DELIVERY_FAILABLE)
+    assert placement(report) == {("NO_FAILURE_HANDLING", "stray_solve")}
 
 
 def test_decision_without_fail_branch_has_no_failure_handling():
@@ -293,12 +289,12 @@ def test_solution_may_call_a_fetch_app_in_p1s1():
     assert placement(report) == {("NO_FAILURE_HANDLING", "fetch_app")}
 
 
-def test_a_forbidden_workflow_call_without_fail_branch_reports_both_rules():
-    report = run("TARGET", [("context", "T1.S2", workflow_tool())])
-    assert placement(report) == {
-        ("WORKFLOW_CALL_FORBIDDEN", "context"),
-        ("NO_FAILURE_HANDLING", "context"),
-    }
+def test_a_main_chain_workflow_call_needs_only_failure_handling():
+    # TARGET calls the workbench-context app in T1.S1 (live since the 11-23 cut); ESE F07's
+    # "no sub-workflow" belonged to the old phases.
+    report = run("TARGET", [("context", "T1.S1", workflow_tool())])
+    assert placement(report) == {("NO_FAILURE_HANDLING", "context")}
+    assert placement(run("TARGET", [("context", "T1.S1", workflow_tool())], ("context",))) == set()
 
 
 def default_value(data):
@@ -342,7 +338,7 @@ def test_silent_fetch_default_n4(rows, edges, flagged):
 
 
 def test_silent_fetch_default_is_a_solution_rule_and_warns():
-    target = run("TARGET", [("observe", "T3.S1", default_value(http()))])
+    target = run("TARGET", [("observe", "T1.S2", default_value(http()))])
     assert placement(target) == set()
     rows = [("h", "P1.S1", default_value(http()))]
     report = run("SOLUTION", rows)
@@ -356,11 +352,18 @@ def test_silent_fetch_default_is_a_solution_rule_and_warns():
 
 
 def dispatch_layout():
+    # The live shape since the 11-23 cut: A1 受理 (场景成立, 受理策略), D1 分配 (方案路由, 资源路由).
     return [
-        ("check_input", "D1.S1", code()),
-        ("route_table", "D1.S2", dmn()),
-        ("receipt", "D1.S3", code()),
+        ("accept_entry", "A1.S1", code()),
+        ("establish_read", "A1.S1", dmn()),
+        ("accept_read", "A1.S2", dmn()),
+        ("route_read", "D1.S1", dmn()),
+        ("resource_read", "D1.S2", dmn()),
+        ("triage_receipt", "D1.S2", code()),
     ]
+
+
+DISPATCH_FAILABLE = ("establish_read", "accept_read", "route_read", "resource_read")
 
 
 def packed(text):
@@ -368,78 +371,57 @@ def packed(text):
     return f"const d = JSON.parse(zlib.gunzipSync(Buffer.from(\"{blob}\",'base64')).toString());"
 
 
-def test_dispatch_layout_passes():
-    assert placement(run("DISPATCH", dispatch_layout(), ("route_table",))) == set()
+def test_dispatch_layout_passes_with_four_decisions():
+    # ESE F08 (one decision, in D1.S2) was written for the single-phase DISPATCH and retired with it.
+    assert placement(run("DISPATCH", dispatch_layout(), DISPATCH_FAILABLE)) == set()
 
 
 @pytest.mark.parametrize(
-    ("rows", "flagged"),
+    ("row", "flagged"),
     [
+        (("h", "A1.S1", http()), set()),
+        (("m", "D1.S2", llm()), set()),
+        (("loop", "A1.S1", iteration()), set()),
+        (("t", "D1.S1", other_tool()), set()),
+        (("w", "A1.S2", workflow_tool()), set()),
         (
-            [*dispatch_layout(), ("second_table", "D1.S2", dmn())],
-            {("DISPATCH_DECISION_COUNT", None)},
-        ),
-        (
-            [r for r in dispatch_layout() if r[0] != "route_table"],
-            {("DISPATCH_DECISION_COUNT", None)},
-        ),
-        (
-            [("check_input", "D1.S1", code()), ("route_table", "D1.S1", dmn())],
-            {("MISPLACED_NODE", "route_table")},
-        ),
-        ([*dispatch_layout(), ("h", "D1.S1", http())], {("MISPLACED_NODE", "h")}),
-        ([*dispatch_layout(), ("m", "D1.S3", llm())], {("MISPLACED_NODE", "m")}),
-        ([*dispatch_layout(), ("loop", "D1.S1", iteration())], {("MISPLACED_NODE", "loop")}),
-        ([*dispatch_layout(), ("t", "D1.S1", other_tool())], {("MISPLACED_NODE", "t")}),
-        (
-            [*dispatch_layout(), ("w", "D1.S1", workflow_tool())],
-            {("WORKFLOW_CALL_FORBIDDEN", "w")},
-        ),
-        (
-            [*dispatch_layout(), ("hidden", "D1.S1", code(packed('{"必要成立条件": []}')))],
+            ("hidden", "A1.S1", code(packed('{"必要成立条件": []}'))),
             {("SCENE_DEFINITION_IN_CODE", "hidden")},
         ),
     ],
 )
-def test_dispatch_rules(rows, flagged):
-    names = {r[0] for r in rows if r[2].get("type") in {"tool", "http-request", "llm"}}
-    report = run("DISPATCH", rows, tuple(names))
-    assert placement(report) == flagged
+def test_dispatch_rules(row, flagged):
+    rows = [*dispatch_layout(), row]
+    failable = (*DISPATCH_FAILABLE, row[0])
+    assert placement(run("DISPATCH", rows, failable)) == flagged
 
 
-def test_dispatch_decision_count_names_no_node():
-    rows = [*dispatch_layout(), ("second_table", "D1.S2", dmn())]
-    issue = next(
-        i
-        for i in run("DISPATCH", rows, ("route_table",))["issues"]
-        if i["code"] == "DISPATCH_DECISION_COUNT"
-    )
-    assert "node_key" not in issue and "2 decision nodes" in issue["message"]
+def test_main_chain_reports_no_retired_ese_codes():
+    rows = [*dispatch_layout(), ("second_route", "D1.S1", dmn()), ("w", "A1.S1", workflow_tool())]
+    report = run("DISPATCH", rows, (*DISPATCH_FAILABLE, "second_route", "w"))
+    assert not {i["code"] for i in report["issues"]} & {
+        "DISPATCH_DECISION_COUNT",
+        "WORKFLOW_CALL_FORBIDDEN",
+        "MISPLACED_NODE",
+    }
 
 
 def delivery_layout():
+    # The live shape since the 11-23 cut: one step per station, the run receipt in E1.S1.
     return [
-        ("evidence_call", "O1.S1", workflow_tool()),
-        ("predict_call", "O1.S3", workflow_tool()),
-        ("locate_call", "O2.S1", workflow_tool()),
-        ("title_table", "O2.S3", dmn()),
-        ("dispatch_call", "O3.S2", workflow_tool()),
-        ("solution_call", "O4.S1", workflow_tool()),
-        ("handle_model", "O5.S1", llm()),
-        ("issue_loop", "O6.S1", iteration()),
-        ("summary", "O6.S2", code()),
+        ("intake", "I1.S1", code()),
+        ("intake_gate", "I1.S1", {"type": "if-else", "title": "gate"}),
+        ("locate_ref_read", "T1.S1", http()),
+        ("locate_call", "T1.S1", workflow_tool()),
+        ("frame_first_card", "T1.S2", code()),
+        ("triage_call", "A1.S1", workflow_tool()),
+        ("solve_issues", "S1.S1", iteration()),
+        ("solve_call", "S1.S1", invoke_solution()),
+        ("run_receipt", "E1.S1", code()),
     ]
 
 
-DELIVERY_FAILABLE = (
-    "evidence_call",
-    "predict_call",
-    "locate_call",
-    "title_table",
-    "dispatch_call",
-    "solution_call",
-    "handle_model",
-)
+DELIVERY_FAILABLE = ("locate_ref_read", "locate_call", "triage_call", "solve_call")
 
 
 def test_delivery_layout_passes():
@@ -447,49 +429,46 @@ def test_delivery_layout_passes():
 
 
 @pytest.mark.parametrize(
-    ("row", "code"),
+    ("row", "flagged"),
     [
-        (("late_table", "O6.S2", dmn()), "MISPLACED_NODE"),
-        (("stray_call", "O2.S2", workflow_tool()), "MISPLACED_NODE"),
-        (("raw_http", "O1.S1", http()), "MISPLACED_NODE"),
-        (("raw_model_http", "O5.S1", http(title="模型识读")), "MISPLACED_NODE"),
-        (("raw_tool", "O1.S1", other_tool()), "MISPLACED_NODE"),
-        (("judge", "O2.S2", llm()), "MISPLACED_NODE"),
-        (("second_loop", "O2.S2", iteration()), "MISPLACED_NODE"),
+        (("late_table", "E1.S1", dmn()), set()),
+        (("raw_http", "I1.S1", http()), set()),
+        (("raw_model_http", "S1.S3", http(title="模型识读")), set()),
+        (("raw_tool", "D1.S2", other_tool()), set()),
+        (("judge", "T1.S3", llm()), set()),
+        (("second_loop", "H1.S1", iteration()), set()),
         (
-            ("scene_read", "O1.S2", code('const c = {"预判成立条件": 1};')),
-            "SCENE_DEFINITION_IN_CODE",
+            ("scene_read", "T1.S1", code('const c = {"预判成立条件": 1};')),
+            {("SCENE_DEFINITION_IN_CODE", "scene_read")},
         ),
     ],
 )
-def test_delivery_rules(row, code):
+def test_delivery_rules(row, flagged):
     rows = [*delivery_layout(), row]
     report = run("DELIVERY", rows, (*DELIVERY_FAILABLE, row[0]))
-    assert placement(report) == {(code, row[0])}
+    assert placement(report) == flagged
 
 
 def test_target_rules():
     rows = [
-        ("semantic_read", "T2.S1", llm()),
-        ("observe", "T3.S1", http()),
-        ("decide", "T3.S2", dmn()),
+        ("context", "T1.S1", workflow_tool()),
+        ("recall", "T1.S1", llm()),
+        ("open_ref_read", "T1.S2", http()),
+        ("scene_entity_read", "T1.S2", dmn()),
+        ("supplement_read", "T1.S3", dmn()),
     ]
-    failable = ("semantic_read", "observe", "decide")
+    failable = tuple(r[0] for r in rows)
     assert placement(run("TARGET", rows, failable)) == set()
-    moved = [
-        ("semantic_read", "T3.S1", llm()),
-        ("observe", "T1.S2", http()),
-        ("context", "T1.S2", workflow_tool()),
-    ]
-    report = run("TARGET", moved, ("semantic_read", "observe", "context"))
-    assert placement(report) == {
-        ("MISPLACED_NODE", "semantic_read"),
-        ("MISPLACED_NODE", "observe"),
-        ("WORKFLOW_CALL_FORBIDDEN", "context"),
-    }
+    report = run("TARGET", rows, failable[1:])
+    assert placement(report) == {("NO_FAILURE_HANDLING", "context")}
+    # TARGET is not scene-free: it reads the scene table and may name scene keys.
+    scene = [*rows, ("scene_code", "T1.S1", code('x = {"条件表": []}'))]
+    assert placement(run("TARGET", scene, failable)) == set()
 
 
-@pytest.mark.parametrize(("family", "step"), [("HANDLE", "P6.S1"), ("KNOWLEDGE", "Q2.S1")])
+@pytest.mark.parametrize(
+    ("family", "step"), [("HANDLE", "P6.S1"), ("KNOWLEDGE", "Q2.S1"), ("FETCH", "F2.S1")]
+)
 def test_families_without_an_ese_rule_are_not_placed(family, step):
     rows = [("h", step, http()), ("w", step, workflow_tool()), ("m", step, llm())]
     assert placement(run(family, rows)) == set()

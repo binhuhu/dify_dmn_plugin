@@ -691,7 +691,10 @@ def test_the_way_in_answers_alike_for_either_spelling_of_a_handle_name():
     for name in (HANDLE, HANDLE_FULL):
         s = FakeStorage()
         body = json.dumps(dict(doc(name, APP), expected_version=0), ensure_ascii=False)
-        status, out = two_state.run_entry(s, "save", name, None, body)
+        # 0.5.44 (Brian 11-23「同意，收进闸」): a handle table is a main-chain policy table, saved from the maintenance app
+        status, out = two_state.run_entry(
+            s, "save", name, None, body, caller_app=two_state.MAINTENANCE_APP
+        )
         answers[name] = (status, (out.get("error") or {}).get("code"), out.get("version"))
         status, out = two_state.run_entry(s, "table", name)
         answers[name] += (status, out.get("version"), (out.get("doc") or {}).get("table"))

@@ -168,7 +168,7 @@ def test_the_safety_lines():
         stored_tables.MAX_COMBINATIONS,
         stored_tables.MAX_CONDITIONS,
         stored_tables.MAX_IN_VALUES,
-    ) == (32, 2048, 2048, 1024, 32, 1024)  # Brian 11-20「照建议放宽」：1 MiB 体积线成为真正的边界
+    ) == (32, 2048, 2048, 1024, 128, 1024)  # Brian 11-20「照建议放宽」：1 MiB 体积线成为真正的边界
     assert decision_v2.MAX_TEMPLATES == stored_tables.MAX_TEMPLATES
     assert (decision_v2.MAX_IDS, decision_v2.MAX_PASSTHROUGH, decision_v2.MAX_ID_VALUES) == (
         4096,
@@ -835,7 +835,7 @@ def test_op_v2_vocabulary_is_the_new_writing_s_declaration():
         "result_templates": 2048,
         "no_match_template_counted": False,
         "rows_per_rule": 1024,
-        "conditions_per_row": 32,
+        "conditions_per_row": 128,
         "in_values": 1024,
         "ids": 4096,
         "passthrough": 4096,
@@ -852,9 +852,21 @@ def test_op_vocabulary_and_capability_vocabulary_answer_as_before():
     from dmn_client.vocabulary import capability_declared, declared
 
     assert declared()["content_sha256"] == VOCABULARY_0538
-    # op=capability_vocabulary: the digest 0.5.40 (4de42e2) answered
-    assert capability_declared()["content_sha256"] == CAPABILITY_VOCABULARY_0540
+    # op=capability_vocabulary: the digest 0.5.40 (4de42e2) answered, until 0.5.44 listed the keys an item may carry
+    # besides its own (协调定 370 ①: call_ref on infos, and alternate_of that was never listed). Without those three
+    # entries it is 0.5.40's document still; with them, 0.5.44's.
+    out = capability_declared()
+    assert out["content_sha256"] == CAPABILITY_VOCABULARY_0544
+    body = {k: v for k, v in out.items() if k != "content_sha256"}
+    body["shapes"] = {
+        k: v
+        for k, v in body["shapes"].items()
+        if k not in ("fact_optional_keys", "info_keys", "info_optional_keys")
+    }
+    assert digest(body) == CAPABILITY_VOCABULARY_0540
 
 
 # op=capability_vocabulary's document digest on the 0.5.40 release tree (4de42e2)
 CAPABILITY_VOCABULARY_0540 = "b51d490874783975d9b1e320e41193685a867e5a652ca7399a36827772549d6f"
+# 0.5.44: the same document with shapes.fact_optional_keys / info_keys / info_optional_keys added
+CAPABILITY_VOCABULARY_0544 = "0cd8770ad6443f24a9ae970a08aca23592c2d053486a09e3c900674fa846f8a7"

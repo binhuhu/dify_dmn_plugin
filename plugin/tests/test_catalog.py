@@ -10,7 +10,7 @@ from test_route_table import FakeStorage
 from dmn_client import catalog
 from dmn_client.route_store import run_op
 from dmn_client.route_table import StorageTables, digest
-from dmn_client.two_state import run_entry
+from dmn_client.two_state import MAINTENANCE_APP, run_entry
 
 TOPIC = "target.scene.topic"
 OTHER_APP = "00000000-0000-4000-8000-0000000000aa"  # not the maintenance app: the catalog is for every consumer
@@ -243,10 +243,12 @@ def test_one_trial_name_may_hold_a_scene_topic_table_and_no_other():
         for k in ("schema", "intent_types", "rows", "declare")
         if k in head
     }
-    for name, want in (
-        ("trial.scene.topic", 200),
-        ("trial.scene.topics", 400),
-        ("target.scene.topic2", 400),
+    # 0.5.44: a target. name is a main-chain policy table, written only from the maintenance app; the name's own
+    # refusal is asked from there
+    for name, want, app in (
+        ("trial.scene.topic", 200, OTHER_APP),
+        ("trial.scene.topics", 400, OTHER_APP),
+        ("target.scene.topic2", 400, MAINTENANCE_APP),
     ):
         status, out = run_entry(
             storage,
@@ -256,7 +258,7 @@ def test_one_trial_name_may_hold_a_scene_topic_table_and_no_other():
             json.dumps(
                 {**doc, "table": name, "note": "trial", "expected_version": 0}, ensure_ascii=False
             ),
-            caller_app=OTHER_APP,
+            caller_app=app,
         )
         assert status == want, (name, out)
     assert StorageTables(storage).load("trial.scene.topic")["version"] == 1

@@ -185,8 +185,14 @@ def test_a_v2_reader_refuses_a_tried_receipt_and_its_conclusions():
 @pytest.mark.parametrize("op", ["save", "cases_check"])
 def test_a_schema_that_is_a_list_or_an_object_is_refused_as_a_format(schema, word, op):
     body = dict(copy.deepcopy(DOC), schema=schema, expected_version=0)
+    # 0.5.44: DOC is a triage. table, a main-chain policy table: its save is sent from the maintenance app
     status, out = two_state.run_entry(
-        F.MemoryStorage(), op, DOC["table"], None, json.dumps(body, ensure_ascii=False)
+        F.MemoryStorage(),
+        op,
+        DOC["table"],
+        None,
+        json.dumps(body, ensure_ascii=False),
+        caller_app=two_state.MAINTENANCE_APP,
     )
     assert (status, out["error"]["code"], out["error"]["path"]) == (
         400,
@@ -640,8 +646,14 @@ def wide_by_id(n, alternatives, same_path=False):
 
 
 def test_a_v2_crossing_over_many_id_columns_is_refused_as_it_goes():
-    """B1′：一格 1024 种 × 后面几百列，每种情形一过 32 条就拒（原来先造 1024 份越来越长的情形、再逐个去重：1000 列 47.6 秒）。"""
-    out = quick(wide_by_id(400, 1024), "DECISION_TABLE_INVALID", 5)
+    """B1′：一格 1024 种 × 后面几百列，边造边拒（原来先造 1024 份越来越长的情形、再逐个去重：1000 列 47.6 秒）。
+
+    0.5.44 条件线 32 → 128 以后，1024 种情形各过 128 条之前总条件先过 32768 条，所以这颗炸弹由总条件线拒；
+    情形条件线另用 64 种的那颗证（64 × 129 在总条件线内）。"""
+    out = quick(wide_by_id(400, 1024), "STORED_TABLE_TOO_LARGE", 5)
+    assert out["error"]["message"].startswith("导回的表超过存表线：条件已过")
+    assert out["error"]["path"] == "rule[0]"
+    out = quick(wide_by_id(400, 64), "DECISION_TABLE_INVALID", 5)
     assert (
         out["error"]["message"] == decision_v2.ROWS_RULE
     )  # 同 0.5.41 造完整张表后的答法，只是来得早
@@ -654,13 +666,13 @@ def test_a_v2_crossing_over_repeated_columns_is_counted_against_the_line():
     assert out["error"]["message"].startswith("导回的表超过存表线：条件已过")
 
 
-def test_a_v2_situation_of_32_conditions_is_taken_and_33_is_not():
-    """一格区间是两条条件（≥、≤），加 30 列各一条正好 32 条，照收；31 列过线（「-」格不算）。"""
-    out = dmn_xml.convert({"direction": "import", "dmn_xml": wide_by_id(30, 2)})
+def test_a_v2_situation_of_128_conditions_is_taken_and_129_is_not():
+    """一格区间是两条条件（≥、≤），加 126 列各一条正好 128 条，照收；127 列过线（「-」格不算）。0.5.44 起线是 128（原 32）。"""
+    out = dmn_xml.convert({"direction": "import", "dmn_xml": wide_by_id(126, 2)})
     assert out["status"] == "SUCCEEDED", out["error"]
     rows = out["document"]["decision"]["rules"][0]["rows"]
-    assert len(rows) == 2 and all(len(r) == 32 for r in rows)
-    out = dmn_xml.convert({"direction": "import", "dmn_xml": wide_by_id(31, 2)})
+    assert len(rows) == 2 and all(len(r) == 128 for r in rows)
+    out = dmn_xml.convert({"direction": "import", "dmn_xml": wide_by_id(127, 2)})
     assert (out["error"]["code"], out["error"]["path"]) == (
         "DECISION_TABLE_INVALID",
         "decision.rules[0].rows",

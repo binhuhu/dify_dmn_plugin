@@ -234,7 +234,7 @@ def test_other_limits_did_not_move():
         stored_tables.MAX_TEMPLATES,
         stored_tables.MAX_PARAMETERS,
         stored_tables.MAX_CONDITIONS,
-    ) == (2048, 32, 32)
+    ) == (2048, 32, 128)  # conditions 128 since 0.5.44
     assert (stored_tables.MAX_SUPPLEMENT_SCENES, stored_tables.MAX_TARGETS, MAX_BODY) == (
         1024,
         256,

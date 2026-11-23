@@ -185,7 +185,7 @@ def test_staged_sdk_registration_no_authorization_schema(tmp_path):
 from dify_plugin.core.plugin_registration import PluginRegistration
 from provider.dmn import JsonTableProvider
 r=PluginRegistration(DifyPluginEnv())
-assert r.configuration.version == "0.5.43-rc2"
+assert r.configuration.version == "0.5.44-rc2"
 c=r.tools_configuration[0]
 assert c.identity.name == "dmn_json"
 assert not c.credentials_schema

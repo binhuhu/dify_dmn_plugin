@@ -292,29 +292,29 @@ def test_io_codes_warn_and_fail_only_when_strict():
 
 def delivery_rows():
     return [
-        ("start", "O1.S1", start(sid=("text-input", 64))),
-        ("init", "O1.S1", code([("start", "sid")], case="string")),
-        ("locate_call", "O2.S1", {"type": "tool", "provider_type": "workflow", "title": "locate"}),
-        ("locate_req", "O2.S1", code([("init", "case")], req="string")),
-        ("summary", "O6.S2", code([("locate_req", "req")], out="string")),
-        ("fail_out", "O6.S3", code([("init", "error")], error_code="string")),
+        ("start", "I1.S1", start(sid=("text-input", 64))),
+        ("init", "I1.S1", code([("start", "sid")], case="string")),
+        ("locate_call", "T1.S1", {"type": "tool", "provider_type": "workflow", "title": "locate"}),
+        ("locate_req", "T1.S1", code([("init", "case")], req="string")),
+        ("summary", "E1.S1", code([("locate_req", "req")], out="string")),
+        ("fail_out", "S1.S3", code([("init", "error")], error_code="string")),
     ]
 
 
 def delivery_io():
-    io = {p: {"inputs": [], "outputs": []} for p in ("O1", "O2", "O3", "O4", "O5", "O6")}
-    io["O1"]["outputs"] = [{"var": "init.case", "shape": "string · 立案", "max_length": 100000}]
-    io["O2"]["inputs"] = [{"var": "init.case", "from": "O1"}]
-    io["O2"]["outputs"] = [
+    io = {p: {"inputs": [], "outputs": []} for p in ("I1", "T1", "A1", "D1", "S1", "H1", "E1")}
+    io["I1"]["outputs"] = [{"var": "init.case", "shape": "string · 立案", "max_length": 100000}]
+    io["T1"]["inputs"] = [{"var": "init.case", "from": "I1"}]
+    io["T1"]["outputs"] = [
         {"var": "locate_req.req", "shape": "string · 定位请求", "max_length": 100000}
     ]
-    io["O6"]["inputs"] = [{"var": "locate_req.req", "from": "O2"}]
+    io["E1"]["inputs"] = [{"var": "locate_req.req", "from": "T1"}]
     return io
 
 
 def delivery():
     structure, graph, key = build("DELIVERY", delivery_rows())
-    declare(structure, key, delivery_io(), ["O6.S3"], [])
+    declare(structure, key, delivery_io(), ["S1.S3"], [])
     return structure, graph, key
 
 

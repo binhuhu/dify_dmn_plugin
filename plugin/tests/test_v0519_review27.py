@@ -201,10 +201,11 @@ def combos_doc(n, size=1):
 def test_1_a_rule_takes_1024_combinations_and_refuses_1025():
     assert stored_tables.MAX_COMBINATIONS == 1024  # 0.5.41 (Brian 11-20「照建议放宽」): 128 → 1024
     assert validate(combos_doc(1024))
-    assert validate(combos_doc(2, size=32))
+    # 0.5.44 (Brian 11-23「照 128 改」): conditions of one situation 32 → 128
+    assert validate(combos_doc(2, size=128))
     exc = refused(combos_doc(1025), "DECISION_TABLE_INVALID")
     assert "1–1024 种组合" in exc.message and "rules[0]" in exc.path
-    refused(combos_doc(2, size=33), "DECISION_TABLE_INVALID")
+    refused(combos_doc(2, size=129), "DECISION_TABLE_INVALID")
 
 
 # ── 2a · 第 5、12 条：PENDING / UNKNOWN 必有完整 gap ──────────────────────────
@@ -921,10 +922,11 @@ def test_5_inline_output_shape_is_unchanged(case):  # noqa: F811
 @pytest.mark.parametrize(
     "when_any, code",
     [
-        ([ALWAYS] * 128, None),
-        ([ALWAYS] * 129, "INVALID_MODEL"),
-        ([ALWAYS * 33], "INVALID_MODEL"),
-        ([ALWAYS * 32], None),
+        # 0.5.44: the in-node lines are the stored tables' again (1024 / 128)
+        ([ALWAYS] * 1024, None),
+        ([ALWAYS] * 1025, "INVALID_MODEL"),
+        ([ALWAYS * 129], "INVALID_MODEL"),
+        ([ALWAYS * 128], None),
         ([], "SCHEMA_INVALID"),
         ([[]], "SCHEMA_INVALID"),
     ],

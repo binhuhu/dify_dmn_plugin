@@ -364,33 +364,45 @@ def delivery_step(value):
     return value["process"]["phases"][0]["steps"][0]
 
 
-def test_sample_places_unnumbered_gate_and_events():
-    value = sample()
-    placed = [
+def all_nodes(value):
+    return [
         n
         for w in [value["process"], *value["process"]["workflows"]]
         for p in w["phases"]
         for s in p["steps"]
         for n in s["nodes"]
-        if n["kind"] in {"GATE", "EVENT"}
     ]
-    assert {n["kind"] for n in placed} == {"GATE", "EVENT"}
-    assert len(placed) >= 3
-    assert all(n["ref"] is None for n in placed)
+
+
+def test_sample_numbers_its_gate_and_places_events_without_a_number():
+    # Brian 11-19「每个节点都编号」「开始、结束 不用吧」: an if-else gate is numbered, EVENTs are not.
+    value = sample()
+    gates = [n for n in all_nodes(value) if n["kind"] == "GATE"]
+    events = [n for n in all_nodes(value) if n["kind"] == "EVENT"]
+    assert gates and all(n["ref"] for n in gates)
+    assert len(events) >= 2 and all(n["ref"] is None for n in events)
     assert validate_structure(value) == []
 
 
-@pytest.mark.parametrize("kind", ["GATE", "EVENT"])
-def test_unnumbered_kind_with_a_number_is_rejected(kind):
+def test_unnumbered_kinds_are_events_only():
+    from dmn_client.psn.graph import UNNUMBERED_KINDS as graph_kinds
+    from dmn_client.psn.registry import UNNUMBERED as registry_kinds
+    from dmn_client.psn.structure import UNNUMBERED_KINDS
+
+    assert UNNUMBERED_KINDS == {"EVENT"}
+    assert graph_kinds is UNNUMBERED_KINDS and registry_kinds is UNNUMBERED_KINDS
+
+
+def test_event_with_a_number_is_rejected():
     value = sample()
     node = delivery_step(value)["nodes"][0]
-    node["kind"] = kind
-    node["ref"] = "DELIVERY/O1.S1.N9"
+    assert node["kind"] == "EVENT"
+    node["ref"] = "DELIVERY/I1.S1.N9"
     assert "UNNUMBERED_NODE_HAS_REF" in codes(value)
 
 
 @pytest.mark.parametrize(
-    "kind", ["DECISION", "CALL", "TOOL", "TRANSFORM", "QUERY", "MODEL", "JOIN", "LOOP"]
+    "kind", ["DECISION", "CALL", "TOOL", "TRANSFORM", "QUERY", "MODEL", "JOIN", "LOOP", "GATE"]
 )
 def test_numbered_kind_without_a_number_is_rejected(kind):
     value = sample()
@@ -406,7 +418,7 @@ def test_unnumbered_node_cannot_move():
     assert node["kind"] == "EVENT"
     node["status"] = "retired"
     node["retired_reason"] = "synthetic"
-    node["moved_to"] = "DELIVERY/O1.S1.N1"
+    node["moved_to"] = "DELIVERY/I1.S1.N1"
     assert "INVALID_MOVE" in codes(value)
 
 
@@ -429,7 +441,7 @@ def test_unnumbered_node_key_may_repeat_across_workflows():
 def test_cross_workflow_move_is_a_valid_tombstone_chain():
     value = sample()
     source = delivery_step(value)["nodes"][1]
-    assert source["ref"] == "DELIVERY/O1.S1.N1"
+    assert source["ref"] == "DELIVERY/I1.S1.N1"
     target_step = value["process"]["workflows"][0]["phases"][0]["steps"][0]
     assert target_step["id"] == "T1.S1"
     target_step["nodes"].append(
@@ -507,3 +519,170 @@ def test_knowledge_instance_rules(change, code):
     change(entry)
     value["process"]["workflows"].append(entry)
     assert code in codes(value)
+
+
+def fetch(key="FETCH.locate-query"):
+    entry = knowledge(key)
+    entry["family"] = "FETCH"
+    entry["name"] = "fetch app"
+    entry["phases"] = entry["phases"][:3]
+    for i, phase in enumerate(entry["phases"], start=1):
+        step = f"F{i}.S1"
+        phase.update(id=f"F{i}", name=f"f{i}")
+        phase["steps"][0]["id"] = step
+        node = phase["steps"][0]["nodes"][0]
+        node.update(node_key=f"f{i}_node", ref=f"{key}/{step}.N1")
+    return entry
+
+
+def test_fetch_instance_validates_with_fixed_f_phases():
+    # 协调定 292: FETCH (取数应用) is F1 定请求 → F2 取数 → F3 汇总.
+    value = sample()
+    value["process"]["workflows"].append(fetch())
+    assert validate_structure(value) == []
+    Draft202012Validator(json.loads(SCHEMA.read_text())).validate(value)
+
+
+@pytest.mark.parametrize(
+    "change,code",
+    [
+        (lambda w: w.update(key="FETCH"), "INVALID_WORKFLOW_KEY"),
+        (lambda w: w.update(family="KNOWLEDGE"), "WORKFLOW_FAMILY_MISMATCH"),
+        (lambda w: w["phases"][0].update(id="Q1"), "INVALID_PHASE_ID"),
+        (lambda w: w["phases"].pop(), "PHASE_SET_MISMATCH"),
+    ],
+)
+def test_fetch_instance_rules(change, code):
+    value = sample()
+    entry = fetch()
+    change(entry)
+    value["process"]["workflows"].append(entry)
+    assert code in codes(value)
+
+
+def entry_of(value, key):
+    return next(e for e in [value["process"], *value["process"]["workflows"]] if e["key"] == key)
+
+
+def test_main_chain_uses_the_five_segment_phases():
+    # DMN 标准 2.0.67/2.0.68: each flow declares only the phases it uses.
+    from dmn_client.psn.structure import PHASES
+
+    assert PHASES["DELIVERY"] == ("I1", "T1", "A1", "D1", "S1", "H1", "E1")
+    assert PHASES["TARGET"] == ("T1",)
+    assert PHASES["DISPATCH"] == ("A1", "D1")
+    value = sample()
+    assert [p["id"] for p in entry_of(value, "DELIVERY")["phases"]] == list(PHASES["DELIVERY"])
+    assert [p["id"] for p in entry_of(value, "TARGET")["phases"]] == ["T1"]
+    assert [p["id"] for p in entry_of(value, "DISPATCH")["phases"]] == ["A1", "D1"]
+
+
+def old_phases(entry, ids):
+    entry["phases"] = [{"id": i, "name": i, "steps": []} for i in ids]
+
+
+@pytest.mark.parametrize(
+    "key,ids",
+    [
+        ("DELIVERY", ["O1", "O2", "O3", "O4", "O5", "O6"]),
+        ("TARGET", ["T1", "T2", "T3", "T4"]),
+        ("DISPATCH", ["D1"]),
+    ],
+)
+def test_old_main_chain_phases_are_tombstones(key, ids):
+    value = sample()
+    old_phases(entry_of(value, key), ids)
+    issues = validate_structure(value)
+    old = [i for i in issues if i.code == "OLD_MAIN_CHAIN_PHASES"]
+    assert len(old) == 1 and old[0].path.endswith("/phases")
+
+
+def test_a_mixed_phase_set_is_a_mismatch_not_an_old_file():
+    value = sample()
+    old_phases(entry_of(value, "DISPATCH"), ["A1", "D1", "D2"])
+    found = codes(value)
+    assert "OLD_MAIN_CHAIN_PHASES" not in found
+    assert found & {"PHASE_SET_MISMATCH", "INVALID_PHASE_ID"}
+
+
+@pytest.mark.parametrize(
+    "key,step",
+    [("DELIVERY", "I1.S2"), ("DELIVERY", "E1.S2"), ("TARGET", "T1.S4"), ("DISPATCH", "A1.S3")],
+)
+def test_main_chain_steps_are_the_fixed_stations(key, step):
+    value = sample()
+    entry = entry_of(value, key)
+    phase = next(p for p in entry["phases"] if p["id"] == step.split(".")[0])
+    phase["steps"].append({"id": step, "name": "stray", "nodes": []})
+    assert "STEP_NOT_A_STATION" in codes(value)
+
+
+def test_every_station_step_is_accepted_and_other_families_number_steps_freely():
+    from dmn_client.psn.structure import STATIONS
+
+    value = sample()
+    delivery = entry_of(value, "DELIVERY")
+    for phase in delivery["phases"]:
+        have = {s["id"] for s in phase["steps"]}
+        for step in STATIONS:
+            if step.split(".")[0] == phase["id"] and step not in have:
+                phase["steps"].append({"id": step, "name": STATIONS[step], "nodes": []})
+    solution(value)["phases"][1]["steps"].append({"id": "P2.S9", "name": "free", "nodes": []})
+    assert validate_structure(value) == []
+    assert len(STATIONS) == 14
+
+
+def legacy_gate(value):
+    """Turn the sample's numbered gate back into one from before 11-19 (no number)."""
+    gate = next(n for n in delivery_step(value)["nodes"] if n["kind"] == "GATE")
+    gate["ref"] = None
+    return gate
+
+
+def test_unnumbered_gate_outside_the_stock_list_is_rejected():
+    value = sample()
+    legacy_gate(value)
+    assert "NUMBERED_NODE_MISSING_REF" in codes(value)
+
+
+def test_unnumbered_gate_in_the_stock_list_is_allowed():
+    value = sample()
+    gate = legacy_gate(value)
+    value["process"]["gates_pending_number"] = [gate["node_key"]]
+    assert validate_structure(value) == []
+    Draft202012Validator(json.loads(SCHEMA.read_text())).validate(value)
+
+
+@pytest.mark.parametrize(
+    "change",
+    ["numbered", "missing", "event", "transform", "retired", "other-workflow"],
+)
+def test_stock_list_only_names_unnumbered_active_gates_of_its_own_workflow(change):
+    value = sample()
+    gate = legacy_gate(value)
+    pending = [gate["node_key"]]
+    value["process"]["gates_pending_number"] = pending
+    if change == "numbered":
+        gate["ref"] = "DELIVERY/I1.S1.N2"
+    elif change == "missing":
+        pending.append("no_such_gate")
+    elif change == "event":
+        pending.append("delivery_start")
+    elif change == "transform":
+        pending.append("delivery_node_1")
+    elif change == "retired":
+        gate.update(status="retired", retired_reason="gone")
+    elif change == "other-workflow":
+        del value["process"]["gates_pending_number"]
+        entry_of(value, "TARGET")["gates_pending_number"] = pending
+    found = codes(value)
+    assert "PENDING_GATE_STALE" in found
+
+
+def test_stock_list_rejects_duplicates_and_bad_keys():
+    value = sample()
+    gate = legacy_gate(value)
+    value["process"]["gates_pending_number"] = [gate["node_key"], gate["node_key"]]
+    assert "INVALID_STRUCTURE" in codes(value)
+    value["process"]["gates_pending_number"] = ["1730000000000"]
+    assert "INVALID_STRUCTURE" in codes(value)

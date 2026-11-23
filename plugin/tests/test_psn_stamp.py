@@ -228,8 +228,9 @@ def test_cli_stamp_and_from_graph(tmp_path, capsys):
     [
         ("SOLUTION.coupon-use/P1.S1.N1", "name", "SOLUTION/P1.S1.N1 · name"),
         ("KNOWLEDGE.consult/Q1.S1.N2", "name", "Q1.S1.N2 · name"),
-        ("TARGET/T3.S1.N4", "name", "T3.S1.N4 · name"),
-        ("DELIVERY/O1.S1.N1", "", "O1.S1.N1"),
+        ("TARGET/T1.S2.N4", "name", "T1.S2.N4 · name"),
+        ("DELIVERY/I1.S1.N1", "", "I1.S1.N1"),
+        ("FETCH.locate-query/F2.S1.N13", "进线次数 · 发吗？", "F2.S1.N13 · 进线次数 · 发吗？"),
         ("KNOWLEDGE.consult/Q1.S1.N2", "名" * 80, "Q1.S1.N2 · " + "名" * 80),
     ],
 )
@@ -247,3 +248,86 @@ def test_other_families_drop_a_family_prefix_and_keep_the_bare_number():
     stamped, _ = stamp_graph(structure_, graph, key)
     assert stamped["nodes"][0]["data"]["title"] == "Q1.S1.N1 · parse"
     assert check_graph(structure_, stamped, key, strict=True)["issues"] == []
+
+
+def gate(title="订单 · 发吗？"):
+    return {"type": "if-else", "title": title, "desc": "", "cases": []}
+
+
+def fetch_rows():
+    return [
+        ("plan", "F1.S1", {"type": "code", "title": "plan", "desc": ""}),
+        ("en_od_go", "F2.S1", gate()),
+        ("read_order", "F2.S1", {"type": "http-request", "title": "订单"}),
+        ("collect", "F3.S1", {"type": "code", "title": "collect", "desc": ""}),
+    ]
+
+
+def test_an_if_else_gate_is_checked_and_stamped_like_any_numbered_node():
+    structure_, graph, key = build("FETCH", fetch_rows())
+    report = check_graph(structure_, graph, key)
+    assert ("NOT_STAMPED", "en_od_go") in {(i["code"], i.get("node_key")) for i in report["issues"]}
+    stamped, summary = stamp_graph(structure_, graph, key)
+    data = next(n for n in stamped["nodes"] if n["id"] == "en_od_go")["data"]
+    assert data["title"] == "F2.S1.N1 · 订单 · 发吗？"
+    assert data["desc"].splitlines()[-1] == "psn:FETCH.locate-query/F2.S1.N1"
+    assert summary["stamped"] == 4
+    assert check_graph(structure_, stamped, key, strict=True)["issues"] == []
+    result, problems = from_graph(stamped, key, "FETCH")
+    assert problems == [] and result["steps"] == skeleton(structure_, key)["steps"]
+
+
+def pending_fetch():
+    """A FETCH structure whose gate predates 11-19: no number, listed as stock."""
+    structure_, graph, key = build("FETCH", fetch_rows())
+    entry = structure_["process"]["workflows"][0]
+    for phase in entry["phases"]:
+        for step in phase["steps"]:
+            for node in step["nodes"]:
+                if node["node_key"] == "en_od_go":
+                    node["ref"] = None
+    entry["gates_pending_number"] = ["en_od_go"]
+    return structure_, graph, key
+
+
+def test_a_gate_in_the_stock_list_is_left_alone():
+    structure_, graph, key = pending_fetch()
+    stamped, summary = stamp_graph(structure_, graph, key)
+    before = next(n for n in graph["nodes"] if n["id"] == "en_od_go")
+    after = next(n for n in stamped["nodes"] if n["id"] == "en_od_go")
+    assert after == before and summary["stamped"] == 3
+    assert check_graph(structure_, stamped, key, strict=True)["issues"] == []
+    result, problems = from_graph(stamped, key, "FETCH", {"en_od_go"})
+    assert problems == [] and result["steps"] == skeleton(structure_, key)["steps"]
+    # Without the stock list, a gate with no psn line is unstamped like any other node.
+    assert from_graph(stamped, key, "FETCH")[1] == ["en_od_go"]
+
+
+def test_cli_from_graph_reads_the_stock_list_from_the_structure(tmp_path, capsys):
+    structure_, graph, key = pending_fetch()
+    stamped, _ = stamp_graph(structure_, graph, key)
+    s = tmp_path / "s.json"
+    s.write_text(json.dumps(structure_))
+    g = tmp_path / "g.json"
+    g.write_text(json.dumps({"graph": stamped}))
+    assert main(["from-graph", "--graph", str(g), "--workflow", key, "--structure", str(s)]) == 0
+    out = json.loads(capsys.readouterr().out)
+    assert out["unstamped_nodes"] == [] and out["matches_structure"] is True
+    assert main(["from-graph", "--graph", str(g), "--workflow", key]) == 1
+
+
+@pytest.mark.parametrize(
+    ("old", "name"),
+    [
+        ("F2.S1：读订单", "读订单"),
+        ("Q1：解析", "解析"),
+        ("A1.S2：受理策略", "受理策略"),
+        ("O1.S1：旧段号", "旧段号"),
+        ("F1–F3 整条", "整条"),
+        ("E1", ""),
+    ],
+)
+def test_old_style_prefixes_of_every_phase_letter_are_dropped(old, name):
+    from dmn_client.psn.stamp import bare_title
+
+    assert bare_title(old) == name

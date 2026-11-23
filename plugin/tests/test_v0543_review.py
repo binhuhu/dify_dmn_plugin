@@ -251,14 +251,17 @@ def test_r2b_in_signed_mode_the_issue_acceptance_undo_needs_a_writer():
 
 
 def test_r2b_in_open_mode_the_issue_acceptance_undo_is_as_its_save():
-    """Open mode (live): the table is policy configuration, saved by any app (ruling 11-18); its undo likewise."""
+    """Open mode (live): its undo is as its save. 0.5.44 (Brian 11-23「收进 0.5.44」): a main-chain policy table, saved
+    and undone only from the maintenance app (was: any app)."""
     from scene_bundle_fixtures import seed
 
     storage = seed()
     rename(storage, "accept.issue.acceptance")
     v = head(storage, "accept.issue.acceptance")["version"]
+    result = run_entry(storage, "undo", "accept.issue.acceptance", v, None, caller_app=OTHER_APP)
+    assert code(result) == (403, "STORED_TABLE_WRITERS_APP_REJECTED"), result
     status, out = run_entry(
-        storage, "undo", "accept.issue.acceptance", v, None, caller_app=OTHER_APP
+        storage, "undo", "accept.issue.acceptance", v, None, caller_app=MAINTENANCE_APP
     )
     assert status == 200, out
 
@@ -270,8 +273,11 @@ def test_r2_the_capability_tables_undo_is_as_its_save():
     assert run_op(storage, "save", "", body=dict(capability_doc(), expected_version=0))[0] == 200
     rename(storage, "trigger.capability.catalog")
     v = head(storage, "trigger.capability.catalog")["version"]
+    # 0.5.44: as its save, only from the maintenance app (was: any app)
+    result = run_entry(storage, "undo", "trigger.capability.catalog", v, None, caller_app=OTHER_APP)
+    assert code(result) == (403, "STORED_TABLE_WRITERS_APP_REJECTED"), result
     status, out = run_entry(
-        storage, "undo", "trigger.capability.catalog", v, None, caller_app=OTHER_APP
+        storage, "undo", "trigger.capability.catalog", v, None, caller_app=MAINTENANCE_APP
     )
     assert status == 200, out
 

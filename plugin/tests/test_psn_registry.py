@@ -51,11 +51,86 @@ def test_tombstones_keep_their_numbers_reserved():
     assert refs == [f"{KEY}/P1.S1.N4"]
 
 
-def test_unnumbered_nodes_get_no_number():
-    new = assign(structure(), [add("new_gate", kind="GATE")])
-    node = next(n for n in nodes_of(new, KEY, "P1.S2") if n["node_key"] == "new_gate")
-    assert node["ref"] is None
+def test_a_new_gate_takes_a_number_and_an_event_does_not():
+    # Brian 11-19「每个节点都编号」: an if-else gate takes the next free number of its step.
+    new = assign(structure(), [add("new_gate", kind="GATE"), add("new_end", kind="EVENT")])
+    nodes = {n["node_key"]: n for n in nodes_of(new, KEY, "P1.S2")}
+    assert nodes["new_gate"]["ref"] == f"{KEY}/P1.S2.N3"
+    assert nodes["new_end"]["ref"] is None
     assert diff(structure(), new)["ok"]
+
+
+def with_legacy_gate():
+    """The fixture plus a gate placed before 11-19 (no number, listed as stock)."""
+    value = structure()
+    entry = next(e for e in value["process"]["workflows"] if e["key"] == KEY)
+    nodes_of(value, KEY, "P1.S2").append(
+        {
+            "node_key": "old_gate",
+            "ref": None,
+            "kind": "GATE",
+            "order": 90,
+            "status": "ACTIVE",
+            "name": "Old gate",
+        }
+    )
+    entry["gates_pending_number"] = ["old_gate"]
+    assert validate_structure(value) == []
+    return value
+
+
+def number(node_key):
+    return {"action": "number", "workflow": KEY, "node_key": node_key}
+
+
+def test_number_gives_a_legacy_gate_the_next_free_number_and_shrinks_the_stock():
+    old = with_legacy_gate()
+    new = assign(old, [number("old_gate")])
+    gate = next(n for n in nodes_of(new, KEY, "P1.S2") if n["node_key"] == "old_gate")
+    assert gate["ref"] == f"{KEY}/P1.S2.N3"
+    entry = next(e for e in new["process"]["workflows"] if e["key"] == KEY)
+    assert "gates_pending_number" not in entry
+    report = diff(old, new)
+    assert report["ok"]
+    assert report["changes"]["numbered"] == [
+        {"ref": f"{KEY}/P1.S2.N3", "node_key": "old_gate", "workflow": KEY}
+    ]
+    assert report["counts"]["added"] == 0 and report["counts"]["retired"] == 0
+
+
+@pytest.mark.parametrize(
+    "node_key,code",
+    [
+        ("solution_node_1", "RENUMBER_REFUSED"),
+        ("solution_start", "NOT_NUMBERABLE"),
+        ("no_such_node", "UNKNOWN_NODE"),
+    ],
+)
+def test_number_refuses_numbered_events_and_unknown_nodes(node_key, code):
+    with pytest.raises(AssignRefused) as exc:
+        assign(with_legacy_gate(), [number(node_key)])
+    assert exc.value.code == code
+
+
+def test_retiring_a_legacy_gate_takes_it_off_the_stock():
+    old = with_legacy_gate()
+    new = assign(
+        old, [{"action": "retire", "workflow": KEY, "node_key": "old_gate", "reason": "x"}]
+    )
+    entry = next(e for e in new["process"]["workflows"] if e["key"] == KEY)
+    assert "gates_pending_number" not in entry
+    assert diff(old, new)["ok"]
+
+
+def test_diff_refuses_a_growing_stock():
+    old = structure()
+    new = with_legacy_gate()
+    report = diff(old, new)
+    assert report["ok"] is False
+    assert report["violations"] == [
+        {"code": "PENDING_GATE_ADDED", "workflow": KEY, "node_key": "old_gate"}
+    ]
+    assert diff(new, with_legacy_gate())["ok"]
 
 
 def test_adding_an_existing_key_is_refused():
@@ -130,9 +205,14 @@ def test_kind_change_may_not_add_or_drop_a_number():
     with pytest.raises(AssignRefused) as exc:
         assign(
             structure(),
-            [{"action": "kind", "workflow": KEY, "node_key": "solution_node_1", "kind": "GATE"}],
+            [{"action": "kind", "workflow": KEY, "node_key": "solution_node_1", "kind": "EVENT"}],
         )
     assert exc.value.code == "KIND_CHANGE_REFUSED"
+    new = assign(
+        structure(),
+        [{"action": "kind", "workflow": KEY, "node_key": "solution_node_1", "kind": "GATE"}],
+    )
+    assert diff(structure(), new)["counts"]["kind_changed"] == 1
 
 
 def test_retire_keeps_the_tombstone():
