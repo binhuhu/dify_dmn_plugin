@@ -7,15 +7,20 @@ from copy import deepcopy
 
 from .check import check_graph, structure_nodes
 from .graph import DESC_PREFIX, STAMP_SEPARATOR, UNNUMBERED_KINDS, dify_kind, stamp_title
+from .structure import OLD_PHASES, PENDING_FIELD, PHASES
 
 _NUMBER = r"(?:[A-Z]+(?:\.[a-z0-9-]+)?/)?[A-Z][1-9][0-9]*\.S[1-9][0-9]*\.N[1-9][0-9]*"
 
 _OWN_PREFIX = re.compile("^" + _NUMBER + re.escape(STAMP_SEPARATOR))
-_OLD_PREFIXES = (
-    re.compile(r"^[OTDP][0-9](\.S[0-9]+)?[：:·]\s*"),
-    re.compile(r"^[OTDP][0-9][–-][OTDP][0-9]\s*"),
+# Phase letters of every family, current and tombstoned, from the one phase table.
+_LETTERS = "[%s]" % "".join(
+    sorted({p[0] for table in (PHASES, OLD_PHASES) for ids in table.values() for p in ids})
 )
-_BARE_PHASE = re.compile(r"^[OTDP][0-9]$")
+_OLD_PREFIXES = (
+    re.compile(r"^" + _LETTERS + r"[0-9](\.S[0-9]+)?[：:·]\s*"),
+    re.compile(r"^" + _LETTERS + r"[0-9][–-]" + _LETTERS + r"[0-9]\s*"),
+)
+_BARE_PHASE = re.compile(r"^" + _LETTERS + r"[0-9]$")
 _OWN_TAIL = re.compile("^" + _NUMBER + "$")
 
 # Check codes that mean the graph and the structure disagree; stamping would hide that.
@@ -70,7 +75,7 @@ def stamp_graph(structure, graph, key) -> tuple[dict, dict]:
         snode, step = placed[node["id"]]
         data = node["data"]
         before = (data.get("title"), data.get("desc"))
-        if snode["kind"] not in UNNUMBERED_KINDS:
+        if snode["ref"] is not None:
             data["title"] = stamp_title(snode["ref"], bare_title(data.get("title")))
             data["desc"] = stamped_desc(data.get("desc"), f"{DESC_PREFIX}{snode['ref']}")
         if (data.get("title"), data.get("desc")) == before:
@@ -96,10 +101,18 @@ def skeleton(structure, key) -> dict:
     return {"format": "psn-skeleton/v1", "workflow": key, "family": entry["family"], "steps": steps}
 
 
-def from_graph(graph, key, family) -> dict:
+def pending_gates(structure, key) -> set:
+    """The gates a structure entry still lists as waiting for a number."""
+    entry, _placed = structure_nodes(structure, key)
+    return set(entry.get(PENDING_FIELD, []))
+
+
+def from_graph(graph, key, family, pending=()) -> dict:
     """Read the numbered nodes' skeleton back from a stamped graph's desc psn lines.
 
-    Unnumbered nodes carry no psn line, so they are skipped rather than reported."""
+    EVENT nodes carry no psn line, so they are skipped rather than reported; so are the
+    gates in ``pending`` (the structure's gates_pending_number). Any other node without a
+    psn line is a problem, an if-else gate included."""
     steps = {}
     problems = []
     for node in graph["nodes"]:
@@ -109,7 +122,9 @@ def from_graph(graph, key, family) -> dict:
             if raw.strip().startswith(DESC_PREFIX):
                 line = raw.strip()[len(DESC_PREFIX) :]
         kind = dify_kind(data)
-        if line is None and kind in UNNUMBERED_KINDS:
+        if line is None and (
+            kind in UNNUMBERED_KINDS or (kind == "GATE" and node["id"] in pending)
+        ):
             continue
         if line is None or not line.startswith(f"{key}/") or line.split("/", 1)[1].count(".") != 2:
             problems.append(node["id"])

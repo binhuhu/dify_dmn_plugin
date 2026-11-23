@@ -10,22 +10,14 @@ from .graph import dify_kind, is_dmn, is_dmn_call
 
 # Where each placed category may sit, by family: a step id, or a phase id meaning any of its
 # steps. An empty set means nowhere; a category left out may sit anywhere.
+# The main chain (DELIVERY, TARGET, DISPATCH) has no placement table: ESE F06–F08 were written
+# for the phases before the 11-23 cut (O1–O6, T1–T4, D1) and went with them; the standard does not
+# yet say which categories a station may hold. Failure handling (L5) and the scene-definition
+# check do not depend on steps and still apply.
 PLACES = {
-    "DELIVERY": {
-        "DECISION": {"O2.S3"},
-        "CALL": {"O1.S1", "O1.S3", "O2.S1", "O3.S2", "O4.S1"},
-        "FETCH": set(),
-        "MODEL": {"O5.S1"},
-        "LOOP": {"O6.S1"},
-    },
-    "TARGET": {"MODEL": {"T2.S1"}, "FETCH": {"T3.S1"}, "CALL": set()},
-    "DISPATCH": {
-        "DECISION": {"D1.S2"},
-        "CALL": set(),
-        "FETCH": set(),
-        "MODEL": set(),
-        "LOOP": set(),
-    },
+    "DELIVERY": {},
+    "TARGET": {},
+    "DISPATCH": {},
     "SOLUTION": {
         "FETCH": {"P1.S1"},
         "LOOP": {"P1.S1"},
@@ -38,9 +30,7 @@ PLACES = {
 # a workflow tool (CALL, placed above) or an http-request fetch (not a model-reading one, not
 # knowledge retrieval, not another plugin tool).
 P4_FETCH = {"SOLUTION": "P4.S1"}
-RULE = {"DELIVERY": "F06", "TARGET": "F07", "DISPATCH": "F08", "SOLUTION": "F09"}
-
-NO_HTTP = {"DELIVERY", "DISPATCH"}
+RULE = {"SOLUTION": "F09"}
 
 SCENE_FREE = {"DELIVERY", "DISPATCH"}
 
@@ -87,9 +77,7 @@ def placement_issues(family, nodes, placed, out_edges) -> list[tuple]:
     places = PLACES.get(family)
     if places is None:
         return []
-    rule = RULE[family]
     found = []
-    decisions = 0
     for node_id, node in nodes.items():
         record = placed.get(node_id)
         if record is None or record[0]["status"] == "retired":
@@ -98,15 +86,7 @@ def placement_issues(family, nodes, placed, out_edges) -> list[tuple]:
         ref = snode["ref"]
         data = node["data"]
         cat = category(data)
-        if cat == "DECISION":
-            decisions += 1
-        if cat == "CALL" and places.get("CALL") == set():
-            message = f"{family} calls no sub-workflow; this node does (ESE {rule})."
-            found.append(("WORKFLOW_CALL_FORBIDDEN", node_id, message, ref))
-        elif family in NO_HTTP and data.get("type") == "http-request":
-            message = f"{family} has no http-request nodes (ESE {rule})."
-            found.append(("MISPLACED_NODE", node_id, message, ref))
-        elif (
+        if (
             cat in places
             and not _allowed(places[cat], step)
             and not _p4_fetch(family, data, cat, step)
@@ -135,15 +115,9 @@ def placement_issues(family, nodes, placed, out_edges) -> list[tuple]:
             if marker is not None:
                 message = (
                     f"Code carries the scene definition key {marker!r}; {family} does not read"
-                    f" scene cards (ESE {rule})."
+                    " scene cards: scenes come from the scene table only (DMN standard 2.0)."
                 )
                 found.append(("SCENE_DEFINITION_IN_CODE", node_id, message, ref))
-    if family == "DISPATCH" and decisions != 1:
-        message = (
-            f"DISPATCH has {decisions} decision nodes; ESE F08 wants exactly one,"
-            " the route table in D1.S2."
-        )
-        found.append(("DISPATCH_DECISION_COUNT", None, message, None))
     return found
 
 

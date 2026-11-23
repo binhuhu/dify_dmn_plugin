@@ -7,7 +7,6 @@ from collections import defaultdict, deque
 from ..node_contract import ContractError, resolve_node
 from .graph import (
     DESC_PREFIX,
-    UNNUMBERED_KINDS,
     bundle_of,
     desc_is_stamped,
     dify_kind,
@@ -38,8 +37,6 @@ SEVERITY = {
     "SILENT_DMN_DEFAULT": "WARN",
     "DMN_STATUS_UNCHECKED": "WARN",
     "MISPLACED_NODE": "WARN",
-    "WORKFLOW_CALL_FORBIDDEN": "WARN",
-    "DISPATCH_DECISION_COUNT": "WARN",
     "NO_FAILURE_HANDLING": "WARN",
     "SCENE_DEFINITION_IN_CODE": "WARN",
     "SILENT_FETCH_DEFAULT": "WARN",
@@ -154,7 +151,8 @@ def check_graph(structure, graph, key, *, strict=False) -> dict:
             report(
                 "FAIL_BRANCH_DANGLING", node_id, "fail-branch is set but no fail edge leaves.", ref
             )
-        if snode["kind"] in UNNUMBERED_KINDS:
+        if ref is None:
+            # EVENT, or a gate still listed in gates_pending_number: nothing to stamp yet.
             continue
         problem = title_problem(data.get("title"), ref)
         if problem is None and not desc_is_stamped(data.get("desc"), ref):

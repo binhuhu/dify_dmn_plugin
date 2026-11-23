@@ -11,10 +11,10 @@ import json
 import sys
 from pathlib import Path
 
-from .check import StructureInputError, check_graph, structure_nodes
+from .check import StructureInputError, check_graph
 from .graph import GraphInputError, dump_document, load_document, load_graph
 from .registry import AssignRefused, assign, diff
-from .stamp import StampRefused, from_graph, skeleton, stamp_graph
+from .stamp import StampRefused, from_graph, pending_gates, skeleton, stamp_graph
 
 
 def _load_json(path):
@@ -64,10 +64,10 @@ def cmd_stamp(args) -> int:
 def cmd_from_graph(args) -> int:
     graph = load_graph(args.graph)
     family = args.workflow.split(".", 1)[0]
-    result, problems = from_graph(graph, args.workflow, family)
-    if args.structure:
-        structure = _load_json(args.structure)
-        structure_nodes(structure, args.workflow)  # the key must exist
+    structure = _load_json(args.structure) if args.structure else None
+    pending = pending_gates(structure, args.workflow) if structure else set()
+    result, problems = from_graph(graph, args.workflow, family, pending)
+    if structure:
         result["matches_structure"] = result["steps"] == skeleton(structure, args.workflow)["steps"]
     result["unstamped_nodes"] = sorted(problems)
     print(json.dumps(result, ensure_ascii=False, indent=2))

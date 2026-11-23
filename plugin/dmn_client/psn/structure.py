@@ -10,14 +10,48 @@ from pathlib import Path
 
 from jsonschema import Draft202012Validator
 
+# Fixed phases per family (DMN 标准 2.0「PSN 编号」). The main chain (DELIVERY, TARGET, DISPATCH)
+# uses the five-segment phases of 2.0.67/2.0.68 and each flow declares only the phases it uses;
+# FETCH (取数应用) is F1 定请求 → F2 取数 → F3 汇总 (协调定 292). The old main-chain phases
+# (DELIVERY O1–O6, TARGET T2–T4, DISPATCH D1-only) are tombstones: files that still use them are
+# invalid here and stay only as listed stock (see OLD_PHASES).
 PHASES = {
-    "DELIVERY": ("O1", "O2", "O3", "O4", "O5", "O6"),
-    "TARGET": ("T1", "T2", "T3", "T4"),
-    "DISPATCH": ("D1",),
+    "DELIVERY": ("I1", "T1", "A1", "D1", "S1", "H1", "E1"),
+    "TARGET": ("T1",),
+    "DISPATCH": ("A1", "D1"),
     "SOLUTION": ("P1", "P2", "P3", "P4", "P5"),
     "HANDLE": ("P6", "P7"),
     "KNOWLEDGE": ("Q1", "Q2", "Q3", "Q4"),
+    "FETCH": ("F1", "F2", "F3"),
 }
+# The phase sets the main chain used before the 11-23 cut; their numbers are never reused.
+OLD_PHASES = {
+    "DELIVERY": ("O1", "O2", "O3", "O4", "O5", "O6"),
+    "TARGET": ("T1", "T2", "T3", "T4"),
+    "DISPATCH": ("D1",),
+}
+# Main chain: a step is a station, and a station has the same step id in every flow (2.0.67).
+MAIN_CHAIN = ("DELIVERY", "TARGET", "DISPATCH")
+STATIONS = {
+    "I1.S1": "接入",
+    "T1.S1": "场景",
+    "T1.S2": "关联实体",
+    "T1.S3": "补充信息",
+    "A1.S1": "场景成立",
+    "A1.S2": "受理策略",
+    "D1.S1": "方案路由",
+    "D1.S2": "资源路由",
+    "S1.S1": "查询",
+    "S1.S2": "事实还原",
+    "S1.S3": "处置方案",
+    "H1.S1": "处置",
+    "H1.S2": "工单处理",
+    "E1.S1": "运行回执",
+}
+# Families whose instance key is <FAMILY>.<app key>; the rest use the bare family name.
+KEYED_FAMILIES = ("SOLUTION", "KNOWLEDGE", "FETCH")
+BARE_KEYS = ("DELIVERY", "TARGET", "DISPATCH", "HANDLE")
+INSTANCE_KEY = re.compile(r"(%s)\.[a-z0-9-]+" % "|".join(KEYED_FAMILIES))
 FORBIDDEN_KEYS = {
     "workflow_id",
     "app_id",
@@ -27,8 +61,12 @@ FORBIDDEN_KEYS = {
     "definition_sha256",
     "plugin_unique_identifier",
 }
-# Dify start/end/if-else/iteration-start/loop-start nodes: placed in a Step, never numbered.
-UNNUMBERED_KINDS = {"GATE", "EVENT"}
+# The one list of kinds that carry no number (Brian 11-19「每个节点都编号」「开始、结束 不用吧」):
+# EVENT = Dify start, end, answer, iteration-start, loop-start, loop-end. An if-else GATE is
+# numbered like any other node; a gate numbered before that rule only stays without a number
+# while its workflow lists it in gates_pending_number (stock that may only shrink).
+UNNUMBERED_KINDS = frozenset({"EVENT"})
+PENDING_FIELD = "gates_pending_number"
 
 IO_FIELDS = {"io", "fail_exits", "raw_fetch_steps"}
 MAX_BYTES = 1_048_576
@@ -161,6 +199,37 @@ def _check_io(workflow, wp, fail) -> None:
             seen.add((item["var"], source))
 
 
+def _old_phase_issues(value) -> list[StructureIssue]:
+    """Name a main-chain entry that still declares the phases from before the 11-23 cut.
+
+    Those numbers are tombstones (never reused); such a file is re-issued on the new phase
+    table, or kept as listed stock, never accepted as a current structure."""
+    process = value.get("process") if isinstance(value, dict) else None
+    if not isinstance(process, dict):
+        return []
+    workflows = process.get("workflows")
+    entries = [(process, "/process")] + [
+        (w, f"/process/workflows/{i}")
+        for i, w in enumerate(workflows if isinstance(workflows, list) else [])
+    ]
+    found = []
+    for entry, wp in entries:
+        if not isinstance(entry, dict) or not isinstance(entry.get("phases"), list):
+            continue
+        ids = {p.get("id") for p in entry["phases"] if isinstance(p, dict)}
+        old = OLD_PHASES.get(entry.get("family"))
+        if old and ids == set(old) and ids != set(PHASES[entry["family"]]):
+            found.append(
+                StructureIssue(
+                    "OLD_MAIN_CHAIN_PHASES",
+                    wp + "/phases",
+                    "These are the main-chain phases from before the 11-23 cut; their numbers are"
+                    " tombstones. Re-issue on the current phase table or keep as listed stock.",
+                )
+            )
+    return found
+
+
 def validate_structure(value: object) -> list[StructureIssue]:
     """Return deterministic diagnostics (empty means valid); never modify value.
 
@@ -171,6 +240,7 @@ def validate_structure(value: object) -> list[StructureIssue]:
     if issues:
         return issues
     issues = [_shape_issue(error) for error in _VALIDATOR.iter_errors(value)]
+    issues += _old_phase_issues(value)
     if issues:
         return sorted(set(issues), key=lambda issue: (issue.path, issue.code))
 
@@ -189,9 +259,7 @@ def validate_structure(value: object) -> list[StructureIssue]:
         if key in workflows:
             fail("DUPLICATE_WORKFLOW_KEY", wp + "/key", "Workflow instance keys must be unique.")
         workflows.add(key)
-        valid_key = key in {"DELIVERY", "TARGET", "DISPATCH", "HANDLE"} or re.fullmatch(
-            r"(SOLUTION|KNOWLEDGE)\.[a-z0-9-]+", key
-        )
+        valid_key = key in BARE_KEYS or INSTANCE_KEY.fullmatch(key)
         if not valid_key:
             fail("INVALID_WORKFLOW_KEY", wp + "/key", "Use a declared workflow instance key.")
         if key.split(".", 1)[0] != family:
@@ -199,6 +267,8 @@ def validate_structure(value: object) -> list[StructureIssue]:
         phase_ids = [phase["id"] for phase in workflow["phases"]]
         if set(phase_ids) != set(PHASES[family]):
             fail("PHASE_SET_MISMATCH", wp + "/phases", "Declare each fixed family phase once.")
+        pending = workflow.get(PENDING_FIELD, [])
+        pending_seen = set()
         for pi, phase in enumerate(workflow["phases"]):
             pp = f"{wp}/phases/{pi}"
             step_ids = set()
@@ -209,6 +279,12 @@ def validate_structure(value: object) -> list[StructureIssue]:
                 step_ids.add(step["id"])
                 if not re.fullmatch(re.escape(phase["id"]) + r"\.S[1-9][0-9]*", step["id"]):
                     fail("INVALID_STEP_ID", sp + "/id", "Step must belong to its enclosing phase.")
+                elif family in MAIN_CHAIN and step["id"] not in STATIONS:
+                    fail(
+                        "STEP_NOT_A_STATION",
+                        sp + "/id",
+                        "A main-chain step is a station with one fixed step id in every flow.",
+                    )
                 for ni, node in enumerate(step["nodes"]):
                     np = f"{sp}/nodes/{ni}"
                     if not re.fullmatch(r"[A-Za-z][A-Za-z0-9_-]{0,63}", node["node_key"]):
@@ -223,7 +299,8 @@ def validate_structure(value: object) -> list[StructureIssue]:
                             fail(
                                 "UNNUMBERED_NODE_HAS_REF",
                                 np + "/ref",
-                                "GATE and EVENT nodes are placed without a number; ref must be null.",
+                                "EVENT nodes (start, end, answer, loop and iteration starts)"
+                                " are placed without a number; ref must be null.",
                             )
                         if "moved_to" in node:
                             fail(
@@ -233,10 +310,18 @@ def validate_structure(value: object) -> list[StructureIssue]:
                             )
                         continue
                     if node["ref"] is None:
+                        if (
+                            node["kind"] == "GATE"
+                            and node["status"] == "ACTIVE"
+                            and node["node_key"] in pending
+                        ):
+                            pending_seen.add(node["node_key"])
+                            continue
                         fail(
                             "NUMBERED_NODE_MISSING_REF",
                             np + "/ref",
-                            "Every node other than GATE and EVENT carries a registered number.",
+                            "Every node other than EVENT carries a registered number, if-else gates"
+                            f" too; an older unnumbered gate is allowed only in {PENDING_FIELD}.",
                         )
                         continue
                     prefix = f"{key}/{step['id']}"
@@ -245,6 +330,14 @@ def validate_structure(value: object) -> list[StructureIssue]:
                             "REF_MISMATCH", np + "/ref", "Ref must use its enclosing instance/step."
                         )
                     by_ref[node["ref"]].append((node, np))
+        for i, node_key in enumerate(pending):
+            if node_key not in pending_seen:
+                fail(
+                    "PENDING_GATE_STALE",
+                    f"{wp}/{PENDING_FIELD}/{i}",
+                    "Stock only shrinks: list only ACTIVE unnumbered GATE nodes of this workflow;"
+                    " drop a gate once it is numbered or gone.",
+                )
         _check_io(workflow, wp, fail)
 
     for records in by_ref.values():

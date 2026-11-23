@@ -50,20 +50,21 @@
                 "properties": {
                   "id": {
                     "enum": [
-                      "O1",
-                      "O2",
-                      "O3",
-                      "O4",
-                      "O5",
-                      "O6"
+                      "I1",
+                      "T1",
+                      "A1",
+                      "D1",
+                      "S1",
+                      "H1",
+                      "E1"
                     ]
                   }
                 }
               }
             ]
           },
-          "minItems": 6,
-          "maxItems": 6
+          "minItems": 7,
+          "maxItems": 7
         },
         "workflows": {
           "type": "array",
@@ -77,6 +78,9 @@
         },
         "raw_fetch_steps": {
           "$ref": "#/$defs/step_list"
+        },
+        "gates_pending_number": {
+          "$ref": "#/$defs/pending_gates"
         }
       },
       "required": [
@@ -109,6 +113,9 @@
             },
             {
               "pattern": "^KNOWLEDGE\\.[a-z0-9-]+$"
+            },
+            {
+              "pattern": "^FETCH\\.[a-z0-9-]+$"
             }
           ]
         },
@@ -118,7 +125,8 @@
             "DISPATCH",
             "SOLUTION",
             "HANDLE",
-            "KNOWLEDGE"
+            "KNOWLEDGE",
+            "FETCH"
           ]
         },
         "level": {
@@ -145,6 +153,9 @@
         },
         "raw_fetch_steps": {
           "$ref": "#/$defs/step_list"
+        },
+        "gates_pending_number": {
+          "$ref": "#/$defs/pending_gates"
         }
       },
       "required": [
@@ -168,16 +179,13 @@
           "then": {
             "properties": {
               "phases": {
-                "minItems": 4,
-                "maxItems": 4,
+                "minItems": 1,
+                "maxItems": 1,
                 "items": {
                   "properties": {
                     "id": {
                       "enum": [
-                        "T1",
-                        "T2",
-                        "T3",
-                        "T4"
+                        "T1"
                       ]
                     }
                   }
@@ -197,12 +205,13 @@
           "then": {
             "properties": {
               "phases": {
-                "minItems": 1,
-                "maxItems": 1,
+                "minItems": 2,
+                "maxItems": 2,
                 "items": {
                   "properties": {
                     "id": {
                       "enum": [
+                        "A1",
                         "D1"
                       ]
                     }
@@ -301,6 +310,34 @@
         {
           "if": {
             "properties": {
+              "family": {
+                "const": "FETCH"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "phases": {
+                "minItems": 3,
+                "maxItems": 3,
+                "items": {
+                  "properties": {
+                    "id": {
+                      "enum": [
+                        "F1",
+                        "F2",
+                        "F3"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
               "key": {
                 "const": "TARGET"
               }
@@ -370,6 +407,25 @@
             "properties": {
               "family": {
                 "const": "KNOWLEDGE"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "key": {
+                "pattern": "^FETCH\\."
+              }
+            },
+            "required": [
+              "key"
+            ]
+          },
+          "then": {
+            "properties": {
+              "family": {
+                "const": "FETCH"
               }
             }
           }
@@ -613,6 +669,14 @@
         "max_length"
       ],
       "additionalProperties": false
+    },
+    "pending_gates": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,63}$"
+      },
+      "uniqueItems": true
     }
   }
 }

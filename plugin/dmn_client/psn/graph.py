@@ -10,7 +10,7 @@ import json
 import re
 from pathlib import Path
 
-UNNUMBERED_KINDS = {"GATE", "EVENT"}
+from .structure import UNNUMBERED_KINDS  # noqa: F401  (one list; re-exported for callers)
 
 # Dify node type -> PSN kind. Tools are split below (DMN plugin / workflow tool / other).
 _KIND_BY_TYPE = {

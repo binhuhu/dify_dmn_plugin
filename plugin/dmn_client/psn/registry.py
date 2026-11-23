@@ -5,9 +5,9 @@ from __future__ import annotations
 import re
 from copy import deepcopy
 
-from .structure import PHASES, validate_structure
+from .structure import PENDING_FIELD, PHASES, UNNUMBERED_KINDS, validate_structure
 
-UNNUMBERED = {"GATE", "EVENT"}
+UNNUMBERED = UNNUMBERED_KINDS
 _N = re.compile(r"\.N([1-9][0-9]*)$")
 
 
@@ -61,6 +61,15 @@ def _step(entry, step_id, step_name, index):
 def _next_ref(entry, step):
     used = [int(m.group(1)) for n in step["nodes"] if n["ref"] and (m := _N.search(n["ref"]))]
     return f"{entry['key']}/{step['id']}.N{max(used, default=0) + 1}"
+
+
+def _drop_pending(entry, node_key):
+    """Take a gate off the stock list; the list goes once it is empty."""
+    pending = entry.get(PENDING_FIELD)
+    if pending and node_key in pending:
+        pending.remove(node_key)
+        if not pending:
+            del entry[PENDING_FIELD]
 
 
 def _next_order(step):
@@ -127,8 +136,25 @@ def assign(structure, placement) -> dict:
             if node["ref"] is None:
                 # An unnumbered node holds no number, so it simply leaves the structure.
                 _step_obj["nodes"].remove(node)
+                _drop_pending(entry, node_key)
             else:
                 node.update(status="retired", retired_reason=item["reason"])
+        elif action == "number":
+            # Give a node placed without a number (an if-else gate from before 11-19) the next
+            # free number of its own step, and take it off gates_pending_number.
+            node, step = _find(entry, node_key)
+            if node is None:
+                raise AssignRefused("UNKNOWN_NODE", f"{node_key} is not ACTIVE", index)
+            if node["ref"] is not None:
+                raise AssignRefused(
+                    "RENUMBER_REFUSED", f"{node_key} already has a number; use move", index
+                )
+            if node["kind"] in UNNUMBERED:
+                raise AssignRefused(
+                    "NOT_NUMBERABLE", f"{node['kind']} nodes carry no number", index
+                )
+            node["ref"] = _next_ref(entry, step)
+            _drop_pending(entry, node_key)
         elif action == "kind":
             node, _step_obj = _find(entry, node_key)
             if node is None:
@@ -171,12 +197,24 @@ def _unnumbered(structure):
     return nodes
 
 
+def _pending(structure):
+    return {e["key"]: set(e.get(PENDING_FIELD, [])) for e in _entries(structure)}
+
+
 def diff(old, new) -> dict:
     """Changes from old to new. ok is False when a number was dropped, reused or renumbered."""
     a, b = _numbered(old), _numbered(new)
     changes = {
         k: []
-        for k in ("added", "retired", "moved", "moved_cross_workflow", "renamed", "kind_changed")
+        for k in (
+            "added",
+            "numbered",
+            "retired",
+            "moved",
+            "moved_cross_workflow",
+            "renamed",
+            "kind_changed",
+        )
     }
     violations = []
     move_targets = set()
@@ -233,10 +271,28 @@ def diff(old, new) -> dict:
                 {"code": "RENUMBERED", "ref": ref, "node_key": after["node_key"], "was": was}
             )
     ua, ub = _unnumbered(old), _unnumbered(new)
+    # A node that was placed without a number and now has one was numbered in place (the
+    # assign "number" action), not removed and added again.
+    numbered_now = {
+        (r.split("/", 1)[0], n["node_key"]): r
+        for r, n in b.items()
+        if r not in a and r not in move_targets
+    }
+    numbered = {key: numbered_now[key] for key in set(ua) - set(ub) if key in numbered_now}
+    for key, ref in sorted(numbered.items()):
+        changes["numbered"].append({"ref": ref, "node_key": key[1], "workflow": key[0]})
+    changes["added"] = [
+        c for c in changes["added"] if (c["ref"].split("/", 1)[0], c["node_key"]) not in numbered
+    ]
     for key in sorted(set(ub) - set(ua)):
         changes["added"].append({"ref": None, "node_key": key[1], "workflow": key[0]})
-    for key in sorted(set(ua) - set(ub)):
+    for key in sorted(set(ua) - set(ub) - set(numbered)):
         changes["retired"].append({"ref": None, "node_key": key[1], "workflow": key[0]})
+    # The stock of gates waiting for a number may only shrink.
+    old_pending = _pending(old)
+    for wf, keys in sorted(_pending(new).items()):
+        for node_key in sorted(keys - old_pending.get(wf, set())):
+            violations.append({"code": "PENDING_GATE_ADDED", "workflow": wf, "node_key": node_key})
     for key in sorted(set(ua) & set(ub)):
         if ua[key][0]["kind"] != ub[key][0]["kind"]:
             changes["kind_changed"].append(
