@@ -14,7 +14,7 @@ PSN 结构是一份离线注册表，层级是 Process → workflows → phases 
 
 | 规则 | 内容 | 由谁把关 |
 | --- | --- | --- |
-| R1 稳定 id | workflow 键 `^[A-Z]+(\.[a-z0-9-]+)?$`；每个 workflow 声明固定 phase 列表；step `{Phase}.S{n}`；node `N{m}`；`node_key` 是 Dify 节点 id，纯数字报 `UNSTABLE_NODE_KEY` | `validate_structure` |
+| R1 稳定 id | workflow 键 `^[A-Z]+(\.[a-z0-9-]+)?$`；每个 workflow 声明固定 phase 列表；step `{Phase}.S{n}`（主链路的 step 就是站，号固定，见下）；node `N{m}`；`node_key` 是 Dify 节点 id，纯数字报 `UNSTABLE_NODE_KEY` | `validate_structure` |
 | R2 只增不改 | S、N 一经分配不改、不复用；删除 = retired 墓碑；换 Step = 墓碑 + 新号 + `moved_to`；显示顺序用 `order`，与号码无关 | 单份快照：`validate_structure`；前后两版：`psn diff`，新号由 `psn assign` 分配 |
 | R3 结构里没有版本 | 任何层级出现版本、发布或平台身份字段即失败（`VERSION_FIELD_IN_STRUCTURE`），字段清单见下文 | `validate_structure`、查看器导入 |
 | R4 层级 | DELIVERY 是 PROCESS，其余是 WORKFLOW；状态 ACTIVE / PAUSED；P6、P7 只在 HANDLE | `validate_structure` |
@@ -22,7 +22,7 @@ PSN 结构是一份离线注册表，层级是 Process → workflows → phases 
 | R6 实例键与编号族 | 结构和给人看的编号用实例键（`SOLUTION.coupon-use/P4.S2.N3`）；DMN `node_ref.workflow_id` 用编号族（`SOLUTION`） | `psn check`；运行时 `psn_ref` 用编号族形式 |
 
 W1–W9 是 10-16 的合并修订，散在各节里：
-- W1：GATE / EVENT 节点不编号，但仍归属 Step；
+- W1（2026-11-23 改）：只有 EVENT（start、end、answer、iteration-start、loop-start、loop-end）不编号，仍归属 Step；if-else 分支闸（GATE）和别的节点一样编号（Brian 11-19「每个节点都编号」「开始、结束 不用吧」，DMN 标准 2.0「PSN 编号」，协调定 292）。11-19 之前没编号的闸只许列在本 workflow 的 `gates_pending_number` 里，名单只减不增，见「存量：没编号的分支闸」；
 - W2：workflow 键与编号族，即 R6；
 - W3：R3 只扫描结构实例；
 - W4：`NODE_REF_UNRESOLVABLE`；
@@ -31,6 +31,11 @@ W1–W9 是 10-16 的合并修订，散在各节里：
 - W7：标题前缀的替换规则；
 - W8：只增不改的分配；
 - W9：迁移可以跨 workflow。
+
+2026-11-23 起照 DMN 标准 2.0「PSN 编号」（2.0.61、2.0.67、2.0.68）与协调定 292 改了三处（协调 11-23 裁：同一类一次改完）：
+- 主链路三条流程换成五段段表，旧段号作墓碑，见「主链路段表与站」「旧段号怎么判」；
+- 加取数族 FETCH（F1–F3）；
+- 分支闸编号（W1），没编号的老闸进存量名单。
 
 2026-10-23 起照 Dify 宿主 方案构建标准 solution-app/v1 改了两处：
 - 方案应用（SOLUTION）的标题带编号族、全长不超过 60 字，即 N2，见 stamp 一节；其余编号族保留旧写法；
@@ -43,14 +48,48 @@ W1–W9 是 10-16 的合并修订，散在各节里：
 
 | `key`（实例键） | `family`（家族名） | 固定 phase id 列表 |
 | --- | --- | --- |
-| DELIVERY | DELIVERY | O1, O2, O3, O4, O5, O6 |
-| TARGET | TARGET | T1, T2, T3, T4 |
-| DISPATCH | DISPATCH | D1 |
+| DELIVERY（交付编排） | DELIVERY | I1, T1, A1, D1, S1, H1, E1 |
+| TARGET（定位） | TARGET | T1 |
+| DISPATCH（分诊） | DISPATCH | A1, D1 |
 | SOLUTION.coupon-use（合成示例） | SOLUTION | P1, P2, P3, P4, P5 |
 | HANDLE | HANDLE | P6, P7 |
 | KNOWLEDGE.consult（咨询问答，2026-10-22 加） | KNOWLEDGE | Q1, Q2, Q3, Q4 |
+| FETCH.locate-query（取数应用，2026-11-23 加） | FETCH | F1, F2, F3 |
 
-`key` 满足 `^[A-Z]+(\.[a-z0-9-]+)?$`；当前声明的家族如上，SOLUTION 使用 `SOLUTION.<方案键>`、KNOWLEDGE 使用 `KNOWLEDGE.<应用键>`，不把裸家族名当实例键。可有多个不同的 SOLUTION（或 KNOWLEDGE）实例，其编号和 node_key 独立。KNOWLEDGE 的四段：Q1 定问题（解析入参、标准化与分域、定检索范围）、Q2 取知识（检索）、Q3 作答（候选与分路、快路选句、慢路综合）、Q4 出口；阶段码用 Q 而不用 K，是为了不和咨询评测的「K3 线」、追问决策「K2」撞名。`family` 必须等于 `key` 点号前部分。每个条目显式声明固定 phase 集合且不重复；phase 数组顺序可调整，身份不变。phase 内可暂时没有 steps，step 内可没有 nodes；step 保留其 `id`，不能按数组位置重编。
+`key` 满足 `^[A-Z]+(\.[a-z0-9-]+)?$`；当前声明的家族如上，SOLUTION 使用 `SOLUTION.<方案键>`、KNOWLEDGE 使用 `KNOWLEDGE.<应用键>`、FETCH 使用 `FETCH.<应用键>`，不把裸家族名当实例键。可有多个不同的 SOLUTION（或 KNOWLEDGE、FETCH）实例，其编号和 node_key 独立。FETCH 的三段（协调定 292，骨架照定位查询 `psn.json`）：F1 定请求（核请求、照能力表挑这次要读的能力行、排各支路请求）、F2 取数（每个能力一条同型支路：发不发 → 读 → 压读回）、F3 汇总出口（拼成一份结果）；段号用 F 而不用 E，是因为现网定位查询 11-18 已发了 F 号，E 又和 ESE 的 EVIDENCE 族 E1 撞码；F1–F3 后面总跟 `.S`，和 ESE 结构规则号 F01–F13 写法不同。KNOWLEDGE 的四段：Q1 定问题（解析入参、标准化与分域、定检索范围）、Q2 取知识（检索）、Q3 作答（候选与分路、快路选句、慢路综合）、Q4 出口；阶段码用 Q 而不用 K，是为了不和咨询评测的「K3 线」、追问决策「K2」撞名。`family` 必须等于 `key` 点号前部分。每个条目显式声明固定 phase 集合且不重复；phase 数组顺序可调整，身份不变。phase 内可暂时没有 steps，step 内可没有 nodes；step 保留其 `id`，不能按数组位置重编。
+
+### 主链路段表与站（2026-11-23，标准 2.0.67、2.0.68）
+
+主链路三条流程照五段编：`I1` 接入（前置，不算段，只在交付编排）、`T1` 触发、`A1` 受理、`D1` 分配、`S1` 方案、`H1` 处理，交付编排另有结束段 `E1`。每个流程只声明它用到的段（见上表）。步 = 站，号是站在本段里的序号，同一站在哪张图里都是同一个步号；主链路里写别的步号报 `STEP_NOT_A_STATION`：
+
+| 段 | 站（步号 · 名） |
+| --- | --- |
+| I1 | I1.S1 接入 |
+| T1 | T1.S1 场景、T1.S2 关联实体、T1.S3 补充信息 |
+| A1 | A1.S1 场景成立、A1.S2 受理策略 |
+| D1 | D1.S1 方案路由、D1.S2 资源路由 |
+| S1 | S1.S1 查询、S1.S2 事实还原、S1.S3 处置方案 |
+| H1 | H1.S1 处置、H1.S2 工单处理（留给处理段建起来时用） |
+| E1 | E1.S1：唯一结束节点前出运行回执的那个代码节点编 `DELIVERY/E1.S1.N1`；E1 不是站，不进十二站；结束节点本身不编号 |
+
+方案、知识、取数三族和 HANDLE 不在主链路改造里，步号照旧由各自分配。
+
+### 旧段号怎么判（2026-11-23）
+
+11-23 一窗切以前主链路用的段号——`DELIVERY` O1–O6、`TARGET` T1–T4、`DISPATCH` 只有 D1——整批作墓碑：
+- **号不复用。** 旧号（如 `DELIVERY/O2.S3.N1`、`TARGET/T3.S1.N4`）永远不再分配给别的节点；新图照新段表从头编，不从旧号迁移（旧图已经退役，没有 `moved_to` 可接）。
+- **结构文件只认新段表。** 一个主链路条目声明的段正好是旧段集合时，`validate_structure` 报 `OLD_MAIN_CHAIN_PHASES`（连同 schema 的段不符），结构判无效，`psn check` / `stamp` / `assign` 退出码 2。旧段与新段混着写的，照常报 `PHASE_SET_MISMATCH` / `INVALID_PHASE_ID`。
+- **仓内的旧段号文件**：能照新标准重出的重出；属于已退役旧图的（如 10-15 的交付候选结构、81 库里 O1–O6 的行），留作历史，登记进存量清单（只减不增），不再拿当前检查器校验。存量清单在父仓 `80_服务方案Monorepo/00_governance/contracts/psn/`，不在本仓。
+- 标题里的旧式前缀（`O1：`、`T3.S1：`）`stamp` 仍会去掉，换成新号。
+
+### 存量：没编号的分支闸（`gates_pending_number`，2026-11-23）
+
+process 与每个 workflow 可选 `gates_pending_number`：本条目里 11-19 之前放进来、还没编号的 if-else 节点的 node_key 列表（不重复）。规则：
+- 没编号的 GATE 不在名单里，报 `NUMBERED_NODE_MISSING_REF`；
+- 名单里的每一项必须是本条目里 ACTIVE、`ref` 为 null 的 GATE，否则报 `PENDING_GATE_STALE`（编上号了、删掉了、写错条目、写成别的 kind，都要从名单里删）；
+- 名单只减不增：`psn diff` 发现新版名单多出一项（含新条目自带名单）报 `PENDING_GATE_ADDED`，不通过；
+- 补号用 `psn assign` 的 `number` 动作：在闸所在的步取下一个空号（只增不改，号码顺序不跟执行顺序），同时从名单里删，名单删空就去掉这个字段；`psn diff` 把它记成 `numbered`，不记成退役加新增；
+- `psn check` 和 `stamp` 跳过名单里的闸（它没有号可写）；`from-graph` 带 `--structure` 时也跳过它们，不带就照没写编号报。
 
 workflow `status` 为 ACTIVE 或 PAUSED；HANDLE 合成样例为 PAUSED。结构不嵌入 graph，因此 PAUSED 不要求提供图；ACTIVE 对应图的完整性属于第 2 项。P6/P7 仅能出现在 HANDLE。样例五个条目各有两个 Step，名称、节点和迁移全部为合成数据。
 
@@ -59,15 +98,15 @@ phase 字段：`id`、`name`、`steps`，可选 `io`（见下文「Phase 输入�
 | 字段 | 含义 |
 | --- | --- |
 | `node_key` | 稳定 Dify 节点身份键，`^[A-Za-z][A-Za-z0-9_-]{0,63}$`；纯数字拒绝 |
-| `ref` | 完整实例编号，如 `SOLUTION.coupon-use/P4.S2.N3`；N 从 1 起、不带前导零。GATE / EVENT 节点的 `ref` 必须为 `null`，其余 kind 必须有号（W1） |
-| `kind` | DECISION / CALL / TOOL / TRANSFORM / QUERY / MODEL / JOIN / LOOP，以及不编号的 GATE（Dify if-else）和 EVENT（start、end、iteration-start、loop-start） |
+| `ref` | 完整实例编号，如 `SOLUTION.coupon-use/P4.S2.N3`；N 从 1 起、不带前导零。EVENT 节点的 `ref` 必须为 `null`，其余 kind（含 GATE）必须有号；没编号的老闸只许在 `gates_pending_number` 里（W1） |
+| `kind` | DECISION / CALL / TOOL / TRANSFORM / QUERY / MODEL / JOIN / LOOP / GATE（Dify if-else，编号），以及不编号的 EVENT（start、end、answer、iteration-start、loop-start、loop-end） |
 | `order` | 非负整数，独立的显示排序值；不参与身份分配，可有相同值 |
 | `status` | ACTIVE 或 retired（区分大小写） |
 | `retired_reason` | retired 必填且非空白，ACTIVE 不得带此字段 |
 | `moved_to` | 仅编号节点的 retired 墓碑可带，指向同一文件内另一 Step 中同一 node_key 的完整实例 ref；目标可以在另一个 workflow（W9），因为实例 ref 已经带 workflow 键 |
 | `name` | 非空显示名 |
 
-开始、结束、if-else、iteration-start、loop-start 不分配 PSN 编号。Dify 节点类型与 kind 的对应，以及图有没有覆盖结构，见下文 `psn check` 一节。
+开始、结束、answer、iteration-start、loop-start、loop-end 不分配 PSN 编号；if-else 分配。Dify 节点类型与 kind 的对应，以及图有没有覆盖结构，见下文 `psn check` 一节。
 
 ### Phase 输入输出声明（标准 C10，2026-10-23 加）
 
@@ -152,11 +191,14 @@ PY
 | INVALID_WORKFLOW_KEY / WORKFLOW_FAMILY_MISMATCH | 未声明/非法实例键，或实例与家族不符 |
 | UNSTABLE_NODE_KEY | 非语义节点键，含纯数字、非法字符、超长 |
 | INVALID_PHASE_ID / PHASE_SET_MISMATCH | 非法 phase（含 SOLUTION/P6），固定列表缺失/重复 |
+| OLD_MAIN_CHAIN_PHASES | 主链路条目声明的是 11-23 以前的旧段集合（DELIVERY O1–O6、TARGET T1–T4、DISPATCH 只有 D1），见「旧段号怎么判」 |
 | INVALID_STEP_ID / DUPLICATE_STEP_ID | Step 不属于 phase、非法号码或重号 |
+| STEP_NOT_A_STATION | 主链路的 Step 不是固定的站号（见「主链路段表与站」） |
 | INVALID_REF / REF_MISMATCH | ref 格式错误或与所属实例/Step 不一致 |
 | DUPLICATE_WORKFLOW_KEY / DUPLICATE_NODE_KEY | 重复实例或无迁移链的重复节点身份 |
 | DUPLICATE_REF / RETIRED_REF_REUSED | 节点重号，或任一冲突号已被 retired 占用 |
-| UNNUMBERED_NODE_HAS_REF / NUMBERED_NODE_MISSING_REF | GATE / EVENT 带了号，或其他 kind 没有号（W1） |
+| UNNUMBERED_NODE_HAS_REF / NUMBERED_NODE_MISSING_REF | EVENT 带了号，或其他 kind（含 GATE）没有号、又不在 `gates_pending_number` 里（W1） |
+| PENDING_GATE_STALE | `gates_pending_number` 里的一项不是本条目 ACTIVE、没编号的 GATE |
 | INVALID_MOVE | 迁移目标不存在、同 Step、不同身份、合流或环；不编号节点带 `moved_to` |
 | VERSION_FIELD_IN_STRUCTURE | 结构任何深度含版本/部署身份字段 |
 | INVALID_LEVEL / INVALID_STRUCTURE | 层级错误或其余类型、字段、输入边界错误 |
@@ -191,14 +233,12 @@ python -m dmn_client.psn check --structure ../examples/psn/structure.synthetic.j
 | NODE_REF_MISMATCH | FAIL | `node_ref` 的「编号族 + phase + step + node」与结构编号不同（R5、R6） |
 | NODE_REF_UNRESOLVABLE | FAIL | 用插件自己的 `resolve_node`，在节点自带的 `definition_bundle_json` 里解析不到 |
 | FAIL_BRANCH_DANGLING | FAIL | `error_strategy: fail-branch`，但没有 `sourceHandle: fail-branch` 的出边 |
-| NOT_STAMPED | WARN | 编号节点的标题不以编号开头（后接 ` · 名称` 或什么都不接），或描述里没有 `psn:<实例 ref>` 一行（GATE / EVENT 不查）。SOLUTION 按 N2：编号写编号族形式 `SOLUTION/P4.S2.N3`，不带族的 `P4.S2.N3 · `、实例键 `SOLUTION.coupon-use/P4.S2.N3 · ` 都算没写，全长超过 60 字也算没写。其余编号族照旧：裸编号，如 `Q1.S1.N2`，不限长度 |
+| NOT_STAMPED | WARN | 编号节点（含分支闸）的标题不以编号开头（后接 ` · 名称` 或什么都不接），或描述里没有 `psn:<实例 ref>` 一行（EVENT 和 `gates_pending_number` 里的闸不查）。SOLUTION 按 N2：编号写编号族形式 `SOLUTION/P4.S2.N3`，不带族的 `P4.S2.N3 · `、实例键 `SOLUTION.coupon-use/P4.S2.N3 · ` 都算没写，全长超过 60 字也算没写。其余编号族照旧：裸编号，如 `Q1.S1.N2`，不限长度 |
 | SILENT_DMN_DEFAULT | WARN | 决策节点用 `default-value`：插件本身崩溃或超时时，错误被默认值替代 |
 | DMN_STATUS_UNCHECKED | WARN | 从决策节点沿连线往下，没有任何代码节点同时引用这个节点的输出和 `execution_status` |
 | MISPLACED_NODE | WARN | 节点的类别不该出现在这个 Step（F06–F09，见下文「放错层与失败处理」） |
-| WORKFLOW_CALL_FORBIDDEN | WARN | TARGET、DISPATCH 里有工作流工具节点：这两条 workflow 不调子流程（F07、F08）。DELIVERY、SOLUTION 的工作流调用按 Step 放位置，放错报 `MISPLACED_NODE` |
-| DISPATCH_DECISION_COUNT | WARN | DISPATCH 的决策节点不是恰好 1 个（F08）；这一条不指认节点 |
 | NO_FAILURE_HANDLING | WARN | 工作流工具、取数、模型或决策节点没有失败处理：没有 fail-branch 出边，不是 `default-value`，也不在 continue-on-error 的循环里（L5） |
-| SCENE_DEFINITION_IN_CODE | WARN | DELIVERY、DISPATCH 的代码节点里带了场景定义（F06、F08） |
+| SCENE_DEFINITION_IN_CODE | WARN | DELIVERY、DISPATCH 的代码节点里带了场景定义（场景目录只认表） |
 | SILENT_FETCH_DEFAULT | WARN | SOLUTION 的取数节点用 `default-value`：http-request，以及 P1.S1 的工作流调用（取数应用）。取数失败被默认值替代，「没取到」会被当成「没有」（标准 N4） |
 | PHASE_IO_UNDECLARED_OUTPUT | WARN | 跨 Phase 读了对方没声明为输出的变量（标准 C10、F11，只查声明了 io 的 workflow，下同） |
 | PHASE_IO_UNDECLARED_INPUT | WARN | 跨 Phase 读变量，本 Phase 却没声明这条输入 |
@@ -217,14 +257,16 @@ Dify 节点类型与 kind 的对应：
 - variable-aggregator 是 JOIN；
 - iteration / loop 是 LOOP；
 - if-else 是 GATE；
-- start / end / answer / iteration-start / loop-start 是 EVENT。
+- start / end / answer / iteration-start / loop-start / loop-end 是 EVENT。
 
 合成样例 `examples/psn/graph.solution.synthetic.json` 由 `plugin/tests/psn_fixtures.py` 生成，测试保证两者一致。其中 `solution_decision` 带的是仓库可求值示例定义包，id 换成编号族形式（SOLUTION / N1），所以同一张图既能查，也能写编号后真求值。
 
 ### 放错层与失败处理（F06–F09、L5）
 
+**主链路没有放置表（2026-11-23）。** F06–F08 是照 11-23 以前的旧段表写的（交付 O2.S3 放决策、定位 T3.S1 取数、分诊只许 D1.S2 一个决策、交付和分诊不许 http-request、定位和分诊不调子流程），随旧段号一起作废：一窗切后的现网定位在 T1.S1 调工作台上下文应用、分诊有四个决策节点、交付编排有 http-request。标准还没定每个站能放哪些类别，所以 DELIVERY、TARGET、DISPATCH 不再报 `MISPLACED_NODE`、`WORKFLOW_CALL_FORBIDDEN`、`DISPATCH_DECISION_COUNT`（后两个码留在报告 schema 里，旧报告照样合法）；不看步号的两条照查：失败处理（L5）三族都查，场景定义写进代码（`SCENE_DEFINITION_IN_CODE`）查 DELIVERY 和 DISPATCH。FETCH 的放置规则等取数应用构建标准定稿再加。
+
 支持的结构检查规则：
-- `50_ticket/40_五级结构/核对规则.json` 的 F06–F09；
+- `50_ticket/40_五级结构/核对规则.json` 的 F09（F06–F08 见上）；
 - 同目录 `五级骨架.json` 的 DELIVERY step 表；
 - 检查器 `60_application/gate/五级结构检查.js` 第 121–149 行。
 
@@ -242,9 +284,7 @@ Dify 节点类型与 kind 的对应：
 
 | 编号族 | 规则 | 决策 | workflow 调用 | 取数 | 模型 | 循环 | 另外 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| DELIVERY | F06 | O2.S3 | O1.S1、O1.S3、O2.S1、O3.S2、O4.S1 | 无 | O5.S1 | O6.S1 | 不许 http-request（调模型的也不许）；代码节点不带场景定义 |
-| TARGET | F07 | 不限 | 无 | T3.S1 | T2.S1 | 不限 | — |
-| DISPATCH | F08 | D1.S2，恰好 1 个 | 无 | 无 | 无 | 无 | 不许 http-request；代码节点不带场景定义 |
+| DELIVERY、TARGET、DISPATCH | — | 不限 | 不限 | 不限 | 不限 | 不限 | 失败处理照查；DELIVERY、DISPATCH 的代码节点不带场景定义 |
 | SOLUTION | F09 | P1.S2、P2–P5 | P1.S1（标准，不查调的是哪个应用） | P1.S1 | P1.S1，且只许模型识读格 | P1.S1 | 取数不给默认值（N4） |
 
 - **模型识读格**（F09，标准 N6）：模型节点在 P1.S1、位于取数循环里（有父循环），并且被标成识读格（标题含「模型识读」，或 http 的 url 含登记的模型路径）。此检查不限于 http-request 节点。
@@ -256,11 +296,10 @@ Dify 节点类型与 kind 的对应：
   决策节点用 default-value 虽然算有失败处理，`SILENT_DMN_DEFAULT` 仍然提示。
 - **取数不给默认值（标准 N4，只查 SOLUTION）**：http-request（包括模型识读格），以及 P1.S1 的工作流调用（取数应用），用 `error_strategy: default-value` 时报 `SILENT_FETCH_DEFAULT`。在 continue-on-error 循环里的也报：默认值会把失败的那一条变成空，循环后就核不出哪些条目失败。L5 照 结构检查规则仍把 default-value 算作有失败处理，所以这类节点只报这一条，不报 `NO_FAILURE_HANDLING`。
 - **场景定义**：代码里出现 场景卡编译器写的键（`"场景最小参数集"`、`"必要成立条件"`、`"预判成立条件"`、`"充分成立条件"`、`"条件表"`、`"必要快照表"`）即报。代码里 `gunzipSync(Buffer.from("…",'base64'))` 包着的数据块先解压再查，单块最多读 16 MiB。
-- **DELIVERY 的 workflow 调用 Step** 以 `五级骨架.json` 为准，结构检查器也读这份；`核对规则.json` 的 F06 原文还写着 O1.S2。
 
 **没有搬的：**
 - F10（PREDICT）、F12（EVIDENCE）：psn-structure/v1 没有这两个编号族；
-- HANDLE、KNOWLEDGE：当前没有对应规则；
+- HANDLE、KNOWLEDGE、FETCH：当前没有对应规则；
 - 骨架里逐 Step 列出的代码、汇合类别：那是 约定的 Step 排法；
 - F01–F05：一一对应、编号、归属、类别、不编号，psn check 已有各自的码；
 - F13（代码节点输出深度）。
@@ -316,12 +355,12 @@ python -m dmn_client.psn from-graph --graph STAMPED --workflow KEY [--structure 
   - SOLUTION 的标题全长不超过 60 字，超了截名称，不截编号；截断处末尾的空格一并去掉。字数按 UTF-16 码元算，与 JavaScript 的 `length` 和 五级结构检查（F02）一致：一般汉字、字母、标点各算 1，BMP 以外的字符（如表情）算 2，且不会被截成半个。
   - 名称为空时只写编号，如 `SOLUTION/P1.S2.N2`、`Q1.S1.N2`。只有阶段码的标题（如 `P1`）、只有编号的标题都算没有名称。
 - **描述。** 已有文字原样保留，末尾放一行 `psn:<实例 ref>`。旧的 psn 行先删掉，所以不会叠加。
-- **不编号的 GATE / EVENT 节点一个字节都不动。** 与发布时写编号的规则相同。
+- **不编号的 EVENT 节点、`gates_pending_number` 里的闸一个字节都不动。** 分支闸有号就和别的编号节点一样写标题和描述。
 - **决策节点的 `node_ref` 一律不写（W6）。** 它和节点自带定义包里的编号是同一个号，只改一处会解析不到；缺失或不一致都由生成节点的构建脚本连同定义包一起改。
 - **同一张图 stamp 两次，结果相同。**
 - **写编号前后，用同一份输入调 `evaluate_decision`，结果完全相同。** 测试用合成样例里那个可求值的决策节点验证。
 
-`from-graph` 从已写编号的图里，按描述中的 psn 行读回编号节点的骨架（step、node_key、ref、kind），可以和结构的骨架比对。不编号节点不带 psn 行，读回时跳过。
+`from-graph` 从已写编号的图里，按描述中的 psn 行读回编号节点的骨架（step、node_key、ref、kind），可以和结构的骨架比对。EVENT 不带 psn 行，读回时跳过；分支闸没有 psn 行算没写编号，带 `--structure` 时名单里的闸跳过。
 
 **stamp 前后对照**（除注明外，实例键为 `SOLUTION.coupon-use`；以下取自 `plugin/tests/test_psn_stamp.py` 的合成用例）：
 
@@ -338,7 +377,8 @@ python -m dmn_client.psn from-graph --graph STAMPED --workflow KEY [--structure 
 | 编号节点，编号后名称为空 | `SOLUTION/P1.S1.N1 · ` | `SOLUTION/P1.S1.N1` | `psn:SOLUTION.coupon-use/P1.S1.N1` |
 | 编号节点，名称 80 个汉字 | `名名…名`（80 个） | `SOLUTION/P1.S1.N1 · ` 加 40 个「名」，共 60 字 | `psn:SOLUTION.coupon-use/P1.S1.N1` |
 | KNOWLEDGE 的编号节点，标题带了族前缀（实例键 `KNOWLEDGE.consult`） | `KNOWLEDGE/Q1.S1.N1 · parse` | `Q1.S1.N1 · parse` | `psn:KNOWLEDGE.consult/Q1.S1.N1` |
-| GATE / EVENT 节点 | 任意 | 不动 | 不动 |
+| FETCH 的分支闸（实例键 `FETCH.locate-query`） | `订单 · 发吗？` | `F2.S1.N1 · 订单 · 发吗？` | `psn:FETCH.locate-query/F2.S1.N1` |
+| EVENT 节点、名单里的闸 | 任意 | 不动 | 不动 |
 
 stamp 前描述里的其他文字原样保留，只把旧的 psn 行换掉。比如 `keeps this` / `psn:…/P9.S9.N9` / `and this` 三行，stamp 后变成 `keeps this` / `and this` / `psn:SOLUTION.coupon-use/P1.S1.N1`。决策节点的 `tool_configurations.node_ref` 和定义包一个字节都不变。
 
@@ -353,16 +393,18 @@ python -m dmn_client.psn diff --old S --new S2 [--json]
 
 | action | 字段 | 做什么 |
 | --- | --- | --- |
-| add | workflow, node_key, step, kind, name, step_name（新 Step 才要） | 编号节点取该 Step 下一个空号（墓碑也算占号）；GATE / EVENT 的 ref 为 null。node_key 已有号时拒绝：`RENUMBER_REFUSED` |
+| add | workflow, node_key, step, kind, name, step_name（新 Step 才要） | 编号节点（含 GATE）取该 Step 下一个空号（墓碑也算占号）；EVENT 的 ref 为 null。node_key 已有号时拒绝：`RENUMBER_REFUSED` |
+| number | workflow, node_key | 给 ACTIVE、没编号、不是 EVENT 的节点（老分支闸）在它所在的 Step 取下一个空号，并从 `gates_pending_number` 删掉；已有号 `RENUMBER_REFUSED`，EVENT `NOT_NUMBERABLE`，找不到 `UNKNOWN_NODE` |
 | move | workflow, node_key, step, reason, to_workflow（可跨 workflow，W9） | 旧号转为墓碑并写 `moved_to`，新位置取空号 |
-| retire | workflow, node_key, reason | 编号节点留墓碑；不编号节点直接移除（它没有号可保留） |
+| retire | workflow, node_key, reason | 编号节点留墓碑；不编号节点直接移除（它没有号可保留），在名单里的闸一并从名单删 |
 | kind | workflow, node_key, kind | 只改 kind，号不变（W8）；编号和不编号之间互换被拒：`KIND_CHANGE_REFUSED` |
 
-`diff` 按编号比对两份结构，分类列出 added、retired、moved、moved_cross_workflow、renamed、kind_changed。以下情况不通过（退出码 1）：
+`diff` 按编号比对两份结构，分类列出 added、numbered（原来没号、在原地编上号）、retired、moved、moved_cross_workflow、renamed、kind_changed。以下情况不通过（退出码 1）：
 - `REF_REMOVED`：号码或墓碑被删；
 - `REF_REUSED`：号码换了 node_key；
 - `RETIRED_REF_REVIVED`：墓碑又变回 ACTIVE；
-- `RENUMBERED`：同一个 node_key 没有迁移记录就换了号。
+- `RENUMBERED`：同一个 node_key 没有迁移记录就换了号；
+- `PENDING_GATE_ADDED`：`gates_pending_number` 多出一项（存量只减不增）。
 
 ## 运行时回显编号：`trace.psn_ref`（第 5 项，0.4.2 候选）
 
