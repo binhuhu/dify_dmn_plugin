@@ -5,6 +5,7 @@ from dify_plugin import Tool
 from dmn_client.alias_reads import Counting
 from dmn_client.route_table import StorageTables
 from dmn_client.solution_invoke import invoke_solution
+from dmn_client.table_lifecycle import RuntimeReads
 
 DEFAULT_TABLE = "dispatch.route"
 
@@ -13,6 +14,8 @@ class InvokeSolutionTool(Tool):
     def _invoke(self, tool_parameters):
         table = (tool_parameters.get("table") or DEFAULT_TABLE).strip()
         tables = Counting(StorageTables(self.session.storage))  # 0.5.43: old names' reads counted
+        # 0.5.44 (表停用与恢复 E3): a deactivated table is not read at run time (REJECTED TABLE_DEACTIVATED)
+        tables = RuntimeReads(tables, self.session.storage, getattr(self.session, "app_id", None))
         receipt = invoke_solution(
             tool_parameters.get("app_id"),
             tool_parameters.get("inputs_json"),

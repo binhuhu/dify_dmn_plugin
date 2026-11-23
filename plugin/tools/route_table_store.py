@@ -16,6 +16,7 @@ from dmn_client.save_gate import OPS as GATE_OPS
 from dmn_client.scene_bundle import OPS as BUNDLE_OPS
 from dmn_client.settings import OP as SETTING
 from dmn_client.storage_care import CARE_OPS
+from dmn_client.table_lifecycle import OPS as LIFECYCLE_OPS
 from dmn_client.two_state import (
     CAPABILITY_VOCABULARY,
     DRAFT_OPS,
@@ -46,10 +47,11 @@ class RouteTableStoreTool(Tool):
             and op != SETTING
             and op != ALIAS_READS
             and op not in GATE_OPS
+            and op not in LIFECYCLE_OPS
         ):
             # the list is 0.5.38's, word for word (coordination ruling 152: an old call answers as it did);
             # capability_vocabulary and scene_catalog (2026-11-18), v2_vocabulary and setting (0.5.41) are named in the op
-            # parameter's description
+            # parameter's description; so are deactivate / reactivate / lifecycle (0.5.44)
             status, body = error(
                 400,
                 "ROUTE_STORE_OP_INVALID",
