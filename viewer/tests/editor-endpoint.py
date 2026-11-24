@@ -8,6 +8,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "plugin"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "plugin" / "tests"))
 
 # Import before Werkzeug to match the plugin's gevent initialization order.
 import dify_plugin  # noqa: E402,F401
@@ -19,7 +20,9 @@ from werkzeug.wrappers import Request  # noqa: E402
 
 from dmn_client.route_store import run_op  # noqa: E402
 from dmn_client.route_table import StorageTables  # noqa: E402
-from dmn_client.two_state import MAINTENANCE_APP, draft_key, run_entry  # noqa: E402
+from deployment_fixtures import CREDENTIALS, MAINTENANCE_APP  # noqa: E402
+from dmn_client import deployment  # noqa: E402
+from dmn_client.two_state import draft_key, run_entry  # noqa: E402
 from endpoints.route_editor import RouteEditorEndpoint  # noqa: E402
 
 
@@ -40,6 +43,10 @@ class MemoryStorage:
     def delete(self, key):
         del self.data[key]
 
+
+# 0.5.44-rc3: the deployment app ids come from the provider credentials; this transport runs as one long tool call
+# with the invented ones of the plugin tests (deployment_fixtures)
+deployment.apply(CREDENTIALS)
 
 storage = MemoryStorage()
 writers = "synthetic-editor:PERSON:" + "k" * 32
