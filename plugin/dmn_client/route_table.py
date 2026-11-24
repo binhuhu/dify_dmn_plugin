@@ -864,7 +864,130 @@ def route_callability(doc):
     return callable_keys, not_callable, unrouted
 
 
-def callability_gate(prev, clean, sent=None, relax=None, live_scenes=None):
+def route_final_shape_gate(prev, clean, relax=None):
+    """0.5.46 (DMN 2.0.94 §五 ROUTE, Brian 11-25 00:18「走最终形状」): a route row says whether there is a solution and which;
+    no solution is no row (NO_FLOW). RESOURCE and TRANSFER targets and the resource_table binding are retired: a save may keep
+    or drop the ones its head has, never add one (a row whose target the head did not have, or a binding the head did not
+    write, is refused ROUTE_TABLE_TARGET_RETIRED). Only the route-table formats, and only a save over a head: the first store
+    of a table is not compared, as in callability_gate (the live route table always has a head). relax: as in
+    callability_gate, a rollback within save_gate.RESTORE_WINDOW reports it instead (it brings back what the head dropped)."""
+    if clean.get("schema") not in ROUTE_SCHEMAS or not prev or prev.get("schema") not in ROUTE_SCHEMAS:
+        return
+
+    def retired(doc):
+        out = set()
+        for r in (doc or {}).get("routes") or []:
+            t = r.get("target") or {}
+            if t.get("kind") in ("RESOURCE", "TRANSFER"):
+                out.add(
+                    (
+                        _scene_key(r.get("scene_id")),
+                        r.get("issue_type"),
+                        r.get("phase"),
+                        json.dumps(t, sort_keys=True),
+                    )
+                )
+        return out
+
+    have = retired(prev)
+    new = sorted(retired(clean) - have)
+    text = (
+        "路由表只写方案行（DMN 2.0.94）：资源、转接去向退役，头版里有的可以留、可以删，不能新加（%s 是新加的%s）；"
+        "没方案就是没那一行，承接交资源去向表配；要降能调的方案，删掉那一行并在请求里写 retire_solutions 列出它"
+        % (
+            _row_shown(new[0][:3]) if new else "",
+            "，另有 %d 行" % (len(new) - 1) if len(new) > 1 else "",
+        )
+    )
+    _need(
+        not new or (relax is not None and relax("ROUTE_TABLE_TARGET_RETIRED", text)),
+        "ROUTE_TABLE_TARGET_RETIRED",
+        text,
+        "routes",
+    )
+    was = prev.get("resource_table")
+    bound = "路由表不再绑 resource_table（DMN 2.0.94）：头版没写的不能新写，头版写了的只能照留或去掉"
+    _need(
+        clean.get("resource_table") is None
+        or (was is not None and storage_name(clean["resource_table"]) == storage_name(was))
+        or (relax is not None and relax("ROUTE_TABLE_TARGET_RETIRED", bound)),
+        "ROUTE_TABLE_TARGET_RETIRED",
+        bound,
+        "resource_table",
+    )
+
+
+RETIRE_KEYS = ("scene_id", "issue_type", "phase")
+_NOT_SENT = object()
+RETIRE_INVALID = "ROUTE_TABLE_RETIRE_INVALID"
+
+
+def retire_list(prev, clean, retire):
+    """0.5.46 (DMN 2.0.97 §五 ROUTE, 协调 11-25): in the final shape a solution is taken down by deleting its row (no row is
+    NO_FLOW); a save that deletes a callable solution row says so in retire_solutions, a list of {scene_id, issue_type,
+    phase}. Each item names one solution row of the head exactly (no wildcard, no block, no row twice) that this save
+    deletes; anything else is ROUTE_TABLE_RETIRE_INVALID. Only on a route table v3 save over a v3 head. Returns the keys
+    (as callability_gate compares rows) and the list as stored on the version, in the order sent, scene ids in M_."""
+    from dmn_client.scene_id import canonical  # noqa
+
+    _need(
+        clean.get("schema") == SCHEMA_V3 and bool(prev) and prev.get("schema") == SCHEMA_V3,
+        RETIRE_INVALID,
+        "retire_solutions 只在路由表 v3 有头版的存表里写（首存、别的表没有要降的方案行）",
+        "retire_solutions",
+    )
+    head = {
+        (_scene_key(r.get("scene_id")), r.get("issue_type"), r.get("phase"))
+        for r in prev.get("routes") or []
+        if (r.get("target") or {}).get("kind") == "SOLUTION_APP"
+    }
+    _need(
+        type(retire) is list and 1 <= len(retire) <= max(len(head), 1),
+        RETIRE_INVALID,
+        "retire_solutions 要是 1–%d 项的列表，每项一行要降的方案行 {scene_id, issue_type, phase}"
+        % max(len(head), 1),
+        "retire_solutions",
+    )
+    now = {(_scene_key(r["scene_id"]), r["issue_type"], r["phase"]) for r in clean["routes"]}
+    keys, shown = set(), []
+    for i, item in enumerate(retire):
+        at = "retire_solutions[%d]" % i
+        _need(
+            type(item) is dict
+            and set(item) == set(RETIRE_KEYS)
+            and all(type(item[k]) is str and item[k] != "" for k in RETIRE_KEYS),
+            RETIRE_INVALID,
+            "每项只写 scene_id、issue_type、phase 三格，都是非空字符串",
+            at,
+        )
+        key = (_scene_key(item["scene_id"]), item["issue_type"], item["phase"])
+        _need(
+            key in head,
+            RETIRE_INVALID,
+            "%s 不是头版里的一行方案行：逐行照头版原样写场景号、问题类型、阶段，不许通配或只写场景块"
+            % _row_shown(key),
+            at,
+        )
+        _need(key not in keys, RETIRE_INVALID, "%s 写了两次" % _row_shown(key), at)
+        _need(
+            key not in now,
+            RETIRE_INVALID,
+            "%s 这次存表没有删：要降方案就删掉这一行（没方案就是没那一行），留着就别列"
+            % _row_shown(key),
+            at,
+        )
+        keys.add(key)
+        shown.append(
+            {
+                "scene_id": canonical(item["scene_id"]),
+                "issue_type": item["issue_type"],
+                "phase": item["phase"],
+            }
+        )
+    return keys, shown
+
+
+def callability_gate(prev, clean, sent=None, relax=None, live_scenes=None, retire=frozenset()):
     """0.5.23 (D13): a v3 save may not leave the route table less callable than the v3 version it replaces. Refused,
     in this order: a solution row that newly points at an app that is not CURRENT, or whose app is no longer CURRENT
     (ROUTE_TABLE_SOLUTION_NOT_CALLABLE); a row whose solution was callable removed with nothing in its place
@@ -881,7 +1004,8 @@ def callability_gate(prev, clean, sent=None, relax=None, live_scenes=None):
     checks after it still run. live_scenes (0.5.43-rc2, 协调定 358): the scene ids (canonical) of the scene-topic table's
     head; a removed row whose scene is not among them is no live route, so removing it is not ROUTE_TABLE_SOLUTION_LOST
     (an app no row names any more is still ROUTE_TABLE_CURRENT_UNROUTED). None: not known (no gate, no scene-topic
-    table), every removed callable row counts as before. Returns the removed rows of retired scenes (sorted keys)."""
+    table), every removed callable row counts as before. retire (0.5.46): the keys retire_list checked; those removed
+    rows are taken down on purpose, not ROUTE_TABLE_SOLUTION_LOST. Returns the removed rows of retired scenes (sorted keys)."""
     if clean.get("schema") != SCHEMA_V3 or not prev or prev.get("schema") != SCHEMA_V3:
         return
     was_ok, was_bad, _ = route_callability(prev)
@@ -929,7 +1053,7 @@ def callability_gate(prev, clean, sent=None, relax=None, live_scenes=None):
     from dmn_client.scene_id import canonical  # noqa
 
     retired = [k for k in gone if live_scenes is not None and canonical(k[0]) not in live_scenes]
-    lost = [k for k in gone if k not in retired]
+    lost = [k for k in gone if k not in retired and k not in retire]
     if lost:
         text = "%s 原来有能调的方案，这次存表把这一行删了、也没给别的去向%s：要挂起就改成转接或资源去向，要换方案就改指新的 CURRENT 应用" % (
             _row_shown(lost[0]),
@@ -2364,7 +2488,7 @@ class StorageTables:
             clean["schema"] in (stored_tables.SCHEMA_DECISION, stored_tables.SCHEMA_DECISION_SET)
             and storage_name(clean["table"]) == SCENE_ENTITY_TABLE
         ):
-            self._scene_kinds_served(clean)
+            self._scene_entity_save(clean)
 
     def _capability_save(self, clean):
         """2026-11-18: what a save of the capability table checks beyond its document (a read takes a table 0.5.38 stored,
@@ -2410,6 +2534,22 @@ class StorageTables:
                 "或先改场景关联实体表" % (scene.get("version"), " / ".join(missing)),
                 "capabilities",
             )
+
+    def _scene_entity_save(self, clean):
+        """What a save of the scene-entity table checks beyond its document: the kinds it names are served (0.5.41), then
+        0.5.46 (DMN 2.0.79 §五「候选筛选格」存前闸; 全链路体检 11-24 3.1#10) each conclusion's candidate filter: its shape
+        and bounds (contract), its info_ids on the capability table head's rows of the conclusion's object_type, and the
+        type of states.in. A read never checks it."""
+        from dmn_client import candidate_filter as CF  # noqa
+        from dmn_client import capability_catalog as CC  # noqa
+
+        from dmn_client import entity_objects as EO  # noqa
+        from dmn_client import stored_tables  # noqa
+
+        self._scene_kinds_served(clean)
+        CF.check_table(clean, self.load(CC.TABLE))
+        # 0.5.46 (DMN 2.0.95 §五): what object each conclusion asks for (topic_objects, issue_type_objects)
+        EO.check_table(clean, self.load(CC.TABLE), self.load(stored_tables.TABLE_SCENE_TOPIC))
 
     def _scene_kinds_served(self, clean):
         """2026-11-18 (coordination ruling 150): each entity kind the scene-entity table names has a row in the capability
@@ -2728,6 +2868,14 @@ class StorageTables:
         report = gate_report_of(gate_report, content)
         # 0.5.23 (D13): after every refusal v0.5.22 gives (they keep their order and codes), before the caller's gate;
         # reads only cur, so I19 / I20 are unaffected
+        # 0.5.46 (DMN 2.0.97 §五 ROUTE): the solution rows this save takes down on purpose, checked right before
+        # callability_gate (only a request that carries retire_solutions gets here)
+        retire_sent = getattr(self, "retire_solutions", _NOT_SENT)
+        retire_keys, retire_shown = (
+            retire_list(cur, clean, retire_sent)
+            if retire_sent is not _NOT_SENT
+            else (frozenset(), None)
+        )
         retired = callability_gate(
             cur,
             clean,
@@ -2736,6 +2884,7 @@ class StorageTables:
             if auto is not None
             else None,
             live_scenes=getattr(auto, "live_scenes", None),
+            retire=retire_keys,
         )
         if retired and auto is not None:
             save_gate.note_retired_rows(auto, retired)
@@ -2747,6 +2896,14 @@ class StorageTables:
             from dmn_client import save_gate  # noqa
 
             save_gate.raise_first(auto)
+        # 0.5.46 (DMN 2.0.94): after every refusal 0.5.45 gives (they keep their codes and order), before the caller's gate
+        route_final_shape_gate(
+            cur,
+            clean,
+            relax=(lambda code, text: save_gate.relax_late(auto, code, text))
+            if auto is not None
+            else None,
+        )
         self.auto_gate = auto
         if gate is not None:
             gate(clean, gate_report)
@@ -2759,6 +2916,8 @@ class StorageTables:
         )
         if transition is not None:
             clean["schema_transition"] = transition
+        if retire_shown is not None:
+            clean["retired_solutions"] = retire_shown
         if report is not None:
             clean["gate_report_sha256"] = digest(report)
         raw = canon(clean).encode("utf-8")
@@ -3118,6 +3277,12 @@ class StorageTables:
         done."""
         raw = doc if isinstance(doc, dict) else {}
         table = raw["table"]
+        _need(
+            getattr(self, "retire_solutions", _NOT_SENT) is _NOT_SENT,
+            RETIRE_INVALID,
+            "retire_solutions 只在路由表 v3 有头版的存表里写（首存照抄旧头版，不降方案行）",
+            "retire_solutions",
+        )
         old = old_name(table)
         mark = _mark(rec)
         retry = rec is not None and rec["state"] == COPYING

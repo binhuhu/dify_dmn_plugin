@@ -253,6 +253,9 @@ def run_op(
             sized = _sizes(doc)
             if sized:
                 return sized
+            if "retire_solutions" in body:
+                # 0.5.46 (DMN 2.0.97 §五 ROUTE): checked by the save (route_table.retire_list), never stored as content
+                tables.retire_solutions = body["retire_solutions"]
             saved = tables.save(
                 doc,
                 body.get("expected_version"),
@@ -296,6 +299,12 @@ def run_op(
                 **({"warnings": warned} if warned else {}),
                 # 0.5.20: the first store under a standard name names the version it copied
                 **({"supersedes": saved["supersedes"]} if "supersedes" in saved else {}),
+                # 0.5.46: the solution rows this save took down, as the request listed them (retire_solutions)
+                **(
+                    {"retired_solutions": saved["retired_solutions"]}
+                    if "retired_solutions" in saved
+                    else {}
+                ),
                 # 0.5.36: versions left above the head by saves crossing, numbered past by this save
                 **({"skipped_versions": skipped} if skipped else {}),
                 # 2026-11-20: the auto gate's account, on the seven delivery tables and tables with a suite only

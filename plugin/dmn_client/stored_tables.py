@@ -154,6 +154,18 @@ SCENE_TOPIC_ROW_KEYS = (
     "topics",
     "note",
 )
+# 0.5.45 (DMN 2.0.91 §⓪, Brian 11-24 18:5x): a row may carry external_keys, the scene's external numbers (the name is
+# scene-card v1 identity's 外部键). Numbers only: the question trees (dict_tree_id, the hub both ticket titles and smart
+# qids hang on) and the smart qids (service_type 3, the 7-8 digit space). Ticket titles and their three levels are not
+# stored: a reader joins the bridge table by question tree number. Names never enter the table (the read limit, and a
+# name is display, not a judgment).
+# the row-key refusal text stays 0.5.44's byte for byte (it still names only language_semantics)
+SCENE_TOPIC_OPTIONAL_ROW_KEYS = ("language_semantics", "external_keys")
+EXTERNAL_KEYS = ("question_trees", "smart_qids")
+QUESTION_TREE_RE = re.compile(r"[1-9][0-9]{3,4}")
+SMART_QID_RE = re.compile(r"[1-9][0-9]{6,7}")
+MAX_ROW_QUESTION_TREES = 256
+MAX_ROW_SMART_QIDS = 2048
 SCENE_TOPIC_DOMAIN_KEYS = ("l1", "l2", "business_mode", "role")
 INTENT_SEMANTICS_KEYS = ("intent", "meaning", "required_expression_evidence", "specificity")
 MAX_SCENE_TOPIC_ROWS = 1024
@@ -1297,12 +1309,60 @@ def _intent_semantics(raw, allowed, path):
     return out
 
 
+def _external_number_list(raw, rx, digits, limit, label, path):
+    _st_need(
+        type(raw) is list and 0 < len(raw) <= limit,
+        "%s 1–%d 个" % (label, limit),
+        path,
+    )
+    prev = None
+    for i, x in enumerate(raw):
+        q = "%s[%d]" % (path, i)
+        _st_need(
+            type(x) is str and rx.fullmatch(x) is not None,
+            "%s = %s 位数字串" % (label, digits),
+            q,
+        )
+        _st_need(prev is None or int(x) > prev, "%s按数值升序、同一场景内不重复" % label, q)
+        prev = int(x)
+    return list(raw)
+
+
+def _external_keys(raw, path):
+    """0.5.45: the row's external numbers: question_trees and / or smart_qids, at least one, nothing else."""
+    _st_need(
+        type(raw) is dict and len(raw) > 0 and set(raw) <= set(EXTERNAL_KEYS),
+        "外部键 = " + " / ".join(EXTERNAL_KEYS) + " 里至少一样（没有就整格不写）",
+        path,
+    )
+    out = {}
+    if "question_trees" in raw:
+        out["question_trees"] = _external_number_list(
+            raw["question_trees"],
+            QUESTION_TREE_RE,
+            "4–5",
+            MAX_ROW_QUESTION_TREES,
+            "问题树号",
+            path + ".question_trees",
+        )
+    if "smart_qids" in raw:
+        out["smart_qids"] = _external_number_list(
+            raw["smart_qids"],
+            SMART_QID_RE,
+            "7–8",
+            MAX_ROW_SMART_QIDS,
+            "智能 qid",
+            path + ".smart_qids",
+        )
+    return out
+
+
 def _scene_topic_row(row, p, intents, topics, prev_scene):
     _st_need(
         type(row) is dict
         and set(SCENE_TOPIC_ROW_KEYS)
         <= set(row)
-        <= set(SCENE_TOPIC_ROW_KEYS) | {"language_semantics"},
+        <= set(SCENE_TOPIC_ROW_KEYS) | set(SCENE_TOPIC_OPTIONAL_ROW_KEYS),
         "一行 = " + " / ".join(SCENE_TOPIC_ROW_KEYS) + "（+ language_semantics）",
         p,
     )
@@ -1398,6 +1458,8 @@ def _scene_topic_row(row, p, intents, topics, prev_scene):
         "topics": out_topics,
         "note": _st_text(row["note"], 500, "说明", p + ".note"),
     }
+    if "external_keys" in row:
+        out["external_keys"] = _external_keys(row["external_keys"], p + ".external_keys")
     if "language_semantics" in row:
         ls = row["language_semantics"]
         _st_need(

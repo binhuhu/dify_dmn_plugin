@@ -156,6 +156,7 @@ STORED_FIELDS = (
     "gate_report_sha256",
     "schema_transition",
     "supersedes",
+    "retired_solutions",  # 0.5.46: a rollback does not take a version's take-down list with it
 )
 STATUS = {
     "STORED_TABLE_WRITERS_UNSET": 503,
@@ -1655,6 +1656,12 @@ def ledger_row(doc, by, published=None):
         **(
             {"entry": by["entry"], "entry_verified": by.get("entry_verified") is True}
             if "entry" in by
+            else {}
+        ),
+        # 0.5.46: a version that took solution rows down says which (retire_solutions); no other row changes
+        **(
+            {"retired_solutions": doc["retired_solutions"]}
+            if isinstance(doc.get("retired_solutions"), list)
             else {}
         ),
     }

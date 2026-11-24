@@ -151,6 +151,9 @@ OUTCOME = {"DONE": "PASS", "NEED_INPUT": "PENDING", "NEED_REVIEW": "PENDING", "R
 # 0.5.18 (DMN 2.0 §三、§五): a conclusion is the row state plus the role's business keys (plus gap.code when something is
 # missing); a STANDARD table writes one rule per conclusion, its alternatives as when_any combinations
 CONCLUSION_KEYS = {
+    # 0.5.46 (DMN 2.0.90 §五 BUSINESS_MODE, 协调 11-25 转品类表线): a conclusion is its mode and product type — the travel
+    # products are all mode M and told apart by product_type; a row not connected writes product_type null
+    BUSINESS_MODE: ("mode", "product_type"),
     # a scene's entity requirement is all of its keys: two scenes that both need an ORDER may confirm it differently
     "SCENE_ENTITY": (
         "object_type",
@@ -608,18 +611,22 @@ def check(declare, clean, schema, *, budget=None):
             "资源去向的决策表命中 FIRST（具体在前、兜底在后）",
             "model.hit_policy",
         )
-        # 0.5.44 (定 371): resource_id may be declared nullable — a known "no id" (the contract's null with its note), so
-        # still KNOWN and still required; only nullable is opened
-        _need_model(
-            type(rid) is dict
-            and rid.get("type") == "string"
-            and rid.get("record_required") is True
-            and rid.get("allowed_quality") == ["KNOWN"],
-            "资源去向的决策表要有参数 resource_id（string，必有，只收 KNOWN；可空写 nullable: true）",
-            "model.parameters.resource_id",
-        )
-        if rid["nullable"]:
-            _nullable_resource(model)
+        if rid is not None:
+            # a table of the old form (0.5.45 and before: keyed by the route's resource id) reads and saves as before.
+            # 0.5.44 (定 371): resource_id may be declared nullable — a known "no id" (the contract's null with its note),
+            # so still KNOWN and still required; only nullable is opened
+            _need_model(
+                type(rid) is dict
+                and rid.get("type") == "string"
+                and rid.get("record_required") is True
+                and rid.get("allowed_quality") == ["KNOWN"],
+                "资源去向的决策表要有参数 resource_id（string，必有，只收 KNOWN；可空写 nullable: true）",
+                "model.parameters.resource_id",
+            )
+            if rid["nullable"]:
+                _nullable_resource(model)
+        else:
+            _resource_final_shape(model)
         _need(
             type(declare.get("states")) is list,
             "资源去向的 states 写成列表（这张表用到的 state）",
@@ -682,6 +689,51 @@ def check(declare, clean, schema, *, budget=None):
     else:
         _route(out)
     return out
+
+
+# 0.5.46 (DMN 2.0.94 §五 RESOURCE, Brian 11-25 00:18「走最终形状」): the final form of the resource table is not keyed by a
+# resource id. Its parameters are what the route answered (route_target: SOLUTION_APP / NO_FLOW), the scene's status in the
+# scene-topic table (scene_status, SAFETY_TRANSFER first), the scene, issue type, phase and channel; route_target is
+# required, the others optional. The account level is not taken until it is decided (another parameter is refused).
+RESOURCE_FINAL_PARAMETERS = (
+    "route_target",
+    "scene_status",
+    "scene_id",
+    "issue_type",
+    "phase",
+    "channel",
+)
+RESOURCE_ROUTE_TARGETS = ("SOLUTION_APP", "NO_FLOW")
+
+
+def _resource_final_shape(model):
+    params = model["parameters"]
+    extra = sorted(set(params) - set(RESOURCE_FINAL_PARAMETERS))
+    _need_model(
+        not extra,
+        "资源去向的决策表（不带 resource_id 的终形）参数只收 "
+        + " / ".join(RESOURCE_FINAL_PARAMETERS)
+        + "；多了 "
+        + ", ".join(extra),
+        "model.parameters",
+    )
+    rt = params.get("route_target")
+    _need_model(
+        type(rt) is dict and rt.get("type") == "string" and rt.get("record_required") is True,
+        "资源去向的决策表（终形）要有参数 route_target（string，必有：路由答了 SOLUTION_APP 还是 NO_FLOW）",
+        "model.parameters.route_target",
+    )
+    for i, rule in enumerate(model["rules"]):
+        for combo in _combinations(rule):
+            for c in combo:
+                if c.get("path") != ["parameters", "route_target", "value"]:
+                    continue
+                vals = c["value"] if c.get("op") == "in" else [c.get("value")]
+                _need_model(
+                    c.get("op") in ("eq", "in") and all(v in RESOURCE_ROUTE_TARGETS for v in vals),
+                    "route_target 只比 " + " / ".join(RESOURCE_ROUTE_TARGETS) + "（eq / in）",
+                    "model.rules[%d]" % i,
+                )
 
 
 def _business_mode(model):

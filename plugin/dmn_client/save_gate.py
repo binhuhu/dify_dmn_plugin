@@ -120,7 +120,11 @@ RESTORE_WINDOW = 3
 # renumbering window's rollback of items 20–27 meets (SCENE_NOT_IN_CATALOG on the scene-entity, supplement, acceptance and
 # route tables, ROUTE_TABLE_SOLUTION_LOST on the route table, release notes v0.5.43 rc2). Every other refusal stands on a
 # rollback: the live start forms (③), the suppliers (② b), the other callability refusals, the format and version checks
-RESTORE_RELAXED = frozenset(("SCENE_NOT_IN_CATALOG", "ROUTE_TABLE_SOLUTION_LOST"))
+# 0.5.46 (DMN 2.0.97 §五 ROUTE): and ROUTE_TABLE_TARGET_RETIRED — a rollback within the window brings back the transfer /
+# resource rows or the resource_table binding a later save dropped (the final-shape gate never lets a save add them)
+RESTORE_RELAXED = frozenset(
+    ("SCENE_NOT_IN_CATALOG", "ROUTE_TABLE_SOLUTION_LOST", "ROUTE_TABLE_TARGET_RETIRED")
+)
 # what a stored version carries that is not what was saved, and the two keys a rollback may change: its name (a final
 # name's rollback to a version saved under the name before it) and its prose note
 RESTORE_IGNORED = frozenset(

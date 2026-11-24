@@ -29,7 +29,10 @@ REQUEST_KEYS = (
     "schema_transition",
     "writer",
     "scene_spelling_rollback",
+    # 0.5.46 (DMN 2.0.97 §五 ROUTE, 协调 11-25): the solution rows a save takes down on purpose (scene · type · phase)
+    "retire_solutions",
 )
+REQUEST_KEYS_0538 = REQUEST_KEYS[:5]  # what op=vocabulary names (it answers 0.5.38's document byte for byte)
 # fields the plugin writes into a stored version: an editor that loads a version, edits it and sends it back carries
 # them; they are ignored, as before, not unknown
 OWN_FIELDS = (
@@ -41,7 +44,9 @@ OWN_FIELDS = (
     "gate_report_sha256",
     "supersedes",
     "schema",  # a v1 route table's stored version carries it though v1 requests do not (review round 2)
+    "retired_solutions",  # 0.5.46: the solution rows that save took down (retire_solutions, as checked)
 )
+OWN_FIELDS_0538 = OWN_FIELDS[:8]
 ROUTE_V1_KEYS = ("table", "issue_types", "phases", "registry", "routes", "note")
 ROUTE_V2_KEYS = (
     "schema",
@@ -126,9 +131,12 @@ def declared():
             "row_states": list(D.ROW_STATES),
             "acceptance": dict(D.ACCEPTANCE),
             "outcome": dict(D.OUTCOME),
-            # 0.5.41: the new writing's roles are not in this read, which answers what 0.5.38 answered
+            # 0.5.41: the new writing's roles are not in this read, which answers what 0.5.38 answered; nor is
+            # BUSINESS_MODE's, which 0.5.46 added (the save checks it; this read stays 0.5.38's)
             "conclusion_keys": {
-                k: list(v) for k, v in D.CONCLUSION_KEYS.items() if k not in V2_ROLES
+                k: list(v)
+                for k, v in D.CONCLUSION_KEYS.items()
+                if k not in V2_ROLES and k != D.BUSINESS_MODE
             },
             "resource_result_keys": list(D.RESOURCE_RESULT_KEYS),
             "resource_states": list(D.RESOURCE_STATES),
@@ -142,7 +150,8 @@ def declared():
             # a query -> fact name takes (the table's format decided 2026-11-17, its name 2026-11-18; the role is still a proposal)
             "capability_faces": list(CC.FACES),
             "capability_kinds": list(CC.KINDS),
-            "capability_fact_types": list(CC.FACT_TYPES),
+            # 0.5.46: the six 0.5.38 named; datetime is listed by op=capability_vocabulary
+            "capability_fact_types": list(CC.FACT_TYPES_0538),
             # 2026-11-18 (coordination rulings 152, 161): this read answers byte for byte what 0.5.38 answered; the new
             # table name and the new row form's codes are op=capability_vocabulary's (capability_declared below)
             "search_capability_role": D.SEARCH_CAPABILITY,
@@ -157,14 +166,14 @@ def declared():
                 **{schema: list(ROUTE_V2_KEYS) for schema in R.ROUTE_SCHEMAS},
                 "dmn-json.route-table/v1": list(ROUTE_V1_KEYS),
             },
-            "request_keys": list(REQUEST_KEYS),
+            "request_keys": list(REQUEST_KEYS_0538),
             # review round 2 (adv 低-4): the keys of the five's draft and publish requests
             "draft_request_keys": {
                 "draft_save": ["expected_draft", "from_version", "writer"],
                 "publish": ["draft_id", "expected_version", "gate_report", "release_ref", "writer"],
                 "draft_discard": ["draft_id", "writer"],
             },
-            "own_fields": list(OWN_FIELDS),
+            "own_fields": list(OWN_FIELDS_0538),
             "roles_by_schema": {k: list(v) for k, v in D.ROLES_BY_SCHEMA.items()},
             "fixed_inputs": {k: list(v) for k, v in D.FIXED_INPUTS.items()},
             "declaration_keys": sorted(D.KEYS),

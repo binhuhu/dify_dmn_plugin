@@ -83,7 +83,12 @@ KINDS = (
     "SEARCH",
     "READ",
 )  # 列表 / 详情 / 检索 / 识读; a query's kind; an action has none yet
-FACT_TYPES = ("string", "boolean", "integer", "number", "object", "array")
+# 0.5.46 (DMN 2.0.96 §十): a moment is datetime (DMN's date and time): the interface's own YYYY-MM-DD HH:MM:SS string, Beijing time,
+# to the second; readers compare it as written. Only taken here; whether a candidate filter's window names one is checked from
+# 0.5.47, once the capability table marks its moments (version 8)
+FACT_TYPES = ("string", "boolean", "integer", "number", "object", "array", "datetime")
+# op=vocabulary answers 0.5.38's document byte for byte (coordination rulings 152, 161): its list stays the six it named
+FACT_TYPES_0538 = FACT_TYPES[:6]
 ROW_KEYS = (
     "capability_id",
     "name",
