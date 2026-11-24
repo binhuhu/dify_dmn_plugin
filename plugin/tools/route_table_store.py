@@ -10,6 +10,7 @@ from dify_plugin import Tool
 from dmn_client.alias_reads import OP as ALIAS_READS
 from dmn_client.catalog import OP as CATALOG
 from dmn_client.catalog import SCENE_OP as SCENE_CATALOG
+from dmn_client.deployment import configured
 from dmn_client.route_store import CHECK, OPS, UNDO, error
 from dmn_client.save_gate import FETCH_APP
 from dmn_client.save_gate import OPS as GATE_OPS
@@ -29,6 +30,7 @@ from dmn_client.vocabulary import V2_VOCABULARY
 
 
 class RouteTableStoreTool(Tool):
+    @configured  # 0.5.44-rc3: the deployment's three app ids come from the provider credentials
     def _invoke(self, tool_parameters):
         op = (tool_parameters.get("op") or "").strip()
         if (

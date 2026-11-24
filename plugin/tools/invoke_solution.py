@@ -3,6 +3,7 @@
 from dify_plugin import Tool
 
 from dmn_client.alias_reads import Counting
+from dmn_client.deployment import configured
 from dmn_client.route_table import StorageTables
 from dmn_client.solution_invoke import invoke_solution
 from dmn_client.table_lifecycle import RuntimeReads
@@ -11,6 +12,7 @@ DEFAULT_TABLE = "dispatch.route"
 
 
 class InvokeSolutionTool(Tool):
+    @configured  # 0.5.44-rc3: the deployment's three app ids come from the provider credentials
     def _invoke(self, tool_parameters):
         table = (tool_parameters.get("table") or DEFAULT_TABLE).strip()
         tables = Counting(StorageTables(self.session.storage))  # 0.5.43: old names' reads counted

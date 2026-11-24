@@ -2,12 +2,14 @@
 
 from dify_plugin import Tool
 
+from dmn_client.deployment import configured
 from dmn_client.node_contract import ContractError, make_result
 from dmn_client.node_tool_outputs import node_messages
 from dmn_client.query_executor import execute_query, load_query_deployment
 
 
 class ExecuteQueryTool(Tool):
+    @configured  # 0.5.44-rc3: the deployment's three app ids come from the provider credentials
     def _invoke(self, tool_parameters):
         try:
             deployment = load_query_deployment()

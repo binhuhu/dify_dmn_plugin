@@ -5,6 +5,7 @@ import json
 from dify_plugin import Tool
 
 from dmn_client.alias_reads import Counting
+from dmn_client.deployment import configured
 from dmn_client.route_table import StorageTables
 from dmn_client.stored_tables import evaluate_stored
 from dmn_client.table_lifecycle import RuntimeReads
@@ -16,6 +17,7 @@ def _text(value):
 
 
 class EvaluateStoredTableTool(Tool):
+    @configured  # 0.5.44-rc3: the deployment's three app ids come from the provider credentials
     def _invoke(self, tool_parameters):
         # 0.5.43: an old name's read is counted (dmn_client.alias_reads)
         tables = Counting(StorageTables(self.session.storage))

@@ -4,12 +4,14 @@ from dify_plugin import Tool
 
 from dmn_client.alias_reads import Counting
 from dmn_client.decision_executor import evaluate_decision
+from dmn_client.deployment import configured
 from dmn_client.node_tool_outputs import node_messages
 from dmn_client.route_table import StorageTables
 from dmn_client.table_lifecycle import RuntimeReads
 
 
 class EvaluateDecisionTool(Tool):
+    @configured  # 0.5.44-rc3: the deployment's three app ids come from the provider credentials
     def _invoke(self, tool_parameters):
         # Route tables edited in the plugin (PLUGIN_STORAGE model stubs) load from this plugin's storage; other bundles never touch it.
         tables = Counting(StorageTables(self.session.storage))  # 0.5.43: old names' reads counted

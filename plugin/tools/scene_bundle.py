@@ -9,6 +9,7 @@ import json
 
 from dify_plugin import Tool
 
+from dmn_client.deployment import configured
 from dmn_client.route_store import error
 from dmn_client.two_state import run_entry
 
@@ -23,6 +24,7 @@ OPS = {
 
 
 class SceneBundleTool(Tool):
+    @configured  # 0.5.44-rc3: the deployment's three app ids come from the provider credentials
     def _invoke(self, tool_parameters):
         op = (tool_parameters.get("op") or "").strip()
         if op not in OPS:
