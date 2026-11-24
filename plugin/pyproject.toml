@@ -20,6 +20,8 @@ testpaths = ["tests"]
 [tool.ruff]
 target-version = "py312"
 line-length = 100
+# 0.5.46: chain_limits.py is the main-chain contract's generated file, copied byte for byte (tests/test_v0546_candidate_filter.py)
+extend-exclude = ["dmn_client/chain_limits.py"]
 
 [tool.ruff.lint]
 select = ["E4", "E7", "E9", "F", "I"]
