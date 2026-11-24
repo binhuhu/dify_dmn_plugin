@@ -1,4 +1,4 @@
-# JSON 决策工具 0.5.44-rc4（单人串行维护）
+# JSON 决策工具 0.5.46-rc1（单人串行维护）
 
 这是同一仓库的独立 JSON 安装包 `hu8627/dmn_json`。原有 `hu8627/dmn` 外部 XML 插件和其他已安装插件保留，不卸载、不替换。新建“内置 JSON 决策表 / evaluate_json_table”节点无需 Key、引擎地址或外部服务。现有外部工具仍通过原插件配置 Node 服务，未配置时返回 INVALID_CONFIGURATION。两个包的模型格式和语义不能互换。
 
@@ -36,7 +36,7 @@ AND 中 FALSE 优先于 UNKNOWN。FIRST 的已选规则之前存在 UNKNOWN 或 
 
 ## 构建与验收
 
-从仓库根目录运行 `python scripts/stage-builtin.py /tmp/dmn-json-0.5.44-rc4`，然后用已安装的官方 Dify CLI：`dify plugin package /tmp/dmn-json-0.5.44-rc4 -o hu8627-dmn_json-0.5.44-rc4.difypkg`。没有 CLI 时 staging 目录不是安装包，不用普通 zip 冒充 difypkg。不重试已拒绝的下载/API，不修改旧 Release。包未签名，遵循平台签名策略。
+从仓库根目录运行 `python scripts/stage-builtin.py /tmp/dmn-json-0.5.46-rc1`，然后用已安装的官方 Dify CLI：`dify plugin package /tmp/dmn-json-0.5.46-rc1 -o hu8627-dmn_json-0.5.46-rc1.difypkg`。没有 CLI 时 staging 目录不是安装包，不用普通 zip 冒充 difypkg。不重试已拒绝的下载/API，不修改旧 Release。包未签名，遵循平台签名策略。
 
 依赖沿用仓库固定 requirements.txt；首次安装仍需要平台正常解析 Python 依赖。免 Key/无外部决策服务指工具调用路径，不是离线安装保证。目标 UI 安装与真实调用仍需验收。
 
@@ -55,6 +55,8 @@ v2 表（`dmn-json.route-table/v2`）自带场景目录和方案登记，支持�
 0.5.28：写手登记留空（默认）或只写一个词 OPEN = 开放模式：不要签名，五张表重新直接存，能在 AgentHub 里运行维护应用的人都能写（写入五张表仍只认维护应用；带签名的请求和编辑端点不收；插件不记改动人）；缺失或仅注释也算 OPEN，误删全部写手会自动开放。宿主 Web App/API 若允许匿名调用，调用者同样可能修改五张表；登记里有写手 = 签名模式，同 0.5.24–0.5.27。方案层四张表名 `solution.search.fact` / `fact.feature` / `feature.reality` / `reality.strategy` + `.<场景号>`，声明可不写 role（表名即角色）；旧名 `disposal.strategy` / `disposal.status` 照收。见 [0.5.28 发布说明](https://github.com/binhuhu/dify_dmn_plugin/blob/v0.5.29/docs/releases/v0.5.28.md)。
 
 0.5.29：对成功保存、草稿、发布、撤销和草稿删除尝试记录旁路归属，失败不改变业务写入结果；宿主 user_id 与 via 均不独立认证，只有 writer_verified 表示 HMAC 已核验。历史身份字段仅向钉定维护应用返回；撤销/删除记录为独立操作，不改原版本作者。详见 [0.5.29 发布说明](https://github.com/binhuhu/dify_dmn_plugin/blob/v0.5.29/docs/releases/v0.5.29.md)。
+
+0.5.46-rc1（候选，未发布；含 0.5.45）：场景与话题表行上可选外部键 external_keys（问题树号、智能 qid，只放号）；存场景关联实体表时核候选筛选格与「要什么对象」两格 topic_objects / issue_type_objects；资源去向表终形（不带资源编号，按路由答案种类 × 场景状态 × 场景 × 类型 × 阶段 × 渠道配）；路由表终形闸：资源、转接去向与 resource_table 只留只删不新加，降方案＝删行、请求带 retire_solutions 逐行列出；品类表结论键 mode + product_type；能力表原值类型加时刻 datetime。不用新功能时现网读写逐字节同 0.5.44-rc4（全链路无影响闸 8295 条全同）；回退先撤场景与话题表第 4 版（外部键），见 docs/releases/v0.5.46.md 第三节。
 
 0.5.44-rc4（候选，未发布）：rc3 没发，在它之上加一件——最终名流程 trigger. 下新立的表按类认：trigger.<对象>.<判断> 只按写法认作决策表，主人是定位（插件配置 target_app_id），第一张是品类与业务模式表 trigger.product.business_mode（DMN 标准 2.0.84，M7）；accept. 下新立的表照旧不收。另加：品类与业务模式表角色 BUSINESS_MODE 与声明来源 info:<原值号>、能力表 infos 可选取值名 names（DMN 2.0.87）；新增：情形概述 rows.<rule_id>.cases（DMN 2.0.88）。修 rc3 没跟上配置的用例与夹具（运行时代码不改）。
 
