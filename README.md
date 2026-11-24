@@ -58,6 +58,14 @@
 
 **0.5.29**：对成功保存、草稿、发布、撤销和草稿删除尝试记录旁路归属，失败不改变业务写入结果；宿主 user_id 与 via 均不独立认证，只有 writer_verified 表示 HMAC 已核验。历史身份字段仅向钉定维护应用返回；撤销/删除记录为独立操作，不改原版本作者。详见 [0.5.29 发布说明](docs/releases/v0.5.29.md)。
 
+**0.5.44-rc4**（候选，未发布）：rc3 没发，在它之上加一件——最终名流程 `trigger.` 下新立的表按类认：`trigger.<对象>.<判断>` 只按写法认作决策表，主人是定位（插件配置 `target_app_id`），第一张是品类与业务模式表 `trigger.product.business_mode`（DMN 标准 2.0.84，M7）；`accept.` 下新立的表照旧不收。另加：品类与业务模式表角色 `BUSINESS_MODE` 与声明来源 `info:<原值号>`、能力表 infos 可选取值名 `names`（DMN 2.0.87）；新增：情形概述 `rows.<rule_id>.cases`（DMN 2.0.88，导出进 DMN XML 的 rule description）。修 rc3 没跟上配置的用例与夹具（运行时代码不改）。见 [0.5.44 发布说明](docs/releases/v0.5.44.md) 第十六、十七节。
+
+**0.5.44-rc3**（候选，没发，由 rc4 接替）：rc2 没发，在它之上只改一件——部署的三个应用号（「路由表维护」、定位 TARGET、分诊 TRIAGE）不再写在代码里，改由插件配置读：装好后在 Dify「工具 → 内置 JSON 决策表 → 授权」里填 `maintenance_app_id`、`target_app_id`、`triage_app_id`（小写 36 位应用编号）。没填或写错，写入闸关门、`target.` / `triage.` 下的决策表存时拒，按原来的码。填的与 0.5.43 写死的相同时，存、读、求值的回答逐字节不变。见 [0.5.44 发布说明](docs/releases/v0.5.44.md) 第十五节。
+
+**0.5.44-rc2**（候选，没发，由 rc3 接替）：在 rc1 之上并进五件——PSN 编号模块跟上主链路五段段表、取数族 FETCH、分支闸编号（离线模块，运行时不导入）；一种情形的条件上限 32 → 128（DMN 标准 2.0.75）；能力表原值可以带自己的 `call_ref`；三级资源去向表的资源编号可以声明为可空，由唯一一处「资源编号为空」接住（那一种情形只写这一条条件）；表停用与恢复（`op=deactivate` / `reactivate` / `lifecycle`，表只能停用不能删）。不用新功能时读写同 0.5.43，回答变了的三处与回退次序见 [0.5.44 发布说明](docs/releases/v0.5.44.md) 第十一节。
+
+**0.5.44-rc1**（候选，未发布）：主链路策略表的写入只认「路由表维护」应用，按表的类别判、不按旧五张名单判（Brian 11-23「收进 0.5.44」）。交付的触发、受理、分配、处理各段的表（存名 `target.` / `triage.` / `handle.`，最终名 `trigger.` / `accept.`，旧名与全名经 `storage_name` 归一）存、撤销、草稿与发布都只认维护应用；0.5.43 漏在闸外的问题受理表、能力表、新资源去向表 `triage.assignment.resource` 收进来。场景与话题表照旧只走受控入口；方案层 `solution.*` / `p2.*`、别的任务类型的表、试验名 `trial.*` 照旧哪个应用都能存。不写新键，回退装回 0.5.43-rc2。详见 [0.5.44 发布说明](docs/releases/v0.5.44.md)。
+
 **0.5.43-rc2**（候选，未发布）：在 rc1 之上只改存前自动闸的「回滚」认定（协调定 347，换号窗口第 20–27 件要能退回上一版内容）。存的整份内容（表名、说明与存储元数据除外）等于头版之前 3 版以内的一版才算回滚（rc1 是 2 版，且按内容摘要认）；回滚时 `SCENE_NOT_IN_CATALOG`、`ROUTE_TABLE_SOLUTION_LOST` 两码照报为警告（带 `restore`、`restored_version`），另报一条 `TABLE_RESTORE`，回执 `auto_gate.restore` 写回到哪一版、放了哪几码；其余拒存码照拦，新内容、窗口外的旧版照拦。见[发布说明](docs/releases/v0.5.43.md)第十六节。
 
 **0.5.43-rc1**（候选，未发布）：交付链六张表改五段最终名——`trigger.scene.topic`、`trigger.scene.entity`、`trigger.supplement.requirements`、`trigger.capability.catalog`、`accept.scene.acceptance`、`accept.issue.acceptance`（路由、资源去向两张不变）。照 0.5.20 的首存：窗口那天把现存名的头版原样存成最终名、版本号沿用、能 `op=undo`；首存之前按最终名读就读到现存名那张表（回执 `alias_of`），首存之后前面每个名（含 0.5.20 的旧名）都读到最终名的表（回执 `read_as`）且只读（`STORED_TABLE_ALIAS_READ_ONLY`，说该用的名）。按旧名的读按名按天计数，`op=alias_reads` 读回。能力表另收试验名 `trial.trigger.capability.catalog`（照能力表核、存储独立、不进存前自动闸）。新写法方案层表存表时核的请求的号清单换成合同 v5 二次重钉候选那份（sha256 `2eef92b5…`，37 个号加 `补充.组.<关联组>.<键>`、`补充.组.<关联组>.对象.<关系>.<键>` 两个模板，§21「补充」）：0.5.42 清单里的 `关联对象.*`、`关联要求.*`、`受理回执.补充.*` 不在了，读这些号的表存表回 400 `STORED_TABLE_REQUEST_ID_UNKNOWN`，`op=v2_vocabulary` 的清单部分随之变。其余不带最终名的调用回答与 0.5.42 逐字节相同（按 0.5.20 旧名的读多记一个计数键）；例外是 `trigger.*`、`accept.*`、`support.accept.*` 不再能作路由表名。见[发布说明](docs/releases/v0.5.43.md)。
