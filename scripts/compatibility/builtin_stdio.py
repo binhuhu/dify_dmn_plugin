@@ -40,13 +40,23 @@ def run(stage, output):
             if predicate(item):
                 return item
 
-    def send(sid, action, parameters=None, tool="evaluate_json_table"):
+    # 0.5.44-rc3 made the deployment's three app ids required provider credentials (made-up ids here, as the tests'
+    # deployment_fixtures.CREDENTIALS); 0.5.46-rc1: this script follows, empty credentials are refused
+    made_up = {
+        "maintenance_app_id": "d0000001-0000-4000-8000-000000000001",
+        "target_app_id": "d0000002-0000-4000-8000-000000000002",
+        "triage_app_id": "d0000003-0000-4000-8000-000000000003",
+    }
+
+    def send(
+        sid, action, parameters=None, tool="evaluate_json_table", credentials=None
+    ):
         data = {
             "user_id": "builtin-fixture",
             "type": "tool",
             "action": action,
             "provider": "dmn_json",
-            "credentials": {},
+            "credentials": made_up if credentials is None else credentials,
         }
         if parameters is not None:
             data.update(tool=tool, tool_parameters=parameters)
@@ -65,9 +75,11 @@ def run(stage, output):
 
     try:
         manifest = receive(lambda x: x.get("type") == "plugin")
-        assert manifest["name"] == "dmn_json" and manifest["version"] == "0.5.44-rc4"
+        assert manifest["name"] == "dmn_json" and manifest["version"] == "0.5.46-rc1"
         cred = send("credentials", "validate_tool_credentials")
         assert cred[0] == {"type": "stream", "data": {"result": True}}, cred
+        unset = send("credentials-unset", "validate_tool_credentials", credentials={})
+        assert unset[0]["type"] == "error", unset  # unset app ids are refused
         for policy in ["FIRST", "COLLECT"]:
             for native in [True, False]:
                 table = {
@@ -140,7 +152,7 @@ def run(stage, output):
             json.dumps({"manifest": manifest, "events": captured}, indent=2)
         )
         print(
-            "PASS: no-credential validation + 14 real SDK stdio calls (three tools, native/string)"
+            "PASS: credential validation (made-up ids taken, unset refused) + 14 real SDK stdio calls (three tools, native/string)"
         )
     finally:
         proc.terminate()
