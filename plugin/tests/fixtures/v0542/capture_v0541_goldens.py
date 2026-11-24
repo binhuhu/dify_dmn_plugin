@@ -156,10 +156,15 @@ def capture(plugin):
     sys.path.insert(0, str(plugin))
     import dify_plugin  # noqa: F401
 
-    from dmn_client import dmn_xml, route_store, stored_tables
+    from dmn_client import dmn_xml, route_store
     from dmn_client.inline_table import evaluate_inline
 
-    owner = {"app_id": stored_tables.APP_TRIAGE, "team": "金样", "name": "0.5.42"}
+    # 分诊 TRIAGE 的现网应用号：0.5.43 以前写死在 stored_tables.APP_TRIAGE，0.5.44-rc3 起由插件配置读，放在 git 外的
+    # deployment/deployment.json（见 tests/real_fixtures.py）；金样是拿它取的
+    triage = json.loads(
+        (FIXTURES.parent / "deployment" / "deployment.json").read_text(encoding="utf-8")
+    )
+    owner = {"app_id": triage["triage_app_id"], "team": "金样", "name": "0.5.42"}
 
     class Memory:
         def __init__(self):
