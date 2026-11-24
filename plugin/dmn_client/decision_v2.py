@@ -981,6 +981,8 @@ def _standard_checks(out, d, role):
     missing, extra = sorted(set(ids) - set(out["rows"])), sorted(set(out["rows"]) - set(ids))
     _declare(not extra, "rows 里有表里没有的规则：" + ", ".join(extra[:5]), "declare.rows")
     _declare(not missing, "这些规则没写依据：" + ", ".join(missing[:5]), "declare.rows")
+    # DMN 2.0.87: case explanations (declarations._cases), a v2 rule's cases are its rows
+    declarations._cases(out["rows"], model["rules"], _declare, "declare.rows")
     # 0.5.42 (third review m1): a state only an id's default gives may be listed, and need not be (标准 2.0.59)
     defaults = {s[DEFAULT]["state"] for s in d.get(IDS, {}).values() if DEFAULT in s}
     declarations._row_states(out["states"], model, defaults if role in KEYED else ())
@@ -2185,6 +2187,7 @@ def warnings(clean, previous=None):
                 }
             )
     model = model_view(dec)
+    out += declarations.case_warnings(d.get("rows") or {}, model["rules"])
     sha = d.get("row_order_sha256")
     if sha and dec["hit_policy"] == "FIRST" and sha != declarations.row_order_sha256(model):
         w = {"code": "ROW_ORDER_STALE", "level": "TABLE", "message": "行顺序变了，优先级待重新确认"}

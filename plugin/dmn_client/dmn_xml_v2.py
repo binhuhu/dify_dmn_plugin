@@ -41,6 +41,8 @@ from dmn_client.dmn_xml import (
     _output_name,
     _template,
     _text,
+    description,
+    rule_descriptions,
 )
 from dmn_client.feel_cells import FeelError
 from dmn_client.route_table import RouteTableError
@@ -168,7 +170,7 @@ def _xml_ids(clean, decision_id):
     return out
 
 
-def _render(clean, decision_id, name, order=None):
+def _render(clean, decision_id, name, order=None, declared_rows=None):
     d = clean["decision"]
     role = decision_v2.role_of(clean["table"])
     rules = d["rules"]
@@ -285,7 +287,11 @@ def _render(clean, decision_id, name, order=None):
             )
         )
     for i, k, xid in rows:
-        parts.append("<rule id=%s>" % quoteattr(xid))
+        # DMN 2.0.88 (情形概述): one row per case, its description the case's why (the rule's why without cases)
+        whys = rule_descriptions(declared_rows, rules[i]["rule_id"], len(rules[i]["rows"]))
+        parts.append("<rule id=%s%s>" % (quoteattr(xid), ' dj:why="declare"' if whys else ""))
+        if whys:
+            parts.append(description(whys[k]))
         got = cells[xid]
         for j, (key, n) in enumerate(columns):
             texts = got.get(key, [])
@@ -339,7 +345,9 @@ def export_doc(doc, decision_id="decision", name=None):
     name = decision_id if name is None else name
     _need(type(name) is str and 0 < len(name) <= 256, "name 写 1–256 字", "name", "DMN_XML_INVALID")
     clean = _clean({k: v for k, v in doc.items() if k != "declare"})
-    xml, warnings = _render(clean, decision_id, name)
+    declared = doc.get("declare") if isinstance(doc.get("declare"), dict) else {}
+    declared_rows = declared.get("rows")
+    xml, warnings = _render(clean, decision_id, name, declared_rows=declared_rows)
     back = import_doc(xml, limit=False)["document"]["decision"]
     order = {}
     rules = clean["decision"]["rules"]
@@ -354,7 +362,7 @@ def export_doc(doc, decision_id="decision", name=None):
                 perm.append(j)
             order[xid] = perm
     if order:
-        xml, warnings = _render(clean, decision_id, name, order)
+        xml, warnings = _render(clean, decision_id, name, order, declared_rows=declared_rows)
         back = import_doc(xml, limit=False)["document"]["decision"]
     if _canon(back) != _canon(clean["decision"]):
         warnings.append(

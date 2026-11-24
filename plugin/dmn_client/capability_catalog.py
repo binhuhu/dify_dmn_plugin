@@ -111,7 +111,21 @@ INFO_KEYS = ("info_id", "name", "field", "type", "unit", "object")
 # inputs and fan_out (another set of inputs is another capability, another row); its field is a path in its own call's
 # return. facts (0.5.38's writing, under either name) stay frozen: alternate_of only.
 FACT_OPTIONAL_KEYS = ("alternate_of",)
-INFO_OPTIONAL_KEYS = ("alternate_of", "call_ref")
+INFO_OPTIONAL_KEYS = ("alternate_of", "call_ref", "names")
+# DMN 2.0.87 (合同线 3e3358ea0): an item of infos may carry names {取值: 中文名}, the display names of a coded raw value
+# (the word outputs.names uses in a declaration). Optional: a table without it is taken as before. Its keys are values of
+# the item's type written as JSON object keys: any text for string, an integer for integer, a number for number, true /
+# false for boolean; object and array have no names. Each name 1–40 characters, at most 1024 of them.
+NAMES_MAX = 1024
+NAME_MAX = 40
+INTEGER_KEY_RE = re.compile(r"-?(0|[1-9][0-9]*)")
+NUMBER_KEY_RE = re.compile(r"-?(0|[1-9][0-9]*)(\.[0-9]+)?([eE][+-]?[0-9]+)?")
+NAMES_KEY_OK = {
+    "string": lambda k: 0 < len(k) <= 128,
+    "integer": lambda k: INTEGER_KEY_RE.fullmatch(k) is not None,
+    "number": lambda k: NUMBER_KEY_RE.fullmatch(k) is not None,
+    "boolean": lambda k: k in ("true", "false"),
+}
 ITEM_ID = {FACTS: "fact_id", INFOS: "info_id"}
 LIST_FILTERS = ("domain", "entity", "kind", "face")
 
@@ -326,7 +340,8 @@ def _fact(raw, q, moded=False, key=FACTS):
             and set(INFO_KEYS) <= set(raw) <= set(INFO_KEYS) | set(INFO_OPTIONAL_KEYS),
             "原值 = "
             + " / ".join(INFO_KEYS)
-            + "（+ alternate_of：这个原值的主来源能力；+ call_ref：取这个原值走的调用，不写就走行的 call_ref）",
+            + "（+ alternate_of：这个原值的主来源能力；+ call_ref：取这个原值走的调用，不写就走行的 call_ref；"
+            "+ names：编码类原值的取值中文名）",
             q,
         )
     else:
@@ -373,7 +388,29 @@ def _fact(raw, q, moded=False, key=FACTS):
         )
     if "call_ref" in raw:  # infos only (the key check above refuses it in facts)
         out["call_ref"] = _call_ref(raw["call_ref"], q + ".call_ref")
+    if "names" in raw:  # infos only, as call_ref
+        out["names"] = _names(raw["names"], raw["type"], q + ".names")
     return out
+
+
+def _names(raw, typ, path):
+    """DMN 2.0.87: {取值: 中文名} of a raw value, the keys of the item's type (NAMES_KEY_OK)."""
+    ok = NAMES_KEY_OK.get(typ)
+    _need(
+        ok is not None,
+        "names 只给编码类原值：type 是 %s 的原值不写 names" % typ,
+        path,
+    )
+    _need(
+        type(raw) is dict
+        and 0 < len(raw) <= NAMES_MAX
+        and all(ok(k) for k in raw)
+        and all(type(v) is str and 0 < len(v.strip()) <= NAME_MAX for v in raw.values()),
+        "names = {取值: 中文名}：取值与这一项的 type（%s）同型，中文名 1–%d 字，最多 %d 个"
+        % (typ, NAME_MAX, NAMES_MAX),
+        path,
+    )
+    return dict(raw)
 
 
 def _codes(raw, allowed, empty_ok, label, p):

@@ -7,7 +7,7 @@ import re
 
 import rfc8785
 
-from dmn_client import capability_catalog, declarations
+from dmn_client import capability_catalog, declarations, deployment
 from dmn_client.decision_executor import PROFILE
 from dmn_client.json_table import OPS, equal
 from dmn_client.route_table import (
@@ -38,6 +38,7 @@ from dmn_client.table_names import (
     format_name,
     full_spelled,
     read_names,
+    renamed,
     storage_name,
 )
 
@@ -180,10 +181,26 @@ TABLE_SOLUTION_PREFIX = "solution."
 # 2026-11-16 (Brian「补进去」): delivery's handle workflow, the fourth of the four every task type has. Its tables are
 # handle.<object>.<judgment> (support.handle.<object>.<judgment> with the task type left out, as target. and triage. are)
 TABLE_HANDLE_PREFIX = "handle."
-APP_TARGET = "56d3c0c5-4d41-4454-99ab-e3a6db6aa66c"  # 定位 TARGET
-APP_TRIAGE = "0f34962a-e380-45e1-8b35-fc64b5651776"
+# 0.5.44-rc3 (Brian 11-23「先改配置出 rc3」): the owners of target. and triage. are the provider credentials
+# target_app_id / triage_app_id (deployment.py), no longer app ids written into the public code; unset, no owner matches
+POLICY_OWNER_KEYS = {TABLE_TARGET_PREFIX: deployment.TARGET, TABLE_TRIAGE_PREFIX: deployment.TRIAGE}
 
-POLICY_OWNERS = {TABLE_TARGET_PREFIX: APP_TARGET, TABLE_TRIAGE_PREFIX: APP_TRIAGE}
+
+def policy_owners():
+    """The owner app of target. and of triage., as configured (None when not)."""
+    return {prefix: deployment.app(key) for prefix, key in POLICY_OWNER_KEYS.items()}
+
+
+# DMN 2.0.84 §一 (M7 品类与业务模式, Brian 11-24 09:07「加表并进稳定版」): a table first created under the final names'
+# trigger workflow — trigger.product.business_mode is the first — has no name before it. It is a decision table by the
+# standard three-segment grammar alone, as 0.5.21's target. / triage. standard names are, and belongs to its workflow's
+# home app: trigger. is the final name of target. (定位 TARGET). Only the three-segment name: no single-segment <名称>
+# (0.5.21's older spelling), no .resource (only triage routes to resources). 0.5.43's six final names keep the rules of
+# the names before them (format_name), as before. accept. stays closed to new tables (协调 11-24：稳定期不开，受理段还没有
+# 要新立的表): a class of its own, opened by adding it here.
+FINAL_HOMES = {TABLE_TRIGGER_PREFIX: TABLE_TARGET_PREFIX}
+
+
 POLICY_NAME_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{0,47}$")
 # 0.5.21: a standard three-segment name <workflow>.<object>.<judgment> under target. / triage. is a decision table name
 # by its grammar alone (at most 64 characters in all, as every table name); which names exist is decided outside this
@@ -233,10 +250,20 @@ TASK_NAME_RE = re.compile(
     r"(?P<task>%s)\.(?P<workflow>%s)\.(?P<object>[a-z][a-z0-9_]{0,31})\.(?P<judgment>[a-z][a-z0-9_]{0,31})"
     % ("|".join(TASK_TYPES[1:]), "|".join(TASK_WORKFLOWS))
 )
+
+
+def decision_name_rule():
+    """The name rule as told on a refusal; the two owners are the configured ones (0.5.44-rc3)."""
+    return DECISION_NAME_RULE % (
+        deployment.shown(deployment.target_app()),
+        deployment.shown(deployment.triage_app()),
+    )
+
+
 DECISION_NAME_RULE = (
     "决策表的表名只能是六种之一：p2.<方案应用编号>（owner.app_id = 该方案应用）、"
-    "target.<名称> 或 target.<对象>.<判断>（owner.app_id = 定位 TARGET " + APP_TARGET + "）、"
-    "triage.<名称> 或 triage.<对象>.<判断>（owner.app_id = 分诊 TRIAGE " + APP_TRIAGE + "）、"
+    "target.<名称>、target.<对象>.<判断> 或 trigger.<对象>.<判断>（owner.app_id = 定位 TARGET %s）、"
+    "triage.<名称> 或 triage.<对象>.<判断>（owner.app_id = 分诊 TRIAGE %s）、"
     "handle.<对象>.<判断>（交付的处理流程；owner.app_id = 读这张表的流程应用）、"
     "solution.<search.info|info.fact|search.fact|fact.feature|feature.reality|reality.strategy>.<场景号>[.<方案段>][.<分片>]"
     "（旧名 search.fact、disposal.strategy / disposal.status 照收；search.info、info.fact 只收新写法 v2）"
@@ -253,6 +280,7 @@ DECISION_NAME_RULE = (
     + "，<对象>、<判断> 同上）；"
     "其中 <任务类型>.triage.<对象>.resource 是资源去向：和交付同一套三级决策表（role = RESOURCE），只收决策表"
 )  # 0.5.30 adds the solution segment to 0.5.28's text; 2026-11-16 adds the task-type names and delivery's handle.
+# DMN 2.0.84 adds trigger. to its home's clause (FINAL_HOMES); still six kinds
 ITEM_RE = re.compile(r"^[a-z][a-z0-9_]{0,63}$")
 PROMPT_RE = re.compile(r"^[a-z][a-z0-9_.]{0,95}$")
 RESOURCE_RE = re.compile(r"^[a-z][a-z0-9_.-]{0,63}$")
@@ -306,6 +334,28 @@ def handle_prefixed(table):
     return type(table) is str and table.startswith(TABLE_HANDLE_PREFIX)
 
 
+def final_new_name(table):
+    """DMN 2.0.84: trigger.<object>.<judgment>, a table first created under a final names' workflow (FINAL_HOMES): not one
+    of 0.5.43's six final names, not a .resource name, object and judgment as in every standard name."""
+    table = delivery_name(table)
+    if type(table) is not str or not table.startswith(tuple(FINAL_HOMES)) or renamed(table):
+        return False
+    return (
+        POLICY_STANDARD_NAME_RE.fullmatch(table.split(".", 1)[1]) is not None
+        and bool(table_name(table))
+        and not table.endswith(TABLE_RESOURCE_SUFFIX)
+    )
+
+
+def final_owner_key(table):
+    """DMN 2.0.84: the deployment key of a final_new_name's owner — its workflow's home's (trigger. → target_app_id);
+    None for any other name."""
+    if not final_new_name(table):
+        return None
+    table = delivery_name(table)
+    return POLICY_OWNER_KEYS[FINAL_HOMES[table[: table.index(".") + 1]]]
+
+
 def reserved_name(table):
     """Names bound to a stored-table schema; a route table may not take them."""
     # 0.5.20: a standard name follows its old name (triage.dispatch.route is a route table)
@@ -317,7 +367,7 @@ def reserved_name(table):
         or table.startswith(TABLE_P2_PREFIX)
         or table.startswith(TABLE_SUPPLEMENT_PREFIX)
         or table.endswith(TABLE_RESOURCE_SUFFIX)
-        or table.startswith(tuple(POLICY_OWNERS))
+        or table.startswith(tuple(POLICY_OWNER_KEYS))
         or table.startswith(TABLE_SOLUTION_PREFIX)
         or table.startswith(FINAL_PREFIXES)  # 0.5.43
     )
@@ -344,7 +394,10 @@ def decision_table_name(table, app_id):
             and table_name(table)
             and segment in (None, app_id.split("-")[0])
         )
-    for prefix, owner in POLICY_OWNERS.items():
+    if final_new_name(table):
+        # DMN 2.0.84: a new table under trigger. belongs to its workflow's home app (FINAL_HOMES), as configured
+        return deployment.same(app_id, final_owner_key(table))
+    for prefix, key in POLICY_OWNER_KEYS.items():
         if table.startswith(prefix):
             rest = table[len(prefix) :]
             named = bool(POLICY_NAME_RE.match(rest)) or (
@@ -353,11 +406,13 @@ def decision_table_name(table, app_id):
                 and table != TABLE_SCENE_TOPIC
                 and not table.endswith(TABLE_RESOURCE_SUFFIX)
             )
-            if named and app_id == owner:
+            if named and deployment.same(app_id, key):
                 return True
             break
     # 0.5.22: a resource-targets name may hold the three-tier resource routing as a decision table, owned by TRIAGE
-    return task_resource_name(table) or (resource_decision_name(table) and app_id == APP_TRIAGE)
+    return task_resource_name(table) or (
+        resource_decision_name(table) and deployment.same(app_id, deployment.TRIAGE)
+    )
 
 
 def resource_decision_name(table):
@@ -645,10 +700,10 @@ def _owner(doc, code, decision_set=False):
         decision_set
         or not (table_name(name) and resource_decision_name(name))
         or task_resource_name(name)  # another task type's routing belongs to the app that reads it
-        or owner["app_id"] == APP_TRIAGE,
+        or deployment.same(owner["app_id"], deployment.TRIAGE),
         "STORED_TABLE_NAME",
         "%s 是资源去向名：这里的决策表是分诊的资源去向（role = RESOURCE），owner.app_id 写分诊 TRIAGE %s"
-        % (name, APP_TRIAGE),
+        % (name, deployment.shown(deployment.triage_app())),
         "owner.app_id",
     )
     segment = solution_segment(name)
@@ -667,7 +722,7 @@ def _owner(doc, code, decision_set=False):
             decision_table_name(t, owner["app_id"])
             and not (decision_set and resource_decision_name(t))
         ),
-        DECISION_NAME_RULE,
+        decision_name_rule(),
     )
     return clean_owner, table
 

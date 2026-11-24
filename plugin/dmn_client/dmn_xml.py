@@ -519,6 +519,8 @@ def _import_decision(decision, ns):
             if _text(e, ns) != ""  # an empty cell: this row has no such key
         }
         annotation = (node.findtext(q("description")) or "").strip()
+        if node.get("{%s}why" % EXTENSION_NAMESPACE) == "declare":
+            annotation = ""  # DMN 2.0.88: the declaration's why, exported for people; not read back
         if annotation and shape == "standard" and "note" not in outputs:
             values["note"] = (
                 annotation  # the rule's annotation is its note when there is no note column
@@ -723,8 +725,32 @@ def _document(name, decisions):
     )
 
 
-def export_xml(model, decision_id="decision", name=None, warnings=None):
-    """The stored model as DMN 1.3 XML (one decision table)."""
+def rule_descriptions(rows, rule_id, n, use_cases=True):
+    """DMN 2.0.88 (情形概述): the description of each of a rule's n cases, from the declaration's rows: the case's own
+    why where cases is written, else the rule's why; [] when the rule has no why. Read leniently (an export takes any
+    document); a declaration the save accepted always gives one why per case."""
+    row = rows.get(rule_id) if isinstance(rows, dict) else None
+    why = row.get("why") if isinstance(row, dict) else None
+    if not isinstance(why, str) or not why.strip():
+        return []
+    cases = row.get("cases") if use_cases else None
+    out = []
+    for k in range(n):
+        item = cases[k] if isinstance(cases, list) and k < len(cases) else None
+        own = item.get("why") if isinstance(item, dict) else None
+        out.append(own if isinstance(own, str) and own.strip() else why)
+    return out
+
+
+def description(text):
+    """A rule's <description> carrying the declaration's why, marked dj:why so that an import does not read it back
+    (as a note or anything else): the declaration is not made from XML."""
+    return "<description>%s</description>" % escape(text)
+
+
+def export_xml(model, decision_id="decision", name=None, warnings=None, rows=None):
+    """The stored model as DMN 1.3 XML (one decision table). rows (DMN 2.0.88): the declaration's rows, whose whys go
+    into the rules' description."""
     _need(
         type(decision_id) is str and NCNAME_RE.match(decision_id) and decision_id != "definitions",
         "decision_id 要是 XML 名字（字母或下划线开头）",
@@ -733,10 +759,12 @@ def export_xml(model, decision_id="decision", name=None, warnings=None):
     )
     name = decision_id if name is None else name
     _need(type(name) is str and 0 < len(name) <= 256, "name 写 1–256 字", "name", "DMN_XML_INVALID")
-    return _document(name, _decision(model, decision_id, name, warnings=warnings))
+    return _document(
+        name, _decision(model, decision_id, name, warnings=warnings, declared_rows=rows)
+    )
 
 
-def export_set_xml(models, name="decisions", warnings=None):
+def export_set_xml(models, name="decisions", warnings=None, rows_by_model=None):
     """A decision set's models ({key: {model_ref, model}}) as one DMN 1.3 document, one <decision> per model."""
     _need(
         type(models) is dict
@@ -766,13 +794,25 @@ def export_set_xml(models, name="decisions", warnings=None):
                 models[key].get("model_ref"),
                 warnings=warnings,
                 label="模型 %s：" % key,
+                declared_rows=(rows_by_model or {}).get(key)
+                if isinstance(rows_by_model, dict)
+                else None,
             )
         except DmnXmlError as e:
             _fail(e.message, "models.%s.%s" % (key, e.path), e.code)
     return _document(name, decisions)
 
 
-def _decision(model, decision_id, name, rule_prefix="", model_ref=None, warnings=None, label=""):
+def _decision(
+    model,
+    decision_id,
+    name,
+    rule_prefix="",
+    model_ref=None,
+    warnings=None,
+    label="",
+    declared_rows=None,
+):
     """The <decision> element of one model, as lines. warnings (0.5.42): a list the export's notes are added to."""
     model = _checked(model)
     shape = "standard" if stored_tables._standard_shaped(model) else "plain"
@@ -894,8 +934,19 @@ def _decision(model, decision_id, name, rule_prefix="", model_ref=None, warnings
                 else "",
             )
         )
+    # DMN 2.0.88: a rule written one row per case carries that case's why; a rule written as one row the rule's why
+    seen = {}
     for r, (i, cells) in enumerate(rows):
-        parts.append("<rule id=%s>" % quoteattr(ids[r]))
+        rule = model["rules"][i]
+        nth_row = seen[i] = seen.get(i, -1) + 1
+        per_case = count[i] == len(stored_tables.rule_combinations(rule))
+        whys = rule_descriptions(
+            declared_rows, rule["rule_id"], count[i] if per_case else 1, use_cases=per_case
+        )
+        attr = ' dj:why="declare"' if whys else ""
+        parts.append("<rule id=%s%s>" % (quoteattr(ids[r]), attr))
+        if whys:
+            parts.append(description(whys[nth_row] if per_case else whys[0]))
         for j, (key, k) in enumerate(columns):
             texts = cells.get(key, [])
             parts.append(
@@ -1048,7 +1099,19 @@ def convert(parameters):
             elif "models" in raw and "profile" not in raw:
                 # a decision-set document: every model, one <decision> each
                 notes = []  # 0.5.42: added once the export has gone through
-                out["dmn_xml"] = export_set_xml(raw["models"], name or "decisions", warnings=notes)
+                declared = raw.get("declare") if isinstance(raw.get("declare"), dict) else {}
+                out["dmn_xml"] = export_set_xml(
+                    raw["models"],
+                    name or "decisions",
+                    warnings=notes,
+                    rows_by_model={
+                        k: (v or {}).get("rows")
+                        for k, v in (declared.get("models") or {}).items()
+                        if isinstance(v, dict)
+                    }
+                    if isinstance(declared.get("models"), dict)
+                    else None,
+                )
                 out["warnings"] += notes
                 out["name"] = name or "decisions"
                 out["models"] = {
@@ -1060,7 +1123,10 @@ def convert(parameters):
                 model = raw["model"] if "model" in raw and "profile" not in raw else raw
                 out["decision_id"] = decision_id or "decision"
                 notes = []
-                out["dmn_xml"] = export_xml(model, out["decision_id"], name, warnings=notes)
+                declared = raw.get("declare") if isinstance(raw.get("declare"), dict) else {}
+                out["dmn_xml"] = export_xml(
+                    model, out["decision_id"], name, warnings=notes, rows=declared.get("rows")
+                )
                 out["warnings"] += notes
                 out["name"] = name or out["decision_id"]
                 out["model"] = _checked(model)

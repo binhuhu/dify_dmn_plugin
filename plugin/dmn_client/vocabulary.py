@@ -82,7 +82,7 @@ def declared():
             # the name 0.5.38 answered (coordination ruling 161): since 2026-11-18 (Brian 00:49「表名也改成四段吧」) a
             # read-only alias of target.capability.catalog, which op=capability_vocabulary names
             "capability": CC.OLD_TABLE,
-            "policy_owners": dict(S.POLICY_OWNERS),
+            "policy_owners": S.policy_owners(),
             "prefixes": {
                 "target": S.TABLE_TARGET_PREFIX,
                 "triage": S.TABLE_TRIAGE_PREFIX,
@@ -406,6 +406,9 @@ def v2_declared():
             "search_info_adds": ["capability_table"],
             # 按号判的表，号的中文名在 declare.ids（号 → {name, names?}）；号的类型、取值在决策本体的 ids
             "ids_entry_keys": ["name", "names"],
+            # DMN 2.0.88 (情形概述): rows.<rule_id> 的键，cases 只给不止一种情形的规则写，每种情形一项
+            "row_keys": ["why", "rule_sha256", "split_of", "split_reason", "cases"],
+            "case_keys": ["why", "case_sha256"],
         },
         "codes": {
             "refusals": [

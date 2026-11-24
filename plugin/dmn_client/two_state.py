@@ -28,6 +28,7 @@ from dmn_client import (
     alias_reads,
     catalog,
     controlled,
+    deployment,
     save_gate,
     scene_bundle,
     settings,
@@ -104,9 +105,9 @@ RELEASE_REF_RE = re.compile(r"^[^\x00-\x1f\x7f]{3,200}$")
 DRAFT_OPS = ("draft", "draft_save", "draft_discard", "publish")
 # review round 1 (indep 中-1): the writers parameter is read only from the maintenance app's node. Plugin storage is
 # shared by the workspace, so another app's route_table_store node could otherwise bring its own registry. Round 2
-# (indep 中-1): the pin is part of the release, not a storage switch, so no writer key can move it; another
-# maintenance app is another release.
-MAINTENANCE_APP = "3c016f44-73a2-49b0-ad9b-37b578c46545"  # 路由表维护
+# (indep 中-1): the pin is not a storage switch, so no writer key can move it. 0.5.44-rc3 (Brian 11-23「先改配置出
+# rc3」): the pin is the provider credential maintenance_app_id (deployment.py), set at installation, no longer an app id
+# written into the public code; unset, every write that needs the pin is refused (the gate is closed).
 # 0.5.44 (Brian 11-23 13:54「收进 0.5.44」; 14:5x「同意，收进闸」for handle.): which tables only the maintenance app
 # writes is decided by the kind of the table, read off its stored name, not by a list of names. The main chain's policy
 # tables are delivery's tables under its trigger, accept, triage and handle workflows: stored under target. / triage. /
@@ -198,17 +199,22 @@ def draft_key(table):
 
 
 def pinned_app(storage):
-    return MAINTENANCE_APP
+    return deployment.maintenance_app()
+
+
+def is_maintenance(caller_app):
+    """Whether the caller is the pinned maintenance app; never when the pin is not configured."""
+    return deployment.same(caller_app, deployment.MAINTENANCE)
 
 
 def check_caller(storage, caller_app):
     """A signed operation counts only when the calling app is the pinned maintenance app."""
     pinned = pinned_app(storage)
     _need(
-        isinstance(caller_app, str) and caller_app == pinned,
+        is_maintenance(caller_app),
         "STORED_TABLE_WRITERS_APP_REJECTED",
         "写手登记只认「路由表维护」应用 %s… 节点里的那份；这次调用来自 %s：签名的写入只经那个应用"
-        % (pinned[:8], (caller_app or "不明的应用")[:8]),
+        % (deployment.shown(pinned)[:8], (caller_app or "不明的应用")[:8]),
         "writers",
     )
 
@@ -218,11 +224,11 @@ def check_maintainer(storage, caller_app, table):
     app; the code is the pin's own."""
     pinned = pinned_app(storage)
     _need(
-        isinstance(caller_app, str) and caller_app == pinned,
+        is_maintenance(caller_app),
         "STORED_TABLE_WRITERS_APP_REJECTED",
         "%s 是主链路策略表（交付的触发、受理、分配、处理各段的表）：存、撤销、草稿与发布只认「路由表维护」应用 %s…；"
         "这次调用来自 %s。经那个应用存，或交维护的人存"
-        % (str(table)[:128], pinned[:8], (caller_app or "不明的应用")[:8]),
+        % (str(table)[:128], deployment.shown(pinned)[:8], (caller_app or "不明的应用")[:8]),
         "table",
     )
 
@@ -758,9 +764,7 @@ def run_entry(
         # answer is left as it is
         watched = Watched(storage)
         try:
-            return table_lifecycle.annotate(
-                watched, op, table, result, caller_app == MAINTENANCE_APP
-            )
+            return table_lifecycle.annotate(watched, op, table, result, is_maintenance(caller_app))
         except RouteTableError as exc:
             return error(_status(exc.code), exc.code, exc.message, exc.path)
         except Exception as exc:
@@ -874,7 +878,7 @@ def _run_entry(
             return by
 
         def recorded(result, who=None):
-            return _record(storage, op, table, result, actor(who), caller_app == MAINTENANCE_APP)
+            return _record(storage, op, table, result, actor(who), is_maintenance(caller_app))
 
         if op in scene_bundle.OPS:
             if refused:
@@ -972,9 +976,7 @@ def _run_entry(
                 return refused
             rest = {k: v for k, v in parsed.items() if k != "writer"}
             if op == table_lifecycle.READ:
-                return 200, table_lifecycle.read(
-                    storage, named or None, caller_app == MAINTENANCE_APP
-                )
+                return 200, table_lifecycle.read(storage, named or None, is_maintenance(caller_app))
             check_caller(storage, caller_app)
             with _MUTATION_LOCK:
                 who = None
@@ -1594,12 +1596,12 @@ def _writers_read(storage, writers, caller_app):
     out = {
         "pinned_app": pinned,
         "caller_app": caller_app,
-        "caller_is_pinned": caller_app == pinned,
+        "caller_is_pinned": is_maintenance(caller_app),
         "mode": "OPEN" if open_mode(writers) else "SIGNED",  # 0.5.28
     }
     if out["mode"] == "OPEN":
         return out
-    if caller_app == pinned:
+    if is_maintenance(caller_app):
         try:
             out["writers"] = [
                 {"id": i, "kind": k, "key_fp": key_fingerprint(key)}
@@ -1763,7 +1765,7 @@ def _bundle(
     ctx["provenance"] = provenance
     if op in scene_bundle.READS:
         status, out = scene_bundle.run(storage, op, sid, rest, ctx)
-        if caller_app != MAINTENANCE_APP and status == 200 and isinstance(out, dict):
+        if not is_maintenance(caller_app) and status == 200 and isinstance(out, dict):
             # 0.5.29's rule for history: who wrote what is shown in the maintenance app only
             out = _without_writers(out)
         return status, out

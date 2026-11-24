@@ -36,6 +36,18 @@ from dmn_client.scene_spelling import scene_state
 from dmn_client.table_names import REFERENCE_RULE, delivery_name, full_spelled, storage_name
 
 SEARCH_CAPABILITY = "SEARCH_CAPABILITY"  # 2026-11-11, 提议，由项目维护者确认
+# DMN 2.0.87 §五 (M7 品类与业务模式, 协调 11-24 11:2x): the role of trigger.product.business_mode. One place: the name of the
+# role and the table it belongs to are these two constants. Like SEARCH_CAPABILITY it is not in DECISION_ROLES: only a
+# decision table under its own name takes it (and that name takes only it), so every other table keeps its role list and
+# refusal text, and op=vocabulary answers as before.
+BUSINESS_MODE = "BUSINESS_MODE"
+BUSINESS_MODE_TABLE = "trigger.product.business_mode"
+ROLE_BY_TABLE = {BUSINESS_MODE_TABLE: BUSINESS_MODE}
+# its result (§五): the five business keys besides actions; a row not connected names where it goes and the sentence
+# for the agent, a connected row writes both null
+BUSINESS_MODE_RESULT_KEYS = ("mode", "connected", "product_type", "exit_target", "exit_wording")
+BUSINESS_MODE_EXIT = ("exit_target", "exit_wording")
+BUSINESS_MODE_WORDING_MAX = 120
 DECISION_ROLES = (
     "SCENE_ENTITY",
     "ACCEPTANCE",
@@ -101,7 +113,15 @@ MAX_OVERLAP_CHECKS = 4096
 # 比对的规则对数上限（每对先比取值域，过了再按情形比、走 MAX_OVERLAP_CHECKS 的预算）。split_of 的依据与行序分析共用：
 # 0.5.40 的线内（512 条规则）一张表最多 130816 对，碰不到这条线，回答照旧；只有过了旧线的大表才会用完（0.5.41 第三份评审第 1、2 条）
 MAX_OVERLAP_PAIRS = 200_000
-SOURCE_RE = re.compile(r"^(fact|feature|calc|table|request):\S{1,160}$")
+# DMN 2.0.87: at most as many case explanations as a rule has cases (1024)
+MAX_CASES = 1024
+SOURCE_RE = re.compile(r"^(fact|feature|calc|table|request|info):\S{1,160}$")
+# DMN 2.0.87 §六: a delivery-chain table reads one raw value of the capability table as info:<原值号> (one id one
+# parameter); the id is written as the capability table writes an info id (capability_catalog._info_id: 1–128
+# characters, no white space, control or invisible format characters). Whether the id is in the capability table is the
+# save gate's, not this check's.
+INFO_PREFIX = "info:"
+INFO_ID_MAX = 128
 KEY_RE = re.compile(r"^[A-Za-z0-9_.:#/一-鿿-]{1,160}$")
 HEX64 = re.compile(r"^[0-9a-f]{64}$")
 CUSTOMER_MAX = 200
@@ -252,6 +272,18 @@ def _stored_source(src, path):
     )
 
 
+def _info_source(src, path):
+    """DMN 2.0.87 §六: info:<原值号>, the id written as the capability table writes it."""
+    if not src.startswith(INFO_PREFIX):
+        return
+    iid = src[len(INFO_PREFIX) :]
+    _need(
+        0 < len(iid) <= INFO_ID_MAX and not any(unicodedata.category(ch)[0] in "CZ" for ch in iid),
+        "info:<原值号>：原值号照能力表 infos[].info_id 的写法，1–128 个字符，不含空白和控制字符",
+        path + ".source",
+    )
+
+
 def _parameter(v, path, stage="TRANSITION"):
     # 0.5.19: a STANDARD parameter may give its stored unit
     unit = stage == "STANDARD"
@@ -264,10 +296,12 @@ def _parameter(v, path, stage="TRANSITION"):
     src = v.get("source")
     _need(
         type(src) is str and SOURCE_RE.match(src),
+        # the refusal text stays as before 0.5.44-rc4 (receipts byte for byte); info: is taken all the same (SOURCE_RE)
         "source = fact: / feature: / calc: / table: / request: 开头",
         path + ".source",
     )
     _stored_source(src, path)
+    _info_source(src, path)
     out["source"] = src
     if "domain" in v:
         d = v["domain"]
@@ -345,11 +379,15 @@ def _row(v, path, stage="TRANSITION"):
     split = stage == "STANDARD"
     _need(
         type(v) is dict
-        and set(v) <= {"why", "rule_sha256"} | ({"split_of", "split_reason"} if split else set()),
+        and set(v)
+        <= {"why", "rule_sha256", "cases"} | ({"split_of", "split_reason"} if split else set()),
+        # the refusal text stays 0.5.18's (receipts byte for byte, test_v0519_review27); cases has its own refusals
         "规则说明 = why（+ rule_sha256" + (" / split_of + split_reason" if split else "") + "）",
         path,
     )
     out = {"why": _text(v.get("why"), 300, "规则依据", path + ".why")}
+    if "cases" in v:
+        out["cases"] = _case_whys(v["cases"], path + ".cases")
     if "rule_sha256" in v:
         _need(
             type(v["rule_sha256"]) is str and HEX64.match(v["rule_sha256"]),
@@ -370,6 +408,85 @@ def _row(v, path, stage="TRANSITION"):
             "同一结论分两条的理由（split_reason）",
             path + ".split_reason",
         )
+    return out
+
+
+def _case_whys(v, path):
+    """DMN 2.0.87 (情形概述; Brian 11-24「规则概述 row的概述这样更清晰」「dmn就直接人机可读了」): one item per case of the
+    rule, in its order, {why, case_sha256?}; why as the rule's (1–300 characters), case_sha256 the digest of that case's
+    conditions. How many items the rule takes is checked with the rules (_cases)."""
+    _need(
+        type(v) is list and 0 < len(v) <= MAX_CASES,
+        "cases = 这条规则每种情形一项 {why, case_sha256?}，顺序同情形",
+        path,
+    )
+    out = []
+    for i, item in enumerate(v):
+        q = "%s[%d]" % (path, i)
+        _need(
+            type(item) is dict and set(item) <= {"why", "case_sha256"} and "why" in item,
+            "情形依据 = why（+ case_sha256）",
+            q,
+        )
+        one = {"why": _text(item["why"], 300, "情形依据", q + ".why")}
+        if "case_sha256" in item:
+            _need(
+                type(item["case_sha256"]) is str and HEX64.match(item["case_sha256"]),
+                "case_sha256 = 64 位小写十六进制（这种情形条件列表的摘要）",
+                q + ".case_sha256",
+            )
+            one["case_sha256"] = item["case_sha256"]
+        out.append(one)
+    return out
+
+
+def rule_cases(rule):
+    """The cases of a rule in its order: when is one case, when_any one per item (v1; a v2 rule through rule_view)."""
+    return [rule["when"]] if "when" in rule else list(rule.get("when_any") or [])
+
+
+def case_sha256(case):
+    return digest(case)
+
+
+def _cases(rows, rules, need, base):
+    """DMN 2.0.87: cases only on a rule of more than one case, and exactly as many items as it has cases. need(ok,
+    message, path) is the caller's refusal (v1 .rows…, v2 declare.rows…)."""
+    by_id = {r["rule_id"]: r for r in rules}
+    for rid, row in rows.items():
+        if "cases" not in row or rid not in by_id:
+            continue
+        n = len(rule_cases(by_id[rid]))
+        path = "%s.%s.cases" % (base, str(rid)[:64])
+        need(
+            n > 1,
+            "规则 %s 只有一种情形：情形那句话就是规则那句话，不写 cases" % str(rid)[:64],
+            path,
+        )
+        need(
+            len(row["cases"]) == n,
+            "规则 %s 有 %d 种情形，cases 写了 %d 项：逐种情形写全，顺序同情形"
+            % (str(rid)[:64], n, len(row["cases"])),
+            path,
+        )
+
+
+def case_warnings(rows, rules):
+    """CASE_WHY_STALE: a case changed after its explanation was written (case_sha256 no longer matches). Never a refusal."""
+    out = []
+    for rule in rules:
+        items = (rows.get(rule["rule_id"]) or {}).get("cases") or []
+        for i, (item, case) in enumerate(zip(items, rule_cases(rule))):
+            sha = item.get("case_sha256")
+            if sha and sha != case_sha256(case):
+                out.append(
+                    {
+                        "code": "CASE_WHY_STALE",
+                        "rule_id": rule["rule_id"],
+                        "case": i + 1,
+                        "message": "情形改过，依据待重新确认",
+                    }
+                )
     return out
 
 
@@ -442,8 +559,18 @@ def check(declare, clean, schema, *, budget=None):
     )
     out = {"stage": declare.get("stage"), "role": _declared_role(declare, clean)}
     _need(out["stage"] in STAGES, "stage 只能是 TRANSITION / STANDARD", ".stage")
+    # DMN 2.0.87: a table whose name fixes its role (trigger.product.business_mode) takes that role and only it
+    named = _table_role(clean.get("table")) if schema == DECISION else None
+    if named is not None:
+        _need(
+            out["role"] == named,
+            "表名 %s 的 role 要写 %s（写的是 %s）" % (BUSINESS_MODE_TABLE, named, out["role"]),
+            ".role",
+        )
     _need(
-        out["role"] in roles or (search and out["role"] == SEARCH_CAPABILITY),
+        out["role"] in roles
+        or (search and out["role"] == SEARCH_CAPABILITY)
+        or (named is not None and out["role"] == named),
         "这种表的 role 只能是 " + " / ".join(roles),
         ".role",
     )
@@ -468,6 +595,8 @@ def check(declare, clean, schema, *, budget=None):
         )
     if "table" in clean:
         _role_of_name(out["role"], clean["table"])
+    if out["role"] == BUSINESS_MODE:
+        _business_mode(clean["model"])
     if out["role"] == RESOURCE and schema == DECISION:
         # 0.5.22 (DMN 2.0 §五 RESOURCE, K1 / K2 / K5)
         model = clean["model"]
@@ -555,6 +684,41 @@ def check(declare, clean, schema, *, budget=None):
     return out
 
 
+def _business_mode(model):
+    """DMN 2.0.87 §五 BUSINESS_MODE: a UNIQUE decision table; every template but the no-match one writes the five keys
+    besides actions; connected is true or false; a row not connected names exit_target and exit_wording (the sentence
+    for the agent, at most 120 characters), a connected row writes both null."""
+    _need_model(
+        model["hit_policy"] == "UNIQUE",
+        "品类与业务模式表命中 UNIQUE（一个编码只出一个结论）",
+        "model.hit_policy",
+    )
+    for ref, t in model["result_templates"].items():
+        if ref == model["empty_template_ref"]:
+            continue
+        path = ".templates.%s.result" % str(ref)[:64]
+        result = (t["data"].get("result") or {}).get("literal")
+        _need(
+            type(result) is dict and all(k in result for k in BUSINESS_MODE_RESULT_KEYS),
+            "品类与业务模式表的 result 要写 "
+            + " / ".join(BUSINESS_MODE_RESULT_KEYS)
+            + "（没有值写 null）",
+            path,
+        )
+        connected = result["connected"]
+        _need(type(connected) is bool, "connected 写 true 或 false", path + ".connected")
+        for k in BUSINESS_MODE_EXIT:
+            v = result[k]
+            if connected:
+                _need(v is None, "接了的行 %s 写 null" % k, path + "." + k)
+            else:
+                _need(
+                    type(v) is str and 0 < len(v.strip()) <= BUSINESS_MODE_WORDING_MAX,
+                    "没接的行 %s 必写（1–%d 字）" % (k, BUSINESS_MODE_WORDING_MAX),
+                    path + "." + k,
+                )
+
+
 def _texts_declare(v):
     """0.5.17 (R7): the table's slots ({名: {source, format?}}) and words ({forbid: [词…]}), checked against its texts."""
     _need(
@@ -622,8 +786,16 @@ def _named_role(table):
     return None
 
 
+def _table_role(table):
+    """DMN 2.0.87: the role a table's own name fixes (trigger.product.business_mode → BUSINESS_MODE), or None. Its
+    stored name, so the full spelling support.… is the same table."""
+    return ROLE_BY_TABLE.get(storage_name(table)) if type(table) is str else None
+
+
 def _declared_role(declare, clean):
     role = declare.get("role") if type(declare) is dict else None
+    if role is None:
+        role = _table_role(clean.get("table"))
     return _named_role(clean.get("table")) if role is None else role
 
 
@@ -712,6 +884,7 @@ def _decision(out, model, budget=None):
     missing, extra = sorted(set(ids) - set(out["rows"])), sorted(set(out["rows"]) - set(ids))
     _need(not extra, "rows 里有表里没有的规则：" + ", ".join(extra[:5]), ".rows")
     _need(not missing, "这些规则没写依据：" + ", ".join(missing[:5]), ".rows")
+    _cases(out["rows"], rules, _need, ".rows")
     if listed and out["stage"] == "STANDARD":
         _row_states(out["states"], model)
     elif listed:
@@ -1655,6 +1828,7 @@ def _model_warnings(d, model, before, table=None):
                     "message": "规则改过，依据待重新确认",
                 }
             )
+    out += case_warnings(d.get("rows", {}), model["rules"])
     sha = d.get("row_order_sha256")
     if sha and model["hit_policy"] == "FIRST" and sha != row_order_sha256(model):
         w = {"code": "ROW_ORDER_STALE", "level": "TABLE", "message": "行顺序变了，优先级待重新确认"}
