@@ -145,7 +145,8 @@ MUTANTS = [
         15,
         "闸只核应用是字符串、不核是不是维护应用",
         TWO,
-        '        isinstance(caller_app, str) and caller_app == pinned,\n        "STORED_TABLE_WRITERS_APP_REJECTED",\n        "%s 是主链路策略表',
+        # 0.5.44-rc3: the pin is read from the plugin configuration (two_state.is_maintenance); the mutant is the same
+        '        is_maintenance(caller_app),\n        "STORED_TABLE_WRITERS_APP_REJECTED",\n        "%s 是主链路策略表',
         '        isinstance(caller_app, str),\n        "STORED_TABLE_WRITERS_APP_REJECTED",\n        "%s 是主链路策略表',
         T,
     ),

@@ -2,7 +2,11 @@
 Validate and save target.scene_entity in memory, compare scene and negative-input results,
 and evaluate the bundled synthetic triage.acceptance matrix. No network or deployed table writes.
 
-    <plugin venv python> -I -B scripts/accept-policy-tables.py --doc <doc.json> --evaluate <evaluate.json> [--out f]
+    <plugin venv python> -I -B scripts/accept-policy-tables.py --doc <doc.json> --evaluate <evaluate.json> \
+        --deployment <三个应用号.json> [--out f]
+
+--deployment：插件配置的三个应用号（0.5.44-rc3 起不写在代码里），{"maintenance_app_id", "target_app_id", "triage_app_id"}，
+放在仓外。
 """
 
 import argparse
@@ -17,6 +21,7 @@ sys.dont_write_bytecode = True
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "plugin"))
 
+from dmn_client import deployment  # noqa: E402
 from dmn_client.route_store import run_op  # noqa: E402
 from dmn_client.route_table import RouteTableError, StorageTables  # noqa: E402
 from dmn_client.stored_tables import (  # noqa: E402
@@ -264,7 +269,7 @@ def triage_acceptance():
     results["unknown token count"] = blocked
     wrong_owner = dict(
         copy.deepcopy(doc),
-        owner=dict(doc["owner"], app_id="56d3c0c5-4d41-4454-99ab-e3a6db6aa66c"),
+        owner=dict(doc["owner"], app_id=deployment.target_app()),
     )
     try:
         validate(wrong_owner)
@@ -290,7 +295,9 @@ def main(argv=None):
     ap.add_argument("--doc", type=Path, required=True)
     ap.add_argument("--evaluate", type=Path, required=True)
     ap.add_argument("--out", type=Path)
+    ap.add_argument("--deployment", type=Path, required=True)
     a = ap.parse_args(argv)
+    deployment.apply(json.loads(a.deployment.read_text(encoding="utf-8")))
     se, ok1 = scene_entity(a.doc, a.evaluate)
     ta, ok2 = triage_acceptance()
     evidence = {
