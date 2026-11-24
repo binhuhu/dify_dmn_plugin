@@ -13,6 +13,7 @@ import copy
 import json
 
 import pytest
+from deployment_fixtures import MAINTENANCE_APP
 from scene_bundle_fixtures import acceptance_doc, seed
 from test_inline_table import DOC as INLINE_DOC
 from test_route_table import WRITERS, FakeStorage
@@ -23,7 +24,7 @@ from test_v0528_open_mode import OTHER_APP
 from test_v0543_rename import capability_doc, head, rename
 
 from dmn_client.route_store import run_op
-from dmn_client.two_state import MAINTENANCE_APP, maintained, run_entry
+from dmn_client.two_state import maintained, run_entry
 
 SCENE = "M_P_02_04_01"
 REJECTED = "STORED_TABLE_WRITERS_APP_REJECTED"

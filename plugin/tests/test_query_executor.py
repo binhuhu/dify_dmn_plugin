@@ -10,6 +10,7 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
 
 import pytest
+from deployment_fixtures import CREDENTIALS
 
 from dmn_client.node_contract import definition_digest
 from dmn_client.query_executor import (
@@ -478,14 +479,14 @@ def test_configured_sdk_invoke_with_empty_credentials(case, server, tmp_path, mo
         inputs_json=inv["inputs"],
         execution_context_json=inv["execution_context"],
     )
-    messages = list(ExecuteQueryTool.from_credentials({}).invoke(params))
+    messages = list(ExecuteQueryTool.from_credentials(CREDENTIALS).invoke(params))
     result = messages[0].message.json_object
     assert result["execution_status"] == "SUCCEEDED", result
     values = {m.message.variable_name: m.message.variable_value for m in messages[1:]}
     assert values["results"] == result
     assert len(server[1]["calls"]) == 5
     path.write_text("{}")
-    messages = list(ExecuteQueryTool.from_credentials({}).invoke(params))
+    messages = list(ExecuteQueryTool.from_credentials(CREDENTIALS).invoke(params))
     assert messages[0].message.json_object["error"]["code"] == "QUERY_CONNECTION_INVALID"
 
 

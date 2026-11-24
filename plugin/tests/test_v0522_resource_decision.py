@@ -9,14 +9,13 @@ import copy
 import json
 
 import pytest
+from deployment_fixtures import APP_TARGET, APP_TRIAGE
 from test_route_table import FakeStorage
 
 from dmn_client import declarations
 from dmn_client.route_store import run_op
 from dmn_client.route_table import RouteTableError, StorageTables, validate_doc
 from dmn_client.stored_tables import (
-    APP_TARGET,
-    APP_TRIAGE,
     FORMAT_DECISION,
     FORMAT_RESOURCE,
     decision_table_name,
@@ -850,7 +849,10 @@ OUTPUT_RULE_0521 = "输出 = type + name（+ values / names）"
 DECISION_NAME_RULE_0521 = (
     # 2026-11-16: six kinds: the task-type names and delivery's handle.<object>.<judgment> (test_task_type_names.py)
     "决策表的表名只能是六种之一：p2.<方案应用编号>（owner.app_id = 该方案应用）、"
-    "target.<名称> 或 target.<对象>.<判断>（owner.app_id = 定位 TARGET " + APP_TARGET + "）、"
+    # DMN 2.0.84 (M7): trigger.<对象>.<判断> joins its home's clause (test_final_new_names.py)
+    "target.<名称>、target.<对象>.<判断> 或 trigger.<对象>.<判断>（owner.app_id = 定位 TARGET "
+    + APP_TARGET
+    + "）、"
     "triage.<名称> 或 triage.<对象>.<判断>（owner.app_id = 分诊 TRIAGE " + APP_TRIAGE + "）、"
     # 0.5.28: the solution layer's four names (legacy disposal.strategy / disposal.status still taken)
     # 0.5.30: the solution segment
@@ -1111,7 +1113,7 @@ def test_low_the_triage_resource_names_still_take_the_resource_routing(table):
 def test_low_the_name_rule_text_is_0521s():
     from dmn_client import stored_tables
 
-    assert stored_tables.DECISION_NAME_RULE == DECISION_NAME_RULE_0521
+    assert stored_tables.decision_name_rule() == DECISION_NAME_RULE_0521
 
 
 @pytest.mark.parametrize(

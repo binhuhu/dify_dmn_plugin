@@ -378,10 +378,11 @@ def test_a_path_that_is_not_one_of_the_table_s_is_refused_even_with_its_expressi
 def test_the_rows_of_one_rule_keep_one_output():
     xml, _, _, _ = round_trip(F.fact_feature())
     # N_LOW has two situations, two rows: give the second another note
-    head, _, tail = xml.partition('<rule id="N_LOW.2">')
+    # 0.5.44-rc4: the rule element may carry dj:why (its description is the declaration's why, DMN 2.0.88)
+    head, _, tail = xml.partition('<rule id="N_LOW.2"')
     tail = tail.replace('<text>"说明"</text>', '<text>"改过"</text>', 1)
     with pytest.raises(DmnXmlError) as err:
-        dmn_xml_v2.import_doc(head + '<rule id="N_LOW.2">' + tail)
+        dmn_xml_v2.import_doc(head + '<rule id="N_LOW.2"' + tail)
     assert "输出要一样" in err.value.message
 
 

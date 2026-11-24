@@ -3,10 +3,13 @@
 
 import copy
 import json
+from types import SimpleNamespace
 
+import deployment_fixtures
 import pytest
 import real_fixtures
 import v2_fixtures as F
+from deployment_fixtures import CREDENTIALS, MAINTENANCE_APP
 from test_v0541_decision_v2 import refused, seed_v1, tpl, v1_reality
 from v2_fixtures import INFO_FACT, c, k, known, record
 
@@ -212,7 +215,7 @@ def v1_table(templates, rules=1, combos=1, in_values=None):
     return {
         "schema": "dmn-json.decision-table/v1",
         "table": "triage.lines",
-        "owner": {"app_id": stored_tables.APP_TRIAGE, "team": "测试", "name": "安全线"},
+        "owner": {"app_id": deployment_fixtures.APP_TRIAGE, "team": "测试", "name": "安全线"},
         "model_ref": "lines@1.0.0",
         "model": {
             "profile": "service-decision-table-v1",
@@ -634,7 +637,7 @@ from datetime import datetime, timezone  # noqa: E402
 from test_v0524_two_state import signed  # noqa: E402
 
 from dmn_client import settings  # noqa: E402
-from dmn_client.two_state import MAINTENANCE_APP, run_entry  # noqa: E402
+from dmn_client.two_state import run_entry  # noqa: E402
 
 NOW = datetime(2030, 1, 2, 12, 0, 0, tzinfo=timezone.utc)
 
@@ -783,12 +786,11 @@ def test_a_switch_that_cannot_be_read_stops_the_v1_save():
 
 
 def test_the_tool_takes_the_two_new_ops():
-    from types import SimpleNamespace
 
     from tools.route_table_store import RouteTableStoreTool
 
     for op in ("setting", "v2_vocabulary"):
-        tool = RouteTableStoreTool.from_credentials({})
+        tool = RouteTableStoreTool.from_credentials(CREDENTIALS)
         tool.session = SimpleNamespace(storage=F.MemoryStorage())
         got = {
             m.message.variable_name: m.message.variable_value
@@ -846,7 +848,10 @@ def test_op_v2_vocabulary_is_the_new_writing_s_declaration():
     }
 
 
-def test_op_vocabulary_and_capability_vocabulary_answer_as_before():
+@real_fixtures.uses("deployment")
+def test_op_vocabulary_and_capability_vocabulary_answer_as_before(live_owners):
+    # 0.5.44-rc3: op=vocabulary names the configured owners of target. / triage.; with the live ones (outside git) it is
+    # 0.5.38's document byte for byte
     from test_capability_modes_and_service import VOCABULARY_0538
 
     from dmn_client.vocabulary import capability_declared, declared
@@ -869,4 +874,6 @@ def test_op_vocabulary_and_capability_vocabulary_answer_as_before():
 # op=capability_vocabulary's document digest on the 0.5.40 release tree (4de42e2)
 CAPABILITY_VOCABULARY_0540 = "b51d490874783975d9b1e320e41193685a867e5a652ca7399a36827772549d6f"
 # 0.5.44: the same document with shapes.fact_optional_keys / info_keys / info_optional_keys added
-CAPABILITY_VOCABULARY_0544 = "0cd8770ad6443f24a9ae970a08aca23592c2d053486a09e3c900674fa846f8a7"
+# 0.5.44-rc4 (DMN 2.0.87, 合同线 3e3358ea0): info_optional_keys gains names (an item of infos may carry {取值: 中文名});
+# rc1–rc3 answered 0cd8770ad6443f24a9ae970a08aca23592c2d053486a09e3c900674fa846f8a7. The 0.5.40 check below is unchanged.
+CAPABILITY_VOCABULARY_0544 = "fe9b4a2cd2eedac166c844abf7454fb675b65bbd8622d2f9480557a8934795fe"

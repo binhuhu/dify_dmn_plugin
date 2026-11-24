@@ -4,6 +4,7 @@ import json
 from types import SimpleNamespace
 
 import pytest
+from deployment_fixtures import CREDENTIALS
 from test_route_table import FakeStorage
 from test_route_table_v2 import COUPON, events, run, saved
 from test_route_table_v2 import doc as doc_v2
@@ -126,7 +127,7 @@ def test_platform_exception_receipt_has_the_fixed_text_not_the_exception_text(wh
 )
 def test_invoke_tool_messages_carry_no_raw_error(workflow_invoke, code, message):
     st = saved()
-    tool = InvokeSolutionTool.from_credentials({})
+    tool = InvokeSolutionTool.from_credentials(CREDENTIALS)
     tool.session = SimpleNamespace(
         storage=st.storage, app=SimpleNamespace(workflow=SimpleNamespace(invoke=workflow_invoke))
     )

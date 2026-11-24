@@ -10,6 +10,7 @@ import hashlib
 import json
 from datetime import timedelta
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from controlled_fixtures import (
@@ -25,6 +26,7 @@ from controlled_fixtures import (
     signed_body,
     toy_entry,
 )
+from deployment_fixtures import CREDENTIALS, MAINTENANCE_APP
 from scene_bundle_fixtures import NEW, bundle, seed
 from test_route_table import FakeStorage
 from test_v0521_scene_topic import doc as topic_doc
@@ -32,7 +34,7 @@ from test_v0521_scene_topic import doc as topic_doc
 from dmn_client import controlled, two_state
 from dmn_client.route_store import run_op
 from dmn_client.route_table import StorageTables
-from dmn_client.two_state import MAINTENANCE_APP, run_entry
+from dmn_client.two_state import run_entry
 from tools.route_table_store import RouteTableStoreTool
 
 TOPIC = "target.scene.topic"
@@ -469,6 +471,7 @@ def test_open_mode_still_refuses_a_writer_beside_the_entry(toy):
 def test_the_tool_takes_the_same_rule():
     storage = stored_topic()
     tool = RouteTableStoreTool.__new__(RouteTableStoreTool)
+    tool.runtime = SimpleNamespace(credentials=CREDENTIALS)
     tool.session = type("S", (), {"storage": storage, "app_id": MAINTENANCE_APP})()
     tool.create_json_message = lambda body: ("json", body)
     tool.create_variable_message = lambda name, value: (name, value)

@@ -12,6 +12,7 @@ import httpx
 import jsonschema
 import pytest
 import yaml
+from deployment_fixtures import CREDENTIALS
 
 from tools.evaluate_decision import EvaluateDecisionTool
 from tools.execute_query import ExecuteQueryTool
@@ -52,7 +53,7 @@ def test_new_tools_sdk_projection_success_and_failure(monkeypatch):
 
     monkeypatch.setattr(httpx.Client, "request", no_network)
     monkeypatch.setattr(socket.socket, "connect", no_network)
-    tool = EvaluateDecisionTool.from_credentials({})
+    tool = EvaluateDecisionTool.from_credentials(CREDENTIALS)
     result, values = invoke(tool, parameters())
     assert result["execution_status"] == "SUCCEEDED", result
     assert values["state"] == "NEED_USER_INPUT"
@@ -76,7 +77,7 @@ def test_new_tools_sdk_projection_success_and_failure(monkeypatch):
     result, values = invoke(tool, params)
     assert result["execution_status"] == "BLOCKED" and result["output_port"] == "blocked"
     assert (values["state"], values["data"], values["actions"]) == ("", {}, [])
-    query, _ = invoke(ExecuteQueryTool.from_credentials({}), parameters("execute_query"))
+    query, _ = invoke(ExecuteQueryTool.from_credentials(CREDENTIALS), parameters("execute_query"))
     assert query["error"]["code"] == "QUERY_CONNECTION_NOT_CONFIGURED"
     assert query["execution_status"] == "BLOCKED"
 
@@ -85,7 +86,7 @@ def test_new_tools_sdk_projection_success_and_failure(monkeypatch):
     "key", ["definition_bundle_json", "node_ref", "inputs_json", "execution_context_json"]
 )
 def test_node_tools_outer_json_once(key):
-    tool = EvaluateDecisionTool.from_credentials({})
+    tool = EvaluateDecisionTool.from_credentials(CREDENTIALS)
     original = parameters()
     params = deepcopy(original)
     params[key] = json.dumps(params[key])
@@ -110,20 +111,28 @@ def test_new_provider_registration_and_fixed_forms(tmp_path):
     code = """from dify_plugin import DifyPluginEnv
 from dify_plugin.core.plugin_registration import PluginRegistration
 from provider.dmn import JsonTableProvider
+from dify_plugin.errors.tool import ToolProviderCredentialValidationError
 r=PluginRegistration(DifyPluginEnv())
 assert r.configuration.author == "hu8627"
 assert r.configuration.name == "dmn_json"
-assert r.configuration.version == "0.5.44-rc2"
+assert r.configuration.version == "0.5.44-rc4"
 c=r.tools_configuration[0]
-assert not c.credentials_schema
+assert [(x.name, x.required) for x in c.credentials_schema] == [("maintenance_app_id", True), ("target_app_id", True), ("triage_app_id", True)]  # 0.5.44-rc3: the deployment's three app ids
 assert [t.identity.name for t in c.tools] == ["evaluate_json_table", "query_local", "execute_json_plan", "execute_query", "evaluate_decision", "invoke_solution", "route_table_store", "evaluate_stored_table", "scene_bundle", "convert_dmn_xml"]
 for t in c.tools[3:5]:
     assert len(t.parameters)==4
     assert [(p.name,p.form.value) for p in t.parameters] == [("definition_bundle_json","form"),("node_ref","form"),("inputs_json","llm"),("execution_context_json","llm")]
 inv=c.tools[5]
 assert [(p.name,p.form.value,p.required) for p in inv.parameters] == [("app_id","llm",True),("inputs_json","llm",True),("table","form",False)]
-JsonTableProvider().validate_credentials({})
+try:
+    JsonTableProvider().validate_credentials({})
+    raise SystemExit("unset app ids must be refused")
+except ToolProviderCredentialValidationError:
+    pass
 """
+    code += "JsonTableProvider().validate_credentials(%r)\n" % (
+        CREDENTIALS,
+    )  # the invented ids are taken
     subprocess.run([sys.executable, "-c", code], cwd=dest, check=True, capture_output=True)
     assert (
         yaml.safe_load((dest / "manifest.yaml").read_text())["created_at"] == "2026-09-30T00:00:00Z"
@@ -146,7 +155,7 @@ def test_staged_node_sdk_stdio(tmp_path):
     )
     evidence = json.loads((tmp_path / "evidence.json").read_text())
     assert evidence["node_calls"] == 6
-    assert evidence["manifest"]["version"] == "0.5.44-rc2"
+    assert evidence["manifest"]["version"] == "0.5.44-rc4"
 
 
 def test_manifest_matches_official_cli_0610_version_format():
@@ -156,14 +165,14 @@ def test_manifest_matches_official_cli_0610_version_format():
     pattern = r"\d{1,4}(\.\d{1,4}){2}(-\w{1,16})?"
     manifest = yaml.safe_load((ROOT / "builtin/manifest.yaml").read_text())
     assert re.fullmatch(pattern, manifest["version"], flags=re.ASCII)
-    assert manifest["version"] == "0.5.44-rc2"
+    assert manifest["version"] == "0.5.44-rc4"
     assert not re.fullmatch(pattern, "0.4.0-rc.1", flags=re.ASCII)
     assert "RC" in manifest["label"]["en_US"]
 
 
 def test_sdk_reused_snapshot_without_trusted_host_is_blocked():
     # SYNTHETIC lifecycle regression, not a central-control replay claim.
-    tool = EvaluateDecisionTool.from_credentials({})
+    tool = EvaluateDecisionTool.from_credentials(CREDENTIALS)
     params = parameters()
     plain_result, plain_values = invoke(tool, params)
     assert plain_result["execution_status"] == "SUCCEEDED"

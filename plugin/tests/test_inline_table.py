@@ -4,6 +4,7 @@ stored table."""
 import copy
 import json
 
+import deployment_fixtures
 import pytest
 
 from dmn_client import dmn_xml, stored_tables
@@ -14,7 +15,7 @@ MODEL = dmn_xml.import_xml(DISCOUNT)["model"]
 DOC = {
     "schema": stored_tables.SCHEMA_DECISION,
     "table": "triage.discount",
-    "owner": {"app_id": stored_tables.APP_TRIAGE, "team": "t", "name": "n"},
+    "owner": {"app_id": deployment_fixtures.APP_TRIAGE, "team": "t", "name": "n"},
     "model_ref": "discount@" + MODEL["version"],
     "model": MODEL,
     "note": "",

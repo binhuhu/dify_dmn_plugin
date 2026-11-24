@@ -8,11 +8,12 @@ to verify storage separation.
 import json
 from types import SimpleNamespace
 
+from deployment_fixtures import CREDENTIALS, MAINTENANCE_APP
 from test_route_table import WRITERS, FakeStorage, call, endpoint, hit, publish_via
 from test_route_table_v2 import COUPON, doc, v2_stub
 
 from dmn_client.route_store import app_inputs, run_op, via_app
-from dmn_client.two_state import MAINTENANCE_APP, run_entry
+from dmn_client.two_state import run_entry
 from tools.route_table_store import RouteTableStoreTool
 
 APP = MAINTENANCE_APP  # exercise the configured caller pin, not a duplicate deployment identifier
@@ -165,7 +166,7 @@ def test_without_store_app_id_the_endpoint_has_no_door():
 
 def test_route_table_store_tool():
     storage = FakeStorage()
-    tool = RouteTableStoreTool.from_credentials({})
+    tool = RouteTableStoreTool.from_credentials(CREDENTIALS)
     tool.session = SimpleNamespace(storage=storage)
 
     def run(**params):

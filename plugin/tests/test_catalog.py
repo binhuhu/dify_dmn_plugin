@@ -4,13 +4,14 @@ import copy
 import json
 
 import pytest
+from deployment_fixtures import MAINTENANCE_APP
 from scene_bundle_fixtures import seed
 from test_route_table import FakeStorage
 
 from dmn_client import catalog
 from dmn_client.route_store import run_op
 from dmn_client.route_table import StorageTables, digest
-from dmn_client.two_state import MAINTENANCE_APP, run_entry
+from dmn_client.two_state import run_entry
 
 TOPIC = "target.scene.topic"
 OTHER_APP = "00000000-0000-4000-8000-0000000000aa"  # not the maintenance app: the catalog is for every consumer

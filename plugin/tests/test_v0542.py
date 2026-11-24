@@ -13,6 +13,7 @@ import re
 import time
 import tracemalloc
 
+import deployment_fixtures
 import pytest
 import real_fixtures
 import v2_fixtures as F
@@ -35,6 +36,12 @@ from tests.test_dmn_xml import STORED
 from tests.test_inline_table import DOC, inputs
 
 # ── 一、节点里试跑的回执 ─────────────────────────────────────────────────────
+
+
+def _plain(body):
+    """0.5.44-rc4 (DMN 2.0.88): the table without its declaration, so that its export carries no rule descriptions and
+    the XML surgery of these tests reads the rows as before."""
+    return {k: v for k, v in body.items() if k != "declare"}
 
 
 def v1_reader():
@@ -192,7 +199,7 @@ def test_a_schema_that_is_a_list_or_an_object_is_refused_as_a_format(schema, wor
         DOC["table"],
         None,
         json.dumps(body, ensure_ascii=False),
-        caller_app=two_state.MAINTENANCE_APP,
+        caller_app=deployment_fixtures.MAINTENANCE_APP,
     )
     assert (status, out["error"]["code"], out["error"]["path"]) == (
         400,
@@ -455,7 +462,7 @@ def test_crossing_two_wide_cells_is_refused_before_it_is_built():
 
 
 def test_a_v2_rule_crossing_two_wide_cells_is_refused_before_it_is_built():
-    xml, _w, _c = dmn_xml_v2.export_doc(F.fact_feature())
+    xml, _w, _c = dmn_xml_v2.export_doc(_plain(F.fact_feature()))
     start = xml.index("<rule ")
     end = xml.index("</rule>", start)
     rule = xml[start:end]
@@ -481,7 +488,7 @@ def test_a_decision_id_or_name_that_is_not_text_is_refused(key):
 
 
 def test_the_v2_import_takes_the_same_line():
-    xml, _, _ = dmn_xml_v2.export_doc(F.fact_feature())
+    xml, _, _ = dmn_xml_v2.export_doc(_plain(F.fact_feature()))
     big = xml.replace("</definitions>", " " * dmn_xml.MAX_XML_BYTES + "</definitions>")
     out = dmn_xml.convert({"direction": "import", "dmn_xml": big})
     assert out["error"]["code"] == "DMN_XML_INVALID"
@@ -569,7 +576,9 @@ def test_rules_of_1024_alternatives_stop_at_the_condition_budget():
 
 def test_rows_of_one_v2_rule_are_joined_by_key_and_counted():
     """B1：v2 同一条规则的几行，原来逐行扫一遍已有情形（平方级，0.73 MB 40 秒）；现在按键去重、过 1024 种当场拒。"""
-    xml, _w, _c = dmn_xml_v2.export_doc(F.info_fact())
+    # 0.5.44-rc4: without its declaration, so the rows carry no description (DMN 2.0.88) and the surgery below holds
+    body = {k: v for k, v in F.info_fact().items() if k != "declare"}
+    xml, _w, _c = dmn_xml_v2.export_doc(body)
     m = re.search(r"<dj:decision>(.*?)</dj:decision>", xml, re.S)
     meta = json.loads(m.group(1).replace("&lt;", "<").replace("&gt;", ">").replace("&amp;", "&"))
     first = re.search(r'<rule id="([^"]+)">(.*?)</rule>', xml, re.S)
@@ -598,7 +607,7 @@ def test_rows_of_one_v2_rule_are_joined_by_key_and_counted():
 
 def test_v2_rules_of_many_situations_stop_at_the_condition_budget():
     """B1（v2）：几十条规则各几百种情形，条件总数一过存表线装得下的就拒，不等造完。"""
-    xml, _w, _c = dmn_xml_v2.export_doc(F.info_fact())
+    xml, _w, _c = dmn_xml_v2.export_doc(_plain(F.info_fact()))
     first = re.search(r'<rule id="([^"]+)">(.*?)</rule>', xml, re.S)
     rid, body = first.group(1), first.group(2)
     rows = []
@@ -621,7 +630,7 @@ def test_v2_rules_of_many_situations_stop_at_the_condition_budget():
 
 def wide_by_id(n, alternatives, same_path=False):
     """第三轮评审 B1′ 的炸弹：第一列一格写 alternatives 种区间，后面 n 列 quality 格都写 "KNOWN"（按号判的表一个号一列，列数不受参数线管）。"""
-    xml, _w, _c = dmn_xml_v2.export_doc(F.info_fact())
+    xml, _w, _c = dmn_xml_v2.export_doc(_plain(F.info_fact()))
     head = xml.split("<input ", 1)[0]
     outputs = "".join(line + "\n" for line in xml.splitlines() if line.startswith("<output "))
     first = re.search(r'<rule id="[^"]+">(.*?)</rule>', xml, re.S).group(1)

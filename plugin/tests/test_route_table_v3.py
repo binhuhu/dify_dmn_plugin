@@ -6,6 +6,7 @@ import json
 from types import SimpleNamespace
 
 import pytest
+from deployment_fixtures import CREDENTIALS
 from test_route_table import FakeStorage, call, endpoint, publish_via, stub_bundle
 from test_route_table_v2 import COUPON, LOST, events
 from test_route_table_v2 import doc as doc_v2
@@ -391,7 +392,7 @@ def test_lifting_a_gate_is_one_save():
 
 def test_invoke_tool_emits_status_and_gate():
     st = saved(v3())
-    tool = InvokeSolutionTool.from_credentials({})
+    tool = InvokeSolutionTool.from_credentials(CREDENTIALS)
     tool.session = SimpleNamespace(
         storage=st.storage,
         app=SimpleNamespace(workflow=SimpleNamespace(invoke=lambda **kw: events())),

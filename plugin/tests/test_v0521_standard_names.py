@@ -7,14 +7,13 @@ import copy
 import json
 
 import pytest
+from deployment_fixtures import APP_TARGET, APP_TRIAGE
 from test_route_table import FakeStorage
 from test_stored_tables import p2_doc
 
 from dmn_client.route_store import run_op
 from dmn_client.route_table import RouteTableError, StorageTables, validate_doc
 from dmn_client.stored_tables import (
-    APP_TARGET,
-    APP_TRIAGE,
     FORMAT_DECISION,
     FORMAT_DECISION_SET,
     decision_table_name,

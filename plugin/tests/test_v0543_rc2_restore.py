@@ -11,10 +11,7 @@ SCENE_NOT_IN_CATALOG（旧号不在场景与话题表里，原来是「本来就
 import json
 
 import pytest
-
-from dmn_client import route_table, save_gate
-from dmn_client.route_store import run_op
-from dmn_client.two_state import MAINTENANCE_APP, run_entry
+from deployment_fixtures import MAINTENANCE_APP
 from test_save_auto_gate import (
     ACCEPT,
     COUPON_NOW,
@@ -30,6 +27,13 @@ from test_save_auto_gate import (
     strip,
     with_suites,
 )
+
+from dmn_client import route_table, save_gate
+from dmn_client.route_store import run_op
+from dmn_client.two_state import run_entry
+
+# 0.5.44-rc3: the snapshot tables are owned by the live TARGET / TRIAGE apps (conftest live_owners)
+pytestmark = pytest.mark.usefixtures("live_owners")
 
 TABLES = (ENTITY, SUPP, ACCEPT, ROUTE)
 
@@ -113,7 +117,11 @@ def test_going_back_to_the_version_before_reports_the_old_ids_and_saves(table):
     (w,) = _restore_warnings(out, "SCENE_NOT_IN_CATALOG")
     assert w["restored_version"] == before["version"] and sid in w["message"]
     # says it was saved and what came back; not the refusal's own「这一版没存」or its advice (review, low)
-    assert "已存" in w["message"] and "没存" not in w["message"] and "先在场景与话题表登记" not in w["message"]
+    assert (
+        "已存" in w["message"]
+        and "没存" not in w["message"]
+        and "先在场景与话题表登记" not in w["message"]
+    )
     (r,) = [w for w in out["warnings"] if w["code"] == "TABLE_RESTORE"]
     assert r["restored_version"] == before["version"] and r["relaxed"] == ["SCENE_NOT_IN_CATALOG"]
     assert r["restored_save_id"] == before["save_id"]
@@ -187,7 +195,9 @@ def test_item_27_back_reports_the_lost_solution_row_and_the_old_ids():
     st = seeded()
     sid = next(_route_scene_without_solution())
     before = head(st, ROUTE)
-    status, out = save(st, _body(st, ROUTE, _step_three(_route_drop_scene(sid)), note="第三步"), ROUTE)
+    status, out = save(
+        st, _body(st, ROUTE, _step_three(_route_drop_scene(sid)), note="第三步"), ROUTE
+    )
     assert status == 200, out
     status, out = _back(st, ROUTE, before)
     assert status == 200, out
@@ -219,11 +229,13 @@ def test_on_a_rollback_the_callability_checks_after_the_lost_row_still_refuse():
     st = seeded()
     before = head(st, ROUTE)
     named = route_table.routed_apps(before)
-    lonely = next(
-        a for a, s in before["solutions"].items() if s["status"] == "CURRENT" and a not in named
-    ) if any(
-        s["status"] == "CURRENT" and a not in named for a, s in before["solutions"].items()
-    ) else None
+    lonely = (
+        next(
+            a for a, s in before["solutions"].items() if s["status"] == "CURRENT" and a not in named
+        )
+        if any(s["status"] == "CURRENT" and a not in named for a, s in before["solutions"].items())
+        else None
+    )
     if lonely is None:
         # make one: a CURRENT app no row names (left alone, D13), then the next version routes it
         def register(body):
@@ -294,11 +306,15 @@ def test_a_final_name_goes_back_to_a_version_stored_under_the_name_before_it():
     (older,) = _forward(st, ENTITY, [sid])  # under the name before (target.scene.entity)
     cur = head(st, ENTITY)
     body = dict(strip(cur), table=final, expected_version=cur["version"])
-    status, out = save(st, body, ENTITY)  # the first store of the final name, as the window's item 8
+    status, out = save(
+        st, body, ENTITY
+    )  # the first store of the final name, as the window's item 8
     assert status == 200 and out["table"] == final, out
     status, out = save(st, _body(st, final, _drop_scene(ENTITY, sid2), note="新号版"), final)
     assert status == 200, out
-    assert head(st, final)["version"] - older["version"] == 2  # the first store keeps the old head's number
+    assert (
+        head(st, final)["version"] - older["version"] == 2
+    )  # the first store keeps the old head's number
     assert older["table"] == ENTITY
     status, out = _back(st, final, dict(older, table=final))
     assert status == 200, out
@@ -316,7 +332,9 @@ def test_a_route_table_with_the_old_routes_and_a_new_scene_in_its_directory_is_n
     (before,) = _forward(st, ROUTE, [sid])
     doc = strip(before)
     doc["scenes"]["P_99_99_99"] = {"name": "混进来的", "domain": "测试"}
-    assert route_table.content_sha256(route_table.validate_doc(dict(doc))) == before["content_sha256"]
+    assert (
+        route_table.content_sha256(route_table.validate_doc(dict(doc))) == before["content_sha256"]
+    )
     status, out = _back(st, ROUTE, doc)
     assert status == 400 and out["error"]["code"] == "SCENE_NOT_IN_CATALOG", out
     assert "P_99_99_99" in out["error"]["message"]
@@ -331,7 +349,9 @@ def test_a_decision_table_with_the_old_rules_and_a_new_declaration_is_no_rollbac
     from test_declarations import transition
 
     doc["declare"] = transition(doc)
-    assert route_table.content_sha256(route_table.validate_doc(dict(doc))) == before["content_sha256"]
+    assert (
+        route_table.content_sha256(route_table.validate_doc(dict(doc))) == before["content_sha256"]
+    )
     status, out = _back(st, ACCEPT, doc)
     assert status == 400 and out["error"]["code"] == "SCENE_NOT_IN_CATALOG", out
 
@@ -368,11 +388,17 @@ def test_a_draft_rolled_back_from_version_k_is_the_same_rollback():
         st,
         "draft_save",
         ENTITY,
-        {"from_version": before["version"], "expected_draft": "", "expected_version": cur["version"]},
+        {
+            "from_version": before["version"],
+            "expected_draft": "",
+            "expected_version": cur["version"],
+        },
     )
     assert status == 200, out
     assert out["draft"]["content_sha256"] == before["content_sha256"]
-    assert {w["code"] for w in out.get("warnings", []) if w.get("restore")} == {"SCENE_NOT_IN_CATALOG"}
+    assert {w["code"] for w in out.get("warnings", []) if w.get("restore")} == {
+        "SCENE_NOT_IN_CATALOG"
+    }
     draft = out["draft"]
     report = {"content_sha256": draft["content_sha256"], "gate_status": "PASS"}
     status, out = _entry(
@@ -409,7 +435,13 @@ def test_a_failing_suite_on_a_rollback_uses_the_same_window_and_the_whole_docume
     assert any(w["code"] == "TABLE_CASES_FAILED_ON_RESTORE" for w in out["warnings"])
     # the same suite, content with a changed basis somewhere (a new document): refused
     st2 = with_suites(SUPP)
-    status, out = save(st2, dict(_body(st2, SUPP, note="去掉一行"), scenes=body["scenes"], cases=check["proposed_cases"]), SUPP)
+    status, out = save(
+        st2,
+        dict(
+            _body(st2, SUPP, note="去掉一行"), scenes=body["scenes"], cases=check["proposed_cases"]
+        ),
+        SUPP,
+    )
     assert status == 200, out
     doc = strip(before)
     k = next(iter(doc["scenes"]))
@@ -427,9 +459,7 @@ def test_a_rollback_still_reads_the_live_start_forms_and_a_mismatch_refuses():
     """③ 不在放宽里：回滚把方案行接回到一个现网开始变量对不上的应用——照拦"""
     st = seeded()
     before = head(st, ROUTE)
-    target = next(
-        r for r in before["routes"] if r["target"]["kind"] == "SOLUTION_APP"
-    )
+    target = next(r for r in before["routes"] if r["target"]["kind"] == "SOLUTION_APP")
     key = (target["scene_id"], target["issue_type"], target["phase"])
 
     def to_transfer(body):
@@ -456,7 +486,9 @@ def test_a_rollback_still_reads_the_live_start_forms_and_a_mismatch_refuses():
         status, out = _back(st, ROUTE, before)
     finally:
         save_gate.FETCH_APP.reset(token)
-    assert status == 400 and out["error"]["code"] == "ROUTE_TABLE_SOLUTION_INPUTS_LIVE_MISMATCH", out
+    assert status == 400 and out["error"]["code"] == "ROUTE_TABLE_SOLUTION_INPUTS_LIVE_MISMATCH", (
+        out
+    )
 
 
 def test_an_unreadable_older_version_is_no_rollback_target_and_never_stops_a_save():
@@ -465,7 +497,9 @@ def test_an_unreadable_older_version_is_no_rollback_target_and_never_stops_a_sav
     sid = kept_ids(SUPP)[0]
     (before,) = _forward(st, SUPP, [sid])
     st.data[route_table.StorageTables(st).key(SUPP, before["version"])] = b"{not json"
-    status, out = save(st, _body(st, SUPP, _drop_scene(SUPP, kept_ids(SUPP)[1]), note="普通改"), SUPP)
+    status, out = save(
+        st, _body(st, SUPP, _drop_scene(SUPP, kept_ids(SUPP)[1]), note="普通改"), SUPP
+    )
     assert status == 200, out
     assert "restore" not in out["auto_gate"]
 
@@ -483,7 +517,9 @@ def _live(sid):
 
 def _drop_rows(keys, retire=()):
     def change(body):
-        body["routes"] = [r for r in body["routes"] if (r["scene_id"], r["issue_type"], r["phase"]) not in keys]
+        body["routes"] = [
+            r for r in body["routes"] if (r["scene_id"], r["issue_type"], r["phase"]) not in keys
+        ]
         for app in retire:
             body["solutions"][app]["status"] = "CANDIDATE"
 
@@ -505,8 +541,12 @@ def test_removing_a_solution_row_of_a_retired_scene_is_reported_not_lost():
     st = seeded()
     doc = head(st, ROUTE)
     n = _apps_rows(doc)
-    row = next(r for r in _solution_rows(doc) if not _live(r["scene_id"]) and n[r["target"]["app_id"]] > 1)
-    status, out = save(st, _body(st, ROUTE, _drop_rows({_key(row)}), note="删已退号的方案行"), ROUTE)
+    row = next(
+        r for r in _solution_rows(doc) if not _live(r["scene_id"]) and n[r["target"]["app_id"]] > 1
+    )
+    status, out = save(
+        st, _body(st, ROUTE, _drop_rows({_key(row)}), note="删已退号的方案行"), ROUTE
+    )
     assert status == 200, out
     (w,) = [w for w in out["warnings"] if w["code"] == "ROUTE_TABLE_RETIRED_SCENE_ROWS_REMOVED"]
     assert w["count"] == 1 and save_gate.scene_id.canonical(row["scene_id"]) in w["examples"][0]
@@ -517,8 +557,12 @@ def test_removing_a_solution_row_of_a_live_scene_is_still_lost():
     st = seeded()
     doc = head(st, ROUTE)
     n = _apps_rows(doc)
-    row = next(r for r in _solution_rows(doc) if _live(r["scene_id"]) and n[r["target"]["app_id"]] > 1)
-    status, out = save(st, _body(st, ROUTE, _drop_rows({_key(row)}), note="删活场景的方案行"), ROUTE)
+    row = next(
+        r for r in _solution_rows(doc) if _live(r["scene_id"]) and n[r["target"]["app_id"]] > 1
+    )
+    status, out = save(
+        st, _body(st, ROUTE, _drop_rows({_key(row)}), note="删活场景的方案行"), ROUTE
+    )
     assert status == 400 and out["error"]["code"] == "ROUTE_TABLE_SOLUTION_LOST", out
 
 
@@ -526,13 +570,21 @@ def test_an_app_left_without_rows_is_still_current_unrouted_and_passes_once_reti
     st = seeded()
     doc = head(st, ROUTE)
     n = _apps_rows(doc)
-    row = next(r for r in _solution_rows(doc) if not _live(r["scene_id"]) and n[r["target"]["app_id"]] == 1)
-    status, out = save(st, _body(st, ROUTE, _drop_rows({_key(row)}), note="删已退号的唯一方案行"), ROUTE)
+    row = next(
+        r for r in _solution_rows(doc) if not _live(r["scene_id"]) and n[r["target"]["app_id"]] == 1
+    )
+    status, out = save(
+        st, _body(st, ROUTE, _drop_rows({_key(row)}), note="删已退号的唯一方案行"), ROUTE
+    )
     assert status == 400 and out["error"]["code"] == "ROUTE_TABLE_CURRENT_UNROUTED", out
     app = row["target"]["app_id"]
-    status, out = save(st, _body(st, ROUTE, _drop_rows({_key(row)}, retire=[app]), note="删行并转候选"), ROUTE)
+    status, out = save(
+        st, _body(st, ROUTE, _drop_rows({_key(row)}, retire=[app]), note="删行并转候选"), ROUTE
+    )
     assert status == 200, out
-    assert [w["count"] for w in out["warnings"] if w["code"] == "ROUTE_TABLE_RETIRED_SCENE_ROWS_REMOVED"] == [1]
+    assert [
+        w["count"] for w in out["warnings"] if w["code"] == "ROUTE_TABLE_RETIRED_SCENE_ROWS_REMOVED"
+    ] == [1]
 
 
 def test_all_retired_solution_rows_go_in_one_save_live_ones_stay():
@@ -552,7 +604,11 @@ def test_all_retired_solution_rows_go_in_one_save_live_ones_stay():
 def test_without_a_scene_topic_table_every_removed_callable_row_counts():
     before = head_doc(ROUTE)
     n = _apps_rows(before)
-    row = next(r for r in _solution_rows(before) if not _live(r["scene_id"]) and n[r["target"]["app_id"]] > 1)
+    row = next(
+        r
+        for r in _solution_rows(before)
+        if not _live(r["scene_id"]) and n[r["target"]["app_id"]] > 1
+    )
     after = dict(strip(before))
     after["routes"] = [r for r in before["routes"] if _key(r) != _key(row)]
     clean = route_table.validate_doc(dict(after))

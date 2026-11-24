@@ -8,6 +8,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+from deployment_fixtures import CREDENTIALS
 from test_route_table import FakeStorage, call, stub_bundle
 from test_route_table_v2 import COUPON, SAFETY
 from test_route_table_v2 import doc as route_doc
@@ -684,6 +685,7 @@ def test_run_op_saves_and_reads_every_stored_table():
 def test_the_evaluate_stored_table_tool():
     st = store(p2_doc())
     tool = EvaluateStoredTableTool.__new__(EvaluateStoredTableTool)
+    tool.runtime = SimpleNamespace(credentials=CREDENTIALS)
     tool.session = SimpleNamespace(storage=st.storage)
     tool.create_json_message = lambda v: ("json", v)
     tool.create_variable_message = lambda k, v: ("var", k, v)

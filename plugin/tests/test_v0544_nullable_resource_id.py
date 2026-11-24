@@ -12,9 +12,11 @@
 import copy
 
 import pytest
+import real_fixtures
 from test_route_table import FakeStorage
 from test_v0522_resource_decision import P, doc, params, resign, save, template
 
+from dmn_client import deployment
 from dmn_client.route_table import RouteTableError, StorageTables, validate_doc
 from dmn_client.stored_tables import FORMAT_DECISION, content_sha256, evaluate_stored, validate
 
@@ -411,8 +413,14 @@ def test_case4_an_empty_string_is_not_null():
 DIGEST_0543 = "ca9510722832ef5ba07509bfef54cdb6da81373e197f716d67b43d4b32e5cb99"
 
 
+@real_fixtures.uses("deployment")
+@pytest.mark.usefixtures("live_owners")
 def test_case5_golden_digest_of_a_non_nullable_table():
-    assert content_sha256(validate(doc())) == DIGEST_0543
+    # 0.5.44-rc3: the golden was taken on 0.5.43-rc2 code, where the TRIAGE owner was the live app written into the code;
+    # the owner is in the digest, so the same table carries the live owner (git-outside deployment/, conftest live_owners)
+    d = doc()
+    d["owner"]["app_id"] = deployment.triage_app()
+    assert content_sha256(validate(d)) == DIGEST_0543
 
 
 def test_case5_golden_evaluation_of_a_non_nullable_table():

@@ -4,12 +4,13 @@ under by:draft:<id>. The editor endpoint tags its calls via=endpoint; open mode 
 
 import json
 
+from deployment_fixtures import CREDENTIALS, MAINTENANCE_APP
 from test_route_store import SETTINGS, app_endpoint, hit, maintenance_app
 from test_route_table import FakeStorage
 from test_v0524_two_state import WRITER, draft, live, v3
 
 from dmn_client.route_table import StorageTables, content_sha256, validate_doc
-from dmn_client.two_state import MAINTENANCE_APP, by_key, run_entry
+from dmn_client.two_state import by_key, run_entry
 
 
 def open_save(storage, user="agenthub-account-1", version=1, note="x"):
@@ -107,9 +108,9 @@ def test_the_tool_passes_the_host_user():
     from tools.route_table_store import RouteTableStoreTool
 
     storage = live(FakeStorage())
-    tool = RouteTableStoreTool.from_credentials({})
+    tool = RouteTableStoreTool.from_credentials(CREDENTIALS)
     tool.session = type("S", (), {"storage": storage, "app_id": MAINTENANCE_APP})()
-    tool.runtime = type("R", (), {"user_id": "account-42"})()
+    tool.runtime = type("R", (), {"user_id": "account-42", "credentials": CREDENTIALS})()
     msgs = list(
         tool.invoke(
             {

@@ -5,6 +5,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+from deployment_fixtures import CREDENTIALS
 from test_route_table import (
     KEY,
     NODE_REF,
@@ -521,7 +522,7 @@ def test_invoke_tool_wiring():
         calls.append(response_mode)
         return events(outputs={"receipt_json": '{"ok":true}'})
 
-    tool = InvokeSolutionTool.from_credentials({})
+    tool = InvokeSolutionTool.from_credentials(CREDENTIALS)
     tool.session = SimpleNamespace(
         storage=st.storage, app=SimpleNamespace(workflow=SimpleNamespace(invoke=workflow_invoke))
     )
@@ -626,7 +627,7 @@ def test_evaluate_decision_tool_reads_plugin_storage():
     from tools.evaluate_decision import EvaluateDecisionTool
 
     st = saved()
-    tool = EvaluateDecisionTool.from_credentials({})
+    tool = EvaluateDecisionTool.from_credentials(CREDENTIALS)
     tool.session = SimpleNamespace(storage=st.storage)
     bundle = v2_stub()
     probe = call(bundle, "P_99_41_01", "COMPLAINT", "STAGE_1", st.load)

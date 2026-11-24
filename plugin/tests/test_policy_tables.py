@@ -5,6 +5,7 @@ import json
 
 import pytest
 from bench_policy_tables import MemoryStorage, bench, policy_doc, record, scene
+from deployment_fixtures import APP_TARGET, APP_TRIAGE
 from test_route_table import FakeStorage
 from test_route_table_v2 import COUPON
 from test_route_table_v2 import doc as route_doc
@@ -13,16 +14,14 @@ from test_stored_tables import p2_doc, resource_doc
 from dmn_client.route_store import MAX_BODY, run_op
 from dmn_client.route_table import RouteTableError, StorageTables, validate_doc
 from dmn_client.stored_tables import (
-    APP_TARGET,
-    APP_TRIAGE,
     FORMAT_DECISION,
     MAX_RULES,
     content_sha256,
     evaluate_stored,
 )
 
-TARGET = "56d3c0c5-4d41-4454-99ab-e3a6db6aa66c"
-TRIAGE = "0f34962a-e380-45e1-8b35-fc64b5651776"
+TARGET = "d0000002-0000-4000-8000-000000000002"
+TRIAGE = "d0000003-0000-4000-8000-000000000003"
 DAYS = "synthetic.demo.elapsed_days"
 
 

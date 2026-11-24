@@ -16,13 +16,14 @@ from datetime import timedelta
 from pathlib import Path
 
 import pytest
+from deployment_fixtures import CREDENTIALS, MAINTENANCE_APP, in_config
 from test_route_table import KEY, FakeStorage
 from test_v0524_two_state import AT, NOW, REF, TWO, T, gate, live, signed
 from toy_route_fixtures import v3
 
 from dmn_client import two_state
 from dmn_client.route_table import STAMP, StorageTables
-from dmn_client.two_state import FRESH, MAINTENANCE_APP, draft_key, request_key, run_entry
+from dmn_client.two_state import FRESH, draft_key, request_key, run_entry
 
 STD = "triage.dispatch.route"
 
@@ -435,9 +436,9 @@ def test_concurrent_identical_requests_are_serialized_within_one_process():
         return invoke(st, "draft_save", req)
 
     with ThreadPoolExecutor(max_workers=2) as pool:
-        first = pool.submit(invoke, st, "draft_save", req)
+        first = pool.submit(in_config(invoke), st, "draft_save", req)
         assert entered.wait(5)
-        other = pool.submit(second)
+        other = pool.submit(in_config(second))
         assert second_started.wait(5)
         release.set()
         results = [first.result(timeout=5), other.result(timeout=5)]
@@ -456,7 +457,7 @@ def test_waiting_for_same_process_lock_does_not_extend_signature_lifetime():
 
     with ThreadPoolExecutor(max_workers=1) as pool:
         with two_state._MUTATION_LOCK:
-            future = pool.submit(waiting)
+            future = pool.submit(in_config(waiting))
             assert started.wait(5)
             clock[0] = NOW + FRESH + timedelta(seconds=1)
         result = future.result(timeout=5)
@@ -503,6 +504,8 @@ class Storage:
             assert sys.stdin.readline().strip() == 'go'
         self.path(k).write_bytes(v)
     def delete(self, k): self.path(k).unlink()
+from dmn_client import deployment
+deployment.apply(args['deployment'])  # 0.5.44-rc3: a fresh process configures the deployment's ids as a tool invocation does
 result = run_entry(Storage(), args['op'], args['table'], args['version'], args['body'],
     writers=args['writers'], caller_app=args['caller'], now=lambda: datetime.fromisoformat(args['now']))
 print(json.dumps(result), flush=True)
@@ -520,6 +523,7 @@ def process_args(root, body, pause=False):
         "caller": MAINTENANCE_APP,
         "now": NOW.isoformat(),
         "pause": pause,
+        "deployment": CREDENTIALS,
     }
 
 

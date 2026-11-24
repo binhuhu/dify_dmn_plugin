@@ -12,18 +12,18 @@ The plain example is a toy pick: scene row first, then first-level domain, then 
 
 import json
 
+import deployment_fixtures
 import pytest
+from deployment_fixtures import APP_TARGET, APP_TRIAGE
 from test_route_table import FakeStorage
 
 from dmn_client.route_store import run_op
 from dmn_client.route_table import StorageTables
 from dmn_client.stored_tables import (
-    APP_TARGET,
-    APP_TRIAGE,
-    DECISION_NAME_RULE,
     FORMAT_DECISION,
     TASK_TYPES,
     TASK_WORKFLOWS,
+    decision_name_rule,
     decision_table_name,
     evaluate_stored,
     reserved_name,
@@ -176,18 +176,19 @@ def test_a_refused_name_says_the_rule_and_the_rule_names_the_task_types():
     assert (e["code"], e.get("path"), e["message"]) == (
         "STORED_TABLE_NAME",
         "table",
-        DECISION_NAME_RULE,
+        decision_name_rule(),
     )
     assert (
-        "六种之一" in DECISION_NAME_RULE and "<任务类型>.<流程>.<对象>.<判断>" in DECISION_NAME_RULE
+        "六种之一" in decision_name_rule()
+        and "<任务类型>.<流程>.<对象>.<判断>" in decision_name_rule()
     )
     # delivery's handle workflow is one of the six, and the rule says whose it is
     assert (
         "handle.<对象>.<判断>（交付的处理流程；owner.app_id = 读这张表的流程应用）"
-        in DECISION_NAME_RULE
+        in decision_name_rule()
     )
     for word in OTHER_TYPES + TASK_WORKFLOWS:
-        assert word in DECISION_NAME_RULE
+        assert word in decision_name_rule()
 
 
 def test_stored_read_back_and_evaluated_first_hit_scene_before_domain_then_nobody():
@@ -693,7 +694,7 @@ def test_the_way_in_answers_alike_for_either_spelling_of_a_handle_name():
         body = json.dumps(dict(doc(name, APP), expected_version=0), ensure_ascii=False)
         # 0.5.44 (Brian 11-23「同意，收进闸」): a handle table is a main-chain policy table, saved from the maintenance app
         status, out = two_state.run_entry(
-            s, "save", name, None, body, caller_app=two_state.MAINTENANCE_APP
+            s, "save", name, None, body, caller_app=deployment_fixtures.MAINTENANCE_APP
         )
         answers[name] = (status, (out.get("error") or {}).get("code"), out.get("version"))
         status, out = two_state.run_entry(s, "table", name)

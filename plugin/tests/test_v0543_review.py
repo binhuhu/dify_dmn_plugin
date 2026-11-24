@@ -13,6 +13,7 @@ import json
 
 import pytest
 from controlled_fixtures import NOW, signed_body, toy_entry
+from deployment_fixtures import MAINTENANCE_APP
 from test_route_table import FakeStorage
 from test_scene_catalog import stored_three
 from test_v0520_store_name import OLD
@@ -21,7 +22,7 @@ from test_v0543_rename import MOVING, head, live_storage, rename, rename_body
 from dmn_client import alias_reads
 from dmn_client.route_store import run_op
 from dmn_client.route_table import StorageTables
-from dmn_client.two_state import MAINTENANCE_APP, run_entry
+from dmn_client.two_state import run_entry
 
 OTHER_APP = "00000000-0000-4000-8000-0000000000aa"
 WRITERS = "tester:PERSON:" + "k" * 32

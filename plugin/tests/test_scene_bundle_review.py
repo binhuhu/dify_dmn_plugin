@@ -557,6 +557,7 @@ def test_public_036_reads_but_cannot_resave_new_resource_and_trial_constructs(tm
     import tarfile
     from pathlib import Path
 
+    from deployment_fixtures import CREDENTIALS
     from test_resource_self_service import doc, params, save, workshop
     from test_v0521_scene_topic import doc as topic_doc
 
@@ -581,6 +582,7 @@ def test_public_036_reads_but_cannot_resave_new_resource_and_trial_constructs(tm
         "trial": trial,
         "plain": workshop("triage.dispatch.resource"),
         "params": params(resource_id="workshop.kiosk"),
+        "deployment": CREDENTIALS,
     }
     script = """
 import json, sys
@@ -588,7 +590,14 @@ from test_route_table import FakeStorage
 from dmn_client.route_store import run_op
 from dmn_client.route_table import StorageTables
 from dmn_client.stored_tables import evaluate_stored, FORMAT_DECISION
+from dmn_client import stored_tables as _st, two_state as _two
 x = json.load(sys.stdin)
+# 0.5.44-rc3: the old code wrote the deployment app ids into its code; run it with the invented ones the tests configure
+# (deployment_fixtures), set where it kept them
+_dep = x['deployment']
+_two.MAINTENANCE_APP = _dep['maintenance_app_id']
+_st.APP_TARGET, _st.APP_TRIAGE = _dep['target_app_id'], _dep['triage_app_id']
+_st.POLICY_OWNERS = {_st.TABLE_TARGET_PREFIX: _st.APP_TARGET, _st.TABLE_TRIAGE_PREFIX: _st.APP_TRIAGE}
 s = FakeStorage()
 s.data = {k: bytes.fromhex(v) for k, v in x['data'].items()}
 for table in ('triage.dispatch.resource', 'trial.scene.topic'):

@@ -5,6 +5,7 @@ conclusion. Synthetic tables only."""
 import copy
 
 import pytest
+from deployment_fixtures import APP_TRIAGE
 from test_route_table import FakeStorage
 from test_v0517_standard import OWNER, cond, declare, doc, param, rec, refused, save, tpl
 
@@ -12,7 +13,6 @@ from dmn_client import declarations
 from dmn_client.decision_executor import PROFILE
 from dmn_client.route_table import StorageTables
 from dmn_client.stored_tables import (
-    APP_TRIAGE,
     FORMAT_DECISION,
     FORMAT_DECISION_SET,
     evaluate_stored,
@@ -398,7 +398,7 @@ def test_scene_entity_conclusions_use_all_keys():
         "necessary_rule_ids": {"type": "array", "name": "必要规则"},
         "label": {"type": "string", "name": "名称"},
     }
-    owner = {"app_id": "56d3c0c5-4d41-4454-99ab-e3a6db6aa66c", "team": "定位", "name": "样例"}
+    owner = {"app_id": "d0000002-0000-4000-8000-000000000002", "team": "定位", "name": "样例"}
     assert validate(doc("target.sample-entity", m, declare(m, "SCENE_ENTITY", out), owner=owner)), (
         "both need an ORDER but confirm it differently: two conclusions"
     )

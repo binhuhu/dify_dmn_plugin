@@ -11,8 +11,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
+from deployment_fixtures import MAINTENANCE_APP
 
-from dmn_client.two_state import MAINTENANCE_APP, key_fingerprint, run_entry, sign, verify
+from dmn_client.two_state import key_fingerprint, run_entry, sign, verify
 
 ROOT = Path(__file__).resolve().parents[2]
 KEY_A = "a" * 24 + "-synthetic-writer-key-one"

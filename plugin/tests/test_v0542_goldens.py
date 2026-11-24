@@ -42,12 +42,41 @@ INTENDED = {
     "save:schema:[]": "同上",
     "save:schema:{}": "schema 写成对象：同上",
 }
+# 0.5.44-rc4 (DMN 2.0.88 情形概述，合同线 f4cee5075)：导出带声明的表时，每行 <rule> 的 description 写规则依据（几种情形各一行的写
+# 那种情形的依据），带 dj:why，导入不回读。下面十张真表的导出因此不同；把声明去掉再导，与 0.5.41 的金样逐字节同（11-24 核过）。
+DESCRIBED = (
+    "coupon_3dfeb488_search.json",
+    "coupon_v2_search_info.json",
+    "fee_p1.json",
+    "fee_p2.json",
+    "fee_reality.json",
+    "fee_strategy.json",
+    "fee_v2_fact_feature.json",
+    "fee_v2_reality.json",
+    "fee_v2_search_info.json",
+    "fee_v2_strategy.json",
+)
+INTENDED.update(
+    {
+        "export:"
+        + n: "导出的每行 rule 带声明里的依据（description，dj:why；DMN 2.0.88），去掉声明再导与 0.5.41 同"
+        for n in DESCRIBED
+    }
+)
 
 
 @real_fixtures.uses("v0541")
 def test_every_answer_is_0_5_41_s_but_the_intended_ones():
+    from dmn_client import deployment
+
     gold = json.loads((HERE / "goldens_v0541.json").read_text(encoding="utf-8"))
-    now = G.capture(Path(__file__).resolve().parents[1])
+    token = (
+        real_fixtures.configure_live_owners()
+    )  # 0.5.44-rc3: the owner the goldens were taken with
+    try:
+        now = G.capture(Path(__file__).resolve().parents[1])
+    finally:
+        deployment.reset(token)
     assert set(now) == set(gold) and len(gold) == 102
     differ = sorted(k for k in gold if gold[k] != now[k])
     assert differ == sorted(INTENDED), sorted(set(differ) ^ set(INTENDED))
@@ -60,4 +89,4 @@ def test_every_answer_is_0_5_41_s_but_the_intended_ones():
     for k in ("import:fee_v2_reality.json", "import:long_in:True", "import:over_1_mib"):
         assert (gold[k]["status"], now[k]["status"]) == ("FAILED", "SUCCEEDED"), k
     # 没改的：v1 / v2 的导出（费用、券表 11 张，三种命中策略的小表）、导入、出错路径、节点内求值
-    assert len(gold) - len(differ) == 82
+    assert len(gold) - len(differ) == 72  # 0.5.44-rc4: 82 less the ten DESCRIBED exports

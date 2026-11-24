@@ -11,6 +11,7 @@ import hashlib
 import json
 
 import pytest
+from deployment_fixtures import APP_TRIAGE
 from test_decision_executor import assert_failure, case, run, table  # noqa: F401
 from test_decision_executor import rule as inline_rule
 from test_route_table import FakeStorage
@@ -36,7 +37,6 @@ from dmn_client.decision_executor import PROFILE
 from dmn_client.route_store import run_op
 from dmn_client.route_table import StorageTables
 from dmn_client.stored_tables import (
-    APP_TRIAGE,
     FORMAT_DECISION,
     FORMAT_DECISION_SET,
     evaluate_stored,
@@ -957,7 +957,11 @@ def test_5_inline_when_any_conditions_are_checked(case):  # noqa: F811
 
 # sha256 of regression_receipts() as computed on 0.5.18 as released (19dd547, tag v0.5.18; the fixtures it imports changed
 # synthetic owner placeholders in the published release); see docs/releases/v0.5.19.md
-REGRESSION_0518_SHA256 = "a8170df8fec9c4789856d8c2881b28bd80f96308ecfdb9734dfa3d28fd4c27d5"
+# 0.5.44-rc3 put invented deployment app ids in the fixtures (deployment_fixtures); the owners are in the receipts, so the
+# digest moves with them. With the live ids the receipts still give the 0.5.18 digest a8170df8…d4c27d5 (checked 11-24 on
+# 0.5.44-rc4 6cac553); with the invented ids, 095d4ba code (which gives a8170df8 with the live ids) gives the value below,
+# the same as 0.5.44-rc4. So this pins the same behaviour under the ids the tests now use.
+REGRESSION_0518_SHA256 = "a870cb3d81c88fcdf81af946046300e3b0c9d2005d4cd1c6f96f7eb58171f8d7"
 
 
 def transition_doc():

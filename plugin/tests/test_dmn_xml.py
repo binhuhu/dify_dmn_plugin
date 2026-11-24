@@ -6,6 +6,7 @@ import json
 import os
 import subprocess
 
+import deployment_fixtures
 import pytest
 
 from dmn_client import dmn_xml, feel_cells, stored_tables
@@ -242,7 +243,7 @@ def test_imported_model_is_a_storable_decision_table():
     doc = {
         "schema": stored_tables.SCHEMA_DECISION,
         "table": "triage.discount",
-        "owner": {"app_id": stored_tables.APP_TRIAGE, "team": "t", "name": "n"},
+        "owner": {"app_id": deployment_fixtures.APP_TRIAGE, "team": "t", "name": "n"},
         "model_ref": "discount@" + model["version"],
         "model": model,
         "note": "",

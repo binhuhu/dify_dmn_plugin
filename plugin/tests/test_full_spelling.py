@@ -12,6 +12,7 @@ import json
 
 import pytest
 import test_task_type_names as T
+from deployment_fixtures import APP_TARGET, APP_TRIAGE
 from test_declarations import transition
 from test_route_table import FakeStorage, call, stub_bundle
 from test_route_table import doc as route_doc
@@ -21,7 +22,7 @@ from toy_route_fixtures import v3
 
 from dmn_client.route_store import run_op
 from dmn_client.route_table import RouteTableError, StorageTables
-from dmn_client.stored_tables import APP_TARGET, APP_TRIAGE, validate
+from dmn_client.stored_tables import validate
 from dmn_client.table_names import delivery_name
 from dmn_client.two_state import run_entry
 

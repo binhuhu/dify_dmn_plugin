@@ -4,13 +4,14 @@
 import json
 
 import pytest
+from deployment_fixtures import APP_TARGET, APP_TRIAGE
 from test_route_table import FakeStorage
 from test_route_table_v2 import doc as route_doc
 from test_stored_tables import p2_doc, resource_doc, store, supplement_doc, with_resources
 
 from dmn_client.route_store import run_op
 from dmn_client.route_table import RouteTableError, StorageTables
-from dmn_client.stored_tables import APP_TARGET, APP_TRIAGE, FORMAT_SUPPLEMENT, evaluate_stored
+from dmn_client.stored_tables import FORMAT_SUPPLEMENT, evaluate_stored
 from dmn_client.table_names import STANDARD, alias_of, storage_name
 
 ALIASES = STANDARD  # 0.5.20: standard → old is table_names.STANDARD; table_names.ALIASES is old → standard

@@ -312,9 +312,10 @@ def test_a_table_with_no_head_yet_reads_no_version():
 
 def test_the_five_are_not_healed():
     """The heal is for tables outside the five: their first-store checks read what storage holds as it is."""
+    from deployment_fixtures import MAINTENANCE_APP
     from test_v0524_two_state import live, v3
 
-    from dmn_client.two_state import MAINTENANCE_APP, run_entry
+    from dmn_client.two_state import run_entry
 
     s = live(FakeStorage())
     head = StorageTables(s).load("dispatch.route")
@@ -334,9 +335,10 @@ def test_the_five_are_not_healed():
 
 
 def test_history_reads_the_head_once():
+    from deployment_fixtures import MAINTENANCE_APP
     from test_storage_care import store
 
-    from dmn_client.two_state import MAINTENANCE_APP, run_entry
+    from dmn_client.two_state import run_entry
 
     class Counting(FakeStorage):
         heads = 0

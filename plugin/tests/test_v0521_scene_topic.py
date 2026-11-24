@@ -9,13 +9,13 @@ import copy
 import json
 
 import pytest
+from deployment_fixtures import APP_TARGET
 from test_route_table import FakeStorage
 
 from dmn_client.declarations import check as check_declaration
 from dmn_client.route_store import MAX_BODY, MAX_REQUEST, run_op
 from dmn_client.route_table import RouteTableError, StorageTables, digest, validate_doc
 from dmn_client.stored_tables import (
-    APP_TARGET,
     FORMAT_SCENE_TOPIC,
     FORMAT_SUPPLEMENT,
     FORMATS,

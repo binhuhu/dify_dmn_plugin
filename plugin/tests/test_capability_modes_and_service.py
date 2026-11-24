@@ -20,6 +20,7 @@ import re
 from types import SimpleNamespace
 
 import pytest
+import real_fixtures
 from capability_fixtures import (
     COUPON,
     ORDER,
@@ -30,6 +31,7 @@ from capability_fixtures import (
     legacy_catalog,
     moded_row,
 )
+from deployment_fixtures import CREDENTIALS
 from scene_bundle_fixtures import APP_TARGET, P, T, decision, scene_is
 from search_fixtures import search_doc
 from test_capability_catalog import OLD_NAME, refused, stored_by_0538
@@ -177,8 +179,11 @@ def test_a_table_of_the_old_row_form_keeps_its_digest():
     assert content_sha256(validate(legacy_catalog())) == LEGACY_DIGEST
 
 
-def test_op_vocabulary_answers_0538s_document():
-    # coordination ruling 161: byte for byte, the table name included (the old name, a read-only alias now)
+@real_fixtures.uses("deployment")
+def test_op_vocabulary_answers_0538s_document(live_owners):
+    # coordination ruling 161: byte for byte, the table name included (the old name, a read-only alias now).
+    # 0.5.44-rc3: the document names the owners of target. / triage., now read from the plugin configuration; with the
+    # live ones configured (outside git, tests/real_fixtures.py) it is 0.5.38's document byte for byte
     v = declared()
     assert v["content_sha256"] == VOCABULARY_0538 and v["tables"]["capability"] == OLD_NAME
     assert run_entry(FakeStorage(), "vocabulary", "", None, None) == (200, v)
@@ -190,7 +195,7 @@ def test_op_vocabulary_answers_0538s_document():
 def tool_call(op):
     from tools.route_table_store import RouteTableStoreTool
 
-    tool = RouteTableStoreTool.from_credentials({})
+    tool = RouteTableStoreTool.from_credentials(CREDENTIALS)
     tool.session = SimpleNamespace(storage=FakeStorage())
     msgs = list(tool.invoke({"op": op}))
     return {

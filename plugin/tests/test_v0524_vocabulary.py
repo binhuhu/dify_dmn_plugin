@@ -1,7 +1,9 @@
 """Declared vocabulary and unknown request-key validation with synthetic fixtures."""
 
 import json
+from types import SimpleNamespace
 
+from deployment_fixtures import CREDENTIALS
 from test_route_table import FakeStorage
 from test_v0524_two_state import NOW, TWO, T, draft, entry, live, publish
 from toy_route_fixtures import v3
@@ -109,11 +111,10 @@ def test_the_declared_values_are_the_objects_the_validators_use():
 
 
 def test_the_tool_answers_vocabulary_without_a_table():
-    from types import SimpleNamespace
 
     from tools.route_table_store import RouteTableStoreTool
 
-    tool = RouteTableStoreTool.from_credentials({})
+    tool = RouteTableStoreTool.from_credentials(CREDENTIALS)
     tool.session = SimpleNamespace(storage=FakeStorage())
     msgs = list(tool.invoke({"op": "vocabulary"}))
     got = {

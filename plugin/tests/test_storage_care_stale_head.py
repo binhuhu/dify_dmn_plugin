@@ -547,10 +547,11 @@ def test_named_by_mistake_then_other_content_saved_while_the_old_head_is_served(
 
 
 def test_a_signed_clean_up_signs_its_confirmation():
+    from deployment_fixtures import MAINTENANCE_APP
     from test_storage_care import Capped, orphan
     from test_v0524_two_state import NOW, TWO, signed
 
-    from dmn_client.two_state import MAINTENANCE_APP, run_entry
+    from dmn_client.two_state import run_entry
 
     s = Capped()
     s.data = dict(FakeStorage().data)

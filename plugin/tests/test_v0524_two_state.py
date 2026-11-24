@@ -13,6 +13,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
+from deployment_fixtures import CREDENTIALS, MAINTENANCE_APP
 from test_route_table import KEY, WRITER, WRITERS, FakeStorage, call
 from test_route_table_v2 import events
 from test_route_table_v3 import stub
@@ -24,7 +25,6 @@ from dmn_client.route_table import FORMAT_V4, StorageTables, content_sha256, val
 from dmn_client.solution_invoke import invoke_solution
 from dmn_client.two_state import (
     DRAFT_SCHEMA,
-    MAINTENANCE_APP,
     REQUEST_SCHEMA,
     DryRun,
     body_sha256,
@@ -524,7 +524,7 @@ def test_body_digest_is_rfc8785_of_the_body_without_its_writer():
 
 def test_the_tool_takes_writers_from_its_node_parameter():
     storage = live(FakeStorage())
-    tool = RouteTableStoreTool.from_credentials({})
+    tool = RouteTableStoreTool.from_credentials(CREDENTIALS)
     tool.session = type("S", (), {"storage": storage, "app_id": MAINTENANCE_APP})()
 
     def run(**params):

@@ -8,12 +8,14 @@ import sys
 import time
 import tracemalloc
 
+from deployment_fixtures import APP_TARGET
+
 if __package__ in (None, ""):
     sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from dmn_client.route_store import MAX_BODY, run_op  # noqa: E402
 from dmn_client.route_table import StorageTables, canon, validate_doc  # noqa: E402
-from dmn_client.stored_tables import APP_TARGET, FORMAT_DECISION, evaluate_stored  # noqa: E402
+from dmn_client.stored_tables import FORMAT_DECISION, evaluate_stored  # noqa: E402
 
 TEMPLATES = 32
 

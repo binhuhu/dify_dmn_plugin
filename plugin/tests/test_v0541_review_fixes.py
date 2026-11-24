@@ -8,6 +8,7 @@ import time
 import pytest
 import real_fixtures
 import v2_fixtures as F
+from deployment_fixtures import MAINTENANCE_APP
 from test_v0541_decision_v2 import refused
 from v2_fixtures import INFO_FACT, c, k, known, record
 
@@ -15,7 +16,7 @@ from dmn_client import capability_catalog as CC
 from dmn_client import decision_v2, dmn_xml, inline_table, route_store, settings
 from dmn_client.route_table import StorageTables, digest
 from dmn_client.stored_tables import validate
-from dmn_client.two_state import MAINTENANCE_APP, run_entry
+from dmn_client.two_state import run_entry
 
 
 def setting(storage, body=None, caller_app=MAINTENANCE_APP):

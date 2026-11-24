@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 
 import pytest
 from controlled_fixtures import signed_body, toy_entry
+from deployment_fixtures import MAINTENANCE_APP
 from scene_bundle_fixtures import acceptance_doc, seed
 from test_route_table import KEY, WRITER, WRITERS, FakeStorage
 from test_v0521_scene_topic import doc as topic_doc
@@ -16,7 +17,6 @@ from dmn_client.route_table import StorageTables
 from dmn_client.two_state import (
     AGENT_REFUSED,
     KINDS,
-    MAINTENANCE_APP,
     SCENE_SIGNED,
     parse_writers,
     run_entry,

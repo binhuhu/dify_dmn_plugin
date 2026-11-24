@@ -5,6 +5,7 @@ from pathlib import Path
 
 import httpx
 import pytest
+from deployment_fixtures import CREDENTIALS
 
 from dmn_client.json_table import evaluate_table
 from dmn_client.local_plan import digest, execute_local, query_local
@@ -223,7 +224,7 @@ def test_sdk_offline_empty_credentials(monkeypatch):
         ),
         (ExecuteJsonPlanTool, {"request_json": example("json-solve-p1-p5")}),
     ]:
-        messages = list(cls.from_credentials({}).invoke(params))
+        messages = list(cls.from_credentials(CREDENTIALS).invoke(params))
         assert messages[0].message.json_object["status"] == "SUCCEEDED"
         assert messages[1].message.variable_value == messages[0].message.json_object
 

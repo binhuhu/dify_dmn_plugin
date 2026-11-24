@@ -65,6 +65,8 @@ BROKEN = {
 }
 
 
+# 0.5.44-rc3: seeded() stores the live table snapshots, owned by the live apps (conftest live_owners)
+@pytest.mark.usefixtures("live_owners")
 @pytest.mark.parametrize("name", sorted(BROKEN))
 @pytest.mark.parametrize("op", ["save", "cases_check", "cases_save"])
 def test_a_malformed_suite_is_the_suite_s_mistake_never_a_storage_failure(name, op):
@@ -77,6 +79,8 @@ def test_a_malformed_suite_is_the_suite_s_mistake_never_a_storage_failure(name, 
     assert (status, out["error"]["code"]) == (400, "TABLE_CASES_INVALID"), (name, op, out)
 
 
+# 0.5.44-rc3: seeded() stores the live table snapshots, owned by the live apps (conftest live_owners)
+@pytest.mark.usefixtures("live_owners")
 def test_a_reader_that_breaks_on_a_case_is_the_suite_s_mistake(monkeypatch):
     st = Storage(seeded().data)
 
@@ -106,6 +110,8 @@ def _failing_once(prefix):
     return real, get, hits
 
 
+# 0.5.44-rc3: seeded() stores the live table snapshots, owned by the live apps (conftest live_owners)
+@pytest.mark.usefixtures("live_owners")
 def test_a_storage_failure_under_a_reader_still_answers_503():
     """读不出不放行（0.5.41 第三节）：读方读存储失败照原样抛，存表回 503，不当这一版改了答案、不当用例集写错
     （第一轮挑错 M2：读方自己把存储失败写成回执里的 STORED_TABLE_UNAVAILABLE，闸原来拿它比期望）。"""
@@ -309,6 +315,8 @@ def _infos_catalog_for_every_kind():
     }
 
 
+# 0.5.44-rc3: seeded() stores the live table snapshots, owned by the live apps (conftest live_owners)
+@pytest.mark.usefixtures("live_owners")
 def test_a_declared_acceptance_table_saves_with_its_supplier_yellow():
     """声明了 fact: 来源的受理表真存一次：能力表没存过 → 报黄 REGISTRY_ABSENT；能力表是新写法（infos）→ 报黄 REGISTRY_INFOS；
     都不拒（0.5.41 起新名能力表只收 infos，事实不在能力表里定义）。"""

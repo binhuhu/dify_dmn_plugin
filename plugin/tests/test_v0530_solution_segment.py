@@ -15,8 +15,8 @@ pytestmark = pytest.mark.usefixtures("v1_heads_before_0541")
 
 SCENE = "M_P_02_04_01"
 SEG = SOLUTION_APP.split("-")[0]  # 11111111
-OTHER_APP = "56d3c0c5-4d41-4454-99ab-e3a6db6aa66c"
-OTHER_SEG = "56d3c0c5"
+OTHER_APP = "d0000002-0000-4000-8000-000000000002"
+OTHER_SEG = "d0000002"
 OTHER_OWNER = dict(OWNER, app_id=OTHER_APP)
 FOUR = ("search.fact", "fact.feature", "feature.reality", "reality.strategy")
 
@@ -48,7 +48,7 @@ def test_the_segment_shortens_the_room_for_a_part():
         ("solution.fact.feature." + SCENE, None),
         ("solution.fact.feature." + SCENE + ".part_a", None),
         ("solution.fact.feature." + SCENE + ".p1", None),
-        ("solution.fact.feature." + SCENE + ".56d3c0c5", "56d3c0c5"),
+        ("solution.fact.feature." + SCENE + ".d0000002", "d0000002"),
         (
             "solution.fact.feature." + SCENE + ".abcdef12",
             "abcdef12",
@@ -71,10 +71,12 @@ def test_which_names_carry_a_segment(t, seg):
         "solution.fact.feature."
         + SCENE
         + ".56d3c0c",  # 7 digits, digit first: neither segment nor part
-        "solution.fact.feature." + SCENE + ".56d3c0c5a",  # 9
-        "solution.fact.feature." + SCENE + ".p1.56d3c0c5",  # segment after the part
-        "solution.fact.feature." + SCENE + ".56d3c0c5.11111111",  # two segments
-        "solution.fact.feature." + SCENE + ".56d3c0c5.p1.p2",
+        "solution.fact.feature."
+        + SCENE
+        + ".1d0000002",  # 9, digit first (rc3 swapped in an id that starts with a letter: a part)
+        "solution.fact.feature." + SCENE + ".p1.d0000002",  # segment after the part
+        "solution.fact.feature." + SCENE + ".d0000002.11111111",  # two segments
+        "solution.fact.feature." + SCENE + ".d0000002.p1.p2",
     ],
 )
 def test_malformed_segment_names_are_not_table_names(t):
@@ -82,7 +84,7 @@ def test_malformed_segment_names_are_not_table_names(t):
 
 
 @pytest.mark.parametrize(
-    "t", ["solution.fact.feature.56d3c0c5", "solution.disposal.status.shared.56d3c0c5"]
+    "t", ["solution.fact.feature.d0000002", "solution.disposal.status.shared.d0000002"]
 )
 def test_a_segment_without_a_scene_is_not_a_solution_table(t):
     # all lower case, so the general name rule takes them; they are not solution-layer names and do not store as one
@@ -104,7 +106,7 @@ def test_the_owner_stores_under_its_own_segment(part):
 def test_another_apps_segment_is_refused():
     st = FakeStorage()
     t = name(seg=OTHER_SEG)
-    status, body = save(st, doc(t, feature_model()))  # owner 11111111…, name says 56d3c0c5
+    status, body = save(st, doc(t, feature_model()))  # owner 11111111…, name says d0000002
     assert status == 400, body
     e = body["error"]
     assert e["code"] == "STORED_TABLE_NAME" and e["path"] == "table", e

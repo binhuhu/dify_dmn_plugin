@@ -7,6 +7,7 @@ import copy
 import json
 
 import pytest
+from deployment_fixtures import MAINTENANCE_APP
 from test_route_table import WRITERS, FakeStorage
 from test_v0517_standard import (
     DISPOSAL_OUT,
@@ -22,7 +23,7 @@ from test_v0524_two_state import TWO, draft, live, v3
 
 from dmn_client.route_store import run_op
 from dmn_client.route_table import StorageTables, table_name
-from dmn_client.two_state import MAINTENANCE_APP, draft_key, open_mode, run_entry
+from dmn_client.two_state import draft_key, open_mode, run_entry
 
 # 0.5.41: v1 tables saved on fresh solution-layer names, as if those names had v1 heads from 0.5.40
 pytestmark = pytest.mark.usefixtures("v1_heads_before_0541")

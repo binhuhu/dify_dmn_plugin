@@ -20,6 +20,7 @@ from types import SimpleNamespace
 import pytest
 from capability_fixtures import catalog as library_catalog
 from controlled_fixtures import signed_body, toy_entry
+from deployment_fixtures import CREDENTIALS, MAINTENANCE_APP
 from test_inline_table import DOC as INLINE_DOC
 from test_route_table import KEY, NODE_REF, WRITER, WRITERS, FakeStorage, stub_bundle
 from test_stored_tables import resource_doc
@@ -32,7 +33,7 @@ from dmn_client import table_lifecycle as L
 from dmn_client.route_store import run_op
 from dmn_client.route_table import FORMAT_V3, StorageTables
 from dmn_client.stored_tables import FORMAT_DECISION
-from dmn_client.two_state import MAINTENANCE_APP, run_entry, sign
+from dmn_client.two_state import run_entry, sign
 
 NOW = datetime(2030, 1, 2, 12, 0, 0, tzinfo=timezone.utc)
 AT = NOW.strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -209,7 +210,7 @@ def finished_events(app_id, inputs):
 def invoke_tool(st, table=TRIAL, app_id=ALPHA, app="00000000-0000-4000-8000-0000000000cc"):
     from tools.invoke_solution import InvokeSolutionTool
 
-    tool = InvokeSolutionTool.from_credentials({})
+    tool = InvokeSolutionTool.from_credentials(CREDENTIALS)
     tool.session = SimpleNamespace(
         storage=st,
         app_id=app,
@@ -229,6 +230,7 @@ def stored_tool(st, table=HANDLE, **pins):
     from tools.evaluate_stored_table import EvaluateStoredTableTool
 
     tool = EvaluateStoredTableTool.__new__(EvaluateStoredTableTool)
+    tool.runtime = SimpleNamespace(credentials=CREDENTIALS)
     tool.session = SimpleNamespace(storage=st, app_id="00000000-0000-4000-8000-0000000000cc")
     tool.create_json_message = lambda v: ("json", v)
     tool.create_variable_message = lambda k, v: ("var", k, v)
@@ -248,6 +250,7 @@ def decision_tool(st, table=TRIAL):
     src = bundle["models"]["dispatch.route@4.0.0"]["source"]
     src.update(table=table, format=FORMAT_V3)
     tool = EvaluateDecisionTool.__new__(EvaluateDecisionTool)
+    tool.runtime = SimpleNamespace(credentials=CREDENTIALS)
     tool.session = SimpleNamespace(storage=st, app_id="00000000-0000-4000-8000-0000000000cc")
     tool.create_json_message = lambda v: ("json", v)
     tool.create_variable_message = lambda k, v: ("var", k, v)
@@ -315,6 +318,15 @@ from dmn_client.route_store import run_op
 from dmn_client.two_state import run_entry
 from dmn_client.solution_invoke import invoke_solution
 from dmn_client.route_table import StorageTables
+from dmn_client import stored_tables as _st, two_state as _two
+
+req = json.load(sys.stdin)
+# 0.5.43 wrote the three deployment app ids into its code; 0.5.44-rc3 reads them from the plugin configuration. The old
+# code is run with the invented ones the tests configure (deployment_fixtures), set where 0.5.43 kept them.
+_dep = req["deployment"]
+_two.MAINTENANCE_APP = _dep["maintenance_app_id"]
+_st.APP_TARGET, _st.APP_TRIAGE = _dep["target_app_id"], _dep["triage_app_id"]
+_st.POLICY_OWNERS = {_st.TABLE_TARGET_PREFIX: _st.APP_TARGET, _st.TABLE_TRIAGE_PREFIX: _st.APP_TRIAGE}
 
 class S:
     def __init__(self, data): self.data = {k: bytes.fromhex(v) for k, v in data.items()}
@@ -323,7 +335,6 @@ class S:
     def set(self, k, v): self.data[k] = v
     def delete(self, k): del self.data[k]
 
-req = json.load(sys.stdin)
 st = S(req["storage"])
 out = []
 for step in req["steps"]:
@@ -372,7 +383,11 @@ def code_0543(tmp_path_factory):
 
 def run_0543(code_dir, st, steps):
     """拿 0.5.43 的代码在 st 的一份拷贝上跑 steps，返回 (各步结果, 跑完的存储)。"""
-    req = {"storage": {k: v.hex() for k, v in st.data.items()}, "steps": steps}
+    req = {
+        "storage": {k: v.hex() for k, v in st.data.items()},
+        "steps": steps,
+        "deployment": CREDENTIALS,
+    }
     p = subprocess.run(
         [sys.executable, str(code_dir / "runner.py"), str(code_dir / "plugin")],
         input=json.dumps(req, ensure_ascii=False),

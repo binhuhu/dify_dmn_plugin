@@ -18,7 +18,7 @@ def downstream():
         "table": "triage.audit-receipt",
         "version": 1,
         "owner": {
-            "app_id": "0f34962a-e380-45e1-8b35-fc64b5651776",
+            "app_id": "d0000003-0000-4000-8000-000000000003",
             "team": "synthetic",
             "name": "Synthetic receipt boundary",
         },

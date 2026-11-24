@@ -5,6 +5,7 @@ from copy import deepcopy
 from pathlib import Path
 
 import pytest
+from deployment_fixtures import CREDENTIALS
 
 from dmn_client.decision_executor import evaluate_decision
 from dmn_client.node_contract import ContractError, definition_digest
@@ -436,7 +437,7 @@ def test_sdk_trusted_binding_failure_clears_previous_success(case, monkeypatch):
         "evaluate_decision",
         partial(evaluate_decision, trusted_policy=lambda prepared: sources),
     )
-    tool = EvaluateDecisionTool.from_credentials({})
+    tool = EvaluateDecisionTool.from_credentials(CREDENTIALS)
 
     def invoke():
         bundle, invocation = case
@@ -574,7 +575,7 @@ def test_collect_cross_template_sdk_missing_action_clears_success(case):
     from tools.evaluate_decision import EvaluateDecisionTool
 
     model = split_collect(case)
-    tool = EvaluateDecisionTool.from_credentials({})
+    tool = EvaluateDecisionTool.from_credentials(CREDENTIALS)
 
     def call():
         bundle, invocation = case

@@ -12,12 +12,16 @@ import time
 
 import pytest
 import real_fixtures
+from deployment_fixtures import MAINTENANCE_APP
 
 from dmn_client import route_table, save_gate
 from dmn_client.route_store import run_op
 from dmn_client.table_names import STANDARD
-from dmn_client.two_state import MAINTENANCE_APP, run_entry
+from dmn_client.two_state import run_entry
 from dmn_client.vocabulary import REQUEST_KEYS, declared
+
+# 0.5.44-rc3: the snapshot tables are owned by the live TARGET / TRIAGE apps (conftest live_owners)
+pytestmark = pytest.mark.usefixtures("live_owners")
 
 ROUTE = "triage.dispatch.route"
 TOPIC = "target.scene.topic"

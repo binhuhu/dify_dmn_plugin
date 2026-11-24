@@ -5,10 +5,12 @@ import copy
 import json
 from datetime import datetime, timezone
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 import yaml
 from controlled_fixtures import signed_body, toy_entry
+from deployment_fixtures import CREDENTIALS, MAINTENANCE_APP
 from scene_bundle_fixtures import NEW, OLD_SCENE, T, bundle, scene_is, seed, topic_row
 from test_route_table import KEY, WRITER, WRITERS, FakeStorage
 
@@ -16,7 +18,7 @@ from dmn_client import declarations, scene_bundle
 from dmn_client.route_store import run_op
 from dmn_client.route_table import StorageTables
 from dmn_client.scene_bundle import PARTS, TABLES, _compose_decision, has_scene, probe
-from dmn_client.two_state import MAINTENANCE_APP, run_entry, sign
+from dmn_client.two_state import run_entry, sign
 from tools.route_table_store import RouteTableStoreTool
 from tools.scene_bundle import OPS as TOOL_OPS
 from tools.scene_bundle import SceneBundleTool
@@ -822,6 +824,7 @@ class Session:
 
 def invoke(tool_cls, storage, **params):
     tool = tool_cls.__new__(tool_cls)
+    tool.runtime = SimpleNamespace(credentials=CREDENTIALS)
     tool.session = Session(storage)
     tool.create_json_message = lambda body: ("json", body)
     tool.create_variable_message = lambda name, value: (name, value)

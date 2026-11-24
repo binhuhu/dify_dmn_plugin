@@ -6,6 +6,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+from deployment_fixtures import CREDENTIALS
 from test_route_store import SETTINGS, app_endpoint, maintenance_app
 from test_route_table import FakeStorage, hit
 from test_stored_tables import supplement_doc
@@ -63,6 +64,7 @@ def test_shared_invalid_cases_fail_on_save_and_on_corrupted_stored_read(case):
 
 def tool_output(cls, storage, parameters):
     tool = cls.__new__(cls)
+    tool.runtime = SimpleNamespace(credentials=CREDENTIALS)
     tool.session = SimpleNamespace(storage=storage)
     tool.create_json_message = lambda value: ("json", value)
     tool.create_variable_message = lambda key, value: ("variable", key, value)

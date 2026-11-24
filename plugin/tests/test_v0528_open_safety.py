@@ -5,12 +5,13 @@ import threading
 from concurrent.futures import ThreadPoolExecutor
 
 import pytest
+from deployment_fixtures import MAINTENANCE_APP, in_config
 from test_route_table import FakeStorage
 from test_v0524_two_state import live, v3
 
 from dmn_client.route_table import StorageTables
 from dmn_client.table_names import STANDARD
-from dmn_client.two_state import MAINTENANCE_APP, draft_key, run_entry
+from dmn_client.two_state import draft_key, run_entry
 
 T = "dispatch.route"
 
@@ -137,7 +138,7 @@ def test_known_limit_concurrent_open_writers_can_both_succeed_and_overwrite(op):
         return entry(st, op, body)
 
     with ThreadPoolExecutor(max_workers=2) as pool:
-        a, b = pool.submit(write, "A"), pool.submit(write, "B")
+        a, b = pool.submit(in_config(write), "A"), pool.submit(in_config(write), "B")
         try:
             result_a = a.result(timeout=15)
         finally:

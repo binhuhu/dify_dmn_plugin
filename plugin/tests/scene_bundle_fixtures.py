@@ -7,6 +7,7 @@ mixes them; the bundle always speaks M_."""
 import copy
 import json
 
+from deployment_fixtures import APP_TARGET, APP_TRIAGE
 from test_route_table import FakeStorage
 from test_v0521_scene_topic import doc as topic_doc
 from test_v0522_resource_decision import resource_doc
@@ -14,7 +15,6 @@ from toy_route_fixtures import v3
 
 from dmn_client.route_store import run_op
 from dmn_client.scene_bundle import SCHEMA
-from dmn_client.stored_tables import APP_TARGET, APP_TRIAGE
 
 NEW = "M_P_91_05_01"
 OLD_SCENE = "M_P_91_01_01"

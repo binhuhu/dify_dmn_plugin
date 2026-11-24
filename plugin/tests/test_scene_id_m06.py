@@ -10,6 +10,7 @@ import sys
 from pathlib import Path
 
 import pytest
+from deployment_fixtures import APP_TARGET
 from test_policy_tables import DAYS, triage_acceptance
 from test_route_table import NODE_REF, FakeStorage, call, stub_bundle
 from test_route_table import doc as doc_v1
@@ -28,7 +29,7 @@ from dmn_client.route_table import (
     StorageTables,
     validate_doc,
 )
-from dmn_client.stored_tables import APP_TARGET, evaluate_stored
+from dmn_client.stored_tables import evaluate_stored
 
 HERE = Path(__file__).resolve().parent
 VECTORS = HERE / "scene_id_vectors" / "scene-id-public.v1.vectors.json"

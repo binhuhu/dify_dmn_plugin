@@ -3,10 +3,12 @@
 import json
 
 import pytest
+from deployment_fixtures import CREDENTIALS
 from test_review_attacks import READS_0519, on_0519, outcome
 from test_v0520_invariants import Crash, N, first_store, legacy_faulty, state_of
 from test_v0520_store_name import RESOURCE, ROUTE, bump, five, legacy
 
+from dmn_client import deployment
 from dmn_client.route_store import run_op
 
 
@@ -21,6 +23,17 @@ def _route_copied_resource_names_it():
     return s
 
 
+def _at_collection(count):
+    """0.5.44-rc3: the write counts below are taken while the module is collected, before conftest configures the
+    deployment app ids for each test; configure the same invented ones for the count (unset, no owner matches and the
+    tables are refused)."""
+    token = deployment.apply(CREDENTIALS)
+    try:
+        return count()
+    finally:
+        deployment.reset(token)
+
+
 def _undo_writes():
     s = _route_copied_resource_names_it()
     s.writes = 0
@@ -29,7 +42,7 @@ def _undo_writes():
 
 
 @pytest.mark.parametrize("after", [False, True], ids=["before-write", "after-write"])
-@pytest.mark.parametrize("k", range(1, _undo_writes() + 1))
+@pytest.mark.parametrize("k", range(1, _at_collection(_undo_writes) + 1))
 def test_r4_undo_crashed_at_any_write_including_its_reference_fix_save_is_retryable(k, after):
     """Bar (a): one operator, one undo, a crash at its k-th write. The undo re-saves the resource table naming the old
     route name (I24) through an ordinary save; a crash inside that save leaves the resource table's version key without
@@ -79,7 +92,7 @@ def _undo_res_writes():
 
 
 @pytest.mark.parametrize("after", [False, True], ids=["before-write", "after-write"])
-@pytest.mark.parametrize("k", range(1, _undo_res_writes() + 1))
+@pytest.mark.parametrize("k", range(1, _at_collection(_undo_res_writes) + 1))
 def test_r4_resource_undo_crashed_at_any_write_including_the_route_fix_save_is_retryable(k, after):
     s = _resource_copied_route_names_it()
     s.writes, s.k, s.after = 0, k, after

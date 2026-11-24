@@ -410,7 +410,8 @@ def test_case9_the_capability_vocabulary_lists_the_optional_item_keys():
     assert status == 200 and out == capability_declared()
     sh = out["shapes"]
     assert sh["info_keys"] == ["info_id", "name", "field", "type", "unit", "object"]
-    assert sh["info_optional_keys"] == ["alternate_of", "call_ref"]
+    # 0.5.44-rc4 (DMN 2.0.87): an item of infos may carry names {取值: 中文名} (test_final_new_names.py)
+    assert sh["info_optional_keys"] == ["alternate_of", "call_ref", "names"]
     assert sh["fact_optional_keys"] == ["alternate_of"]  # facts stay 0.5.38's
     assert sh["fact_keys"] == list(CC.FACT_KEYS)
     # what the vocabulary says is what a save is checked against

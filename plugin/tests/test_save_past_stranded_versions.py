@@ -224,9 +224,10 @@ def test_a_version_above_that_cannot_be_shown_settled_and_foreign_is_not_numbere
 
 def test_the_five_never_number_past():
     """Their first-store checks read storage exactly as a stopped save left it: a save there is refused as before."""
+    from deployment_fixtures import MAINTENANCE_APP
     from test_v0524_two_state import live, v3
 
-    from dmn_client.two_state import MAINTENANCE_APP, run_entry
+    from dmn_client.two_state import run_entry
 
     s = live(FakeStorage())
     head = StorageTables(s).load("dispatch.route")
@@ -507,10 +508,11 @@ def test_a_refusal_after_numbering_past_says_what_it_passed():
 def test_an_undo_whose_fix_lands_on_one_of_the_five_keeps_the_old_advice():
     """A save of one of the five never numbers past, and clean-up refuses them: the only way out is the one 0.5.20's
     notes give."""
+    from deployment_fixtures import MAINTENANCE_APP
     from test_v0520_store_name import RESOURCE, ROUTE, legacy_storage, migrate
 
     from dmn_client.route_store import run_op
-    from dmn_client.two_state import MAINTENANCE_APP, run_entry
+    from dmn_client.two_state import run_entry
 
     s = legacy_storage()
     migrate(s, ROUTE)

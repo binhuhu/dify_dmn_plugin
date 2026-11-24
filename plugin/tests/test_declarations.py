@@ -4,6 +4,7 @@ import copy
 import json
 
 import pytest
+from deployment_fixtures import APP_TRIAGE
 from test_route_table import FakeStorage
 from test_route_table_v2 import doc as route_doc
 from test_stored_tables import p2_doc, resource_doc, supplement_doc
@@ -12,7 +13,7 @@ from dmn_client import declarations
 from dmn_client.decision_executor import PROFILE
 from dmn_client.route_store import run_op
 from dmn_client.route_table import RouteTableError
-from dmn_client.stored_tables import APP_TRIAGE, content_sha256, validate
+from dmn_client.stored_tables import content_sha256, validate
 
 KINDS = (
     (bool, "boolean"),

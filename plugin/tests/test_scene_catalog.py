@@ -14,6 +14,7 @@ import json
 from types import SimpleNamespace
 
 import pytest
+from deployment_fixtures import CREDENTIALS
 from test_route_table import FakeStorage
 from test_v0521_scene_topic import INTENT_TYPES
 
@@ -549,7 +550,7 @@ def test_op_catalog_does_not_change():
 def tool_call(**params):
     from tools.route_table_store import RouteTableStoreTool
 
-    tool = RouteTableStoreTool.from_credentials({})
+    tool = RouteTableStoreTool.from_credentials(CREDENTIALS)
     tool.session = SimpleNamespace(storage=stored_three())
     return {
         m.message.variable_name: m.message.variable_value

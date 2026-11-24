@@ -302,7 +302,10 @@ def pre_migration_receipts():
 # The 1,070 receipts use the current independent toy model and synthetic metadata.
 # Reproduce without the current runtime: python -I plugin/tests/fixtures/reproduce_pre_migration_golden.py --repo .
 # The reproducer verifies the public tag and every imported runtime module's archive origin.
-PRE_MIGRATION_0519_SHA256 = "776ca7c3d95a4b1f92e24882aa1728cca87c4ffeed15b90bebff17abadd92f4f"
+# 0.5.44-rc3 put invented deployment app ids in the fixtures; the owners are in the receipts. With the live ids the
+# receipts still give the 0.5.19 digest 776ca7c3…abadd92f4f (checked 11-24 on 0.5.44-rc4 6cac553); with the invented ids,
+# 095d4ba code (which gives 776ca7c3 with the live ids) gives the value below, the same as 0.5.44-rc4.
+PRE_MIGRATION_0519_SHA256 = "5aca9418a170996f9ab4fae51ce0151daa23e38b51b7efcba7b5ae38b3b4abe8"
 
 
 def test_pre_migration_receipts_are_0519s_byte_for_byte():

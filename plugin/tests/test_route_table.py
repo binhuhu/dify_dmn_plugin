@@ -6,6 +6,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+from deployment_fixtures import MAINTENANCE_APP
 from werkzeug.test import EnvironBuilder
 from werkzeug.wrappers import Request
 
@@ -19,7 +20,7 @@ from dmn_client.route_table import (
     materialize,
     validate_doc,
 )
-from dmn_client.two_state import MAINTENANCE_APP, run_entry, sign
+from dmn_client.two_state import run_entry, sign
 from endpoints.route_editor import ASSETS, RouteEditorEndpoint
 
 HERE = Path(__file__).resolve().parent

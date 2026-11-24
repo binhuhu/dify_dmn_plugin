@@ -4,6 +4,7 @@ import json
 from datetime import timedelta
 
 import pytest
+from deployment_fixtures import MAINTENANCE_APP
 from test_route_table import KEY, WRITER, FakeStorage
 from test_v0524_two_state import (
     AT,
@@ -24,7 +25,6 @@ from dmn_client.route_store import run_op
 from dmn_client.route_table import StorageTables, content_sha256, validate_doc
 from dmn_client.two_state import (
     DRAFT_SCHEMA,
-    MAINTENANCE_APP,
     draft_key,
     parse_writers,
     run_entry,

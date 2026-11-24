@@ -5,13 +5,13 @@ customer texts with declared slots and forbidden words, AGENT_ONLY disposals, an
 import copy
 
 import pytest
+from deployment_fixtures import APP_TRIAGE
 from test_route_table import FakeStorage
 
 from dmn_client.decision_executor import PROFILE
 from dmn_client.route_store import run_op
 from dmn_client.route_table import RouteTableError, StorageTables, validate_doc
 from dmn_client.stored_tables import (
-    APP_TRIAGE,
     FORMAT_DECISION,
     FORMAT_DECISION_SET,
     evaluate_stored,

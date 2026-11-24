@@ -9,6 +9,7 @@ from types import SimpleNamespace
 
 import pytest
 import yaml
+from deployment_fixtures import APP_TRIAGE, CREDENTIALS
 from test_route_table import FakeStorage
 
 from dmn_client import declarations
@@ -16,7 +17,6 @@ from dmn_client.decision_executor import PROFILE
 from dmn_client.route_store import MAX_BODY, MAX_DECLARE, MAX_REQUEST, run_op
 from dmn_client.route_table import RouteTableError, StorageTables, digest
 from dmn_client.stored_tables import (
-    APP_TRIAGE,
     FORMAT_DECISION,
     FORMAT_DECISION_SET,
     FORMAT_SUPPLEMENT,
@@ -286,6 +286,7 @@ def test_a_pin_reads_through_a_read_only_alias():
 
 def tool_for(st):
     tool = EvaluateStoredTableTool.__new__(EvaluateStoredTableTool)
+    tool.runtime = SimpleNamespace(credentials=CREDENTIALS)
     tool.session = SimpleNamespace(storage=st.storage)
     tool.create_json_message = lambda v: ("json", v)
     tool.create_variable_message = lambda k, v: ("var", k, v)
@@ -359,7 +360,7 @@ def test_a_decision_set_saves_with_cas_and_history():
             "models.accept.model",
         ),
         (
-            lambda d: d.update(owner=dict(OWNER, app_id="56d3c0c5-4d41-4454-99ab-e3a6db6aa66c")),
+            lambda d: d.update(owner=dict(OWNER, app_id="d0000002-0000-4000-8000-000000000002")),
             "STORED_TABLE_NAME",
             "table",
         ),
