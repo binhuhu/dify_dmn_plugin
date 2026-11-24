@@ -58,6 +58,8 @@
 
 **0.5.29**：对成功保存、草稿、发布、撤销和草稿删除尝试记录旁路归属，失败不改变业务写入结果；宿主 user_id 与 via 均不独立认证，只有 writer_verified 表示 HMAC 已核验。历史身份字段仅向钉定维护应用返回；撤销/删除记录为独立操作，不改原版本作者。详见 [0.5.29 发布说明](docs/releases/v0.5.29.md)。
 
+**0.5.46-rc1**（候选，未发布；含 0.5.45）：场景与话题表行上可选外部键 `external_keys`（问题树号、智能 qid，只放号，DMN 2.0.91）；存场景关联实体表时核候选筛选格（2.0.93）与「要什么对象」两格 `topic_objects` / `issue_type_objects`（2.0.95）；资源去向表终形（2.0.94）；路由表终形闸：资源、转接去向与 `resource_table` 只留只删不新加，降方案＝删行、请求带 `retire_solutions` 逐行列出（2.0.97）；品类表结论键 `mode` + `product_type`（2.0.90）；能力表原值类型加时刻 `datetime`（2.0.96）。不用新功能时现网读写逐字节同 0.5.44-rc4。见 [0.5.46 发布说明](docs/releases/v0.5.46.md)。
+
 **0.5.44-rc4**（候选，未发布）：rc3 没发，在它之上加一件——最终名流程 `trigger.` 下新立的表按类认：`trigger.<对象>.<判断>` 只按写法认作决策表，主人是定位（插件配置 `target_app_id`），第一张是品类与业务模式表 `trigger.product.business_mode`（DMN 标准 2.0.84，M7）；`accept.` 下新立的表照旧不收。另加：品类与业务模式表角色 `BUSINESS_MODE` 与声明来源 `info:<原值号>`、能力表 infos 可选取值名 `names`（DMN 2.0.87）；新增：情形概述 `rows.<rule_id>.cases`（DMN 2.0.88，导出进 DMN XML 的 rule description）。修 rc3 没跟上配置的用例与夹具（运行时代码不改）。见 [0.5.44 发布说明](docs/releases/v0.5.44.md) 第十六、十七节。
 
 **0.5.44-rc3**（候选，没发，由 rc4 接替）：rc2 没发，在它之上只改一件——部署的三个应用号（「路由表维护」、定位 TARGET、分诊 TRIAGE）不再写在代码里，改由插件配置读：装好后在 Dify「工具 → 内置 JSON 决策表 → 授权」里填 `maintenance_app_id`、`target_app_id`、`triage_app_id`（小写 36 位应用编号）。没填或写错，写入闸关门、`target.` / `triage.` 下的决策表存时拒，按原来的码。填的与 0.5.43 写死的相同时，存、读、求值的回答逐字节不变。见 [0.5.44 发布说明](docs/releases/v0.5.44.md) 第十五节。
