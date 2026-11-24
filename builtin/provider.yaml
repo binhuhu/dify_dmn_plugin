@@ -5,12 +5,48 @@ identity:
     en_US: Built-in JSON Decision Table
     zh_Hans: 内置 JSON 决策表
   description:
-    en_US: Local JSON decisions and plans; SYNTHETIC mock queries. No credentials.
-    zh_Hans: 本地 JSON 决策与计划；SYNTHETIC 模拟查询。无需凭据。
+    en_US: Local JSON decisions and plans; SYNTHETIC mock queries. Authorize once with the three deployment app IDs.
+    zh_Hans: 本地 JSON 决策与计划；SYNTHETIC 模拟查询。授权时填部署的三个应用号。
   icon: icon.svg
   tags:
   - utilities
-credentials_for_provider: {}
+credentials_for_provider:
+  maintenance_app_id:
+    type: text-input
+    required: true
+    label:
+      en_US: "Route-table maintenance app ID"
+      zh_Hans: "「路由表维护」应用编号"
+    placeholder:
+      en_US: "00000000-0000-4000-8000-000000000000"
+      zh_Hans: "00000000-0000-4000-8000-000000000000"
+    help:
+      en_US: "Lower-case app ID (36 characters) of the maintenance app. Only it writes the main chain's policy tables, the writer registry and the plugin settings; unset, those writes are refused."
+      zh_Hans: "小写 36 位应用编号。只认这个应用写主链路策略表、写手登记与登记值；不填则这些写入一律拒。"
+  target_app_id:
+    type: text-input
+    required: true
+    label:
+      en_US: "TARGET (locate) app ID"
+      zh_Hans: "定位 TARGET 应用编号"
+    placeholder:
+      en_US: "00000000-0000-4000-8000-000000000000"
+      zh_Hans: "00000000-0000-4000-8000-000000000000"
+    help:
+      en_US: "Lower-case app ID of the locate workflow: the owner.app_id of decision tables under target.; unset or wrong, such tables are refused on save and on read."
+      zh_Hans: "小写 36 位应用编号：target. 下决策表的 owner.app_id；不填或填错，这类表存、读都拒。"
+  triage_app_id:
+    type: text-input
+    required: true
+    label:
+      en_US: "TRIAGE app ID"
+      zh_Hans: "分诊 TRIAGE 应用编号"
+    placeholder:
+      en_US: "00000000-0000-4000-8000-000000000000"
+      zh_Hans: "00000000-0000-4000-8000-000000000000"
+    help:
+      en_US: "Lower-case app ID of the triage workflow: the owner.app_id of decision tables and resource routing under triage.; unset or wrong, such tables are refused on save and on read."
+      zh_Hans: "小写 36 位应用编号：triage. 下决策表与资源去向表的 owner.app_id；不填或填错，这类表存、读都拒。"
 tools:
 - tools/evaluate_json_table.yaml
 - tools/query_local.yaml

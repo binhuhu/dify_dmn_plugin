@@ -1,4 +1,4 @@
-# JSON 决策工具 0.5.44-rc2（单人串行维护）
+# JSON 决策工具 0.5.44-rc4（单人串行维护）
 
 这是同一仓库的独立 JSON 安装包 `hu8627/dmn_json`。原有 `hu8627/dmn` 外部 XML 插件和其他已安装插件保留，不卸载、不替换。新建“内置 JSON 决策表 / evaluate_json_table”节点无需 Key、引擎地址或外部服务。现有外部工具仍通过原插件配置 Node 服务，未配置时返回 INVALID_CONFIGURATION。两个包的模型格式和语义不能互换。
 
@@ -36,7 +36,7 @@ AND 中 FALSE 优先于 UNKNOWN。FIRST 的已选规则之前存在 UNKNOWN 或 
 
 ## 构建与验收
 
-从仓库根目录运行 `python scripts/stage-builtin.py /tmp/dmn-json-0.5.44-rc2`，然后用已安装的官方 Dify CLI：`dify plugin package /tmp/dmn-json-0.5.44-rc2 -o hu8627-dmn_json-0.5.44-rc2.difypkg`。没有 CLI 时 staging 目录不是安装包，不用普通 zip 冒充 difypkg。不重试已拒绝的下载/API，不修改旧 Release。包未签名，遵循平台签名策略。
+从仓库根目录运行 `python scripts/stage-builtin.py /tmp/dmn-json-0.5.44-rc4`，然后用已安装的官方 Dify CLI：`dify plugin package /tmp/dmn-json-0.5.44-rc4 -o hu8627-dmn_json-0.5.44-rc4.difypkg`。没有 CLI 时 staging 目录不是安装包，不用普通 zip 冒充 difypkg。不重试已拒绝的下载/API，不修改旧 Release。包未签名，遵循平台签名策略。
 
 依赖沿用仓库固定 requirements.txt；首次安装仍需要平台正常解析 Python 依赖。免 Key/无外部决策服务指工具调用路径，不是离线安装保证。目标 UI 安装与真实调用仍需验收。
 
@@ -56,7 +56,11 @@ v2 表（`dmn-json.route-table/v2`）自带场景目录和方案登记，支持�
 
 0.5.29：对成功保存、草稿、发布、撤销和草稿删除尝试记录旁路归属，失败不改变业务写入结果；宿主 user_id 与 via 均不独立认证，只有 writer_verified 表示 HMAC 已核验。历史身份字段仅向钉定维护应用返回；撤销/删除记录为独立操作，不改原版本作者。详见 [0.5.29 发布说明](https://github.com/binhuhu/dify_dmn_plugin/blob/v0.5.29/docs/releases/v0.5.29.md)。
 
-0.5.44-rc2（候选，GitHub 预发布，未装）：在 rc1 之上并进五件——PSN 编号段表（离线模块）、条件上限 32 → 128、能力表原值级 call_ref、三级资源去向表可空资源编号（唯一一处「为空」接住，那一种情形只写这一条条件）、表停用与恢复（op=deactivate / reactivate / lifecycle，表只能停用不能删）。不用新功能时读写同 0.5.43；回退先恢复停用表、收回原值级 call_ref，再装回 0.5.43-rc2。
+0.5.44-rc4（候选，未发布）：rc3 没发，在它之上加一件——最终名流程 trigger. 下新立的表按类认：trigger.<对象>.<判断> 只按写法认作决策表，主人是定位（插件配置 target_app_id），第一张是品类与业务模式表 trigger.product.business_mode（DMN 标准 2.0.84，M7）；accept. 下新立的表照旧不收。另加：品类与业务模式表角色 BUSINESS_MODE 与声明来源 info:<原值号>、能力表 infos 可选取值名 names（DMN 2.0.87）；新增：情形概述 rows.<rule_id>.cases（DMN 2.0.88）。修 rc3 没跟上配置的用例与夹具（运行时代码不改）。
+
+0.5.44-rc3（候选，没发，由 rc4 接替）：rc2 没发，在它之上只改一件——「路由表维护」、定位 TARGET、分诊 TRIAGE 三个应用号改由插件配置读（工具提供方的凭据 maintenance_app_id / target_app_id / triage_app_id，装好后在「工具 → 内置 JSON 决策表 → 授权」里填），不再写在代码里；没填或写错，写入闸关门、target. / triage. 下的决策表存时拒。填的与 0.5.43 写死的相同时回答逐字节不变。
+
+0.5.44-rc2（候选，没发，由 rc3 接替）：在 rc1 之上并进五件——PSN 编号段表（离线模块）、条件上限 32 → 128、能力表原值级 call_ref、三级资源去向表可空资源编号（唯一一处「为空」接住，那一种情形只写这一条条件）、表停用与恢复（op=deactivate / reactivate / lifecycle，表只能停用不能删）。不用新功能时读写同 0.5.43；回退先恢复停用表、收回原值级 call_ref，再装回 0.5.43-rc2。
 
 0.5.44-rc1（候选，未发布）：主链路策略表的写入只认「路由表维护」应用，按表的类别判、不按旧五张名单判。交付的触发、受理、分配、处理各段的表（存名 target. / triage. / handle.，最终名 trigger. / accept.）存、撤销、草稿与发布都只认维护应用；问题受理表、能力表、新资源去向表 triage.assignment.resource 收进来。场景与话题表照旧只走受控入口；方案层、别的任务类型、试验名的表照旧哪个应用都能存。不写新键，回退装回 0.5.43-rc2。
 
