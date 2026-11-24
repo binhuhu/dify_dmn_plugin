@@ -11,7 +11,7 @@ from deployment_fixtures import APP_TARGET, APP_TRIAGE
 from test_route_table import FakeStorage
 from test_v0521_scene_topic import doc as topic_doc
 from test_v0522_resource_decision import resource_doc
-from toy_route_fixtures import v3
+from toy_route_fixtures import ALPHA, v3
 
 from dmn_client.route_store import run_op
 from dmn_client.scene_bundle import SCHEMA
@@ -205,12 +205,13 @@ def bundle(**over):
                 {
                     "issue_type": "COMPLAINT",
                     "phase": "STAGE_1",
-                    "target": {"kind": "RESOURCE", "resource_id": "workshop.robot"},
+                    # 0.5.46 (DMN 2.0.94/2.0.97 §五 ROUTE): a new scene's route rows are solution rows only
+                    "target": {"kind": "SOLUTION_APP", "app_id": ALPHA},
                 },
                 {
                     "issue_type": "CONSULT",
                     "phase": "STAGE_1",
-                    "target": {"kind": "TRANSFER", "to": "SAFETY"},
+                    "target": {"kind": "SOLUTION_APP", "app_id": ALPHA},
                 },
             ],
         },

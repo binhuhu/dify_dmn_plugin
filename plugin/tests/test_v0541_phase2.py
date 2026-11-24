@@ -861,8 +861,13 @@ def test_op_vocabulary_and_capability_vocabulary_answer_as_before(live_owners):
     # besides its own (协调定 370 ①: call_ref on infos, and alternate_of that was never listed). Without those three
     # entries it is 0.5.40's document still; with them, 0.5.44's.
     out = capability_declared()
-    assert out["content_sha256"] == CAPABILITY_VOCABULARY_0544
+    assert out["content_sha256"] == CAPABILITY_VOCABULARY_0546
+    # 0.5.46 adds only datetime to values.fact_types (DMN 2.0.96 §十): without it the document is 0.5.44's
     body = {k: v for k, v in out.items() if k != "content_sha256"}
+    types = body["values"]["fact_types"]
+    assert types[-1] == "datetime"
+    body["values"] = dict(body["values"], fact_types=types[:-1])
+    assert digest(body) == CAPABILITY_VOCABULARY_0544
     body["shapes"] = {
         k: v
         for k, v in body["shapes"].items()
@@ -877,3 +882,5 @@ CAPABILITY_VOCABULARY_0540 = "b51d490874783975d9b1e320e41193685a867e5a652ca7399a
 # 0.5.44-rc4 (DMN 2.0.87, 合同线 3e3358ea0): info_optional_keys gains names (an item of infos may carry {取值: 中文名});
 # rc1–rc3 answered 0cd8770ad6443f24a9ae970a08aca23592c2d053486a09e3c900674fa846f8a7. The 0.5.40 check below is unchanged.
 CAPABILITY_VOCABULARY_0544 = "fe9b4a2cd2eedac166c844abf7454fb675b65bbd8622d2f9480557a8934795fe"
+# 0.5.46 (DMN 2.0.96 §十, 协调 11-25「要定」): values.fact_types lists datetime last; nothing else changes
+CAPABILITY_VOCABULARY_0546 = "9da48901ac2aefa034da7e0c0937ade137cecb3a89eb1d9656e7d6dad0aaef47"

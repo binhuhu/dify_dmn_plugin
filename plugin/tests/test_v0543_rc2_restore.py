@@ -123,12 +123,16 @@ def test_going_back_to_the_version_before_reports_the_old_ids_and_saves(table):
         and "先在场景与话题表登记" not in w["message"]
     )
     (r,) = [w for w in out["warnings"] if w["code"] == "TABLE_RESTORE"]
-    assert r["restored_version"] == before["version"] and r["relaxed"] == ["SCENE_NOT_IN_CATALOG"]
+    # 0.5.46: the route table's way back also brings back the scene's transfer / resource rows (ROUTE_TABLE_TARGET_RETIRED)
+    relaxed = ["ROUTE_TABLE_TARGET_RETIRED"] if table == ROUTE else []
+    assert r["restored_version"] == before["version"] and r["relaxed"] == relaxed + [
+        "SCENE_NOT_IN_CATALOG"
+    ]
     assert r["restored_save_id"] == before["save_id"]
     assert out["auto_gate"]["restore"] == {
         "version": before["version"],
         "save_id": before["save_id"],
-        "relaxed": ["SCENE_NOT_IN_CATALOG"],
+        "relaxed": relaxed + ["SCENE_NOT_IN_CATALOG"],
     }
     assert out["auto_gate"]["red"] == 0
 
@@ -202,11 +206,20 @@ def test_item_27_back_reports_the_lost_solution_row_and_the_old_ids():
     status, out = _back(st, ROUTE, before)
     assert status == 200, out
     codes = {w["code"] for w in out["warnings"] if w.get("restore")}
-    assert codes == {"SCENE_NOT_IN_CATALOG", "ROUTE_TABLE_SOLUTION_LOST"}
+    # 0.5.46: and the scene's transfer / resource rows come back (ROUTE_TABLE_TARGET_RETIRED)
+    assert codes == {
+        "SCENE_NOT_IN_CATALOG",
+        "ROUTE_TABLE_SOLUTION_LOST",
+        "ROUTE_TABLE_TARGET_RETIRED",
+    }
     (lost,) = _restore_warnings(out, "ROUTE_TABLE_SOLUTION_LOST")
     assert "已存" in lost["message"] and "要挂起就改成" not in lost["message"]
     (r,) = [w for w in out["warnings"] if w["code"] == "TABLE_RESTORE"]
-    assert r["relaxed"] == ["ROUTE_TABLE_SOLUTION_LOST", "SCENE_NOT_IN_CATALOG"]
+    assert r["relaxed"] == [
+        "ROUTE_TABLE_SOLUTION_LOST",
+        "ROUTE_TABLE_TARGET_RETIRED",
+        "SCENE_NOT_IN_CATALOG",
+    ]
     assert out["auto_gate"]["restore"]["relaxed"] == r["relaxed"]
     assert out["auto_gate"]["restore"]["version"] == before["version"]
     assert out["auto_gate"]["red"] == 0
@@ -451,7 +464,12 @@ def test_a_failing_suite_on_a_rollback_uses_the_same_window_and_the_whole_docume
 
 
 def test_the_relaxed_codes_are_exactly_two():
-    assert save_gate.RESTORE_RELAXED == {"SCENE_NOT_IN_CATALOG", "ROUTE_TABLE_SOLUTION_LOST"}
+    # 0.5.46: and ROUTE_TABLE_TARGET_RETIRED (a rollback brings back what the final-shape gate never lets a save add)
+    assert save_gate.RESTORE_RELAXED == {
+        "SCENE_NOT_IN_CATALOG",
+        "ROUTE_TABLE_SOLUTION_LOST",
+        "ROUTE_TABLE_TARGET_RETIRED",
+    }
     assert save_gate.RESTORE_WINDOW == 3
 
 
@@ -462,15 +480,15 @@ def test_a_rollback_still_reads_the_live_start_forms_and_a_mismatch_refuses():
     target = next(r for r in before["routes"] if r["target"]["kind"] == "SOLUTION_APP")
     key = (target["scene_id"], target["issue_type"], target["phase"])
 
-    def to_transfer(body):
-        for r in body["routes"]:
-            if (r["scene_id"], r["issue_type"], r["phase"]) == key:
-                r["target"] = next(
-                    x["target"] for x in body["routes"] if x["target"]["kind"] == "TRANSFER"
-                )
+    def take_down(body):
+        # 0.5.46 (DMN 2.0.97 §五 ROUTE): a solution is taken down by deleting its row, listed in retire_solutions
+        body["routes"] = [
+            r for r in body["routes"] if (r["scene_id"], r["issue_type"], r["phase"]) != key
+        ]
+        body["retire_solutions"] = [dict(zip(("scene_id", "issue_type", "phase"), key))]
 
     def change(body):
-        to_transfer(body)
+        take_down(body)
         app = target["target"]["app_id"]
         if app not in route_table.routed_apps(body):
             body["solutions"][app]["status"] = "CANDIDATE"

@@ -128,11 +128,14 @@ def world():
     return st
 
 
-def with_resource(st=None):
-    """trial.route 引用 trial.resource，trial.resource 的 route_tables 列着 trial.route。"""
-    st = st or world()
+def with_resource():
+    """trial.route 引用 trial.resource，trial.resource 的 route_tables 列着 trial.route。0.5.46（DMN 2.0.94 / 2.0.97 §五
+    ROUTE）：路由表不能新绑 resource_table，旧形的绑定只能是首存时就有的，所以资源表先存、trial.route 首存就绑上。"""
+    st = Hooked()
     saved(st, resource_doc(table=RES, route_tables=[TRIAL]))
     saved(st, trial_route(resource_table=RES, note="引用资源表"))
+    saved(st, live_route())
+    saved(st, handle_doc())
     return st
 
 

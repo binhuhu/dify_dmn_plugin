@@ -1170,7 +1170,7 @@ class _HookStorage(FakeStorage):
         super().set(key, val)
 
 
-def test_known_limit_a_route_save_inside_the_guard_window_is_not_caught():
+def test_known_limit_a_route_save_inside_the_guard_window_is_closed_by_the_final_shape():
 
     s = _HookStorage()
     lst = resource_doc()
@@ -1184,11 +1184,11 @@ def test_known_limit_a_route_save_inside_the_guard_window_is_not_caught():
 
     s.hook = route_save
     status, out = save(s, doc("dispatch.resource"), 1)
-    assert inner["status"] == 200 and status == 200, (
-        out
-    )  # both answer 200: the window the release note names
+    # 0.5.46 (DMN 2.0.94 / 2.0.97 §五 ROUTE): the window is closed by the final shape — a route table that did not name
+    # the resource table may not start to (ROUTE_TABLE_TARGET_RETIRED), so the inner save is refused, the outer one stands
+    assert inner["status"] == 400 and status == 200, out
     route = json.loads(s.data["route-table:dispatch.route"])
-    assert route["resource_table"] == "dispatch.resource"
+    assert route.get("resource_table") is None
     assert (
         json.loads(s.data["route-table:dispatch.resource"])["schema"]
         == "dmn-json.decision-table/v1"

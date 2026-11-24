@@ -554,7 +554,14 @@ def test_an_update_gives_a_new_version_only_to_the_tables_that_change():
     storage = seed()
     published(storage)
     b = bundle(intent="UPDATE", expected_versions={k: 2 for k in bundle()["expected_versions"]})
-    b["routes"]["rows"][1]["target"] = {"kind": "RESOURCE", "resource_id": "workshop.robot"}
+    # 0.5.46 (final shape): a route change is a solution row more (resource / transfer rows are never added)
+    b["routes"]["rows"].append(
+        {
+            "issue_type": "FEEDBACK",
+            "phase": "STAGE_1",
+            "target": dict(b["routes"]["rows"][0]["target"]),
+        }
+    )
     status, out = run(storage, "bundle_check", b)
     assert status == 200, out
     assert [t["part"] for t in out["tables"]] == ["routes"]
@@ -566,7 +573,7 @@ def test_an_update_gives_a_new_version_only_to_the_tables_that_change():
         for r in StorageTables(storage).load("dispatch.route")["routes"]
         if r["scene_id"] == "P_91_05_01"
     ]
-    assert len(rows) == 2 and all(r["target"]["kind"] == "RESOURCE" for r in rows)
+    assert len(rows) == 3 and all(r["target"]["kind"] == "SOLUTION_APP" for r in rows)
 
 
 # ── decision parts: like, join, declarations ─────────────────────────────────

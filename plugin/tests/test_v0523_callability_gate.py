@@ -110,10 +110,15 @@ def test_removing_a_callable_row_without_a_fallback_is_refused():
 
 
 def test_parking_with_a_transfer_fallback_and_the_app_stepped_down_passes():
+    """0.5.46 (DMN 2.0.97 §五 ROUTE): a transfer fallback in its place is a new transfer row (refused); the row goes
+    and is listed in retire_solutions."""
     st = store(v3())
     d = v3(note="Synthetic parking")
     d["routes"][row_index(d)]["target"] = {"kind": "TRANSFER", "to": "SAFETY"}
     d["solutions"][ALPHA]["status"] = "CANDIDATE"
+    refused(st, d, 1, "ROUTE_TABLE_TARGET_RETIRED")
+    del d["routes"][row_index(d)]
+    st.retire_solutions = [dict(zip(("scene_id", "issue_type", "phase"), ALPHA_ROW))]
     st.save(d, 1)
 
 

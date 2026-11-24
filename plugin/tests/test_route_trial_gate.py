@@ -37,6 +37,18 @@ def passes(st, d):
     return st.save(d, cur["version"] if cur else 0)
 
 
+def passes_retiring(st, d, gone):
+    """0.5.46 (DMN 2.0.97 §五 ROUTE): a save that deletes callable solution rows lists them (retire_solutions)."""
+    st.retire_solutions = [
+        {"scene_id": r["scene_id"], "issue_type": r["issue_type"], "phase": r["phase"]}
+        for r in gone
+    ]
+    try:
+        return passes(st, d)
+    finally:
+        del st.retire_solutions
+
+
 def status(d, app, value, **more):
     d = copy.deepcopy(d)
     d["solutions"][app]["status"] = value
@@ -181,8 +193,9 @@ def test_standing_a_trial_app_down_with_its_trial_left_on_is_refused(to, share):
 
 @pytest.mark.parametrize("share", [0, 10, 100])
 def test_standing_the_rows_own_target_down_needs_the_trial_gone_too(share):
-    """Closing the gate on a trial row's target: the fallback target alone is refused (a transfer row takes no
-    trial), and so is keeping the app on the row; the row becomes a fallback and loses its trial in one save."""
+    """Closing the gate on a trial row's target: keeping the app on the row is refused; in the final shape the row goes
+    (no row is no solution, listed in retire_solutions) and its trial with it, in one save (0.5.46: a transfer row in its
+    place is a new transfer row, ROUTE_TABLE_TARGET_RETIRED)."""
     st = store(with_trial(share=share, note="开试验"))
     gated = status(
         with_trial(share=share, note="关闸"), ALPHA, "GATED", gate_code="TOY_SORTER_DISABLED"
@@ -190,7 +203,10 @@ def test_standing_the_rows_own_target_down_needs_the_trial_gone_too(share):
     refused(st, gated, "ROUTE_TABLE_TRIAL", "routes[%d].trial" % row_index(gated))
     fallback = without_trial(gated)
     fallback["routes"][row_index(fallback)]["target"] = {"kind": "TRANSFER", "to": "SAFETY"}
-    assert passes(st, status(fallback, DELTA, "CANDIDATE"))["version"] == 2
+    refused(st, status(fallback, DELTA, "CANDIDATE"), "ROUTE_TABLE_TARGET_RETIRED")
+    gone = without_trial(gated)
+    row = gone["routes"].pop(row_index(gone))
+    assert passes_retiring(st, status(gone, DELTA, "CANDIDATE"), [row])["version"] == 2
 
 
 @pytest.mark.parametrize("share", [0, 10, 100])
@@ -235,11 +251,12 @@ def other(delta_status="CURRENT", routed=True, **over):
                 "scene_id": "P_99_71_01",
                 "issue_type": "COMPLAINT",
                 "phase": "STAGE_1",
-                "target": {"kind": "SOLUTION_APP", "app_id": DELTA}
-                if routed
-                else {"kind": "TRANSFER", "to": "SAFETY"},
+                "target": {"kind": "SOLUTION_APP", "app_id": DELTA},
             }
-        ],
+        ]
+        # 0.5.46 (final shape): not routed is no row, not a transfer row
+        if routed
+        else [],
         "note": "另一张路由表",
     }
     d["solutions"][DELTA]["status"] = delta_status
@@ -277,10 +294,8 @@ def test_two_tables_gating_a_trial_app_goes_table_by_table():
         "ROUTE_TABLE_SOLUTION_STATUS_CONFLICT",
     )
     assert passes(st, unregister(stop, DELTA))["version"] == 2
-    assert (
-        passes(st, status(other(routed=False, note="关闸"), DELTA, "GATED", **gated))["version"]
-        == 2
-    )
+    closed = status(other(routed=False, note="关闸"), DELTA, "GATED", **gated)
+    assert passes_retiring(st, closed, other()["routes"])["version"] == 2
     back = status(stop, DELTA, "GATED", **gated)
     back["note"] = "照另一张表登记回来"
     assert passes(st, back)["version"] == 3

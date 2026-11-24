@@ -781,10 +781,14 @@ def test_i17_a_coupon_status_change_after_undo_reads_as_before():
     run_op(s, "undo", ROUTE, str(N))
     body = dict(legacy(copy.deepcopy(five()[ROUTE])), note="改状态", expected_version=N)
     body["solutions"][COUPON]["status"] = "CANDIDATE"
-    # 0.5.23 (D13): stepping a routed CURRENT app down gives its rows a fallback in the same save
-    for r in body["routes"]:
-        if r["target"].get("app_id") == COUPON:
-            r["target"] = {"kind": "TRANSFER", "to": "SAFETY"}
+    # 0.5.23 (D13): stepping a routed CURRENT app down takes its rows with it in the same save; 0.5.46 (DMN 2.0.97 §五
+    # ROUTE): in the final shape the rows go (no row is no solution), listed in retire_solutions
+    gone = [r for r in body["routes"] if r["target"].get("app_id") == COUPON]
+    body["routes"] = [r for r in body["routes"] if r not in gone]
+    body["retire_solutions"] = [
+        {"scene_id": r["scene_id"], "issue_type": r["issue_type"], "phase": r["phase"]}
+        for r in gone
+    ]
     assert run_op(s, "save", body=body)[0] == 200
     assert json.loads(s.data[INDEX]) == ["dispatch.route"]
 
