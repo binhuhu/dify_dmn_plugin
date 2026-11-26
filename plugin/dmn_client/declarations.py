@@ -968,6 +968,7 @@ def _decision(out, model, budget=None):
             _standard(out, t, p)
     if out["role"] == RESOURCE and out["stage"] == "STANDARD":
         _resource_codes(model)
+        _resource_agent_app(model)
 
 
 def _conclusion_numbers(value):
@@ -1467,8 +1468,10 @@ def _resource_result(result, state, p):
         "用户自助（SELF_SERVICE）的挑法只能是 SELF_ENTRY，别的执行者不用 SELF_ENTRY",
         q + ".tier3.pick",
     )
+    # whether an AGENT_APP pick must name its app depends on the rules that reach this template (a solution row takes the
+    # app from the route row it hit): checked across the model in _resource_agent_app
     _need(
-        (t3["pick"] == "AGENT_APP") == ("agent_app_id" in t3),
+        t3["pick"] == "AGENT_APP" or "agent_app_id" not in t3,
         "tier3.pick = AGENT_APP 要写 agent_app_id，别的挑法不写",
         q + ".tier3.agent_app_id",
     )
@@ -1590,6 +1593,51 @@ def _nullable_resource(model):
         "资源编号可空的表，「为空」那一种情形只能写资源编号为空这一条条件，别的条件会让空值落成没中",
         q,
     )
+
+
+ROUTE_TARGET_VALUE = ["parameters", "route_target", "value"]
+
+
+def _solution_row(rule):
+    """A rule of the final form that only a solution answer reaches: every combination holds a route_target condition
+    that admits SOLUTION_APP alone (eq SOLUTION_APP, or in [SOLUTION_APP])."""
+
+    def pinned(c):
+        vals = c.get("value") if c.get("op") == "in" else [c.get("value")]
+        return (
+            c.get("path") == ROUTE_TARGET_VALUE
+            and c.get("op") in ("eq", "in")
+            and type(vals) is list
+            and vals
+            and all(v == "SOLUTION_APP" for v in vals)
+        )
+
+    return all(any(pinned(c) for c in combo) for combo in _combinations(rule))
+
+
+def _resource_agent_app(model):
+    """tier3.pick = AGENT_APP names its app (agent_app_id), except on a solution row of the final form: DMN 2.0 §五
+    RESOURCE「方案题（route_target = SOLUTION_APP → AI 平台 / 方案组 / 方案应用，应用号取命中的路由行、表里不写号）」, the
+    schema's tier3 {pick, agent_app_id?}; F4 (bus 20261126-0223). A template without the id is reached only by solution
+    rows; a template no rule reaches, every template of the old form (keyed by resource_id) and every row a NO_FLOW
+    answer (or no route_target condition) can reach keep the id as before."""
+    final = model["parameters"].get("resource_id") is None
+    reached = {}
+    for r in model["rules"]:
+        reached.setdefault(r["output_template_ref"], []).append(r)
+    for ref, t in model["result_templates"].items():
+        if t["state"] not in RESOURCE_STATES:
+            continue
+        t3 = t["data"]["result"]["literal"]["tier3"]
+        if t3["pick"] != "AGENT_APP" or "agent_app_id" in t3:
+            continue
+        rules = reached.get(ref, [])
+        _need(
+            final and rules and all(_solution_row(r) for r in rules),
+            "tier3.pick = AGENT_APP 要写 agent_app_id，别的挑法不写"
+            + "（只有终形里只由方案题 route_target = SOLUTION_APP 命中的方案行不写号，应用号取命中的路由行）",
+            ".templates." + str(ref)[:64] + ".result.tier3.agent_app_id",
+        )
 
 
 def _resource_codes(model):
