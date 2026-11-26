@@ -187,7 +187,7 @@ from dify_plugin.core.plugin_registration import PluginRegistration
 from provider.dmn import JsonTableProvider
 from dify_plugin.errors.tool import ToolProviderCredentialValidationError
 r=PluginRegistration(DifyPluginEnv())
-assert r.configuration.version == "0.5.46-rc1"
+assert r.configuration.version == "0.5.46-rc2"
 c=r.tools_configuration[0]
 assert c.identity.name == "dmn_json"
 assert [(x.name, x.required) for x in c.credentials_schema] == [("maintenance_app_id", True), ("target_app_id", True), ("triage_app_id", True)]  # 0.5.44-rc3: the deployment's three app ids
