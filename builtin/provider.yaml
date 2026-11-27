@@ -56,6 +56,7 @@ tools:
 - tools/invoke_solution.yaml
 - tools/route_table_store.yaml
 - tools/evaluate_stored_table.yaml
+- tools/evaluate_stored_table_batch.yaml
 - tools/scene_bundle.yaml
 - tools/convert_dmn_xml.yaml
 extra:
