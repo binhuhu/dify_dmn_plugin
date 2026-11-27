@@ -64,11 +64,60 @@ XML 说不了的东西——参数接受哪些质量、记录是否必填、模�
 
 没验的：没有在 AgentHub 上装过、跑过；导出的 XML 过了建模工具的解析库，但没有在 Camunda Modeler 的界面里实际打开、改过再存；别的引擎（非 feelin）对 null 的读法可能不同。
 
+## 上下文决策与结论算式（新写法 v2，标准 2.0.108 §二「算式与上下文」，未发版）
+
+只在新写法 v2 的表上（`dmn_client/dmn_xml_v2.py`；工具入口 `convert_dmn_xml` 照旧在 `dmn_xml.convert`，没改）。没写 `context`、结论格里没有 `{"expr"}` 的表，导出逐字节同前。
+
+**导出的形状**：决策的逻辑是一个标准的 context boxed expression，不加私有扩展。
+
+```xml
+<decision id="decision" name="…">
+  <extensionElements><dj:decision>…</dj:decision></extensionElements>
+  <informationRequirement …/>
+  <context id="decision_context">
+    <contextEntry id="decision_context_1">
+      <variable id="decision_context_1_variable" name="判券时刻" typeRef="date and time"/>
+      <literalExpression id="decision_context_1_expression"><text>request[field = "进线时刻"][1].value</text></literalExpression>
+    </contextEntry>
+    …（每条上下文一个 contextEntry，照存的次序）
+    <contextEntry id="decision_context_result"><decisionTable id="decision_table" …>…</decisionTable></contextEntry>
+  </context>
+</decision>
+```
+
+- 最后一条不带 `variable`，放原来那张决策表：前面各条在它的作用域里，条件列和结论算式直接读条目的变量名。
+- 条目类型的 typeRef：`number` / `boolean` / `string`，时刻 `date and time`，时长 `days and time duration`。
+- 结论格写了 `{"expr"}` 的，输出格就写这条算式（不写字面量）。输出列的 typeRef 按算式能看出来的类型写，看不出来、或和别的行不一样时照旧写 `Any`。
+- 算式读到的组照旧各写一个 `<inputData>`（只在算式里读到的组也写）。
+
+**算式里的引用怎么写成标准 FEEL**（定法）：
+
+| 存的写法 | 导出的写法 | 为什么 |
+|---|---|---|
+| `info.<号>`（request / calc / fact / feature 同） | `info[info_id = "<号>"][1].value`，同条件列 | 标准引擎里这几个输入是一组记录，按号取就是过滤再取第一项；号里有点、中文也说得清 |
+| `ctx.<名>` | `<名>` | context 里前面的条目就是变量，标准 FEEL 按名字读 |
+| `date and time("2026-11-25 10:00:00")` | `date and time("2026-11-25T10:00:00")` | 标准 FEEL 的时刻串要带 T，带空格的写法标准引擎读成 null |
+
+- 条目名要是 FEEL 名字才写得成变量：字母、数字、下划线或中文，不以数字开头，不带点，也不撞 FEEL 关键字、内置函数（`min`、`duration` …）和输入名（`info`、`value` …）。不是的拒导出，码 `DMN_XML_UNSUPPORTED`，路径指到 `decision.context[k].name`，话里写明原因。存表的号规则比这宽，所以存得进的名不一定导得出；没有另起码，因为这正是「标准 DMN 说不了」。
+- 只改引用和时刻串那几段，别的字一个不动；导回反过来，所以往返逐字一样。
+
+**条件读上下文**（`[context, 名, value | quality]`）各成一列，排在输入的列后面、照上下文的次序：value 列的表达式是名；quality 列是 `if 名 = null then "UNKNOWN" else "KNOWN"`（条目判不了就是 null、质量 UNKNOWN，算得出就是 KNOWN，所以这句和插件的质量一致）。时刻、时长条目只收 `is_null` 和质量的条件：拿时刻条目跟串比在标准 FEEL 里不成立，导出时拒（`DMN_XML_UNSUPPORTED`），要比就写成一条 boolean 的上下文再在条件里读。
+
+**导回**：
+
+- 收上面那个形状：`context` 里只有 `contextEntry`，前面各条是 `variable`（名、typeRef 必写）+ `literalExpression`（FEEL），最后一条只放决策表。嵌套的上下文、别的盒式表达式、上下文和决策表并排、别的表达式语言都拒（`DMN_XML_UNSUPPORTED`）。
+- 算式里的过滤写法读回 `<组>.<号>`（键名不对拒 `DMN_XML_INVALID`），条目名读回 `ctx.<名>`，带 T 的时刻串读回存的写法；然后交给存表检查（`feel_expr`），白名单外的写法、引用后面的条目照它的码拒（`EXPR_UNSUPPORTED`、`EXPR_FORWARD_REF` …）。建模工具里直接写 `info.<号>`、`ctx.<名>` 的也收。
+- 输出格不是字面量就当算式。算式恰好也读得成字面量的（比如 `5`、`"x"`），导出时记在扩展元素 `exprs`（`{行 id: [列名]}`，没中那一行记作 `#default`），导回照旧是算式；别人写的、没记的照标准当字面量。
+
+**提示**：算式里用了 `round half up` 时回执提示一句：它是 DMN 1.4 起的内置函数，文件照旧按 1.3 写（建模工具的解析库只认 1.3），只认 1.3 的引擎不认它。按号取的时刻输入，标准引擎要给 FEEL 的时刻值（插件里是那一种写法的串）。
+
+**怎么验的**：`plugin/tests/test_dmn_xml_context.py`（28 个）。按号判的表（事实 → 特征，value 写算式、条件读上下文）和一个结论的表（特征 → 现实，六条上下文含时刻、时长）导出再导回逐字一样，经工具两头走也一样；形状逐元素核；dmn-moddle 12.0.1 读两份导出没有告警、认出 `dmn:Context` 最后一条是 `dmn:DecisionTable`，它重写出的 XML 导回与原样相同；feelin 8.2.0 算导出的上下文（数、比较、取整、min、时刻减时长、时刻比较），和插件 `feel_expr` 算存的写法结果一样。变异：ctx 不写成变量名、导回不反过来、时刻不带 T、不认 exprs 记号、quality 列写成路径、不核条目名、结论算式写成字面量，各至少一个用例红。feelin 8.2.0 对时刻的 max / min 给 null、时长除以时长给 NaN（都是标准 FEEL 的写法），这两样只由插件自己的用例核。没验的：Camunda Modeler 界面里打开、改过再存。
+
 ## 已知边界
 
 - 导出后条件的先后顺序按列排（同一参数的列挨着，参数按名字排），所以导回来的模型和原模型判定相同，但内容摘要一般不同。它是一张新版本，不是原版本的副本。
 - 决策之间的依赖（一个决策读另一个决策的结果）不进来；本机 22 份真实决策集里没有一份用到模型互读。
-- 日期、时间、时长不支持；时间要作为数字或字符串输入。
+- 日期、时间、时长不支持；时间要作为数字或字符串输入（v1 与单元格。新写法 v2 的上下文与结论算式收时刻、时长，见上一节）。
 
 ## 迭代路径
 

@@ -1,0 +1,3025 @@
+{
+ "schema": "dmn-json.refusal-codes/v1",
+ "description": "插件拒码登记：dmn_json 插件存表、读表、求值、导入导出时回的全部错误码，一个码一行。主链路码表只收链上组件运行时发的码，插件拒码只登在这里（协调 11-25）。DMN 结构与维护标准引这一份；插件用例 test_refusal_codes_register 核源码抛出的码与这里逐个相同。意思取插件回的那句话（用例里出过的取实测第一句，没出过的取源码那一句），HTTP 状态只记用例里实测到的与 route_store 固定的 409 / 503。0.5.47 起加出图闸（psn check，离线核图对结构）的报告码：码取 dmn_client/psn/check.py 的 SEVERITY，意思取 docs/psn-structure.md check 一节那张码表，DMN 2.0.108 节点类型的闸码由标准点名。",
+ "codes": [
+  {
+   "code": "ALIAS_CONFLICT",
+   "emitted_by": [
+    "scene_id.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [],
+   "meaning": "{'from': c}",
+   "tested": false
+  },
+  {
+   "code": "ALIAS_MAP_INVALID",
+   "emitted_by": [
+    "scene_id.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [],
+   "meaning": "{'schema': m.get('schema') if isinstance(m, dict) else None}",
+   "tested": false
+  },
+  {
+   "code": "ASSOCIATION_DUPLICATE_ALTERNATIVE",
+   "emitted_by": [
+    "supplement_associations.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [
+    400
+   ],
+   "meaning": "q",
+   "tested": true
+  },
+  {
+   "code": "ASSOCIATION_EXCLUSIVE_FORBIDDEN",
+   "emitted_by": [
+    "supplement_associations.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [
+    400
+   ],
+   "meaning": "p",
+   "tested": true
+  },
+  {
+   "code": "ASSOCIATION_MIN_INVALID",
+   "emitted_by": [
+    "supplement_associations.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [
+    400
+   ],
+   "meaning": "p + '.min_satisfied'",
+   "tested": true
+  },
+  {
+   "code": "ASSOCIATION_ON_UNDECLARED",
+   "emitted_by": [
+    "supplement_associations.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [
+    400
+   ],
+   "meaning": "path",
+   "tested": true
+  },
+  {
+   "code": "ASSOCIATION_ROUTING_INVALID",
+   "emitted_by": [
+    "supplement_associations.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [
+    400
+   ],
+   "meaning": "p + '.routing'",
+   "tested": true
+  },
+  {
+   "code": "ASSOCIATION_SHAPE",
+   "emitted_by": [
+    "supplement_associations.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [
+    400
+   ],
+   "meaning": "path",
+   "tested": true
+  },
+  {
+   "code": "BODY_TOO_LARGE",
+   "emitted_by": [
+    "route_store.py",
+    "two_state.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [
+    413
+   ],
+   "meaning": "存表请求太大（最多 1344 KiB）",
+   "tested": true
+  },
+  {
+   "code": "CANDIDATE_FILTER_INVALID",
+   "emitted_by": [
+    "candidate_filter.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [],
+   "meaning": "message",
+   "tested": true
+  },
+  {
+   "code": "CAPABILITY_TABLE_INVALID",
+   "emitted_by": [
+    "capability_catalog.py",
+    "route_table.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [
+    400
+   ],
+   "meaning": "能力号按升序排、不重复（reservation__lookupHold 在 reservation__lookupHold 后面）",
+   "tested": true
+  },
+  {
+   "code": "CATALOG_PARTS_INVALID",
+   "emitted_by": [
+    "catalog.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [
+    400
+   ],
+   "meaning": "目录请求只收 parts 这一个键",
+   "tested": true
+  },
+  {
+   "code": "CATALOG_REQUEST_INVALID",
+   "emitted_by": [
+    "catalog.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [
+    400
+   ],
+   "meaning": "场景轻目录不收请求体：表名写在表参数，版本号写在版本参数",
+   "tested": true
+  },
+  {
+   "code": "CATALOG_SOURCE_INVALID",
+   "emitted_by": [
+    "catalog.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [
+    409
+   ],
+   "meaning": "场景与话题表里的问题类型对照读出来不成形，目录不出",
+   "tested": true
+  },
+  {
+   "code": "CONTEXT_NAME_DUPLICATE",
+   "emitted_by": [
+    "decision_v2.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [],
+   "meaning": "上下文条目名 已开始 重复：一个决策里每条上下文的名不同",
+   "tested": true
+  },
+  {
+   "code": "DECISION_SET_INVALID",
+   "emitted_by": [
+    "dmn_xml.py",
+    "stored_tables.py"
+   ],
+   "scope": [
+    "存表与读表",
+    "导入导出"
+   ],
+   "http_status": [
+    400
+   ],
+   "meaning": "模型 top 的参数 gone 标了 in_set：它读的是本表里叫这个名字的另一个模型，表里没有",
+   "tested": true
+  },
+  {
+   "code": "DECISION_SET_MODEL_UNKNOWN",
+   "emitted_by": [
+    "stored_tables.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [],
+   "meaning": "表里没有这些模型：nope",
+   "tested": true
+  },
+  {
+   "code": "DECISION_SET_SELF_READ",
+   "emitted_by": [
+    "stored_tables.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [],
+   "meaning": "同组模型不得互读输出",
+   "tested": true
+  },
+  {
+   "code": "DECISION_TABLE_INVALID",
+   "emitted_by": [
+    "decision_v2.py",
+    "dmn_xml_v2.py",
+    "inline_table.py",
+    "stored_tables.py"
+   ],
+   "scope": [
+    "存表与读表",
+    "导入导出",
+    "求值与执行"
+   ],
+   "http_status": [
+    400
+   ],
+   "meaning": "model = profile / version / hit_policy / parameters / rules / result_templates / on_no_match / empty_template_ref",
+   "tested": true
+  },
+  {
+   "code": "DMN_STATUS_UNCHECKED",
+   "emitted_by": [
+    "psn/check.py"
+   ],
+   "scope": [
+    "出图闸"
+   ],
+   "http_status": [],
+   "meaning": "从决策节点沿连线往下，没有任何代码节点同时引用这个节点的输出和 `execution_status`",
+   "tested": true
+  },
+  {
+   "code": "DMN_XML_INVALID",
+   "emitted_by": [
+    "dmn_xml.py",
+    "dmn_xml_v2.py"
+   ],
+   "scope": [
+    "导入导出"
+   ],
+   "http_status": [],
+   "meaning": "dmn_xml 要是 XML 文本",
+   "tested": false
+  },
+  {
+   "code": "DMN_XML_UNSUPPORTED",
+   "emitted_by": [
+    "dmn_xml.py"
+   ],
+   "scope": [
+    "导入导出"
+   ],
+   "http_status": [],
+   "meaning": "（_need() 的默认码；例）dmn_xml 要是 XML 文本",
+   "tested": false
+  },
+  {
+   "code": "ENGINE_AUTHENTICATION_FAILED",
+   "emitted_by": [
+    "client.py"
+   ],
+   "scope": [
+    "求值与执行"
+   ],
+   "http_status": [],
+   "meaning": "The engine rejected the configured credentials.",
+   "tested": false
+  },
+  {
+   "code": "ENGINE_CONNECTION_ERROR",
+   "emitted_by": [
+    "client.py"
+   ],
+   "scope": [
+    "求值与执行"
+   ],
+   "http_status": [],
+   "meaning": "Could not securely connect to the configured engine.",
+   "tested": false
+  },
+  {
+   "code": "ENGINE_HTTP_ERROR",
+   "emitted_by": [
+    "client.py"
+   ],
+   "scope": [
+    "求值与执行"
+   ],
+   "http_status": [],
+   "meaning": "f'The engine returned HTTP {response.status_code}.'",
+   "tested": false
+  },
+  {
+   "code": "ENGINE_TIMEOUT",
+   "emitted_by": [
+    "client.py"
+   ],
+   "scope": [
+    "求值与执行"
+   ],
+   "http_status": [],
+   "meaning": "The engine request exceeded its 20-second deadline.",
+   "tested": false
+  },
+  {
+   "code": "ENTITY_KIND_NOT_IN_CAPABILITY_TABLE",
+   "emitted_by": [
+    "route_table.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [
+    400
+   ],
+   "meaning": "场景关联实体表用到的种类 TILE 在能力表（第 1 版）里没有行：先在能力表里加这一类的行（没接通的照实标），再存这张表；能力表现有的种类：COUPON / ORDER",
+   "tested": true
+  },
+  {
+   "code": "ENTITY_TOPIC_OBJECTS_INVALID",
+   "emitted_by": [
+    "entity_objects.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [],
+   "meaning": "message",
+   "tested": true
+  },
+  {
+   "code": "EXPR_FORWARD_REF",
+   "emitted_by": [
+    "decision_v2.py",
+    "feel_expr.py"
+   ],
+   "scope": [
+    "存表与读表",
+    "求值与执行"
+   ],
+   "http_status": [],
+   "meaning": "ctx.判券时刻 不是前面的上下文条目（不能引用自己或后面的）（第 1 字）",
+   "tested": true
+  },
+  {
+   "code": "EXPR_INVALID",
+   "emitted_by": [
+    "decision_v2.py",
+    "feel_expr.py"
+   ],
+   "scope": [
+    "存表与读表",
+    "求值与执行"
+   ],
+   "http_status": [],
+   "meaning": "算式要是非空文本",
+   "tested": true
+  },
+  {
+   "code": "EXPR_REF_UNKNOWN",
+   "emitted_by": [
+    "decision_v2.py",
+    "feel_expr.py"
+   ],
+   "scope": [
+    "存表与读表",
+    "求值与执行"
+   ],
+   "http_status": [],
+   "meaning": "算式只读 request/info/calc/fact/feature/ctx（第 1 字）",
+   "tested": true
+  },
+  {
+   "code": "EXPR_TOO_LARGE",
+   "emitted_by": [
+    "decision_v2.py",
+    "feel_expr.py"
+   ],
+   "scope": [
+    "存表与读表",
+    "求值与执行"
+   ],
+   "http_status": [],
+   "meaning": "算式超过 1024 字",
+   "tested": true
+  },
+  {
+   "code": "EXPR_TYPE_MISMATCH",
+   "emitted_by": [
+    "decision_v2.py",
+    "feel_expr.py"
+   ],
+   "scope": [
+    "存表与读表",
+    "求值与执行"
+   ],
+   "http_status": [],
+   "meaning": "上下文 已开始 声明的类型是 number，算式算出的是 boolean",
+   "tested": true
+  },
+  {
+   "code": "EXPR_UNSUPPORTED",
+   "emitted_by": [
+    "decision_v2.py",
+    "feel_expr.py"
+   ],
+   "scope": [
+    "存表与读表",
+    "求值与执行"
+   ],
+   "http_status": [],
+   "meaning": "白名单不收 if then else（第 1 字）",
+   "tested": true
+  },
+  {
+   "code": "FAILURE_SIGNAL_LEAK",
+   "emitted_by": [
+    "psn/check.py"
+   ],
+   "scope": [
+    "出图闸"
+   ],
+   "http_status": [],
+   "meaning": "`error`、`error_message` 跨进了不在 `fail_exits` 里的 Step",
+   "tested": true
+  },
+  {
+   "code": "FAIL_BRANCH_DANGLING",
+   "emitted_by": [
+    "psn/check.py"
+   ],
+   "scope": [
+    "出图闸"
+   ],
+   "http_status": [],
+   "meaning": "`error_strategy: fail-branch`，但没有 `sourceHandle: fail-branch` 的出边",
+   "tested": true
+  },
+  {
+   "code": "FEEL_TOO_LARGE",
+   "emitted_by": [
+    "dmn_xml.py",
+    "dmn_xml_v2.py"
+   ],
+   "scope": [
+    "导入导出"
+   ],
+   "http_status": [],
+   "meaning": "'这条规则各列写法交叉后超过 %d 种组合' % stored_tables.MAX_COMBINATIONS",
+   "tested": false
+  },
+  {
+   "code": "FEEL_TYPE_MISMATCH",
+   "emitted_by": [
+    "dmn_xml.py"
+   ],
+   "scope": [
+    "导入导出"
+   ],
+   "http_status": [],
+   "meaning": "'%s 不可为 null，单元格里却写了 null' % name",
+   "tested": false
+  },
+  {
+   "code": "FEEL_UNSUPPORTED",
+   "emitted_by": [
+    "feel_cells.py"
+   ],
+   "scope": [
+    "导入导出"
+   ],
+   "http_status": [],
+   "meaning": "（_fail() 的默认码；例）不能写成字面量的值",
+   "tested": false
+  },
+  {
+   "code": "INCOMPATIBLE_ENGINE",
+   "emitted_by": [
+    "client.py"
+   ],
+   "scope": [
+    "求值与执行"
+   ],
+   "http_status": [],
+   "meaning": "The engine health check does not match protocol 1.0.",
+   "tested": false
+  },
+  {
+   "code": "INDETERMINATE_MATCH",
+   "emitted_by": [
+    "decision_v2.py",
+    "stored_tables.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [],
+   "meaning": "有规则因未知输入无法判定，可能改变结果",
+   "tested": true
+  },
+  {
+   "code": "INLINE_RECEIPT_REFUSED",
+   "emitted_by": [
+    "stored_tables.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [],
+   "meaning": "这份回执来自节点里试验求值的表（source.kind = INLINE），不能当存表的回执接；把表存进插件再接",
+   "tested": true
+  },
+  {
+   "code": "INPUT_INVALID",
+   "emitted_by": [
+    "capability_catalog.py",
+    "dmn_xml.py",
+    "inline_table.py",
+    "stored_batch.py",
+    "stored_tables.py"
+   ],
+   "scope": [
+    "存表与读表",
+    "导入导出",
+    "求值与执行"
+   ],
+   "http_status": [],
+   "meaning": "inputs = capability_id，或 domain / entity / kind / face 里的一到四个（列表）",
+   "tested": true
+  },
+  {
+   "code": "INPUT_QUALITY_BLOCKED",
+   "emitted_by": [
+    "stored_tables.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [],
+   "meaning": "参数质量不被表接受",
+   "tested": true
+  },
+  {
+   "code": "INPUT_REQUIRED_MISSING",
+   "emitted_by": [
+    "bindings.py",
+    "stored_tables.py"
+   ],
+   "scope": [
+    "存表与读表",
+    "求值与执行"
+   ],
+   "http_status": [],
+   "meaning": "A declared source field is unavailable.",
+   "tested": true
+  },
+  {
+   "code": "INPUT_SOURCE_MISMATCH",
+   "emitted_by": [
+    "stored_tables.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [],
+   "meaning": "参数 f 接的回执来自表 solution.fact.feature.M_P_05_01_06，模型的 from_table 是 solution.fact.feature.M_P_02_04_01：接错了表",
+   "tested": true
+  },
+  {
+   "code": "INPUT_TOO_LARGE",
+   "emitted_by": [
+    "client.py",
+    "flows.py"
+   ],
+   "scope": [
+    "求值与执行"
+   ],
+   "http_status": [],
+   "meaning": "dmn_xml exceeds the 1 MiB UTF-8 limit.",
+   "tested": false
+  },
+  {
+   "code": "INPUT_TYPE_MISMATCH",
+   "emitted_by": [
+    "stored_tables.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [],
+   "meaning": "参数类型不符",
+   "tested": true
+  },
+  {
+   "code": "INPUT_UNDECLARED",
+   "emitted_by": [
+    "stored_tables.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [],
+   "meaning": "表里没有这些参数：__undeclared_8",
+   "tested": true
+  },
+  {
+   "code": "INSECURE_TRANSPORT",
+   "emitted_by": [
+    "client.py"
+   ],
+   "scope": [
+    "求值与执行"
+   ],
+   "http_status": [],
+   "meaning": "HTTPS is required; enable allow_insecure_http only for a trusted internal network.",
+   "tested": false
+  },
+  {
+   "code": "INVALID_CONFIGURATION",
+   "emitted_by": [
+    "client.py"
+   ],
+   "scope": [
+    "求值与执行"
+   ],
+   "http_status": [],
+   "meaning": "allow_insecure_http must be a boolean.",
+   "tested": false
+  },
+  {
+   "code": "INVALID_INPUT",
+   "emitted_by": [
+    "client.py",
+    "flows.py"
+   ],
+   "scope": [
+    "求值与执行"
+   ],
+   "http_status": [],
+   "meaning": "f'{label} must be an object or JSON object string.'",
+   "tested": false
+  },
+  {
+   "code": "INVALID_JSON",
+   "emitted_by": [
+    "client.py",
+    "controlled.py",
+    "node_contract.py",
+    "route_store.py",
+    "two_state.py"
+   ],
+   "scope": [
+    "存表与读表",
+    "求值与执行"
+   ],
+   "http_status": [
+    400
+   ],
+   "meaning": "请求不是合法的 JSON 对象",
+   "tested": true
+  },
+  {
+   "code": "INVALID_PLAN",
+   "emitted_by": [
+    "local_plan.py"
+   ],
+   "scope": [
+    "求值与执行"
+   ],
+   "http_status": [],
+   "meaning": "（check() 的默认码；例）Invalid object fields.",
+   "tested": false
+  },
+  {
+   "code": "INVALID_RESPONSE",
+   "emitted_by": [
+    "client.py",
+    "flows.py"
+   ],
+   "scope": [
+    "求值与执行"
+   ],
+   "http_status": [],
+   "meaning": "The engine returned an incompatible or inconsistent response envelope.",
+   "tested": false
+  },
+  {
+   "code": "INVALID_TABLE",
+   "emitted_by": [
+    "json_table.py"
+   ],
+   "scope": [
+    "求值与执行"
+   ],
+   "http_status": [],
+   "meaning": "message",
+   "tested": false
+  },
+  {
+   "code": "KIND_MISMATCH",
+   "emitted_by": [
+    "psn/check.py"
+   ],
+   "scope": [
+    "出图闸"
+   ],
+   "http_status": [],
+   "meaning": "按 Dify 节点类型算出的 kind 与结构不同",
+   "tested": true
+  },
+  {
+   "code": "MISPLACED_NODE",
+   "emitted_by": [
+    "psn/check.py"
+   ],
+   "scope": [
+    "出图闸"
+   ],
+   "http_status": [],
+   "meaning": "节点的类别不该出现在这个 Step（F06–F09，见下文「放错层与失败处理」）",
+   "tested": true
+  },
+  {
+   "code": "MISSING_NODE",
+   "emitted_by": [
+    "psn/check.py"
+   ],
+   "scope": [
+    "出图闸"
+   ],
+   "http_status": [],
+   "meaning": "结构里 ACTIVE 的节点不在图里（PAUSED 的 workflow 不查）",
+   "tested": true
+  },
+  {
+   "code": "MISSING_OUTPUT",
+   "emitted_by": [
+    "local_plan.py"
+   ],
+   "scope": [
+    "求值与执行"
+   ],
+   "http_status": [],
+   "meaning": "A declared output is unavailable.",
+   "tested": false
+  },
+  {
+   "code": "MODEL_DIGEST_MISMATCH",
+   "emitted_by": [
+    "inline_table.py",
+    "json_table.py"
+   ],
+   "scope": [
+    "求值与执行"
+   ],
+   "http_status": [],
+   "meaning": "表的内容摘要是 833b220fb380…，不是 expected_sha256 钉的 e67a3b0a7679…",
+   "tested": true
+  },
+  {
+   "code": "MODEL_HASH_MISMATCH",
+   "emitted_by": [
+    "flows.py"
+   ],
+   "scope": [
+    "求值与执行"
+   ],
+   "http_status": [],
+   "meaning": "An inline model does not match its declared SHA-256.",
+   "tested": false
+  },
+  {
+   "code": "NODE_CODE_NOT_ALLOWED",
+   "emitted_by": [
+    "psn/check.py"
+   ],
+   "scope": [
+    "出图闸"
+   ],
+   "http_status": [],
+   "meaning": "入口转换以外的代码节点（入口转换：登记与标题都叫「转换」，一张图一个）",
+   "tested": true
+  },
+  {
+   "code": "NODE_OUTPUT_INVALID",
+   "emitted_by": [
+    "node_contract.py"
+   ],
+   "scope": [
+    "求值与执行"
+   ],
+   "http_status": [],
+   "meaning": "Node result is not safe JSON.",
+   "tested": false
+  },
+  {
+   "code": "NODE_OUTPUT_TOO_LARGE",
+   "emitted_by": [
+    "node_contract.py"
+   ],
+   "scope": [
+    "求值与执行"
+   ],
+   "http_status": [],
+   "meaning": "Node result exceeds the 2 MiB budget.",
+   "tested": false
+  },
+  {
+   "code": "NODE_REF_MISMATCH",
+   "emitted_by": [
+    "psn/check.py"
+   ],
+   "scope": [
+    "出图闸"
+   ],
+   "http_status": [],
+   "meaning": "`node_ref` 的「编号族 + phase + step + node」与结构编号不同（R5、R6）",
+   "tested": true
+  },
+  {
+   "code": "NODE_REF_MISSING",
+   "emitted_by": [
+    "psn/check.py"
+   ],
+   "scope": [
+    "出图闸"
+   ],
+   "http_status": [],
+   "meaning": "决策节点没有 `node_ref`",
+   "tested": true
+  },
+  {
+   "code": "NODE_REF_UNRESOLVABLE",
+   "emitted_by": [
+    "psn/check.py"
+   ],
+   "scope": [
+    "出图闸"
+   ],
+   "http_status": [],
+   "meaning": "用插件自己的 `resolve_node`，在节点自带的 `definition_bundle_json` 里解析不到",
+   "tested": true
+  },
+  {
+   "code": "NODE_TYPE_MISMATCH",
+   "emitted_by": [
+    "psn/check.py"
+   ],
+   "scope": [
+    "出图闸"
+   ],
+   "http_status": [],
+   "meaning": "声明的类型不是节点实际做的；`reason` 写标准的分项（DECIDE_OUTSIDE_PLUGIN、READ_OUTSIDE_CAPABILITY、CONTROL_BUSINESS_TEST；ACT_OUTSIDE_DISPOSAL、UNDERSTAND_OFF_CATALOG 两项先一律报核不了），整个是另一类的节点不写分项、`actual` 写认出的那一类",
+   "tested": true
+  },
+  {
+   "code": "NODE_TYPE_MISSING",
+   "emitted_by": [
+    "psn/check.py"
+   ],
+   "scope": [
+    "出图闸"
+   ],
+   "http_status": [],
+   "meaning": "节点没有声明类型：结构登记没写 `type`（八类之一，DMN 2.0.108）；在声明了类型的条目上查（有 `node_types`、有节点带 `type`，或存量清单里有这张图），见「节点类型」",
+   "tested": true
+  },
+  {
+   "code": "NODE_TYPE_STOCK_GREW",
+   "emitted_by": [
+    "psn/check.py"
+   ],
+   "scope": [
+    "出图闸"
+   ],
+   "http_status": [],
+   "meaning": "带 `--live` 时，条目自己写的存量里的一项现网图上没有，或条目的 `code_stock.max` 比现网图入口转换以外的代码节点多：是新增的，不是存量（`--stock` 清单的项由正本的 `check_psn_numbering.py` 锚现网图，这里不判）",
+   "tested": true
+  },
+  {
+   "code": "NODE_TYPE_STOCK_STALE",
+   "emitted_by": [
+    "psn/check.py"
+   ],
+   "scope": [
+    "出图闸"
+   ],
+   "http_status": [],
+   "meaning": "存量里的一项这张图上已经没有了：从存量删掉（只减不增）；`--stock` 清单的项只是提示（`--strict` 也不升），清单由协调收小",
+   "tested": true
+  },
+  {
+   "code": "NODE_TYPE_TITLE_MISMATCH",
+   "emitted_by": [
+    "psn/check.py"
+   ],
+   "scope": [
+    "出图闸"
+   ],
+   "http_status": [],
+   "meaning": "标题里的类名（`<编号> · <类名> · <名称>`）不是登记的 `type`；代码节点的标题写了类名也算",
+   "tested": true
+  },
+  {
+   "code": "NODE_TYPE_UNVERIFIED",
+   "emitted_by": [
+    "psn/check.py"
+   ],
+   "scope": [
+    "出图闸"
+   ],
+   "http_status": [],
+   "meaning": "声明的类型图上核不了（调的工作流是哪一个、处置能力表那一行、出参是否都出自目录），照实报，不拦，`--strict` 也不拦；报告 `result` 因此是 `UNVERIFIED`",
+   "tested": true
+  },
+  {
+   "code": "NOT_FOUND",
+   "emitted_by": [
+    "route_store.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [
+    404
+   ],
+   "meaning": "接口不存在",
+   "tested": true
+  },
+  {
+   "code": "NOT_STAMPED",
+   "emitted_by": [
+    "psn/check.py"
+   ],
+   "scope": [
+    "出图闸"
+   ],
+   "http_status": [],
+   "meaning": "编号节点（含分支闸）的标题不以编号开头（后接 ` · 名称` 或什么都不接），或描述里没有 `psn:<实例 ref>` 一行（EVENT 和 `gates_pending_number` 里的闸不查）。SOLUTION 按 N2：编号写编号族形式 `SOLUTION/P4.S2.N3`，不带族的 `P4.S2.N3 · `、实例键 `SOLUTION.coupon-use/P4.S2.N3 · ` 都算没写，全长超过 60 字也算没写。其余编号族照旧：裸编号，如 `Q1.S1.N2`，不限长度",
+   "tested": true
+  },
+  {
+   "code": "NO_FAILURE_HANDLING",
+   "emitted_by": [
+    "psn/check.py"
+   ],
+   "scope": [
+    "出图闸"
+   ],
+   "http_status": [],
+   "meaning": "工作流工具、取数、模型或决策节点没有失败处理：没有 fail-branch 出边，不是 `default-value`，也不在 continue-on-error 的循环里（L5）",
+   "tested": true
+  },
+  {
+   "code": "PHASE_IO_SHAPE",
+   "emitted_by": [
+    "psn/check.py"
+   ],
+   "scope": [
+    "出图闸"
+   ],
+   "http_status": [],
+   "meaning": "输出的形状、上限与节点不符",
+   "tested": true
+  },
+  {
+   "code": "PHASE_IO_UNDECLARED_INPUT",
+   "emitted_by": [
+    "psn/check.py"
+   ],
+   "scope": [
+    "出图闸"
+   ],
+   "http_status": [],
+   "meaning": "跨 Phase 读变量，本 Phase 却没声明这条输入",
+   "tested": true
+  },
+  {
+   "code": "PHASE_IO_UNDECLARED_OUTPUT",
+   "emitted_by": [
+    "psn/check.py"
+   ],
+   "scope": [
+    "出图闸"
+   ],
+   "http_status": [],
+   "meaning": "跨 Phase 读了对方没声明为输出的变量（标准 C10、F11，只查声明了 io 的 workflow，下同）",
+   "tested": true
+  },
+  {
+   "code": "PHASE_IO_UNUSED",
+   "emitted_by": [
+    "psn/check.py"
+   ],
+   "scope": [
+    "出图闸"
+   ],
+   "http_status": [],
+   "meaning": "声明了的输出没有别的 Phase 读，或声明了的输入本 Phase 没读",
+   "tested": true
+  },
+  {
+   "code": "QUERY_UNKNOWN",
+   "emitted_by": [
+    "local_plan.py"
+   ],
+   "scope": [
+    "求值与执行"
+   ],
+   "http_status": [],
+   "meaning": "Required query identifier is unavailable.",
+   "tested": false
+  },
+  {
+   "code": "RAW_FETCH_LEAK",
+   "emitted_by": [
+    "psn/check.py"
+   ],
+   "scope": [
+    "出图闸"
+   ],
+   "http_status": [],
+   "meaning": "原始取数明细被别的 Phase 读，或被声明成输出",
+   "tested": true
+  },
+  {
+   "code": "RESOURCE_TABLE_INVALID",
+   "emitted_by": [
+    "stored_tables.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [
+    400
+   ],
+   "meaning": "entry 是对象或 null",
+   "tested": true
+  },
+  {
+   "code": "RESOURCE_TABLE_IN_USE",
+   "emitted_by": [
+    "route_table.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [],
+   "meaning": "路由表 dispatch.route 还在用这些目标：workshop.queue",
+   "tested": true
+  },
+  {
+   "code": "RESOURCE_TABLE_ROUTE_COMPILED",
+   "emitted_by": [
+    "route_table.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [
+    400
+   ],
+   "meaning": "路由表 dispatch.route 还按目标清单编译本表（resource_table）：路由表不再引用它之前，资源去向不能存成决策表",
+   "tested": true
+  },
+  {
+   "code": "RESOURCE_TABLE_ROUTE_DROPPED",
+   "emitted_by": [
+    "route_table.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [],
+   "meaning": "路由表 dispatch.route 还引用本资源表，不能从 route_tables 去掉（先改路由表）",
+   "tested": true
+  },
+  {
+   "code": "RESPONSE_TOO_LARGE",
+   "emitted_by": [
+    "client.py"
+   ],
+   "scope": [
+    "求值与执行"
+   ],
+   "http_status": [],
+   "meaning": "The engine response exceeds the 2 MiB limit.",
+   "tested": false
+  },
+  {
+   "code": "RESULT_CONFLICT",
+   "emitted_by": [
+    "stored_tables.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [],
+   "meaning": "命中的模板状态不一致",
+   "tested": true
+  },
+  {
+   "code": "RESULT_TOO_LARGE",
+   "emitted_by": [
+    "inline_table.py"
+   ],
+   "scope": [
+    "求值与执行"
+   ],
+   "http_status": [],
+   "meaning": "结果超过 2 MiB",
+   "tested": false
+  },
+  {
+   "code": "RETIRED_NODE_IN_GRAPH",
+   "emitted_by": [
+    "psn/check.py"
+   ],
+   "scope": [
+    "出图闸"
+   ],
+   "http_status": [],
+   "meaning": "结构已经把它退役（retired），图里还有",
+   "tested": true
+  },
+  {
+   "code": "ROUTE_STORE_APP_FAILED",
+   "emitted_by": [
+    "route_store.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [
+    503
+   ],
+   "meaning": "调维护应用失败：permission denied: app invocation",
+   "tested": true
+  },
+  {
+   "code": "ROUTE_STORE_APP_INVALID",
+   "emitted_by": [
+    "route_store.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [
+    503
+   ],
+   "meaning": "端点设置里的维护应用 ID 不是 AgentHub 应用编号",
+   "tested": true
+  },
+  {
+   "code": "ROUTE_STORE_OP_INVALID",
+   "emitted_by": [
+    "tools/route_table_store.py"
+   ],
+   "scope": [
+    "工具入口"
+   ],
+   "http_status": [
+    400
+   ],
+   "meaning": "op 只能是 table / history / version / save / undo / check / draft / draft_save / draft_discard / publish / vocabulary / writers / usage / prune / saved / ledger / catalog / bundle_check / bundle / bundle_save / bundle_discard / bundle_publish / bundle_rollback",
+   "tested": true
+  },
+  {
+   "code": "ROUTE_TABLE_CORRUPT",
+   "emitted_by": [
+    "route_table.py",
+    "storage_care.py",
+    "stored_tables.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [
+    400
+   ],
+   "meaning": "插件存储里的路由表读不出来",
+   "tested": true
+  },
+  {
+   "code": "ROUTE_TABLE_CURRENT_UNROUTED",
+   "emitted_by": [
+    "route_table.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [
+    400
+   ],
+   "meaning": "应用 00000000 在方案登记里是 CURRENT，这次存完没有任何方案行指向它（原去向、试验方案都算指向）：要换下它或停掉它的试验，就在同一次存表里把它转成 CANDIDATE 或 RETIRED；不然留一行指向它",
+   "tested": true
+  },
+  {
+   "code": "ROUTE_TABLE_FORMAT_MISMATCH",
+   "emitted_by": [
+    "route_table.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [],
+   "meaning": "name + ' 不是资源目标表'",
+   "tested": true
+  },
+  {
+   "code": "ROUTE_TABLE_GATE_REQUIRED",
+   "emitted_by": [
+    "route_table.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [],
+   "meaning": "GATED 的方案要写 gate_code（挡住它的闸，如 EXAMPLE_GATE）",
+   "tested": true
+  },
+  {
+   "code": "ROUTE_TABLE_INVALID",
+   "emitted_by": [
+    "inline_table.py",
+    "route_store.py",
+    "route_table.py",
+    "stored_tables.py",
+    "two_state.py"
+   ],
+   "scope": [
+    "存表与读表",
+    "求值与执行"
+   ],
+   "http_status": [
+    400
+   ],
+   "meaning": "文档要带表名 table",
+   "tested": true
+  },
+  {
+   "code": "ROUTE_TABLE_KEY",
+   "emitted_by": [
+    "route_table.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [
+    400
+   ],
+   "meaning": "场景编号格式不对（P_xx_xx_xx）",
+   "tested": true
+  },
+  {
+   "code": "ROUTE_TABLE_KNOWLEDGE",
+   "emitted_by": [
+    "route_table.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [],
+   "meaning": "知识库去向只有 kind / kb_refs / topics / intents",
+   "tested": true
+  },
+  {
+   "code": "ROUTE_TABLE_MISSING",
+   "emitted_by": [
+    "route_table.py",
+    "table_lifecycle.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [],
+   "meaning": "插件里还没有路由表 dispatch.route：先在路由表编辑页导入或保存一版",
+   "tested": true
+  },
+  {
+   "code": "ROUTE_TABLE_NOTE_REQUIRED",
+   "emitted_by": [
+    "route_table.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [
+    400
+   ],
+   "meaning": "写一句改动说明",
+   "tested": true
+  },
+  {
+   "code": "ROUTE_TABLE_RACE",
+   "emitted_by": [
+    "route_table.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [
+    409
+   ],
+   "meaning": "第 1 版写入已尝试，但读回不一致，不能确认最终状态（保存标识 aaaaaaaaaaaa）：先读回核对当前头版和保存副本，保留你的改动，不要直接重试",
+   "tested": true
+  },
+  {
+   "code": "ROUTE_TABLE_RESOURCE_TABLE",
+   "emitted_by": [
+    "route_table.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [],
+   "meaning": "有资源去向的路由表要写 resource_table",
+   "tested": true
+  },
+  {
+   "code": "ROUTE_TABLE_RESOURCE_TABLE_MISSING",
+   "emitted_by": [
+    "route_table.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [
+    400
+   ],
+   "meaning": "先存资源目标表 dispatch.resource，再存引用它的路由表",
+   "tested": true
+  },
+  {
+   "code": "ROUTE_TABLE_RETIRE_INVALID",
+   "emitted_by": [
+    "route_table.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [
+    400
+   ],
+   "meaning": "retire_solutions 只在路由表 v3 有头版的存表里写（首存、别的表没有要降的方案行）",
+   "tested": true
+  },
+  {
+   "code": "ROUTE_TABLE_SOLUTION_INCOMPLETE",
+   "emitted_by": [
+    "route_table.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [],
+   "meaning": "CURRENT 的方案要写请求合同（缺 request_contract）：交付编排按请求合同组请求",
+   "tested": true
+  },
+  {
+   "code": "ROUTE_TABLE_SOLUTION_INPUTS_LIVE_MISMATCH",
+   "emitted_by": [
+    "route_store.py",
+    "save_gate.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [
+    400
+   ],
+   "meaning": "triage.dispatch.route 这一版没存：方案登记的入参与方案应用已发布版本的开始变量对不上——方案 ee1aebd3：登记 call_id、request_json，现网开始节点是 worksheetId：改登记，或先发布方案应用",
+   "tested": true
+  },
+  {
+   "code": "ROUTE_TABLE_SOLUTION_LOST",
+   "emitted_by": [
+    "route_table.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [
+    400
+   ],
+   "meaning": "M_P_99_61_01 · COMPLAINT · STAGE_1 原来有能调的方案，这次存表把这一行删了、请求里也没在 retire_solutions 列出它：要降这个方案就在请求里写 retire_solutions 列出这一行（没方案就是没那一行），要换方案就改指新的 CURRENT 应用",
+   "tested": true
+  },
+  {
+   "code": "ROUTE_TABLE_SOLUTION_NOT_CALLABLE",
+   "emitted_by": [
+    "route_table.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [
+    400
+   ],
+   "meaning": "试验方案 00000000 在方案登记里是 CANDIDATE，invoke_solution 调不到：先把它转成 CURRENT（补齐请求合同），或先把这一行的试验去掉",
+   "tested": true
+  },
+  {
+   "code": "ROUTE_TABLE_SOLUTION_STATUS_CONFLICT",
+   "emitted_by": [
+    "route_table.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [
+    400
+   ],
+   "meaning": "应用 00000000 在路由表 dispatch.route 里是 GATED · TOY_POLISHING_DISABLED，这里是 CURRENT：同一个应用在各路由表里状态要一致（先改那张表，或照它写）",
+   "tested": true
+  },
+  {
+   "code": "ROUTE_TABLE_STALE",
+   "emitted_by": [
+    "route_table.py",
+    "storage_care.py",
+    "table_lifecycle.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [
+    409
+   ],
+   "meaning": "路由表刚被改过（插件里是第 3 版，页面是第 2 版）：载入最新版、保留你的改动后再存",
+   "tested": true
+  },
+  {
+   "code": "ROUTE_TABLE_STUB_INVALID",
+   "emitted_by": [
+    "route_table.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [],
+   "meaning": "v4 要连资源一起编译",
+   "tested": true
+  },
+  {
+   "code": "ROUTE_TABLE_TARGET",
+   "emitted_by": [
+    "route_table.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [],
+   "meaning": "去向必须是对象",
+   "tested": true
+  },
+  {
+   "code": "ROUTE_TABLE_TARGET_RETIRED",
+   "emitted_by": [
+    "route_table.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [
+    400
+   ],
+   "meaning": "text",
+   "tested": true
+  },
+  {
+   "code": "ROUTE_TABLE_TOO_LARGE",
+   "emitted_by": [
+    "route_table.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [],
+   "meaning": "一张路由表最多 128 条（决策引擎的规则上限）",
+   "tested": true
+  },
+  {
+   "code": "ROUTE_TABLE_TRIAL",
+   "emitted_by": [
+    "route_table.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [],
+   "meaning": "这一行的原去向 00000000 在方案登记里是 GATED，不是 CURRENT：试验是拿两个都能调的方案来比，原去向挂起的行不能挂试验（先去掉试验，或把原去向转成 CURRENT）",
+   "tested": true
+  },
+  {
+   "code": "ROUTE_TABLE_TRIAL_SHARE",
+   "emitted_by": [
+    "route_table.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [],
+   "meaning": "试验比例写 0–100 的整数（百分之几的进线走试验方案，其余走原去向，两边合计 100）",
+   "tested": true
+  },
+  {
+   "code": "ROUTE_TABLE_UNAVAILABLE",
+   "emitted_by": [
+    "decision_executor.py",
+    "route_store.py"
+   ],
+   "scope": [
+    "存表与读表",
+    "求值与执行"
+   ],
+   "http_status": [
+    503
+   ],
+   "meaning": "Plugin storage could not be read.",
+   "tested": true
+  },
+  {
+   "code": "ROUTE_TABLE_UNKNOWN_RESOURCE",
+   "emitted_by": [
+    "route_table.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [
+    400
+   ],
+   "meaning": "资源目标 workshop.kiln 不在资源目标表里",
+   "tested": true
+  },
+  {
+   "code": "ROUTE_TABLE_UNKNOWN_SCENE",
+   "emitted_by": [
+    "route_table.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [
+    400
+   ],
+   "meaning": "场景 P_09_09_09 不在场景目录里",
+   "tested": true
+  },
+  {
+   "code": "ROUTE_TABLE_UNREGISTERED_APP",
+   "emitted_by": [
+    "route_table.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [
+    400
+   ],
+   "meaning": "场景 P_99_71_01 的方案登记表里没有这个方案应用（或方案编号对不上）；新方案要先随受理图登记",
+   "tested": true
+  },
+  {
+   "code": "ROUTE_TABLE_VERSION_MISSING",
+   "emitted_by": [
+    "catalog.py",
+    "route_store.py",
+    "two_state.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [
+    404
+   ],
+   "meaning": "没有这一版",
+   "tested": true
+  },
+  {
+   "code": "SAFETY_SCENE_SOLUTION_ROUTED",
+   "emitted_by": [
+    "route_table.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [
+    400
+   ],
+   "meaning": "M_P_99_61_01 · COMPLAINT · STAGE_1 是安全转接场景（场景与话题表状态 SAFETY_TRANSFER），路由表不写这些场景的方案行（DMN 2.0.94 §⓪）：删掉这一行，安全承接由资源去向表按场景状态配",
+   "tested": true
+  },
+  {
+   "code": "SCENE_BUNDLE_DRAFT_MISSING",
+   "emitted_by": [
+    "scene_bundle.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [
+    409
+   ],
+   "meaning": "场景 M_P_91_05_01 没有整包草稿可发布：先存整包草稿（op=bundle_save）",
+   "tested": true
+  },
+  {
+   "code": "SCENE_BUNDLE_DRAFT_STALE",
+   "emitted_by": [
+    "scene_bundle.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [
+    409
+   ],
+   "meaning": "这个场景的整包草稿刚被别人存过或删过（现在是 27bfd94c7147）：先读再改",
+   "tested": true
+  },
+  {
+   "code": "SCENE_BUNDLE_INVALID",
+   "emitted_by": [
+    "scene_bundle.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [
+    400
+   ],
+   "meaning": "message",
+   "tested": true
+  },
+  {
+   "code": "SCENE_BUNDLE_NOT_LAST",
+   "emitted_by": [
+    "scene_bundle.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [
+    409
+   ],
+   "meaning": "这不是这个场景最近一次整包发布：仅支持撤销最近一次，不支持逐次回退到更早发布；用 op=bundle 核对最近一次，较早版本需逐表人工恢复",
+   "tested": true
+  },
+  {
+   "code": "SCENE_BUNDLE_NOT_ROLLBACKABLE",
+   "emitted_by": [
+    "scene_bundle.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [
+    409
+   ],
+   "meaning": "这次整包发布已经退回过了",
+   "tested": true
+  },
+  {
+   "code": "SCENE_BUNDLE_OP_INVALID",
+   "emitted_by": [
+    "tools/scene_bundle.py"
+   ],
+   "scope": [
+    "工具入口"
+   ],
+   "http_status": [
+    400
+   ],
+   "meaning": "op 只能是 check / status / save / discard / publish / rollback",
+   "tested": true
+  },
+  {
+   "code": "SCENE_BUNDLE_RECORD_MISSING",
+   "emitted_by": [
+    "scene_bundle.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [
+    404
+   ],
+   "meaning": "没有这次整包发布的记录",
+   "tested": true
+  },
+  {
+   "code": "SCENE_BUNDLE_STALE",
+   "emitted_by": [
+    "scene_bundle.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [
+    409
+   ],
+   "meaning": "这份整包草稿和现在的表对不上了（有表在草稿之后变过）：重做整包草稿",
+   "tested": true
+  },
+  {
+   "code": "SCENE_BUNDLE_TABLE_MISSING",
+   "emitted_by": [
+    "scene_bundle.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [],
+   "meaning": "'表 %s（%s）还没有存过：整包只往已有的表里加这个场景的行，先把这张表存一版' % (table, PART_LABELS[part])",
+   "tested": false
+  },
+  {
+   "code": "SCENE_DEFINITION_IN_CODE",
+   "emitted_by": [
+    "psn/check.py"
+   ],
+   "scope": [
+    "出图闸"
+   ],
+   "http_status": [],
+   "meaning": "DELIVERY、DISPATCH 的代码节点里带了场景定义（场景目录只认表）",
+   "tested": true
+  },
+  {
+   "code": "SCENE_ID_MODE_ROLE_SPELLING",
+   "emitted_by": [
+    "route_store.py",
+    "route_table.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [
+    400
+   ],
+   "meaning": "新业务模式的场景号不带角色段（如 HY_01_02）；'HY_P_05…' 这种写法（业务模式段后面又跟了角色段）要等场景号文法修好才收",
+   "tested": true
+  },
+  {
+   "code": "SCENE_KEY_DUPLICATE",
+   "emitted_by": [
+    "route_table.py",
+    "scene_id.py",
+    "scene_spelling.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [
+    400
+   ],
+   "meaning": "P_99_41_01 和 M_P_99_41_01 是同一个场景的两种写法，只能留一个",
+   "tested": true
+  },
+  {
+   "code": "SCENE_MAP_INVALID",
+   "emitted_by": [
+    "scene_id.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [],
+   "meaning": "{'type': _json_type(data)}",
+   "tested": false
+  },
+  {
+   "code": "SCENE_NOT_IN_CATALOG",
+   "emitted_by": [
+    "route_store.py",
+    "save_gate.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [
+    400
+   ],
+   "meaning": "triage.supplement.requirements 这一版没存：新引入的场景号 M_P_99_99_99 不在场景与话题表（第 1 版）里：先在场景与话题表登记，或改用目录里的号",
+   "tested": true
+  },
+  {
+   "code": "SCENE_SPELLING_REGRESSION",
+   "emitted_by": [
+    "route_store.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [
+    400
+   ],
+   "meaning": "表 dispatch.route 存着的是 M_ 写法，这次发来的场景号全是旧写法，存进去会把整表换回旧写法：照 M_ 写再存；确实要退回旧写法（M_ 迁移回滚），请求里写 scene_spelling_rollback: true",
+   "tested": true
+  },
+  {
+   "code": "SCENE_TOPIC_TABLE_INVALID",
+   "emitted_by": [
+    "stored_tables.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [
+    400
+   ],
+   "meaning": "message",
+   "tested": true
+  },
+  {
+   "code": "SCHEMA_INVALID",
+   "emitted_by": [
+    "node_contract.py"
+   ],
+   "scope": [
+    "求值与执行"
+   ],
+   "http_status": [],
+   "meaning": "Value does not match the fixed contract.",
+   "tested": false
+  },
+  {
+   "code": "SEARCH_CAPABILITY_TABLE_MISSING",
+   "emitted_by": [
+    "route_table.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [
+    400
+   ],
+   "meaning": "插件里没有内容摘要为 d0b89ed2a40c… 的能力表 target.capability.catalog：先存那一版能力表，或把声明里的摘要改成现有的一版",
+   "tested": true
+  },
+  {
+   "code": "SEARCH_TABLE_INVALID",
+   "emitted_by": [
+    "search_plan.py"
+   ],
+   "scope": [
+    "求值与执行"
+   ],
+   "http_status": [
+    400
+   ],
+   "meaning": "规则 S_LOAN：能力 lending__lookupLoan（业务模式 HY × 角色 P） 的必填入参没绑：branchKey",
+   "tested": true
+  },
+  {
+   "code": "SILENT_DMN_DEFAULT",
+   "emitted_by": [
+    "psn/check.py"
+   ],
+   "scope": [
+    "出图闸"
+   ],
+   "http_status": [],
+   "meaning": "决策节点用 `default-value`：插件本身崩溃或超时时，错误被默认值替代",
+   "tested": true
+  },
+  {
+   "code": "SILENT_FETCH_DEFAULT",
+   "emitted_by": [
+    "psn/check.py"
+   ],
+   "scope": [
+    "出图闸"
+   ],
+   "http_status": [],
+   "meaning": "SOLUTION 的取数节点用 `default-value`：http-request，以及 P1.S1 的工作流调用（取数应用）。取数失败被默认值替代，「没取到」会被当成「没有」（标准 N4）",
+   "tested": true
+  },
+  {
+   "code": "STORED_TABLE_AGENT_DRAFT_ONLY",
+   "emitted_by": [
+    "two_state.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [
+    403
+   ],
+   "meaning": "写手 synthetic-agent 登记的种类是 AGENT：只进草稿（存草稿、存整包草稿、删草稿），这一步要由登记为人或脚本的写手来做",
+   "tested": true
+  },
+  {
+   "code": "STORED_TABLE_ALIAS_COLLISION",
+   "emitted_by": [
+    "route_table.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [
+    400
+   ],
+   "meaning": "只读别名与已有独立表冲突，请先检查存储；未读取或修改任何表内容",
+   "tested": true
+  },
+  {
+   "code": "STORED_TABLE_ALIAS_READ_ONLY",
+   "emitted_by": [
+    "route_store.py",
+    "route_table.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [
+    400
+   ],
+   "meaning": "只读别名不可用于存表",
+   "tested": true
+  },
+  {
+   "code": "STORED_TABLE_BATCH_TOO_LARGE",
+   "emitted_by": [
+    "stored_batch.py"
+   ],
+   "scope": [
+    "求值与执行"
+   ],
+   "http_status": [],
+   "meaning": "'inputs_list_json 超过 %d 字节（DMN 2.0 §八）' % INPUT_BYTES_MAX",
+   "tested": false
+  },
+  {
+   "code": "STORED_TABLE_BATCH_TOO_MANY",
+   "emitted_by": [
+    "stored_batch.py"
+   ],
+   "scope": [
+    "求值与执行"
+   ],
+   "http_status": [],
+   "meaning": "'一次至多 %d 项，这次 %d 项（DMN 2.0 §八）' % (ITEMS_MAX, len(raw))",
+   "tested": false
+  },
+  {
+   "code": "STORED_TABLE_CONTROLLED_ENTRY_EXPIRED",
+   "emitted_by": [
+    "controlled.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [
+    401
+   ],
+   "meaning": "受控入口签名时间 2030-01-02T11:49:00Z 离插件现在超过 10 分钟：按现在的时间重签",
+   "tested": true
+  },
+  {
+   "code": "STORED_TABLE_CONTROLLED_ENTRY_REJECTED",
+   "emitted_by": [
+    "controlled.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [
+    401
+   ],
+   "meaning": "受控入口签名核不上",
+   "tested": true
+  },
+  {
+   "code": "STORED_TABLE_CONTROLLED_ENTRY_REPLAYED",
+   "emitted_by": [
+    "two_state.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [
+    409
+   ],
+   "meaning": "这个签名请求已被使用或执行结果尚未确认：读取当前状态后用新时间重新签名",
+   "tested": true
+  },
+  {
+   "code": "STORED_TABLE_CONTROLLED_ENTRY_REQUIRED",
+   "emitted_by": [
+    "controlled.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [
+    403
+   ],
+   "meaning": "target.scene.topic 只收受控入口签名的写入（场景目录与场景定义的正本）：开放模式不收直接存，也不收没有入口签名的整包发布、回滚和删历史版次。改这张表走受控入口（81 存表入口，过存前闸与回放闸）；其余存表都是策略配置，照常直接配",
+   "tested": true
+  },
+  {
+   "code": "STORED_TABLE_COPY_ABORTED",
+   "emitted_by": [
+    "route_table.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [],
+   "meaning": "首存中止：旧名 dispatch.resource 在首存期间从第 2 版变成第 3 版，表回到旧名（没有漏掉这次写入）：按 dispatch.resource 当前头版重新首存",
+   "tested": true
+  },
+  {
+   "code": "STORED_TABLE_COPY_IN_PROGRESS",
+   "emitted_by": [
+    "route_table.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [],
+   "meaning": "target.scene.entity 已由另一个操作存过（头版第 2 版，save id aaaaaaaaaaaa…）：这次首存没有生效，状态已恢复为 NEW",
+   "tested": true
+  },
+  {
+   "code": "STORED_TABLE_COPY_RACE",
+   "emitted_by": [
+    "route_table.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [
+    400
+   ],
+   "meaning": "target.scene_entity 第 3 版已写入，但同时 target.scene.entity 的首存状态变了（OLD → NEW）：这一版可能被另一个操作覆盖或撤销，读回核对",
+   "tested": true
+  },
+  {
+   "code": "STORED_TABLE_DRAFT_MISSING",
+   "emitted_by": [
+    "two_state.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [
+    409
+   ],
+   "meaning": "dispatch.route 没有草稿可发布：先存草稿",
+   "tested": true
+  },
+  {
+   "code": "STORED_TABLE_DRAFT_NOT_SUPPORTED",
+   "emitted_by": [
+    "two_state.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [
+    400
+   ],
+   "meaning": "草稿与发布只用于交付链五张表；target.scene.topic 照旧直接存表",
+   "tested": true
+  },
+  {
+   "code": "STORED_TABLE_DRAFT_STALE",
+   "emitted_by": [
+    "two_state.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [
+    409
+   ],
+   "meaning": "这张表的草稿刚被别人存过或删过（现在是 ad4bb58c3431）：先读草稿再改",
+   "tested": true
+  },
+  {
+   "code": "STORED_TABLE_DRAFT_TABLE_MISMATCH",
+   "emitted_by": [
+    "two_state.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [
+    400
+   ],
+   "meaning": "草稿存在它自己的表名下：请求里的 table 是 dispatch.route，表参数是 triage.scene.acceptance",
+   "tested": true
+  },
+  {
+   "code": "STORED_TABLE_FORMAT_MISMATCH",
+   "emitted_by": [
+    "stored_tables.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [],
+   "meaning": "要的是 decision-table/v1，插件里的表 platform.capability.catalog 是 dmn-json.capability-catalog/v1",
+   "tested": true
+  },
+  {
+   "code": "STORED_TABLE_FORMAT_UNKNOWN",
+   "emitted_by": [
+    "inline_table.py",
+    "stored_tables.py"
+   ],
+   "scope": [
+    "存表与读表",
+    "求值与执行"
+   ],
+   "http_status": [],
+   "meaning": "节点里直接求值只收决策表（decision-table/v1、decision-table/v2）和决策集（decision-set/v1），读到 dmn-json.resource-targets/v1",
+   "tested": true
+  },
+  {
+   "code": "STORED_TABLE_GATE_APPROVAL_REQUIRED",
+   "emitted_by": [
+    "scene_bundle.py",
+    "two_state.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [
+    400
+   ],
+   "meaning": "闸报告是 FAIL：要带明确批准发布的记录 approval_ref 才能发布",
+   "tested": true
+  },
+  {
+   "code": "STORED_TABLE_GATE_REPORT_INVALID",
+   "emitted_by": [
+    "route_table.py",
+    "scene_bundle.py",
+    "two_state.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [
+    400
+   ],
+   "meaning": "gate_report（存前闸报告）要是对象",
+   "tested": true
+  },
+  {
+   "code": "STORED_TABLE_GATE_REPORT_MISMATCH",
+   "emitted_by": [
+    "route_table.py",
+    "scene_bundle.py",
+    "two_state.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [
+    400
+   ],
+   "meaning": "gate_report 核的是另一份内容（000000000000…），这次要存的是 4794e9ddeea1…：按要存的这份重跑闸",
+   "tested": true
+  },
+  {
+   "code": "STORED_TABLE_GATE_REPORT_REQUIRED",
+   "emitted_by": [
+    "scene_bundle.py",
+    "two_state.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [
+    400
+   ],
+   "meaning": "发布要带存前闸报告 gate_report（核的是这份整包草稿的 bundle_sha256）",
+   "tested": true
+  },
+  {
+   "code": "STORED_TABLE_ID_IN_USE",
+   "emitted_by": [
+    "decision_v2.py",
+    "route_store.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [
+    400
+   ],
+   "meaning": "solution.fact.feature.M_P_99_81_01.a1b2c3d4 删掉或改了类型的号，同一方案后面的表还在读（两头核：先改读方，再删上游的号）：solution.feature.reality.M_P_99_81_01.a1b2c3d4 读 feature 号 N_HIGH（删掉了）",
+   "tested": true
+  },
+  {
+   "code": "STORED_TABLE_ID_TYPE_MISMATCH",
+   "emitted_by": [
+    "decision_v2.py",
+    "route_store.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [
+    400
+   ],
+   "meaning": "规则 N_BRANCH 拿 fact 号 order.is_done（上游定义的类型 boolean）eq \"完成\"：类型对不上，这个条件会一直判否、不是判未知",
+   "tested": true
+  },
+  {
+   "code": "STORED_TABLE_ID_UNDEFINED",
+   "emitted_by": [
+    "decision_v2.py",
+    "route_store.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [
+    400
+   ],
+   "meaning": "solution.fact.feature.M_P_99_81_01.a1b2c3d4 按号读的 fact 号 bill.nothing 不在同一方案原值 → 事实表的定义里（上游 solution.info.fact.M_P_99_81_01.a1b2c3d4 当前头版）：号只在产出它的地方定义一次，先在上游加上",
+   "tested": true
+  },
+  {
+   "code": "STORED_TABLE_IN_PROGRESS",
+   "emitted_by": [
+    "route_table.py",
+    "table_lifecycle.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [
+    400
+   ],
+   "meaning": "triage.dispatch.resource 的首存没有完成：首存期间另一个操作改了表的首存状态（COPYING → OLD），第 2 版没写头版；读最新状态后再定",
+   "tested": true
+  },
+  {
+   "code": "STORED_TABLE_MIGRATE_FIRST",
+   "emitted_by": [
+    "route_table.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [
+    400
+   ],
+   "meaning": "message",
+   "tested": true
+  },
+  {
+   "code": "STORED_TABLE_MISSING",
+   "emitted_by": [
+    "save_gate.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [],
+   "meaning": "'插件里还没有表 %s：先存表再存用例' % table",
+   "tested": false
+  },
+  {
+   "code": "STORED_TABLE_NAME",
+   "emitted_by": [
+    "route_table.py",
+    "stored_tables.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [
+    400
+   ],
+   "meaning": "能力表的表名只能是 target.capability.catalog（全名 support.target.capability.catalog；旧名 platform.capability.catalog 只读：照读，不再新存）",
+   "tested": true
+  },
+  {
+   "code": "STORED_TABLE_NOT_COPIED",
+   "emitted_by": [
+    "route_table.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [
+    400
+   ],
+   "meaning": "表 triage.dispatch.resource 没有首存，没有可撤销的",
+   "tested": true
+  },
+  {
+   "code": "STORED_TABLE_OPEN_MODE_WRITER",
+   "emitted_by": [
+    "two_state.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [
+    403
+   ],
+   "meaning": "维护应用是开放模式（写手登记写的是 OPEN）：只收在 AgentHub 里运行维护应用的请求，不收带写手签名的请求（编辑端点、签名脚本）。去掉 writer 经 AgentHub 存，或在写手登记里登记写手改回签名模式",
+   "tested": true
+  },
+  {
+   "code": "STORED_TABLE_ORPHAN_VERSION",
+   "emitted_by": [
+    "route_table.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [
+    400
+   ],
+   "meaning": "首存没有动手（一个键都没写）：旧名 target.scene_entity 头版之上有版本键 route-table:target.scene_entity:v3，是一次存表在版本键和头版之间中断留下的残留。首存后标准名的同一版本号会指向另一份内容，所以不首存：先核对这些键（0.5.19 照样读得到它们的版本号），在插件存储里手工删掉，再首存",
+   "tested": true
+  },
+  {
+   "code": "STORED_TABLE_PRUNE_INVALID",
+   "emitted_by": [
+    "storage_care.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [
+    400
+   ],
+   "meaning": "keep 写要留下的最新版次数，1 到 100000 的整数（1 = 只留头版）",
+   "tested": true
+  },
+  {
+   "code": "STORED_TABLE_PRUNE_NOT_SUPPORTED",
+   "emitted_by": [
+    "storage_care.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [
+    400
+   ],
+   "meaning": "dispatch.route 是交付链表：它的历史是放行依据，首存撤销也要读它，不清理旧版次",
+   "tested": true
+  },
+  {
+   "code": "STORED_TABLE_PRUNE_PLAN_CHANGED",
+   "emitted_by": [
+    "storage_care.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [
+    409
+   ],
+   "meaning": "清理计划和上次看到的不一样了（表被存过，或上次清到一半）：按这次返回的计划重新确认",
+   "tested": true
+  },
+  {
+   "code": "STORED_TABLE_PUBLISH_REQUIRED",
+   "emitted_by": [
+    "two_state.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [
+    400
+   ],
+   "meaning": "target.scene_entity 是交付链表，0.5.24 起不直接存成生效版：先存草稿（draft_save），带闸报告和发布窗再发布（publish）",
+   "tested": true
+  },
+  {
+   "code": "STORED_TABLE_REFERENCE_OUTSIDE_FIVE",
+   "emitted_by": [
+    "two_state.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [
+    400
+   ],
+   "meaning": "交付链表只能引用交付链表：resource_table 写的是 probe.resource，它不经发布就能改，读这张表的流程会跟着变",
+   "tested": true
+  },
+  {
+   "code": "STORED_TABLE_RELEASE_REF_REQUIRED",
+   "emitted_by": [
+    "scene_bundle.py",
+    "two_state.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [
+    400
+   ],
+   "meaning": "发布要写发布记录引用 release_ref（3–200 个字符，不带换行）",
+   "tested": true
+  },
+  {
+   "code": "STORED_TABLE_REPLAY_UNAVAILABLE",
+   "emitted_by": [
+    "two_state.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [
+    400,
+    503
+   ],
+   "meaning": "签名使用记录无法确认，已停止写入：读取当前状态后用新时间重新签名",
+   "tested": true
+  },
+  {
+   "code": "STORED_TABLE_REQUEST_ID_UNKNOWN",
+   "emitted_by": [
+    "decision_v2.py",
+    "route_store.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [
+    400
+   ],
+   "meaning": "表 solution.search.info.M_P_99_81_01.a1b2c3d4 读的请求的号 order_id 不在合同「场景方案调用/v5」的请求的号清单里（场景方案调用.v5.request_keys.json，sha256 2eef92b505f9…，37 个号、2 个模板）：照清单起号（号 = 合同字段路径用「.」连，例 对象.id、身份.锚点.进线ms；补充的组写 补充.组.<关联组>.<键>、补充.组.<关联组>.对象.<关系>.<键>）；清单没有的走合同改版，或在表外算成 calc:",
+   "tested": true
+  },
+  {
+   "code": "STORED_TABLE_SAVED_INVALID",
+   "emitted_by": [
+    "storage_care.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [
+    400
+   ],
+   "meaning": "op=saved 写 {\"save_id\": 32 位存表号}（在清理的操作记录、usage 的 half_written、或回包的 storage_failure 里）",
+   "tested": true
+  },
+  {
+   "code": "STORED_TABLE_SCHEMA_CHANGED",
+   "emitted_by": [
+    "decision_v2.py",
+    "route_table.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [
+    400
+   ],
+   "meaning": "表 triage.resource 存的是 dmn-json.resource-targets/v1，不能存成 dmn-json.decision-table/v1",
+   "tested": true
+  },
+  {
+   "code": "STORED_TABLE_SCHEMA_TRANSITION_INVALID",
+   "emitted_by": [
+    "route_table.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [
+    400
+   ],
+   "meaning": "降级标记只能用于补充表 v2 到 v1",
+   "tested": true
+  },
+  {
+   "code": "STORED_TABLE_SETTING_INVALID",
+   "emitted_by": [
+    "settings.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [
+    400
+   ],
+   "meaning": "翻登记值写 {name, value, note}：note 写一句为什么翻（谁定的）",
+   "tested": true
+  },
+  {
+   "code": "STORED_TABLE_SETTING_UNKNOWN",
+   "emitted_by": [
+    "settings.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [
+    400
+   ],
+   "meaning": "没有登记这个值：\"other.switch\"（登记过的：solution.v1_writes）",
+   "tested": true
+  },
+  {
+   "code": "STORED_TABLE_TOO_LARGE",
+   "emitted_by": [
+    "dmn_xml.py",
+    "dmn_xml_v2.py",
+    "route_store.py"
+   ],
+   "scope": [
+    "存表与读表",
+    "导入导出"
+   ],
+   "http_status": [
+    400
+   ],
+   "meaning": "表 triage.big 的内容（不含声明，按规范 JSON 算）是 1049616 字节（约 1025.0 KiB），超过存表线 1048576 字节（1024 KiB，所有表一套）",
+   "tested": true
+  },
+  {
+   "code": "STORED_TABLE_UNAVAILABLE",
+   "emitted_by": [
+    "route_table.py",
+    "settings.py",
+    "stored_tables.py",
+    "table_lifecycle.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [
+    503
+   ],
+   "meaning": "判不清表 target.scene.entity 的首存状态（首存之后旧名 target.scene_entity 又存过第 3 版）：这次不读也不存，先查插件存储",
+   "tested": true
+  },
+  {
+   "code": "STORED_TABLE_UNDO_IN_PROGRESS",
+   "emitted_by": [
+    "route_table.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [],
+   "meaning": "表 triage.dispatch.resource 正在撤销首存：撤销做完前不收存表（重发撤销请求可以接着做）",
+   "tested": true
+  },
+  {
+   "code": "STORED_TABLE_UNKNOWN_KEY",
+   "emitted_by": [
+    "two_state.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [
+    400
+   ],
+   "meaning": "回滚草稿（from_version）只收 from_version、expected_version、expected_draft、note、schema_transition、scene_spelling_rollback：routes 不收（内容取自那一版，不和请求里的内容混）",
+   "tested": true
+  },
+  {
+   "code": "STORED_TABLE_UPSTREAM_MISSING",
+   "emitted_by": [
+    "decision_v2.py",
+    "route_store.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [
+    400
+   ],
+   "meaning": "solution.feature.reality.M_P_99_81_01.a1b2c3d4 读同一方案的 solution.fact.feature.M_P_99_81_01.a1b2c3d4，它还没存过：先存上游 solution.fact.feature.M_P_99_81_01.a1b2c3d4，再存这张表（两头核：读的号要在上游的定义里）",
+   "tested": true
+  },
+  {
+   "code": "STORED_TABLE_V1_STOPPED",
+   "emitted_by": [
+    "decision_v2.py",
+    "route_store.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [
+    400
+   ],
+   "meaning": "方案层已停收旧写法 v1（插件存储登记值 solution.v1_writes = REFUSE）：表 solution.feature.reality.M_P_99_81_01.a1b2c3d4 改存成新写法 v2（dmn-json.decision-table/v2）；已存的 v1 版照读、照求值",
+   "tested": true
+  },
+  {
+   "code": "STORED_TABLE_V2_ONLY",
+   "emitted_by": [
+    "decision_v2.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [
+    400
+   ],
+   "meaning": "方案层表 solution.fact.feature.M_P_99_81_01.a1b2c3d4 还没有头版：没有头版的方案层表名只收新写法 v2（dmn-json.decision-table/v2，一个决策、输入按位置固定、条件按号取）",
+   "tested": true
+  },
+  {
+   "code": "STORED_TABLE_VERSION_MISSING",
+   "emitted_by": [
+    "stored_tables.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [],
+   "meaning": "插件里没有表 solution.fact.feature.M_P_02_04_01 的第 1 版：钉的版本不在，不回退最新版",
+   "tested": true
+  },
+  {
+   "code": "STORED_TABLE_WRITERS_APP_REJECTED",
+   "emitted_by": [
+    "two_state.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [
+    403
+   ],
+   "meaning": "写手登记只认「路由表维护」应用 d0000001… 节点里的那份；这次调用来自 00000000：签名的写入只经那个应用",
+   "tested": true
+  },
+  {
+   "code": "STORED_TABLE_WRITERS_INVALID",
+   "emitted_by": [
+    "two_state.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [
+    503
+   ],
+   "meaning": "写手登记第 1 行写得不对（<名字>:<种类>:<口令>，种类 PERSON / SESSION / SCRIPT / APP / AGENT，口令至少 24 个字符，名字不重复）：整份登记不用，五张表这次不收写入",
+   "tested": true
+  },
+  {
+   "code": "STORED_TABLE_WRITERS_UNSET",
+   "emitted_by": [
+    "two_state.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [],
+   "meaning": "写手登记里没有一行有效的写手",
+   "tested": false
+  },
+  {
+   "code": "STORED_TABLE_WRITER_EXPIRED",
+   "emitted_by": [
+    "two_state.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [
+    401
+   ],
+   "meaning": "签名时间 2030-01-02T11:49:59Z 离插件现在超过 10 分钟：按现在的时间重签",
+   "tested": true
+  },
+  {
+   "code": "STORED_TABLE_WRITER_REJECTED",
+   "emitted_by": [
+    "two_state.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [
+    401
+   ],
+   "meaning": "写手签名核不上",
+   "tested": true
+  },
+  {
+   "code": "STORED_TABLE_WRITER_REPLAYED",
+   "emitted_by": [
+    "two_state.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [
+    409
+   ],
+   "meaning": "这个签名请求已被使用或执行结果尚未确认：读取当前状态后用新时间重新签名",
+   "tested": true
+  },
+  {
+   "code": "STORED_TABLE_WRITER_REQUIRED",
+   "emitted_by": [
+    "two_state.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [
+    401
+   ],
+   "meaning": "交付链五张表的写入要写明是谁：带上 writer {id, at, sig}（用你自己的口令签）",
+   "tested": true
+  },
+  {
+   "code": "SUPPLEMENT_DOWNGRADE_CONTENT_CHANGED",
+   "emitted_by": [
+    "route_table.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [
+    400
+   ],
+   "meaning": "降级只能移除空关联列表，其他行内容须与当前头相同",
+   "tested": true
+  },
+  {
+   "code": "SUPPLEMENT_DOWNGRADE_HAS_ASSOCIATIONS",
+   "emitted_by": [
+    "route_table.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [
+    400
+   ],
+   "meaning": "当前 v2 仍有非空关联要求，不能降级丢弃；须先保留历史地修订 v2",
+   "tested": true
+  },
+  {
+   "code": "SUPPLEMENT_TABLE_INVALID",
+   "emitted_by": [
+    "stored_tables.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [
+    400
+   ],
+   "meaning": "state 只能是 NONE / REQUIRED / UNDECLARED",
+   "tested": true
+  },
+  {
+   "code": "TABLE_ALREADY_DEACTIVATED",
+   "emitted_by": [
+    "table_lifecycle.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [],
+   "meaning": "表 handle.toy.decision 已停用（op=lifecycle 看停用记录）",
+   "tested": true
+  },
+  {
+   "code": "TABLE_CASES_INVALID",
+   "emitted_by": [
+    "save_gate.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [
+    400
+   ],
+   "meaning": "message",
+   "tested": true
+  },
+  {
+   "code": "TABLE_CASE_FAILED",
+   "emitted_by": [
+    "table_lifecycle.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [
+    400
+   ],
+   "meaning": "save_gate.failure_text(std, failed)",
+   "tested": true
+  },
+  {
+   "code": "TABLE_DEACTIVATED",
+   "emitted_by": [
+    "table_lifecycle.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [
+    409
+   ],
+   "meaning": "表 trial.route 已停用（DEACTIVATING）：运行时不读它（不参加一致核的表不能再拿来调方案）。要用先恢复（op=reactivate）",
+   "tested": true
+  },
+  {
+   "code": "TABLE_DEACTIVATE_ANCHOR",
+   "emitted_by": [
+    "table_lifecycle.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [],
+   "meaning": "triage.issue.acceptance 是插件按固定名或派生名读的表（交付七张及其最终名）：停了会让别的核静默失效，不能停用",
+   "tested": true
+  },
+  {
+   "code": "TABLE_DEACTIVATE_REFERENCED",
+   "emitted_by": [
+    "table_lifecycle.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [],
+   "meaning": "组外在用的表还引用着这一组：trial.resource 的 route_tables[0]（ROUTE_TABLES）指着 trial.route。把引用方一起停用（整组），或先改掉引用",
+   "tested": true
+  },
+  {
+   "code": "TABLE_DECLARATION_INVALID",
+   "emitted_by": [
+    "decision_v2.py",
+    "declarations.py",
+    "stored_tables.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [
+    400
+   ],
+   "meaning": "capability_table = {table: target.capability.catalog（旧名 platform.capability.catalog 照收）, content_sha256: 那一版能力表的内容摘要}",
+   "tested": true
+  },
+  {
+   "code": "TABLE_DECLARATION_TOO_LARGE",
+   "emitted_by": [
+    "route_store.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [
+    400
+   ],
+   "meaning": "声明 300 KiB，超过 256 KiB",
+   "tested": true
+  },
+  {
+   "code": "TABLE_LIFECYCLE_INVALID",
+   "emitted_by": [
+    "table_lifecycle.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [],
+   "meaning": "message",
+   "tested": true
+  },
+  {
+   "code": "TABLE_NOT_DEACTIVATED",
+   "emitted_by": [
+    "table_lifecycle.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [],
+   "meaning": "'这些表都没停用：%s' % '、'.join(('%s（%s）' % (t, recs[t][0][0]) for t in names))",
+   "tested": false
+  },
+  {
+   "code": "TABLE_REFERENCES_DEACTIVATED",
+   "emitted_by": [
+    "table_lifecycle.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [
+    400
+   ],
+   "meaning": "trial.resource 已停用（DEACTIVATED）：新内容不能再引用它（resource_table）。先恢复它，或改引用在用的表",
+   "tested": true
+  },
+  {
+   "code": "UNIQUE_HIT_CONFLICT",
+   "emitted_by": [
+    "decision_v2.py"
+   ],
+   "scope": [
+    "存表与读表"
+   ],
+   "http_status": [],
+   "meaning": "多条规则同时成立",
+   "tested": true
+  },
+  {
+   "code": "UNKNOWN_NODE_TYPE",
+   "emitted_by": [
+    "psn/check.py"
+   ],
+   "scope": [
+    "出图闸"
+   ],
+   "http_status": [],
+   "meaning": "不认识的 Dify 节点类型",
+   "tested": true
+  },
+  {
+   "code": "UNPLACED_NODE",
+   "emitted_by": [
+    "psn/check.py"
+   ],
+   "scope": [
+    "出图闸"
+   ],
+   "http_status": [],
+   "meaning": "图里的节点在该 workflow 的结构里没有位置",
+   "tested": true
+  },
+  {
+   "code": "UNREGISTERED_REFERENCE",
+   "emitted_by": [
+    "node_contract.py"
+   ],
+   "scope": [
+    "求值与执行"
+   ],
+   "http_status": [],
+   "meaning": "The fixed node is not in this definition.",
+   "tested": false
+  },
+  {
+   "code": "UNSAFE_XML",
+   "emitted_by": [
+    "client.py",
+    "flows.py"
+   ],
+   "scope": [
+    "求值与执行"
+   ],
+   "http_status": [],
+   "meaning": "DMN documents containing DTDs or entity declarations are forbidden.",
+   "tested": false
+  }
+ ]
+}

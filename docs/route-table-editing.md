@@ -66,17 +66,18 @@ v2 的 `solutions` 只有 `{name, inputs}`：方案能不能调，实际由分�
 | `request_contract` | 请求合同名 / 版本，如 `场景方案调用/v4`、`场景方案调用/v4.1` |
 | `topics`、`intents` | 可选（0.5.25 起 `CURRENT` 也可空）：话题小写编码、诉求大写编码，保持登记时的顺序；路由按场景，不按它们收窄。下游流程如果仍按这两个列表判适用，先改下游，再清空在用方案的列表 |
 | `invocation_scope`、`priority`、`package_id`、`target_handoff` | 可选（如 `ISSUE_TARGET`、`1`、`coupon-use`、`SUPPORTED`） |
+| `accepts_optional_blocks` | 可选（0.5.47）：这个方案收哪些 v5 可选块，块名只收 `进线关系`、`对象详情`、`补充`（`补充` 是 v5 §21 合成的那一块），最多 3 项、不重复（四站合同十条第 6 条）；写了才存、方案块里才带，不写的登记存法与摘要照旧；块名不在这三个里拒 `ROUTE_TABLE_INVALID @solutions.<app>.accepts_optional_blocks[i]`，重复、超 3 项、不是列表拒 `ROUTE_TABLE_INVALID @solutions.<app>.accepts_optional_blocks` |
 | `input_bindings` | **不进插件表**（`ROUTE_TABLE_INVALID @solutions.<app>.input_bindings`）：交付编排按 `request_contract` 自己组请求 |
 
 校验：`CURRENT` 必有 `request_contract`（`ROUTE_TABLE_SOLUTION_INCOMPLETE`；0.5.25 起 `topics` / `intents` 可空——路由按场景，话题 / 诉求不收窄路由；写了照旧逐个核格式、照写入顺序存）；`GATED` 必有 `gate_code`（`ROUTE_TABLE_GATE_REQUIRED`）；同一个应用在两张路由表里状态（`status` + `gate_code`）不能不同（`ROUTE_TABLE_SOLUTION_STATUS_CONFLICT`，存储键 `route-table-index` 记 0.5.6 起存过的路由表，`dispatch.route` 总在比；v2 表按全部 CURRENT 算）；v3 表不能再存回 v1 / v2（`STORED_TABLE_SCHEMA_CHANGED`：旧格式把每个方案都当 CURRENT，会放开 GATED 的方案）。存的时候每一项补齐全部键（没写的是 `null` / `[]`）。`content_sha256` 包含每一项的登记字段，不含说明。
 
 0.5.23：v3 表存表时和它要替换的那一版比，存完不能比原来更调不到，否则整次拒存、什么都不写：
 
-- 方案行新指向（或它指着的应用被改成）非 `CURRENT` 的应用 → `ROUTE_TABLE_SOLUTION_NOT_CALLABLE`（路径指到发来的那一行 `routes[i].target.app_id`）。要换方案：同一次存表把新应用转成 `CURRENT`（补齐请求合同；0.5.25 起话题、诉求可空）；要挂起：改成转接或资源去向。
-- 原来能调的方案行被删了、没给别的去向 → `ROUTE_TABLE_SOLUTION_LOST`。改成转接或资源去向就是显式的兜底，照收。
+- 方案行新指向（或它指着的应用被改成）非 `CURRENT` 的应用 → `ROUTE_TABLE_SOLUTION_NOT_CALLABLE`（路径指到发来的那一行 `routes[i].target.app_id`）。要换方案：同一次存表把新应用转成 `CURRENT`（补齐请求合同；0.5.25 起话题、诉求可空）；要挂起：删掉那一行，并在请求里写 `retire_solutions` 列出它（DMN 2.0.109 §五 ROUTE「没方案就没那一行」；0.5.46 起资源、转接去向只留只删不新加）。
+- 原来能调的方案行被删了、请求里没在 `retire_solutions` 列出它 → `ROUTE_TABLE_SOLUTION_LOST`。降方案＝删行加 `retire_solutions` 逐行列出，照收；没方案的承接交资源去向表配。
 - 原来有方案行指向的 `CURRENT` 应用，存完没有任何方案行指向它 → `ROUTE_TABLE_CURRENT_UNROUTED`（路径 `solutions.<app>.status`）。要换下它，同一次存表把它转成 `CANDIDATE` 或 `RETIRED`。原来就没有行指向的（新登记的、先转在用再补行的）不挡。
 
-这道闸排在 0.5.22 的各项拒存之后（说明、版本号、闸报告等照旧先报）。紧急处置要注意：给有行指向的应用重新关闸（`CURRENT` → `GATED`），或载入开闸前的旧版再存回去，都要同一次把它的行改成转接或资源去向；一个应用同时在两张路由表里时，在本表把它的最后一行改成兜底会报未指向，改它的状态又会和另一张表冲突，做法是把它从本表登记里删掉。新键直接指向非 `CURRENT` 应用也拒（哪怕那个应用别处已挂着），新键要挂起就用转接或资源去向。话题、诉求、请求合同不在这道闸里查。
+这道闸排在 0.5.22 的各项拒存之后（说明、版本号、闸报告等照旧先报）。紧急处置要注意：给有行指向的应用重新关闸（`CURRENT` → `GATED`），或载入开闸前的旧版再存回去，都要同一次删掉它的行、在请求里写 `retire_solutions` 列出（没方案就没那一行，DMN 2.0.109 §五 ROUTE；0.5.46 起资源、转接去向只留只删不新加，改成它们会被终形闸拒）；一个应用同时在两张路由表里时，在本表删掉它的最后一行会报未指向，改它的状态又会和另一张表冲突，做法是把它从本表登记里删掉。新键直接指向非 `CURRENT` 应用也拒（哪怕那个应用别处已挂着），新键要挂起就不加这一行（没方案的承接交资源去向表配）。话题、诉求、请求合同不在这道闸里查。
 
 原来就有的不动：已经挂着的 `GATED` / `SHADOW` 行、原来就没有行指向的 `CURRENT` 应用，都不挡别的改动，所以修复的那一次存表照收。行按场景号的旧写法比，只把 `P_xx` 改写成 `M_P_xx` 的存表不算改了行。第一次存成 v3（从 v2 或空表）和标准名首存（原样复制旧名头版，I12）不比。合成回归覆盖指向候选应用的拒存与恢复可调用路由的成功保存。
 
@@ -154,7 +155,7 @@ v2 表照旧可读：每个方案按 `CURRENT`、无闸读（`dmn_client.route_t
 - 停试验 = 把这一行的 `trial` 删掉再存。如果这个应用存完没有任何行指着（原去向、试验都没有）而登记状态还是 `CURRENT`，报 `ROUTE_TABLE_CURRENT_UNROUTED`：同一次存表把它转成 `CANDIDATE` / `RETIRED`，或把它从本表登记里删掉。
 - 试验转正（原去向换成试验方案、删掉试验）：老方案没有行指着了，同一次存表把它转成 `CANDIDATE` / `RETIRED`。
 - 给试验方案关闸或转候选：同一次存表把它的试验删掉，否则 `ROUTE_TABLE_SOLUTION_NOT_CALLABLE`。
-- 给挂着试验的行的原去向关闸或转候选：同一次存表把这一行改成转接或资源去向并删掉试验（只留着试验会报 `ROUTE_TABLE_TRIAL`）；试验方案如果因此没有行指着，也照上面处理。
+- 给挂着试验的行的原去向关闸或转候选：同一次存表删掉这一行（试验随行删掉），在请求里写 `retire_solutions` 列出它（没方案就没那一行；新加的转接、资源去向行会被 0.5.46 起的终形闸拒）；试验方案如果因此没有行指着，也照上面处理。
 - 载入挂试验之前的旧版再存回去，试验就停了；旧版里试验方案如果登记着 `CURRENT` 又没有行，同上处理。
 
 一个应用同时登记在两张路由表里时（两张表里状态必须一致），这道闸不会和那条规则互相卡死，每种拒存都有一次存表能走通的出路：
@@ -162,7 +163,7 @@ v2 表照旧可读：每个方案按 `CURRENT`、无闸读（`dmn_client.route_t
 | 要做的事 | 做法 |
 |---|---|
 | 停本表的试验，应用在另一张表照常在用 | 删试验的同一次存表把它从本表登记里删掉（留着 `CURRENT` 会报没有行指向，改状态会和另一张表冲突） |
-| 两张表都给它关闸 | 本表先删试验并删登记 → 另一张表关闸（它的行改成转接或资源去向）→ 需要的话再按另一张表的状态登记回本表 |
+| 两张表都给它关闸 | 本表先删试验并删登记 → 另一张表关闸（同一次删掉它的行、请求写 `retire_solutions` 列出）→ 需要的话再按另一张表的状态登记回本表 |
 | 它在两张表里都是候选，想在本表试 | 本表先删登记 → 另一张表转 `CURRENT` → 本表登记成 `CURRENT` 并挂试验 |
 | 它在另一张表已经在用，本表还没登记 | 一次存表：登记成 `CURRENT` 并挂试验 |
 

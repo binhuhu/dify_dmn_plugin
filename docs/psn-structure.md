@@ -220,7 +220,11 @@ python -m dmn_client.psn check --structure ../examples/psn/structure.synthetic.j
 - `--graph` 接受发布读回（任意包含 `graph.nodes` / `graph.edges` 的 JSON）或 Dify DSL 的 YAML 导出。
 - `--workflow` 用结构里的实例键。
 - 报告格式见 [`specs/psn-check-report.v1.schema.json`](../specs/psn-check-report.v1.schema.json)。报告只用 node_key 和 PSN 编号指认节点，不带 Dify 应用 id、发布 workflow_id 或任何哈希。
-- 退出码：0 通过，1 有 FAIL，2 输入读不了或结构本身不合法。`--strict` 把 WARN 当 FAIL。
+- 三种结果（0.5.47）：报告 `result` 是 `PASS`（过）、`FAIL`（不过）或 `UNVERIFIED`（核不了：没有 FAIL，但节点类型闸有节点做的是什么图上看不出）。
+  退出码：`PASS`、`UNVERIFIED` 是 0（核不了照实报、不拦），`FAIL` 是 1，输入读不了或结构本身不合法是 2。`--strict` 把 WARN 当 FAIL（存量项除外）；核不了不升。
+- `--live <现网图>`（0.5.47）：节点类型的存量项要在现网图上也有，见「节点类型」。
+- `--stock <存量清单>`（0.5.47）：节点类型存量清单，照原样读协调的正本 `psn/节点类型存量.json`（服务方案仓 `00_governance/contracts/psn/`，DMN 2.0.111 §一）：`现网图.graphs` 按应用号作键，按条目里的 `实例键` 找这张图；那一条的 `code_stock` 与 `没声明类型的节点` 是这两类的存量，结构登记自己写的这两类不读；声明与实际不符（`NODE_TYPE_MISMATCH`）不在清单首版里，照结构登记的 `type_stock` 读。清单里没有这张图就没有存量（结构登记自己写的也不读，报告 `stock_source: "off_list"`），闸读出的都红。清单形状不对、两张图同一个实例键是输入错（退出码 2）。
+- `--tools <配置>`（0.5.47）：调用方的工具配置 `{"read_workflow_tools": [工具名或 provider_id]}`，说哪些工作流工具是能力表的通用取数、定位查询（声明「读」的工作流工具照它判）；应用号只在调用方的配置里，不进公开代码。
 
 | 码 | 级别 | 触发条件 |
 | --- | --- | --- |
@@ -246,11 +250,23 @@ python -m dmn_client.psn check --structure ../examples/psn/structure.synthetic.j
 | PHASE_IO_SHAPE | WARN | 输出的形状、上限与节点不符 |
 | FAILURE_SIGNAL_LEAK | WARN | `error`、`error_message` 跨进了不在 `fail_exits` 里的 Step |
 | RAW_FETCH_LEAK | WARN | 原始取数明细被别的 Phase 读，或被声明成输出 |
+| NODE_TYPE_MISSING | FAIL（存量 WARN） | 节点没有声明类型：结构登记没写 `type`（八类之一，DMN 2.0.108）；在声明了类型的条目上查（有 `node_types`、有节点带 `type`，或存量清单里有这张图），见「节点类型」 |
+| NODE_TYPE_TITLE_MISMATCH | FAIL（存量 WARN） | 标题里的类名（`<编号> · <类名> · <名称>`）不是登记的 `type`；代码节点的标题写了类名也算 |
+| NODE_TYPE_MISMATCH | FAIL（存量 WARN） | 声明的类型不是节点实际做的；`reason` 写标准的分项（DECIDE_OUTSIDE_PLUGIN、READ_OUTSIDE_CAPABILITY、CONTROL_BUSINESS_TEST；ACT_OUTSIDE_DISPOSAL、UNDERSTAND_OFF_CATALOG 两项先一律报核不了），整个是另一类的节点不写分项、`actual` 写认出的那一类 |
+| NODE_CODE_NOT_ALLOWED | FAIL（存量 WARN） | 入口转换以外的代码节点（入口转换：登记与标题都叫「转换」，一张图一个） |
+| NODE_TYPE_UNVERIFIED | 核不了（UNVERIFIED） | 声明的类型图上核不了（调的工作流是哪一个、处置能力表那一行、出参是否都出自目录），照实报，不拦，`--strict` 也不拦；报告 `result` 因此是 `UNVERIFIED` |
+| NODE_TYPE_STOCK_STALE | WARN | 存量里的一项这张图上已经没有了：从存量删掉（只减不增）；`--stock` 清单的项只是提示（`--strict` 也不升），清单由协调收小 |
+| NODE_TYPE_STOCK_GREW | FAIL | 带 `--live` 时，条目自己写的存量里的一项现网图上没有，或条目的 `code_stock.max` 比现网图入口转换以外的代码节点多：是新增的，不是存量（`--stock` 清单的项由正本的 `check_psn_numbering.py` 锚现网图，这里不判） |
+
+决策节点的 `node_ref` 三码（`NODE_REF_MISSING`、`NODE_REF_MISMATCH`、`NODE_REF_UNRESOLVABLE`）只查带 `node_ref` 与定义包的
+两个工具 `evaluate_decision`、`execute_query`；存表读法的工具（`evaluate_stored_table`、`evaluate_stored_table_batch`、
+`route_table_store` 等）不收 `node_ref`，表名写在参数里（0.5.47 起；之前对它们一律报 `NODE_REF_MISSING`，存表读法的图因此
+stamp 不了）。
 
 **`DMN_STATUS_UNCHECKED` 是启发式检查。** 插件判不出来时不让节点报错，而是正常返回 `execution_status`（BLOCKED / FAILED）和空结果，所以要看下游有没有核对。这条只看下游代码节点的变量选择和代码文本：通过不等于状态一定被正确处理；不通过也不等于静默，更远处的消费者可能读的是转手后的结果。
 
 Dify 节点类型与 kind 的对应：
-- 决策插件的工具节点是 DECISION，工作流工具是 CALL，其他工具是 TOOL；
+- 决策插件里求值的工具（`evaluate_stored_table`、`evaluate_stored_table_batch`、`evaluate_decision`、`evaluate_dmn`、`evaluate_json_table`）是 DECISION，`invoke_solution` 与工作流工具是 CALL，其他工具是 TOOL——决策插件的别的工具（`route_table_store`、`scene_bundle` 等）也是 TOOL（kind 是 Dify 技术种类；协调 11-26 03:59：插件自家工具不一律认 DECISION，整表读能力表的 `route_table_store` 节点登 TOOL 是对的）；
 - code / assigner / template-transform 是 TRANSFORM；
 - http-request / knowledge-retrieval 是 QUERY；
 - llm / agentic / agent / question-classifier / parameter-extractor 是 MODEL；
@@ -336,6 +352,56 @@ Dify 节点类型与 kind 的对应：
 
 其他工具可执行输出体积实测（`输出上界检查.js`）和 F13（代码节点输出深度），这两项没有搬过来。
 
+## 节点类型（DMN 2.0.108 / 2.0.109 §一「流程节点类型」，0.5.47 起）
+
+每个 Dify 节点是八类之一，写两处且一致：结构登记节点条目的 `type`（代号，`kind` 照留，两格并存）与节点标题的类名。出图闸一处实现在这里（`dmn_client/psn/types.py`），各图的出图脚本与 81 都调 `psn check`。
+
+| `type` | 类名 | 图上怎么核（`psn check`） |
+| --- | --- | --- |
+| `READ` | 读 | 插件 `route_table_store` 整表读能力表（`op` = `table`，表名是能力表的任一写法；DMN 2.0.109 :568 留的整表读，协调 11-26 03:59「整表读能力表是读」）与经场景目录读场景与话题表（`op` = `scene_catalog`；:568 一并留的那一读，协调 11-26 05:06「整表读场景目录算读」；这一读插件只读场景与话题表，别的表名插件自己拒）；整表读别的表、`route_table_store` 的别的 `op` 不是八类之一：声明成读报 `READ_OUTSIDE_CAPABILITY`，声明成别的类也藏不住；`op`、表名图上看不出（Dify 变量，或带 `{{#…#}}` 模板）的，声明成读记核不了（:267），声明成别的类照它至少是什么判（整表读仍是整表读）；迭代里地址出自本迭代项的 http（`{{#<迭代>.item.url#}}`，即照能力表那一行取数）；经 `evaluate_stored_table` 读原值 → 事实、事实 → 特征表（表名 `solution.info.fact.` / `solution.fact.feature.` 起头，2.0.109 方案段模板）；调用方配置里点名的取数工作流（`--tools`）。工作流工具没配置、知识检索记核不了；别的（写死地址或地址带变量的 http、别的表的求值等）`READ_OUTSIDE_CAPABILITY` |
+| `DECIDE` | 判 | 只认插件 `evaluate_stored_table`、`evaluate_stored_table_batch`；别的 `DECIDE_OUTSIDE_PLUGIN`。求值节点的表名图上看不出、或模板前面那段还可能是原值 → 事实 / 事实 → 特征表的，声明成判照过、声明成读记核不了；模板前面那段已说明是那两种表的照「读」认 |
+| `UNDERSTAND` | 理解 | 模型节点（llm、问题分类器、参数提取、agent）一律记核不了（目录引用还没有，`UNDERSTAND_OFF_CATALOG` 先不判）；不是模型节点是另一类 |
+| `ACT` | 动 | http、普通工具、工作流工具记核不了（处置能力表还没建，`ACT_OUTSIDE_DISPOSAL` 先不判）；认得出是别的类（求值、读表、开始结束、分支循环、模型、方案调用）的是另一类 |
+| `EVENT` | 事件 | 开始、结束、回答（与循环、迭代的开始结束）；普通工具、模板、地址带变量的 http 记核不了（发帧、写回执、发通知）；认得出的求值、读表、写死地址的 http（直连后端）、模型、分支循环、工作流工具是另一类 |
+| `WAIT` | 等人 | 结束、回答、普通工具、模板记核不了；认得出的别的类是另一类 |
+| `CALL` | 调用 | 工作流工具、插件 `invoke_solution` |
+| `CONTROL` | 控制 | 迭代、循环（含它们的开始结束）、合流、迭代里的赋值；分支闸只许比控制值，否则 `CONTROL_BUSINESS_TEST` |
+
+- 标题：编号节点 `<编号> · <类名> · <名称>`（SOLUTION 照 N2 带编号族、全长不超过 60 字，类名算在里头，截只截名称），不编号的 `<类名> · <名称>`，如 `事件 · 开始`。`stamp_title`、`title_problem` 收类名，`psn from-graph` 把标题里的类名读回成骨架里的 `type`。
+- 代码节点不进八类：登记不写 `type`、标题不写类名；一张图只留一个入口转换（登记的 `name` 与标题名称都是「转换」），别的代码节点 `NODE_CODE_NOT_ALLOWED`。
+- 认得出的节点藏不住：声明成事件、等人、动的求值、读表、写死地址的 http 照实判 `NODE_TYPE_MISMATCH`（不是核不了）；整个是另一类的不写分项，`actual` 写认出的那一类。
+- 控制值只认**来处节点自己的出参** `[节点, 键]` 或**本迭代项** `[迭代, item, 键]`，不认更深的路径（订单的业务状态、模型结构化出参里的 `state`、迭代行的 `status` 都不是控制值）：
+  - 判空、存在类比较（`empty`、`not empty`、`exists`、`null` 等）：带没带某个引用，照过；
+  - 等于类比较（`is`、`=`、`is not`、`≠`，登记了 `operators` 就只认那几个）：上游节点自己的 `status`、`state`，本迭代项的 `route`，或登记的控制值；
+  - 别的都算比业务值。
+
+**登记写法**（插件定，协调 11-26 F3 照一份评审过的在用登记写法）：条目上一格 `node_types`：
+
+```json
+"node_types": {
+  "labels": {"READ": "读", "DECIDE": "判", "UNDERSTAND": "理解", "ACT": "动", "EVENT": "事件", "WAIT": "等人", "CALL": "调用", "CONTROL": "控制"},
+  "control_values": {"operators": ["is", "="], "values": [{"key": "route", "from": "ROUND_ITEM"}, {"key": "ready", "from_node": "^sign_r[1-9][0-9]*$"}]},
+  "code_stock": {"max": 1, "nodes": [{"node_key": "plan", "move_to": "判 DECIDE（请求校验、挑能力表的行进表）"}]},
+  "type_stock": {"nodes": [{"node_key": "old_gate", "code": "NODE_TYPE_MISSING"}, {"node_key": "table_read", "code": "NODE_TYPE_MISMATCH", "reason": "DECIDE_OUTSIDE_PLUGIN", "move_to": "照存表求值读"}]}
+}
+```
+
+- `labels` 可省，写了要和标准逐字相同；`control_values.values` 每项是 `{key, from: "ROUND_ITEM"}`（本迭代项的那一格）或 `{key, from_node: <节点键的正则，整串匹配>}`（那个节点自己的那一格）；每格都可以带一句 `means`。
+- `code_stock`：入口转换以外的代码节点，各写 `move_to`（照「能进表的不写进图」该搬去哪），条数不超过 `max`；只许指代码一类（kind `TRANSFORM`、没有 `type`）的 ACTIVE 节点。
+- `type_stock`：没声明、标题不一致、声明与实际不符的存量，`code` 是 `NODE_TYPE_MISSING` / `NODE_TYPE_TITLE_MISMATCH` / `NODE_TYPE_MISMATCH`；写了 `reason` 的只放过那一个分项。
+- 存量清单（`--stock`）是协调的正本 `psn/节点类型存量.json`（STD-03，不在本仓；插件照原样读，出图的一方不改它），形状同合成样例 [`examples/psn/node-type-stock.synthetic.json`](../examples/psn/node-type-stock.synthetic.json)：`现网图.graphs.<应用号>` 各一条，写 `实例键`、`code_stock`（`max`、`nodes[{node_key, move_to}]`）、`没声明类型的节点`（`max`、`nodes[{node_key}]`；没声明，或两处声明不一致——标准：两处不一致按没声明算）。插件核每一条的形状：`max` 非负整数、`nodes` 是列表、每项有 `node_key` 且不重复、条数不超过 `max`。
+- 0.5.47-rc1 那一版写的 `node_types_stock`、条目上的 `control_values` 不再收（没发过）；结构里不写现网图的提交号、`graph_sha256`（`VERSION_FIELD_IN_STRUCTURE`），锚现网图用 `--live`。
+
+**存量只报不拦、新增的拦。**
+
+- 条目声明了类型（有 `node_types`、有节点带 `type`，或 `--stock` 清单里有这张图）才跑类型闸；三样都没有的是 2.0.108 以前的结构：类型闸不跑，报告写 `"node_types": "UNDECLARED"`，不出任何码（带不带 `--stock` 都一样，旧结构文件不变红）。
+- 存量里的一项（节点键 + 放过的那一类）报 WARN、带 `stock: true`，`--strict` 也不升 FAIL；存量外的照 FAIL。存量从哪来：没给 `--stock` 认条目自己的 `code_stock` / `type_stock`（`stock_source: "entry"`）；给了，清单里这张图那一条是代码节点与没声明两类的存量、条目的声明与实际不符项照读（`"list"`）；清单里没有这张图就没有存量（`"off_list"`）。清单「没声明类型的节点」里的一项放过这个节点的 `NODE_TYPE_MISSING` 与 `NODE_TYPE_TITLE_MISMATCH`，不放过 `NODE_TYPE_MISMATCH`。
+- 只减不增：`psn diff` 拒存量比上一版多出的项（`NODE_TYPE_STOCK_ADDED`）；一条条目第一次写存量只许一次——声明了类型的条目第一次带 `node_types`，或这份结构里第一次登记这条 workflow（`changes.typed` 记 `first_registration`）；之后不许去掉 `node_types`，第一次登记就不带的也拒（`NODE_TYPES_UNDECLARED`）。老图第一次登记和全新的图要分清（协调 11-26 F3）：`psn diff --stock <存量清单>` 给了清单，第一次写的存量照清单核——清单里有这张图（2.0.108 以前就在现网的老图）只许带清单里有的代码节点与没声明项（声明与实际不符项不在清单首版里，照收，靠 `--live` 锚），清单里没有这张图（全新的图）不许带存量，多出的各报 `NODE_TYPE_STOCK_ADDED`，`changes.typed` 记 `on_list`。不给清单分不出这两种，只记 `first_registration`。条目自己写的存量由 `psn check --live <现网图>` 锚现网图：现网图上没有的存量项、`code_stock.max` 比现网图入口转换以外的代码节点多，都拒（`NODE_TYPE_STOCK_GREW`）；清单的项不在这里锚——清单对现网图、对上一版只减不增由正本的 `check_psn_numbering.py` 核（「不另写一套判法」）。
+- 存量里已经改好的项报 `NODE_TYPE_STOCK_STALE`（WARN，提示收小）：条目自己的那几项 `--strict` 下升 FAIL（线自己收）；清单的项 `--strict` 也只是提示（清单跟着现网头收小、由协调改，线上的候选先改好不算红）。结构本身也核：项要指本条目 ACTIVE 的节点、一个节点一个码只写一次，`NODE_TYPE_MISSING` 只许指还没有 `type` 的节点。清单不照结构核（它锚现网头，候选里搬走的节点照提示收小）。
+- 报告逐类报数 `node_type_counts`：每类（八类、代码节点 `CODE`、没声明 `UNDECLARED`）多少个节点，其中过、核不了、存量、不过各几个（一个节点算它最坏的那一个结果）。
+- `psn stamp` 在声明了类型的条目上照登记的 `type` 写标题类名（已有的类名换掉，代码节点去掉类名，不编号的节点也写）；没声明的条目照旧不动。`psn assign` 的 `add` 收可选 `type`，`move` 带着走，新动作 `type` 改或去掉一个节点的类型；`psn diff` 记 `changes.type_changed`。
+- `DMN_STATUS_UNCHECKED` 照旧（声明了类型的条目里，分支闸读决策节点的 `status` 也算状态核对）；它怎么改等标准回写。
+
 ## 把编号写进图：`psn stamp` / `psn from-graph`（第 3 项）
 
 ```sh
@@ -386,7 +452,7 @@ stamp 前描述里的其他文字原样保留，只把旧的 psn 行换掉。比
 
 ```sh
 python -m dmn_client.psn assign --structure S --placement P.json --out S2
-python -m dmn_client.psn diff --old S --new S2 [--json]
+python -m dmn_client.psn diff --old S --new S2 [--stock 节点类型存量.json] [--json]
 ```
 
 `assign` 按文件顺序执行 placement 里的条目，同样的输入一定得到同样的输出：
@@ -429,7 +495,7 @@ python -m dmn_client.psn diff --old S --new S2 [--json]
 | 结构字段 | Dify 图里的位置 | 说明 |
 | --- | --- | --- |
 | `node_key` | `graph.nodes[].id` | 身份键，不随发布变化；纯数字 id 报 `UNSTABLE_NODE_KEY` |
-| `kind` | `data.type`；工具节点再看 `provider_name` / `provider_id`（决策插件 → DECISION）和 `provider_type`（workflow → CALL） | 对应表见 `psn check` 一节 |
+| `kind` | `data.type`；工具节点再看 `provider_name` / `provider_id` 与 `tool_name`（决策插件里求值的工具 → DECISION，`invoke_solution` → CALL，别的 → TOOL）和 `provider_type`（workflow → CALL） | 对应表见 `psn check` 一节 |
 | `ref`（实例键形式） | `data.title` 前缀：SOLUTION 是 `SOLUTION/<Phase>.S<n>.N<m> · `，全长 ≤ 60 字；其余族是 `<Phase>.S<n>.N<m> · `，不限长度。`data.desc` 最后一行 `psn:<实例 ref>`（实例键形式） | 由 `psn stamp` 写，`NOT_STAMPED` 检查 |
 | R6 编号族形式 | 决策节点 `data.tool_configurations.node_ref`（或 `tool_parameters` 里的常量），`{"workflow_id":"SOLUTION","phase_id":"P4","step_id":"P4.S2","node_id":"N3"}` | 与节点自带的 `definition_bundle_json` 同号；由生成节点的构建脚本连同定义包一起写，stamp 不写 |
 | — | `data.error_strategy`、`edges[].sourceHandle == "fail-branch"` | `SILENT_DMN_DEFAULT`、`FAIL_BRANCH_DANGLING` 检查，见下一节 |
