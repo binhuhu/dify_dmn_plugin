@@ -67,6 +67,8 @@ FORBIDDEN_KEYS = {
 # while its workflow lists it in gates_pending_number (stock that may only shrink).
 UNNUMBERED_KINDS = frozenset({"EVENT"})
 PENDING_FIELD = "gates_pending_number"
+# DMN 2.0.108 node types: the entry's node_types block (labels, control_values, code_stock, type_stock; types.py)
+NODE_TYPES_FIELD = "node_types"
 
 IO_FIELDS = {"io", "fail_exits", "raw_fetch_steps"}
 MAX_BYTES = 1_048_576
@@ -197,6 +199,64 @@ def _check_io(workflow, wp, fail) -> None:
             if (item["var"], source) in seen:
                 fail("IO_DUPLICATE", f"{pp}/inputs/{i}/var", "Declare each input once.")
             seen.add((item["var"], source))
+
+
+def _check_node_types(workflow, wp, fail) -> None:
+    """node_types (DMN 2.0.108, types.py): control_values patterns compile; each stock item names an ACTIVE node of this
+    workflow, once per code; a code_stock item a code-kind node without a type, at most max of them; a NODE_TYPE_MISSING
+    item only while that node still has no type. Whether the graph still shows them is psn check's
+    (NODE_TYPE_STOCK_STALE there too)."""
+    block = workflow.get(NODE_TYPES_FIELD)
+    if block is None:
+        return
+    bp = f"{wp}/{NODE_TYPES_FIELD}"
+    for i, value in enumerate((block.get("control_values") or {}).get("values") or ()):
+        if "from_node" not in value:
+            continue
+        try:
+            re.compile(value["from_node"])
+        except re.error:
+            fail(
+                "INVALID_STRUCTURE",
+                f"{bp}/control_values/values/{i}/from_node",
+                "Not a regular expression.",
+            )
+    active = {
+        node["node_key"]: node
+        for phase in workflow["phases"]
+        for step in phase["steps"]
+        for node in step["nodes"]
+        if node["status"] == "ACTIVE"
+    }
+    stale = (
+        "Stock only shrinks: list only ACTIVE nodes of this workflow that still have the problem;"
+        " drop an item once it is fixed or gone."
+    )
+    seen = set()
+    code_stock = block.get("code_stock")
+    if code_stock is not None:
+        if len(code_stock["nodes"]) > code_stock["max"]:
+            fail(
+                "INVALID_STRUCTURE", f"{bp}/code_stock/max", "code_stock lists more nodes than max."
+            )
+        for i, item in enumerate(code_stock["nodes"]):
+            ip = f"{bp}/code_stock/nodes/{i}"
+            pair = (item["node_key"], "NODE_CODE_NOT_ALLOWED")
+            if pair in seen:
+                fail("INVALID_STRUCTURE", ip, "List each node once.")
+            seen.add(pair)
+            node = active.get(item["node_key"])
+            if node is None or node["kind"] != "TRANSFORM" or "type" in node:
+                fail("NODE_TYPE_STOCK_STALE", ip + "/node_key", stale)
+    for i, item in enumerate((block.get("type_stock") or {}).get("nodes") or ()):
+        ip = f"{bp}/type_stock/nodes/{i}"
+        pair = (item["node_key"], item["code"])
+        if pair in seen:
+            fail("INVALID_STRUCTURE", ip, "List each node and code once.")
+        seen.add(pair)
+        node = active.get(item["node_key"])
+        if node is None or (item["code"] == "NODE_TYPE_MISSING" and "type" in node):
+            fail("NODE_TYPE_STOCK_STALE", ip + "/node_key", stale)
 
 
 def _old_phase_issues(value) -> list[StructureIssue]:
@@ -338,6 +398,7 @@ def validate_structure(value: object) -> list[StructureIssue]:
                     "Stock only shrinks: list only ACTIVE unnumbered GATE nodes of this workflow;"
                     " drop a gate once it is numbered or gone.",
                 )
+        _check_node_types(workflow, wp, fail)
         _check_io(workflow, wp, fail)
 
     for records in by_ref.values():

@@ -117,6 +117,19 @@ def load_document(path) -> tuple:
 
 
 DMN_CALL_TOOLS = frozenset({"invoke_solution"})
+# the dmn_json tools that evaluate a decision (tools/*.yaml): their nodes are of kind DECISION; the plugin's other tools
+# (route_table_store, scene_bundle, convert_dmn_xml, the query and plan tools) are TOOL like any tool, invoke_solution
+# is CALL. The kind is the Dify technical kind, the type is what the node does (types.py); coordination 11-26 03:59:
+# the plugin's own tools are not all one kind (a route_table_store read of the capability table is TOOL)
+DMN_DECISION_TOOLS = frozenset(
+    {
+        "evaluate_stored_table",
+        "evaluate_stored_table_batch",
+        "evaluate_decision",
+        "evaluate_dmn",
+        "evaluate_json_table",
+    }
+)
 
 
 def is_dmn_tool(data: dict) -> bool:
@@ -141,7 +154,7 @@ def dify_kind(data: dict):
     """PSN kind of a Dify node, or None when the node type is not known."""
     node_type = data.get("type")
     if node_type == "tool":
-        if is_dmn(data):
+        if is_dmn_tool(data) and data.get("tool_name") in DMN_DECISION_TOOLS:
             return "DECISION"
         if is_dmn_call(data) or data.get("provider_type") == "workflow":
             return "CALL"
@@ -216,12 +229,15 @@ def title_length(title: str) -> int:
     return len(title.encode("utf-16-le")) // 2
 
 
-def stamp_title(instance_ref: str, name: str) -> str:
-    """Stamp title."""
+def stamp_title(instance_ref: str, name: str, label: str | None = None) -> str:
+    """The title ``<number> · <name>``, or with a type label (DMN 2.0.108) ``<number> · <label> · <name>``. A SOLUTION
+    title is at most TITLE_MAX characters in all: the name is cut, never the number or the label (the room for the name
+    is what the number, the label and their separators leave)."""
     number = title_number(instance_ref)
-    head = f"{number}{STAMP_SEPARATOR}"
+    lead = f"{number}{STAMP_SEPARATOR}{label}" if label else number
+    head = f"{lead}{STAMP_SEPARATOR}"
     if not _n2(instance_ref):
-        return f"{head}{name}" if name else number
+        return f"{head}{name}" if name else lead
     room = TITLE_MAX - title_length(head)
     kept = []
     for char in name:
@@ -231,16 +247,22 @@ def stamp_title(instance_ref: str, name: str) -> str:
         kept.append(char)
     # Trailing spaces would be stripped on the next stamp; drop them now so stamping stays idempotent.
     cut = "".join(kept).rstrip()
-    return f"{head}{cut}" if cut else number
+    return f"{head}{cut}" if cut else lead
 
 
-def title_problem(title, instance_ref: str):
-    """Title problem."""
+def title_problem(title, instance_ref: str, label: str | None = None):
+    """What is wrong with a stamped title (None when nothing): it starts with the number (then `` · `` or nothing); with
+    label (DMN 2.0.108) the label follows the number (``<number> · <label>``, then `` · <name>`` or nothing); a SOLUTION
+    title is at most TITLE_MAX characters, the label included."""
     number = title_number(instance_ref)
     if not isinstance(title, str) or not (
         title == number or title.startswith(f"{number}{STAMP_SEPARATOR}")
     ):
         return f"Title does not start with the number {number}."
+    if label:
+        lead = f"{number}{STAMP_SEPARATOR}{label}"
+        if not (title == lead or title.startswith(f"{lead}{STAMP_SEPARATOR}")):
+            return f"Title does not carry the type label {label} after the number."
     if _n2(instance_ref) and title_length(title) > TITLE_MAX:
         return f"Title is {title_length(title)} characters long; at most {TITLE_MAX}."
     return None

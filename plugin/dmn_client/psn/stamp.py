@@ -8,6 +8,7 @@ from copy import deepcopy
 from .check import check_graph, structure_nodes
 from .graph import DESC_PREFIX, STAMP_SEPARATOR, UNNUMBERED_KINDS, dify_kind, stamp_title
 from .structure import OLD_PHASES, PENDING_FIELD, PHASES
+from .types import LABELS, TYPES, node_types_of, title_label
 
 _NUMBER = r"(?:[A-Z]+(?:\.[a-z0-9-]+)?/)?[A-Z][1-9][0-9]*\.S[1-9][0-9]*\.N[1-9][0-9]*"
 
@@ -54,6 +55,18 @@ def bare_title(title) -> str:
     return text.strip()
 
 
+def typed_title(snode, data, name: str) -> str:
+    """The name a typed entry's node carries: ``<label> · <name>`` from the registered type (DMN 2.0.108: two
+    declarations, alike); a label already in the title is replaced, a code node keeps none."""
+    first, sep, rest = name.partition(STAMP_SEPARATOR)
+    if sep and first in LABELS:
+        name = rest
+    if data.get("type") == "code" or snode.get("type") not in TYPES:
+        return name
+    label = TYPES[snode["type"]]
+    return f"{label}{STAMP_SEPARATOR}{name}" if name else label
+
+
 def stamped_desc(desc, line: str) -> str:
     """Keep every non-psn line of desc as is; the last line becomes the psn line."""
     kept = [x for x in (desc or "").split("\n") if not x.strip().startswith(DESC_PREFIX)]
@@ -68,7 +81,8 @@ def stamp_graph(structure, graph, key) -> tuple[dict, dict]:
     blocking = [i for i in report["issues"] if i["code"] in BLOCKING]
     if blocking:
         raise StampRefused(blocking)
-    _entry, placed = structure_nodes(structure, key)
+    entry, placed = structure_nodes(structure, key)
+    typed = node_types_of(entry)[1] is not None
     out = deepcopy(graph)
     changed = unchanged = 0
     for node in out["nodes"]:
@@ -76,8 +90,20 @@ def stamp_graph(structure, graph, key) -> tuple[dict, dict]:
         data = node["data"]
         before = (data.get("title"), data.get("desc"))
         if snode["ref"] is not None:
-            data["title"] = stamp_title(snode["ref"], bare_title(data.get("title")))
+            name = bare_title(data.get("title"))
+            if typed:
+                # DMN 2.0.108: <number> · <label> · <name>; a label already in the title is replaced, a code node has none
+                first, sep, rest = name.partition(STAMP_SEPARATOR)
+                if sep and first in LABELS:
+                    name = rest
+                label = TYPES.get(snode.get("type")) if data.get("type") != "code" else None
+                data["title"] = stamp_title(snode["ref"], name, label)
+            else:
+                data["title"] = stamp_title(snode["ref"], name)
             data["desc"] = stamped_desc(data.get("desc"), f"{DESC_PREFIX}{snode['ref']}")
+        elif typed:
+            # an unnumbered node (start, end, a gate on the stock list) carries its label too: 事件 · 开始
+            data["title"] = typed_title(snode, data, (data.get("title") or "").strip())
         if (data.get("title"), data.get("desc")) == before:
             unchanged += 1
         else:
@@ -92,7 +118,9 @@ def skeleton(structure, key) -> dict:
     for phase in entry["phases"]:
         for step in phase["steps"]:
             nodes = [
+                # DMN 2.0.108: a typed node's skeleton carries its type (from-graph reads it back off the title)
                 {"node_key": n["node_key"], "ref": n["ref"], "kind": n["kind"]}
+                | ({"type": n["type"]} if "type" in n else {})
                 for n in step["nodes"]
                 if n["status"] == "ACTIVE" and n["ref"] is not None
             ]
@@ -130,7 +158,11 @@ def from_graph(graph, key, family, pending=()) -> dict:
             problems.append(node["id"])
             continue
         step = line.split("/", 1)[1].rsplit(".", 1)[0]
-        steps.setdefault(step, []).append({"node_key": node["id"], "ref": line, "kind": kind})
+        item = {"node_key": node["id"], "ref": line, "kind": kind}
+        label = title_label(data.get("title"), line)
+        if label is not None:  # DMN 2.0.108: the type the title declares is read back too
+            item["type"] = LABELS[label]
+        steps.setdefault(step, []).append(item)
     for nodes in steps.values():
         nodes.sort(key=lambda n: n["node_key"])
     result = {

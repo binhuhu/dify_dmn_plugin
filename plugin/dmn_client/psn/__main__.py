@@ -1,6 +1,8 @@
 """Command line: python -m dmn_client.psn <command> ...
 
-Exit codes: 0 = passed, 1 = a FAIL was reported, 2 = unreadable or invalid input.
+Exit codes: 0 = passed, 1 = a FAIL was reported, 2 = unreadable or invalid input. psn check has three results (0.5.47):
+PASS and UNVERIFIED (核不了: no FAIL, but the node-type gate could not read what some node does) exit 0, FAIL exits 1;
+the report's result says which.
 Every command is offline and only reads its inputs, except where an --out file is named.
 """
 
@@ -15,6 +17,7 @@ from .check import StructureInputError, check_graph
 from .graph import GraphInputError, dump_document, load_document, load_graph
 from .registry import AssignRefused, assign, diff
 from .stamp import StampRefused, from_graph, pending_gates, skeleton, stamp_graph
+from .types import StockListError
 
 
 def _load_json(path):
@@ -33,14 +36,32 @@ def _print_issues(issues, stream):
 def cmd_check(args) -> int:
     structure = _load_json(args.structure)
     graph = load_graph(args.graph)
-    result = check_graph(structure, graph, args.workflow, strict=args.strict)
+    live = load_graph(args.live) if args.live else None
+    stock_list = _load_json(args.stock) if args.stock else None
+    tools = _load_json(args.tools) if args.tools else None
+    result = check_graph(
+        structure,
+        graph,
+        args.workflow,
+        strict=args.strict,
+        live=live,
+        stock_list=stock_list,
+        tools=tools,
+    )
     if args.json:
         print(json.dumps(result, ensure_ascii=False, indent=2))
     else:
-        verdict = "PASS" if result["ok"] else "FAIL"
-        print(f"{verdict}  workflow {result['workflow']}  nodes {result['graph_nodes']}")
+        print(
+            f"{result['result']}  workflow {result['workflow']}  nodes {result['graph_nodes']}"
+            f"  node types {result['node_types']}"
+        )
         for code, n in result["counts"].items():
             print(f"  {code}: {n}")
+        for type_, row in (result.get("node_type_counts") or {}).items():
+            print(
+                f"  type {type_}: {row['nodes']} nodes, pass {row['pass']}, unverified {row['unverified']},"
+                f" stock {row['stock']}, fail {row['fail']}"
+            )
         _print_issues(result["issues"], sys.stdout)
     return 0 if result["ok"] else 1
 
@@ -91,7 +112,8 @@ def cmd_assign(args) -> int:
 
 
 def cmd_diff(args) -> int:
-    result = diff(_load_json(args.old), _load_json(args.new))
+    stock_list = _load_json(args.stock) if args.stock else None
+    result = diff(_load_json(args.old), _load_json(args.new), stock_list=stock_list)
     if args.json:
         print(json.dumps(result, ensure_ascii=False, indent=2))
     else:
@@ -123,6 +145,11 @@ def build_parser():
     df = sub.add_parser("diff", help="compare two structures; refuse renumbering and reuse")
     df.add_argument("--old", required=True)
     df.add_argument("--new", required=True)
+    df.add_argument(
+        "--stock",
+        help="the node-type stock list (the coordinator's file as it is: 现网图.graphs.<app id> with 实例键): a workflow"
+        " that takes its first stock may take only what the list has for it, a workflow not on the list none",
+    )
     df.add_argument("--json", action="store_true")
     df.set_defaults(run=cmd_diff)
     check = sub.add_parser("check", help="check a Dify graph against a psn-structure/v1 file")
@@ -130,6 +157,21 @@ def build_parser():
     check.add_argument("--graph", required=True, help="published readback JSON or DSL YAML")
     check.add_argument("--workflow", required=True, help="workflow instance key, e.g. TARGET")
     check.add_argument("--strict", action="store_true", help="treat WARN as FAIL")
+    check.add_argument(
+        "--live",
+        help="the live graph (readback JSON or DSL YAML): a node-type stock item it does not show is refused",
+    )
+    check.add_argument(
+        "--stock",
+        help="the node-type stock list (the coordinator's file as it is: 现网图.graphs.<app id> with 实例键, code_stock,"
+        " 没声明类型的节点): the record whose 实例键 is the workflow is the stock of code and undeclared nodes; a workflow"
+        " not on it has none",
+    )
+    check.add_argument(
+        "--tools",
+        help="the caller's tools config (JSON, read_workflow_tools: the workflow tools that are the capability fetch"
+        " or the locate query); kept out of public code",
+    )
     check.add_argument("--json", action="store_true", help="print the psn-check-report/v1 JSON")
     check.set_defaults(run=cmd_check)
     return parser
@@ -144,7 +186,7 @@ def main(argv=None) -> int:
         for issue in getattr(exc, "issues", []):
             print(f"  {issue.code} {issue.path} {issue.message}", file=sys.stderr)
         return 2
-    except GraphInputError as exc:
+    except (GraphInputError, StockListError) as exc:
         print(f"input error: {exc}", file=sys.stderr)
         return 2
 
