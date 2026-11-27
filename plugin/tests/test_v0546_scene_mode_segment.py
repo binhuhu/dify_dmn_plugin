@@ -46,3 +46,40 @@ def test_eq_ne_in_never_match_a_new_mode_value_to_an_m_scene(actual):
         assert _state("ne", v, actual) == "TRUE"
         assert _state("in", [v], actual) == "FALSE"
     assert _state("eq", "M_P_05_01_01", actual) == "TRUE"
+
+
+# ── 0.5.47 守门（DMN 2.0.101，协调 11-25；0.5.46-rc1 已发、没带）：新模式段后面又跟了角色段的串，存哪张表都先拒；合法的 HY_01_02 照收 ──
+
+
+def _save(note):
+    import json
+
+    from test_route_table import FakeStorage
+    from toy_route_fixtures import v3
+
+    from dmn_client.route_store import run_op
+
+    return run_op(
+        FakeStorage(), "save", None, None, json.dumps(dict(v3(note=note), expected_version=0))
+    )
+
+
+@pytest.mark.parametrize("bad", ["HY_P_05_01_01", "见 JR_D_02 行", "LL_H_01_01_01"])
+def test_a_new_mode_segment_followed_by_a_role_segment_is_refused(bad):
+    status, out = _save("Synthetic " + bad)
+    assert status == 400 and out["error"]["code"] == S.MODE_ROLE_SPELLING, out
+    assert out["error"]["path"] == "note" and "要等场景号文法修好" in out["error"]["message"]
+
+
+@pytest.mark.parametrize("good", ["HY_01_02", "见 LL_05_01 行", "M_P_05_01_01", "XHY_P_05_01"])
+def test_a_valid_new_mode_id_and_others_are_taken(good):
+    status, out = _save("Synthetic " + good)
+    assert status == 200, out
+
+
+def test_keys_are_looked_at_too():
+    assert S.mode_role_spelling({"scenes": {"NY_P_01_01": {}}}) == (
+        "scenes.NY_P_01_01",
+        "NY_P_01_01",
+    )
+    assert S.mode_role_spelling({"rows": [{"x": "HY_01_02"}]}) is None

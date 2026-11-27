@@ -852,11 +852,17 @@ def test_op_v2_vocabulary_is_the_new_writing_s_declaration():
 def test_op_vocabulary_and_capability_vocabulary_answer_as_before(live_owners):
     # 0.5.44-rc3: op=vocabulary names the configured owners of target. / triage.; with the live ones (outside git) it is
     # 0.5.38's document byte for byte
-    from test_capability_modes_and_service import VOCABULARY_0538
+    from test_capability_modes_and_service import (
+        VOCABULARY_0538,
+        VOCABULARY_0547,
+        vocabulary_before_0547,
+    )
 
     from dmn_client.vocabulary import capability_declared, declared
 
-    assert declared()["content_sha256"] == VOCABULARY_0538
+    # 0.5.47 adds only shapes.solution_optional_keys_v3 (DMN-09): without it the document is 0.5.38's
+    assert declared()["content_sha256"] == VOCABULARY_0547
+    assert vocabulary_before_0547(declared()) == VOCABULARY_0538
     # op=capability_vocabulary: the digest 0.5.40 (4de42e2) answered, until 0.5.44 listed the keys an item may carry
     # besides its own (协调定 370 ①: call_ref on infos, and alternate_of that was never listed). Without those three
     # entries it is 0.5.40's document still; with them, 0.5.44's.

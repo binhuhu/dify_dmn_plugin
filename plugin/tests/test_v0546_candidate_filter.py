@@ -20,7 +20,11 @@ CHAIN_IO = Path(
     os.environ.get("CHAIN_IO_DIR")
     or ROOT / "80_服务方案Monorepo/00_governance/contracts/chain-io/schema"
 )
-WITH_CONTRACT = pytest.mark.skipif(not CHAIN_IO.is_dir(), reason="主链路合同不在这份拷贝旁边")
+# 发版闸（0.5.47，DMN-06）：scripts/check.sh 设 CHAIN_IO_DIR 并设 DMN_REQUIRE_CONTRACT_ORIGINALS=1，这时合同目录不在就红、不跳
+REQUIRE_ORIGINALS = os.environ.get("DMN_REQUIRE_CONTRACT_ORIGINALS") == "1"
+WITH_CONTRACT = pytest.mark.skipif(
+    not CHAIN_IO.is_dir() and not REQUIRE_ORIGINALS, reason="主链路合同不在这份拷贝旁边"
+)
 
 CAP = {
     "capabilities": [
@@ -72,6 +76,9 @@ def refused(fn, *a):
 
 @WITH_CONTRACT
 def test_chain_limits_is_the_contracts_generated_file_byte_for_byte():
+    assert (CHAIN_IO / "generated" / "chain_limits.py").is_file(), (
+        "发版闸要合同原件：CHAIN_IO_DIR 下没有 generated/chain_limits.py（%s）" % CHAIN_IO
+    )
     mine = Path(chain_limits.__file__).read_bytes()
     assert mine == (CHAIN_IO / "generated" / "chain_limits.py").read_bytes()
 

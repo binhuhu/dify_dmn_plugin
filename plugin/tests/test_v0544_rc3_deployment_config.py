@@ -32,6 +32,7 @@ TOOLS = (
     "invoke_solution",
     "route_table_store",
     "evaluate_stored_table",
+    "evaluate_stored_table_batch",  # DMN 2.0.107 一次求值多个输入
     "scene_bundle",
     "convert_dmn_xml",
 )

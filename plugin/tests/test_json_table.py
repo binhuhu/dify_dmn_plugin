@@ -187,11 +187,11 @@ from dify_plugin.core.plugin_registration import PluginRegistration
 from provider.dmn import JsonTableProvider
 from dify_plugin.errors.tool import ToolProviderCredentialValidationError
 r=PluginRegistration(DifyPluginEnv())
-assert r.configuration.version == "0.5.46-rc2"
+assert r.configuration.version == "0.5.47-rc1"
 c=r.tools_configuration[0]
 assert c.identity.name == "dmn_json"
 assert [(x.name, x.required) for x in c.credentials_schema] == [("maintenance_app_id", True), ("target_app_id", True), ("triage_app_id", True)]  # 0.5.44-rc3: the deployment's three app ids
-assert [t.identity.name for t in c.tools]==["evaluate_json_table", "query_local", "execute_json_plan", "execute_query", "evaluate_decision", "invoke_solution", "route_table_store", "evaluate_stored_table", "scene_bundle", "convert_dmn_xml"]
+assert [t.identity.name for t in c.tools]==["evaluate_json_table", "query_local", "execute_json_plan", "execute_query", "evaluate_decision", "invoke_solution", "route_table_store", "evaluate_stored_table", "evaluate_stored_table_batch", "scene_bundle", "convert_dmn_xml"]
 try:
     JsonTableProvider().validate_credentials({})
     raise SystemExit("unset app ids must be refused")

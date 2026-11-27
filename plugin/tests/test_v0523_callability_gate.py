@@ -71,6 +71,8 @@ def test_the_synthetic_save_is_refused():
         and REPLACEMENT_APP[:8] in err.message
         and "CANDIDATE" in err.message
     )
+    # DMN 2.0.109 §五 ROUTE「没方案就没那一行」(:500): 挂起是删行并写 retire_solutions，不再教改成转接或资源去向
+    assert "retire_solutions" in err.message and "改成转接或资源去向" not in err.message
 
 
 def test_a_complete_replacement_in_one_save_passes():
@@ -106,7 +108,9 @@ def test_removing_a_callable_row_without_a_fallback_is_refused():
     d = v3(note="Synthetic removal")
     del d["routes"][row_index(d)]
     d["solutions"][ALPHA]["status"] = "CANDIDATE"
-    refused(st, d, 1, "ROUTE_TABLE_SOLUTION_LOST")
+    err = refused(st, d, 1, "ROUTE_TABLE_SOLUTION_LOST")
+    # DMN 2.0.109 :500 — 降方案＝删行加 retire_solutions；拒存那句点出 retire_solutions，不再教改成转接或资源去向
+    assert "retire_solutions" in err.message and "改成转接或资源去向" not in err.message
 
 
 def test_parking_with_a_transfer_fallback_and_the_app_stepped_down_passes():

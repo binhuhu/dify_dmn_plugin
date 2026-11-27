@@ -22,8 +22,10 @@ from dmn_client.stored_tables import content_sha256, validate
 from dmn_client.vocabulary import v2_declared
 
 CODE = "STORED_TABLE_REQUEST_ID_UNKNOWN"
-# 合同原件（服务方案仓 chain-io/schema/场景方案调用.v5.request_keys.json）：设 DMN_REQUEST_IDS_SOURCE 指过去就逐字节比
+# 合同原件（服务方案仓 chain-io/schema/场景方案调用.v5.request_keys.json）：设 DMN_REQUEST_IDS_SOURCE 指过去就逐字节比。
+# 发版闸（0.5.47，DMN-06）：scripts/check.sh 设上原件路径并设 DMN_REQUIRE_CONTRACT_ORIGINALS=1，这时没指或指的文件不在就红、不跳
 SOURCE = os.environ.get("DMN_REQUEST_IDS_SOURCE", "")
+REQUIRE_ORIGINALS = os.environ.get("DMN_REQUIRE_CONTRACT_ORIGINALS") == "1"
 
 
 # ── 清单 ─────────────────────────────────────────────────────────────────────
@@ -50,8 +52,13 @@ def test_the_embedded_list_is_the_one_pinned():
     assert {"合同", "对象详情"} <= left_out
 
 
-@pytest.mark.skipif(not SOURCE, reason="没指合同原件（DMN_REQUEST_IDS_SOURCE）")
+@pytest.mark.skipif(
+    not SOURCE and not REQUIRE_ORIGINALS, reason="没指合同原件（DMN_REQUEST_IDS_SOURCE）"
+)
 def test_the_embedded_list_is_a_byte_for_byte_copy_of_the_contract_s():
+    assert SOURCE and Path(SOURCE).is_file(), (
+        "发版闸要合同原件：DMN_REQUEST_IDS_SOURCE 没指或文件不在"
+    )
     assert Path(SOURCE).read_bytes() == request_ids.LIST_FILE.read_bytes()
 
 

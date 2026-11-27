@@ -39,3 +39,45 @@ def live_owners():
     token = real_fixtures.configure_live_owners()
     yield
     deployment.reset(token)
+
+
+# 插件拒码登记（docs/refusal-codes.v1.json，协调 11-25）：全量用例跑时抛出的每个拒码都要在登记里。只算插件源码里写着的码（用例自己的桩
+# 抛的码不算）；登记文件不在（如变异脚本拷出的副本里没有 docs/）就不核。静态的那一半见 tests/test_refusal_codes_register.py。
+_RAISED_CODES = set()
+
+
+def pytest_configure(config):
+    from dmn_client import route_table
+
+    init = route_table.RouteTableError.__init__
+
+    def recording(self, code, *args, **kwargs):
+        if isinstance(code, str):
+            _RAISED_CODES.add(code)
+        return init(self, code, *args, **kwargs)
+
+    route_table.RouteTableError.__init__ = recording
+
+
+def pytest_sessionfinish(session, exitstatus):
+    import importlib.util
+    import os
+
+    script = os.path.join(os.path.dirname(__file__), "..", "..", "scripts", "refusal_codes.py")
+    if not os.path.exists(script):
+        return
+    spec = importlib.util.spec_from_file_location("refusal_codes", script)
+    rc = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(rc)
+    if not os.path.exists(rc.REGISTER):
+        return
+    text = rc.source_text()
+    missing = sorted(
+        c for c in _RAISED_CODES if '"%s"' % c in text and c not in set(rc.listed_codes())
+    )
+    if missing:
+        print(
+            "\n用例里抛出了插件拒码登记里没有的码（重出登记：scripts/refusal_codes.py gen）："
+            + "、".join(missing)
+        )
+        session.exitstatus = 1

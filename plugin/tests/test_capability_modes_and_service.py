@@ -54,6 +54,20 @@ pytestmark = pytest.mark.usefixtures("v1_heads_before_0541")
 LEGACY_DIGEST = "4ecc9faf32d48c7087d2c9f97d42445d4f8c4f22f3a2038ae9938492fd3cf379"
 # 0.5.38's op=vocabulary document digest (computed from the db44cf4 tree, 0.5.38's release tree)
 VOCABULARY_0538 = "2547c1908824edf33bf559816ccf7b39f8be47f596416e6109ba17170ee6177f"
+# 0.5.47 (DMN-09, WO-20261126「vocabulary 同步」): shapes.solution_optional_keys_v3 names accepts_optional_blocks; without
+# that one entry the document is 0.5.38's byte for byte
+VOCABULARY_0547 = "f8c8c2b01773003985c3cfcccee7080dbe7c8b7313d0d4f06187b260ab8b4eea"
+
+
+def vocabulary_before_0547(doc):
+    """The op=vocabulary document's digest without 0.5.47's one addition."""
+    from dmn_client.route_table import digest
+
+    body = {k: v for k, v in doc.items() if k != "content_sha256"}
+    shapes = {k: v for k, v in body["shapes"].items() if k != "solution_optional_keys_v3"}
+    assert len(shapes) == len(body["shapes"]) - 1
+    return digest(dict(body, shapes=shapes))
+
 
 LIST_ORDERS = "toy.orders.list"
 ORDER_DETAIL = "toy.orders.detail"
@@ -185,7 +199,8 @@ def test_op_vocabulary_answers_0538s_document(live_owners):
     # 0.5.44-rc3: the document names the owners of target. / triage., now read from the plugin configuration; with the
     # live ones configured (outside git, tests/real_fixtures.py) it is 0.5.38's document byte for byte
     v = declared()
-    assert v["content_sha256"] == VOCABULARY_0538 and v["tables"]["capability"] == OLD_NAME
+    assert v["content_sha256"] == VOCABULARY_0547 and v["tables"]["capability"] == OLD_NAME
+    assert vocabulary_before_0547(v) == VOCABULARY_0538
     assert run_entry(FakeStorage(), "vocabulary", "", None, None) == (200, v)
 
 
