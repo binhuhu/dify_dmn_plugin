@@ -22,7 +22,40 @@ SI = "dmn_client/scene_id.py"
 T = ["tests/test_v0546_scene_mode_segment.py"]
 
 # (number, what it breaks, file, old, new, tests)
+RT = "dmn_client/route_table.py"
 MUTANTS = [
+    (
+        4,
+        "守门不跑",
+        RT,
+        "        bad = _sid.mode_role_spelling(clean)\n",
+        "        bad = None\n",
+        T,
+    ),
+    (
+        5,
+        "守门把合法新模式号也拒（全拒）",
+        SI,
+        'MODE_ROLE_PATTERN = "(?<![A-Za-z0-9])(HY|JR|NY|LL)_[PDH]_[0-9]{2}"',
+        'MODE_ROLE_PATTERN = "(?<![A-Za-z0-9])(HY|JR|NY|LL)_"',
+        T,
+    ),
+    (
+        6,
+        "键不看",
+        SI,
+        "            hit = mode_role_spelling(k, at) if isinstance(k, str) else None\n",
+        "            hit = None\n",
+        T,
+    ),
+    (
+        7,
+        "前面是字母也算（XHY_P_ 误拒）",
+        SI,
+        'MODE_ROLE_PATTERN = "(?<![A-Za-z0-9])(HY|JR|NY|LL)_[PDH]_[0-9]{2}"',
+        'MODE_ROLE_PATTERN = "(HY|JR|NY|LL)_[PDH]_[0-9]{2}"',
+        T,
+    ),
     (
         1,
         "新模式号也补 M_",

@@ -33,7 +33,7 @@ def stage(destination):
     project.write_text(
         project.read_text()
         .replace('name = "dify-dmn-plugin"', 'name = "dify-dmn-json-plugin"')
-        .replace('version = "0.1.0"', 'version = "0.5.46rc2"')  # PEP 440 of the manifest's 0.5.46-rc2
+        .replace('version = "0.1.0"', 'version = "0.5.47rc1"')  # PEP 440 of the manifest's 0.5.47-rc1
         .replace(
             "A strict Dify tool client for a separately deployed DMN/FEEL engine",
             "Local typed node decisions and trusted queries; legacy SYNTHETIC demos",
