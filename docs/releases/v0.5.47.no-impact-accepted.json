@@ -1,0 +1,20 @@
+{
+ "schema": "dmn-json.no-impact-accepted/v1",
+ "release": "0.5.47-rc1",
+ "old_tree": "03fc395",
+ "note": "0.5.47-rc1 对现网 0.5.46-rc2（提交 03fc395，树 01bd4cfd，= GitHub release/v0.5.46-rc2 头 1bf9407 的树；11-27 起现网装的那一版）的全链路无影响闸已认差异清单（11-26 照 0.5.46-rc1 树 bf7ff2f 认的这一条，rc2 只加 F4、闸 8295 条与 rc1 逐字节同，所以照搬），随版本提交；scripts/no-impact-verdict.py 照它出结论：每一处差异都在这里、这里每一条都出现了才绿，清单外任何差异与过时的条目都红（协调 11-26 05:06「无影响闸配一份随版提交的已认差异清单，清单外任何差异判红」）。没上清单的：路由表降方案两句拒存话（第 7 件）闸的用例集里没有触发它们的用例，这一趟没有差异，上了就是过时条目；op=v2_vocabulary 两格（第 9 件）没有裁定认它，闸的用例集里也没有这一读。",
+ "accepted": [
+  {
+   "kind": "case",
+   "id": "B:op:vocabulary",
+   "old_sha256": "19b93e4b279c415a1763a8a6f6c5bc7836f1f06e0b4902ecf38f86cc225b0abb",
+   "new_sha256": "c6cd48c1d8f1ce4eacd5ff528e50ea7c15558cb907392c8a9e6e7f740862e27c",
+   "what": "op=vocabulary 的回答多 shapes.solution_optional_keys_v3 一格（块名 进线关系 / 对象详情 / 补充，至多 3 项），整份内容摘要随之变；词表文档摘要 2547c190… → f8c8c2b0…，去掉这一格与 0.5.38 逐字节同。两个摘要是闸记的这一条用例全部出参与存储改动的 sha256",
+   "source": [
+    {"type": "bus", "ref": "20261126-0359_note_claude_主会话对第一波交回七问的裁定（存表插件一条：vocabulary 加一格致摘要变，认，属 DMN-09，进无影响闸白名单与发版说明）"},
+    {"type": "commit", "ref": "1e2f088（路由表 v3 方案登记收 accepts_optional_blocks；op=vocabulary 同步）"},
+    {"type": "standard", "ref": "四站合同（主链路四站调用_v1.md）十条第 6 条 :100：方案登记收 accepts_optional_blocks"}
+   ]
+  }
+ ]
+}
