@@ -58,9 +58,11 @@
 
 **0.5.29**：对成功保存、草稿、发布、撤销和草稿删除尝试记录旁路归属，失败不改变业务写入结果；宿主 user_id 与 via 均不独立认证，只有 writer_verified 表示 HMAC 已核验。历史身份字段仅向钉定维护应用返回；撤销/删除记录为独立操作，不改原版本作者。详见 [0.5.29 发布说明](docs/releases/v0.5.29.md)。
 
-**0.5.46-rc1**（候选，未发布；含 0.5.45）：场景与话题表行上可选外部键 `external_keys`（问题树号、智能 qid，只放号，DMN 2.0.91）；存场景关联实体表时核候选筛选格（2.0.93）与「要什么对象」两格 `topic_objects` / `issue_type_objects`（2.0.95）；资源去向表终形（2.0.94）；路由表终形闸：资源、转接去向与 `resource_table` 只留只删不新加，降方案＝删行、请求带 `retire_solutions` 逐行列出（2.0.97）；品类表结论键 `mode` + `product_type`（2.0.90）；能力表原值类型加时刻 `datetime`（2.0.96）。不用新功能时现网读写逐字节同 0.5.44-rc4。见 [0.5.46 发布说明](docs/releases/v0.5.46.md)。
+**0.5.47-rc1**（GitHub 预发布，11-27，未装；含 0.5.46-rc2 的方案行不写号）：存哪张表都先拒业务模式段后又跟角色段的场景号 `SCENE_ID_MODE_ROLE_SPELLING`（DMN 2.0.101）；安全转接场景不许有方案行，路由表与场景与话题表两头核 `SAFETY_SCENE_SOLUTION_ROUTED`（2.0.102）；插件拒码登记 `docs/refusal-codes.v1.json`（2.0.103，0.5.47 起含出图闸）；新工具 `evaluate_stored_table_batch`（2.0.107）；离线 psn 出图闸：节点类型 `type` 与登记 `node_types`、标题「号 · 类名 · 名称」、出图闸各码、第三种结果「核不了」、存量清单入参照原样读协调的节点类型存量清单（清单内只报、清单外判红，2.0.108 / 2.0.109 §一、2.0.111）、自家工具的 kind 与类型按做的事认；v2 决策表算式与上下文（2.0.108 §二，时刻原值读法照 2.0.110）；路由表降方案两句拒存话改说 `retire_solutions`（2.0.109 §五）；方案登记收 `accepts_optional_blocks`（四站合同十条第 6 条）；`scripts/check.sh` 设上两份合同原件路径、找不到判红（§十一）。见 [0.5.47 发布说明](docs/releases/v0.5.47.md)。
 
-**0.5.46-rc2**（候选，未发布）：在 0.5.46-rc1 上只改一处——资源去向表终形里只由方案题（`route_target = SOLUTION_APP`）走到的方案行，`tier3.pick = AGENT_APP` 可以不写 `agent_app_id`（应用号取命中的路由行，DMN 2.0 §五 RESOURCE）；别的 `AGENT_APP` 行、旧形（带 `resource_id`）的表照旧要写。见 [0.5.46 发布说明](docs/releases/v0.5.46.md) 第六节。
+**0.5.46-rc2**（GitHub 预发布，11-27 已装）：在 0.5.46-rc1 上只改一处——资源去向表终形里只由方案题（`route_target = SOLUTION_APP`）走到的方案行，`tier3.pick = AGENT_APP` 可以不写 `agent_app_id`（应用号取命中的路由行，DMN 2.0 §五 RESOURCE）；别的 `AGENT_APP` 行、旧形（带 `resource_id`）的表照旧要写。见 [0.5.46 发布说明](docs/releases/v0.5.46.md) 第六节。
+
+**0.5.46-rc1**（GitHub 预发布，11-25 装、11-27 由 rc2 接替；含 0.5.45）：场景与话题表行上可选外部键 `external_keys`（问题树号、智能 qid，只放号，DMN 2.0.91）；存场景关联实体表时核候选筛选格（2.0.93）与「要什么对象」两格 `topic_objects` / `issue_type_objects`（2.0.95）；资源去向表终形（2.0.94）；路由表终形闸：资源、转接去向与 `resource_table` 只留只删不新加，降方案＝删行、请求带 `retire_solutions` 逐行列出（2.0.97）；品类表结论键 `mode` + `product_type`（2.0.90）；能力表原值类型加时刻 `datetime`（2.0.96）。不用新功能时现网读写逐字节同 0.5.44-rc4。见 [0.5.46 发布说明](docs/releases/v0.5.46.md)。
 
 **0.5.44-rc4**（候选，未发布）：rc3 没发，在它之上加一件——最终名流程 `trigger.` 下新立的表按类认：`trigger.<对象>.<判断>` 只按写法认作决策表，主人是定位（插件配置 `target_app_id`），第一张是品类与业务模式表 `trigger.product.business_mode`（DMN 标准 2.0.84，M7）；`accept.` 下新立的表照旧不收。另加：品类与业务模式表角色 `BUSINESS_MODE` 与声明来源 `info:<原值号>`、能力表 infos 可选取值名 `names`（DMN 2.0.87）；新增：情形概述 `rows.<rule_id>.cases`（DMN 2.0.88，导出进 DMN XML 的 rule description）。修 rc3 没跟上配置的用例与夹具（运行时代码不改）。见 [0.5.44 发布说明](docs/releases/v0.5.44.md) 第十六、十七节。
 
@@ -116,6 +118,7 @@
 - **简单 JSON 决策**：选择 `evaluate_json_table`，固定配置经审核的 `table_json`，将上游数据绑定到 `inputs_json`；两者接受原生对象或严格 JSON 对象字符串，可用 `expected_sha256` 绑定模型内容。根据 `results.status` 和 `results.outcome` 处理成功、无命中与缺失输入。模型示例与有限语义见[调用说明](builtin/README.md#调用)。
 - **类型化节点查询或决策**：选择 `execute_query` 或 `evaluate_decision`，固定 `definition_bundle_json` 和 `node_ref`，绑定 `inputs_json` 与 `execution_context_json`。按 `execution_status`、`output_port`、`outputs` 和诊断配置下游分支。上下文由可信宿主提供，调用者自报字段不构成授权。见[节点工具合同](docs/dsl-v0.4.md#工具调用)。
 - **读取存储表**：使用 `evaluate_stored_table`，选择合同规定的表名、格式及输入；需要可复现读取时固定 `version` 或 `content_sha256`，并检查该格式对应的结果状态。见[存储表与路由配置](docs/route-table-editing.md)。
+- **一次读多个输入（0.5.47-rc1 起）**：使用 `evaluate_stored_table_batch`，表名、格式与钉版本同上，`inputs_list_json` 给一列输入（每项就是 `evaluate_stored_table` 的 `inputs_json`，一次至多 256 项）。只读一次表、所有项用同一版；`item_result_jsons` 第 i 项与单独读第 i 项的 `result_json` 逐字相同，一项失败不影响别的项，`status` 只说这张列表本身。见 [0.5.47 发布说明](docs/releases/v0.5.47.md) 第一节第 4 件。
 - **查看结构**：打开结构查看器 Endpoint，或在本地打开 `plugin/viewer_static/index.html`，导入支持的 JSON 格式。见[查看器格式与限制](docs/structure-viewer.md)。
 - **维护规则表**：编辑页位于路由编辑 Endpoint 地址加 `/routes/`。0.5.24 要求配置维护应用的 `store_app_id`；受签名治理的表通过草稿与发布协议写入。每张表只有一个服务端共享草稿，不是每位作者各有独立草稿。由单人逐次完成维护操作，并按[当前协议与安装限制](docs/releases/v0.5.24.md)进行独立验收。
 
