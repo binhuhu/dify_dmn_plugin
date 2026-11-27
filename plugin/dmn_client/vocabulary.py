@@ -184,6 +184,14 @@ def declared():
             "scene_topic_row_keys": list(S.SCENE_TOPIC_ROW_KEYS),
             "scene_topic_domain_keys": list(S.SCENE_TOPIC_DOMAIN_KEYS),
             "solution_keys_v3": list(R.SOLUTION_KEYS_V3),
+            # 0.5.47 (DMN-09): the one optional key of a v3 solution entry, its block names and limit (四站合同十条第 6 条);
+            # without this entry the document is 0.5.38's byte for byte (test_v0547_optional_blocks pins both)
+            "solution_optional_keys_v3": {
+                R.OPTIONAL_BLOCKS_KEY: {
+                    "values": list(R.OPTIONAL_BLOCKS),
+                    "max_items": R.OPTIONAL_BLOCKS_MAX,
+                }
+            },
             "gap_keys": sorted(D.GAP_KEYS),
         },
     }

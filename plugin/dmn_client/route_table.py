@@ -68,6 +68,13 @@ SOLUTION_KEYS_V3 = (
     "package_id",
     "target_handoff",
 )
+# 0.5.47 (DMN-09; 四站合同十条第 6 条「可选块」与 schema 主链路公共 $defs.route.accepts_optional_blocks): a solution entry
+# may say which optional v5 blocks the app takes (「补充」 is the v5 §21 block); stored only when written, so an entry
+# without it is stored, digested and answered byte for byte as before
+OPTIONAL_BLOCKS_KEY = "accepts_optional_blocks"
+OPTIONAL_BLOCKS = ("进线关系", "对象详情", "补充")
+OPTIONAL_BLOCKS_MAX = 3
+SOLUTION_OPTIONAL_KEYS_V3 = (OPTIONAL_BLOCKS_KEY,)
 
 SOLUTION_DEFAULTS = {
     "status": CALLABLE,
@@ -688,9 +695,10 @@ def _solution_v3(s, p):
         p + ".input_bindings",
     )
     _need(
-        {"name", "inputs", "status"} <= set(s) <= set(SOLUTION_KEYS_V3),
+        {"name", "inputs", "status"} <= set(s) <= set(SOLUTION_KEYS_V3 + SOLUTION_OPTIONAL_KEYS_V3),
         "ROUTE_TABLE_INVALID",
-        "v3 方案登记每项 = name / inputs / status，可再写 " + " / ".join(SOLUTION_KEYS_V3[3:]),
+        "v3 方案登记每项 = name / inputs / status，可再写 "
+        + " / ".join(SOLUTION_KEYS_V3[3:] + SOLUTION_OPTIONAL_KEYS_V3),
         p,
     )
     out = _name_inputs(s, p)
@@ -768,7 +776,36 @@ def _solution_v3(s, p):
             "CURRENT 的方案要写请求合同（缺 request_contract）：交付编排按请求合同组请求",
             p + ".request_contract",
         )
-    return {k: out[k] for k in SOLUTION_KEYS_V3}
+    kept = {k: out[k] for k in SOLUTION_KEYS_V3}
+    if OPTIONAL_BLOCKS_KEY in s:
+        kept[OPTIONAL_BLOCKS_KEY] = _optional_blocks(
+            s[OPTIONAL_BLOCKS_KEY], p + "." + OPTIONAL_BLOCKS_KEY
+        )
+    return kept
+
+
+def _optional_blocks(value, path):
+    """accepts_optional_blocks (0.5.47, DMN-09): the optional v5 blocks the app takes, as the four-station contract names
+    them (「补充」 = the v5 §21 block); at most OPTIONAL_BLOCKS_MAX, none twice, each a registered block name."""
+    _need(
+        type(value) is list
+        and len(value) <= OPTIONAL_BLOCKS_MAX
+        and all(type(v) is str for v in value)
+        and len(set(value)) == len(value),
+        "ROUTE_TABLE_INVALID",
+        "accepts_optional_blocks 要是不重复的块名列表，最多 %d 项（%s）"
+        % (OPTIONAL_BLOCKS_MAX, " / ".join(OPTIONAL_BLOCKS)),
+        path,
+    )
+    for i, v in enumerate(value):
+        _need(
+            v in OPTIONAL_BLOCKS,
+            "ROUTE_TABLE_INVALID",
+            "accepts_optional_blocks 只收登记过的块名 %s（%r 不是）"
+            % (" / ".join(OPTIONAL_BLOCKS), v),
+            "%s[%d]" % (path, i),
+        )
+    return list(value)
 
 
 def solution_entry(clean, app_id):
@@ -777,7 +814,10 @@ def solution_entry(clean, app_id):
     if s is None:
         return None
     if clean.get("schema") == SCHEMA_V3:
-        return {k: copy.deepcopy(s.get(k, SOLUTION_DEFAULTS.get(k))) for k in SOLUTION_KEYS_V3}
+        out = {k: copy.deepcopy(s.get(k, SOLUTION_DEFAULTS.get(k))) for k in SOLUTION_KEYS_V3}
+        if OPTIONAL_BLOCKS_KEY in s:  # 0.5.47: only an entry that wrote it carries it
+            out[OPTIONAL_BLOCKS_KEY] = list(s[OPTIONAL_BLOCKS_KEY])
+        return out
     out = dict(copy.deepcopy(SOLUTION_DEFAULTS), name=s["name"], inputs=list(s["inputs"]))
     return {k: out[k] for k in SOLUTION_KEYS_V3}
 
@@ -785,7 +825,7 @@ def solution_entry(clean, app_id):
 def solution_block(clean, app_id, table_content_sha256):
     """Solution block."""
     e = solution_entry(clean, app_id)
-    return {
+    block = {
         "app_id": app_id,
         "status": e["status"],
         "gate_code": e["gate_code"],
@@ -794,6 +834,10 @@ def solution_block(clean, app_id, table_content_sha256):
         "intents": e["intents"],
         "table_content_sha256": table_content_sha256,
     }
+    # 0.5.47: the answer names the blocks only when the entry wrote them
+    if OPTIONAL_BLOCKS_KEY in e:
+        block[OPTIONAL_BLOCKS_KEY] = e[OPTIONAL_BLOCKS_KEY]
+    return block
 
 
 def _scene_shown(scene):
@@ -917,6 +961,80 @@ def route_final_shape_gate(prev, clean, relax=None):
     )
 
 
+SAFETY_ROUTED = "SAFETY_SCENE_SOLUTION_ROUTED"
+
+
+def _safety_scenes(topic):
+    from dmn_client.scene_id import canonical  # noqa
+
+    return {
+        canonical(r.get("scene_id"))
+        for r in (topic or {}).get("rows") or []
+        if isinstance(r, dict) and r.get("status") == "SAFETY_TRANSFER"
+    }
+
+
+def _solution_rows_on(route, safe):
+    from dmn_client.scene_id import canonical  # noqa
+
+    return [
+        (i, r)
+        for i, r in enumerate((route or {}).get("routes") or [])
+        if isinstance(r, dict)
+        and (r.get("target") or {}).get("kind") == "SOLUTION_APP"
+        and canonical(r.get("scene_id")) in safe
+    ]
+
+
+def safety_routing_check(tables, clean):
+    """0.5.47 (DMN 2.0.102 §⓪ / §五 ROUTE; 分诊线 11-25 报): a scene whose scene-topic row is SAFETY_TRANSFER has no solution
+    row in a route table — the safety list is that one cell, and the resource table answers it first. Checked both ways:
+    a route table save may not carry a solution row on such a scene (the live scene-topic head), and a save of the live
+    scene-topic table may not mark SAFETY_TRANSFER a scene some active route table still routes to a solution. Transfer and
+    resource rows of the old shape are left to the final-shape gate (kept or dropped, never added). Returns the refusal
+    (RouteTableError) or None (a table that cannot be read raises, as the other cross-table checks); read before the
+    version check, raised after every other refusal (save order unchanged)."""
+    from dmn_client import stored_tables, table_lifecycle  # noqa
+
+    if clean.get("schema") in ROUTE_SCHEMAS:
+        safe = _safety_scenes(tables.load(stored_tables.TABLE_SCENE_TOPIC))
+        hits = _solution_rows_on(clean, safe)
+        if hits:
+            i, r = hits[0]
+            return RouteTableError(
+                SAFETY_ROUTED,
+                "%s 是安全转接场景（场景与话题表状态 SAFETY_TRANSFER），路由表不写这些场景的方案行（DMN 2.0.94 §⓪）：删掉这一行，"
+                "安全承接由资源去向表按场景状态配%s"
+                % (
+                    _row_shown((_scene_key(r["scene_id"]), r["issue_type"], r["phase"])),
+                    "（另有 %d 行）" % (len(hits) - 1) if len(hits) > 1 else "",
+                ),
+                "routes[%d].target" % i,
+            )
+    elif clean.get("schema") == stored_tables.SCHEMA_SCENE_TOPIC and storage_name(
+        clean.get("table")
+    ) == storage_name(stored_tables.TABLE_SCENE_TOPIC):
+        safe = _safety_scenes(clean)
+        for name in table_lifecycle.active_route_tables(tables):
+            hits = _solution_rows_on(tables.load(name), safe)
+            if hits:
+                r = hits[0][1]
+                from dmn_client.scene_id import canonical  # noqa
+
+                at = next(
+                    j
+                    for j, x in enumerate(clean["rows"])
+                    if canonical(x["scene_id"]) == canonical(r["scene_id"])
+                )
+                return RouteTableError(
+                    SAFETY_ROUTED,
+                    "%s 要改成安全转接，路由表 %s 还有它的方案行（%s · %s）：先在路由表删掉这些方案行（降方案带 retire_solutions），再改状态"
+                    % (canonical(r["scene_id"]), name, r["issue_type"], r["phase"]),
+                    "rows[%d].status" % at,
+                )
+    return None
+
+
 RETIRE_KEYS = ("scene_id", "issue_type", "phase")
 _NOT_SENT = object()
 RETIRE_INVALID = "ROUTE_TABLE_RETIRE_INVALID"
@@ -1038,7 +1156,7 @@ def callability_gate(prev, clean, sent=None, relax=None, live_scenes=None, retir
         raise RouteTableError(
             "ROUTE_TABLE_SOLUTION_NOT_CALLABLE",
             "%s 的方案行指向应用 %s，它在方案登记里是 %s，invoke_solution 调不到%s：要换方案，就在同一次存表里把新应用"
-            "转成 CURRENT（补齐请求合同）；要挂起，就改成转接或资源去向；原来有能调的方案就仍指向它"
+            "转成 CURRENT（补齐请求合同）；要挂起，就删掉那一行并在请求里写 retire_solutions 列出它（没方案就是没那一行）；原来有能调的方案就仍指向它"
             % (
                 _row_shown(key),
                 str(app).strip()[:8],
@@ -1055,7 +1173,7 @@ def callability_gate(prev, clean, sent=None, relax=None, live_scenes=None, retir
     retired = [k for k in gone if live_scenes is not None and canonical(k[0]) not in live_scenes]
     lost = [k for k in gone if k not in retired and k not in retire]
     if lost:
-        text = "%s 原来有能调的方案，这次存表把这一行删了、也没给别的去向%s：要挂起就改成转接或资源去向，要换方案就改指新的 CURRENT 应用" % (
+        text = "%s 原来有能调的方案，这次存表把这一行删了、请求里也没在 retire_solutions 列出它%s：要降这个方案就在请求里写 retire_solutions 列出这一行（没方案就是没那一行），要换方案就改指新的 CURRENT 应用" % (
             _row_shown(lost[0]),
             "（另有 %d 行）" % (len(lost) - 1) if len(lost) > 1 else "",
         )
@@ -2782,6 +2900,17 @@ class StorageTables:
         self._references(doc if isinstance(doc, dict) else {})
         clean = validate_doc(doc)
         table = clean["table"]
+        # 0.5.47 (DMN 2.0.101 §二): after every refusal of the document itself, before anything else of the save
+        from dmn_client import scene_id as _sid  # noqa
+
+        bad = _sid.mode_role_spelling(clean)
+        _need(
+            bad is None,
+            _sid.MODE_ROLE_SPELLING,
+            "新业务模式的场景号不带角色段（如 HY_01_02）；%s 这种写法（业务模式段后面又跟了角色段）要等场景号文法修好才收"
+            % (repr(_sid._MODE_ROLE_RE.search(bad[1]).group(0) + "…") if bad else ""),
+            bad[0] if bad else "",
+        )
         self._cross_check(clean)
         cur = self.load(table)
         have = cur["version"] if cur else 0
@@ -2820,6 +2949,8 @@ class StorageTables:
         # their readers, which takes up to seconds); its refusal is raised below, after every refusal v0.5.22 and the
         # 0.5.23 callability gate give (their codes and order unchanged). Not on an undo's reference fix (take_back
         # False): it only renames a reference
+        # 0.5.47: the safety-list check reads the other table here, before the version check (I19 / R6, as the auto gate)
+        safety_refusal = safety_routing_check(self, clean) if take_back else None
         auto, auto_refusal = None, None
         if take_back:
             from dmn_client import save_gate  # noqa
@@ -2904,6 +3035,9 @@ class StorageTables:
             if auto is not None
             else None,
         )
+        # 0.5.47 (DMN 2.0.102): after every refusal 0.5.46 gives, before the caller's gate
+        if safety_refusal is not None:
+            raise safety_refusal
         self.auto_gate = auto
         if gate is not None:
             gate(clean, gate_report)

@@ -27,6 +27,13 @@ default = {state, value, gap?}（对应 DMN 的默认输出、v1 每个决策的
 照旧 NO_RULE。下游只收「每个号的质量、state、值、规则号」这一部分（回执 result.conclusions），整份回执也收、只取这一部分。
 
 v1（dmn-json.decision-table/v1、decision-set/v1）的检查、求值、摘要一字不动：这里的代码只在 v2 文档、v2 回执上走。
+
+上下文决策与结论算式（DMN 2.0.108 §二「算式与上下文」，时刻原值读法照 2.0.110 回写；插件未发版）：决策本体可选一格 context = [{name, expr, type}]（1–64 条，按次序算，
+后一条只引用前面的），结果模板 result 顶层的一格可写 {"expr": 算式}（白名单 FEEL 子集，dmn_client.feel_expr）。条件按号取上下文：
+[context, <名>, value | quality]。上下文在规则之前算；命中的模板里的算式在命中后算（可读输入与全部上下文）。结论算式判不了：
+按号判的表只这个号 UNKNOWN（filled = CALC，缺口 kind = CALC），一个结论的表整个 BLOCKED INDETERMINATE_MATCH。回执 result.context
+按次序列出每条上下文，再列每个算过的结论格（名 result.<格>，按号判的表 result.<号>.<格>）。查询 → 原值不收（它定调哪个
+能力，算是下游的事）。没有上下文、没有算式的表，存表、求值、回执、摘要逐字节同前。
 """
 
 import copy
@@ -38,7 +45,7 @@ import unicodedata
 
 import rfc8785
 
-from dmn_client import capability_catalog, declarations, stored_tables
+from dmn_client import capability_catalog, declarations, feel_expr, stored_tables
 from dmn_client.json_table import MISSING, OPS, condition, equal
 from dmn_client.route_table import (
     CANONICAL_PATTERN,
@@ -145,6 +152,23 @@ ID_MAX = 128
 SEARCH_RESULT_KEYS = ("actions", "capability_id", "bindings", "infos")
 GUARD = "KNOWN"
 
+# DMN 2.0.108 §二「算式与上下文」：上下文决策与结论算式
+CONTEXT = "context"  # 决策本体可选的一格；条件路径 [context, <名>, value | quality]
+CONTEXT_KEYS = ("name", "expr", "type")
+EXPR = "expr"  # 结果模板 result 顶层一格写 {"expr": 算式}
+MAX_CONTEXT = 64
+EXPR_GROUPS = feel_expr.GROUPS  # 算式能读的组（这张表的输入里有的才算）
+# 不写算式的格：动作、缺口、话术、规则号由插件或结构定；按号判的表的号、一个结论的表的业务键定「是哪个结论」
+NO_EXPR_FIELDS = ("actions", "gap", "texts", "rule_id")
+# 算式的类型 → 能放进的号 / 输出的类型（时刻写成 YYYY-MM-DD HH:MM:SS 的字符串；时长不进结论）
+EXPR_FITS = {
+    "number": ("number", "integer"),
+    "boolean": ("boolean",),
+    "string": ("string",),
+    "datetime": ("string",),
+}
+CALC_GAP_OWNER = {"EXPR_INPUT_UNKNOWN": "SYSTEM", "EXPR_VALUE_UNREADABLE": "SYSTEM"}
+
 NAME_RE = re.compile(
     r"^solution\.(?P<kind>"
     + "|".join(k.replace(".", r"\.") for k in ROLE_OF_KIND)
@@ -221,7 +245,16 @@ ROWS_RULE = (
 
 
 def path_parts(path, params):
-    """(输入, 号或 None, 部分)：一条条件路径在 v2 里读什么；写法不对则 None。"""
+    """(输入, 号或 None, 部分)：一条条件路径在 v2 里读什么；写法不对则 None。上下文条目（2.0.108）：
+    [context, <名>, value | quality] → (context, 名, 部分)；名是不是这个决策的条目由 _condition 核。"""
+    if (
+        type(path) is list
+        and len(path) == 3
+        and path[0] == CONTEXT
+        and id_ok(path[1])
+        and path[2] in GROUP_PARTS
+    ):
+        return CONTEXT, path[1], path[2]
     if not (
         type(path) is list
         and 3 <= len(path) <= 5
@@ -330,7 +363,8 @@ def _result(t):
     return t["data"]["result"]["literal"]
 
 
-def _condition(c, params, q):
+def _condition(c, params, q, ctx=None):
+    """ctx: {名: 类型}，这个决策的上下文条目（没有上下文为 None）。"""
     _bad(
         type(c) is dict
         and set(c) == {"path", "op", "value"}
@@ -342,6 +376,8 @@ def _condition(c, params, q):
         q,
     )
     parts = path_parts(c["path"], params)
+    if parts is not None and parts[0] == CONTEXT:
+        return _context_condition(c, parts, ctx or {}, q)
     _bad(
         parts is not None,
         "条件路径：组（request / calc / info）写 [parameters, 组, key, <号>, value | quality]；"
@@ -383,13 +419,290 @@ def _condition(c, params, q):
     return parts
 
 
+# ── 上下文与算式（DMN 2.0.108 §二「算式与上下文」） ─────────────────────────────────────────
+
+
+def is_expr(value):
+    """结果模板 result 顶层一格写的算式 {"expr": 算式}（嵌套里的照字面量）。"""
+    return type(value) is dict and len(value) == 1 and EXPR in value
+
+
+def _context_condition(c, parts, ctx, q):
+    """条件读上下文条目：名要是这个决策的条目；质量同组里的号；值按条目的类型比（时刻按 YYYY-MM-DD HH:MM:SS 的字符串比，
+    同一写法下字典序就是先后；时长只问 is_null，要比时长先在上下文里算成真假）。"""
+    _, name, part = parts
+    _bad(
+        name in ctx,
+        "条件读上下文 %s：这个决策的上下文里没有这一条（context 里的 name）" % name[:64],
+        q + ".path",
+    )
+    op, value, typ = c["op"], c["value"], ctx[name]
+    if part == "quality":
+        allowed = value if op == "in" else [value]
+        _bad(
+            op in QUALITY_OPS
+            and type(allowed) is list
+            and all(type(v) is str and v in ALL_QUALITIES for v in allowed),
+            "质量只用 eq / ne / in 比 " + " / ".join(ALL_QUALITIES),
+            q,
+        )
+        return parts
+    if op == "is_null":
+        _bad(type(value) is bool, "is_null 的值是布尔", q + ".value")
+        return parts
+    if op == "in":
+        _bad(
+            type(value) is list and len(value) <= stored_tables.MAX_IN_VALUES,
+            "in 要列表（最多 %d 个值）" % stored_tables.MAX_IN_VALUES,
+            q + ".value",
+        )
+    need(
+        _ctx_compatible(typ, op, value),
+        "EXPR_TYPE_MISMATCH",
+        "条件拿上下文 %s（类型 %s）%s %s：类型对不上%s"
+        % (
+            name[:64],
+            typ,
+            op,
+            json.dumps(value, ensure_ascii=False)[:64],
+            "（时长只问 is_null 与质量：要比时长，在上下文里算成真假再读）"
+            if typ == "duration"
+            else "",
+        ),
+        q,
+    )
+    return parts
+
+
+def _ctx_compatible(typ, op, value):
+    if op == "in":
+        return type(value) is list and all(_ctx_compatible(typ, "eq", v) for v in value)
+    if typ == "duration":
+        return False
+    if typ == "datetime":
+        if value is None and op in ("eq", "ne"):
+            return True
+        return feel_expr.parse_datetime(value) is not None
+    if op in ORDERING and typ == "boolean":
+        return False
+    if op in ORDERING and value is None:
+        return False
+    return compatible(
+        {"number": "number", "string": "string", "boolean": "boolean"}[typ], op, value
+    )
+
+
+def _expr_scope_groups(role, types=None):
+    """算式能读的组：这张表的输入里 request / calc / info / fact / feature 那几组。types（存表时读到的上游定义）：
+    {组: {号: 类型}}，给了就按它核号与类型；没给的组 None（任何号、类型不知道）。"""
+    return {p: (types or {}).get(p) for p in INPUTS[role] if p in EXPR_GROUPS}
+
+
+@functools.lru_cache(maxsize=4096)
+def _parse_open(text, groups, ctx):
+    # 求值时每次都过一遍存表检查（validate）：同一条算式、同一个范围只解析一次
+    return feel_expr.parse(text, {"groups": {g: None for g in groups}, "ctx": dict(ctx)})
+
+
+def _parse(text, groups, ctx, path):
+    """feel_expr.parse，拒码照 feel_expr 的码（EXPR_*），路径指到写算式的那一格。"""
+    try:
+        if type(text) is str and all(v is None for v in groups.values()):
+            return _parse_open(text, tuple(groups), tuple(ctx.items()))
+        return feel_expr.parse(text, {"groups": groups, "ctx": dict(ctx)})
+    except feel_expr.FeelError as exc:
+        shown = text[:120] if type(text) is str else json.dumps(text, ensure_ascii=False)[:120]
+        raise RouteTableError(exc.code, "%s（算式：%s）" % (exc.message, shown), path) from None
+
+
+def _template_path(path, ref, field):
+    return "%s.result_templates.%s.data.result.literal.%s" % (path, str(ref)[:64], str(field)[:64])
+
+
+def expr_plan(d, role, path="decision", types=None):
+    """None（这个决策没有上下文、没有算式：一切照旧），或 {context: [(名, 类型, Expr)], results: {(模板, 格): Expr}}。
+    存表时（_decision）先按开放范围核一遍：白名单、上限、组在不在输入里、只引用前面的条目、名不重复、能看出来的类型对得上
+    （上下文的声明类型；按号判的表 value 对 ids 里那个号的类型）；cross_check 读到上游定义以后带 types 再核一遍（号在不在上游、
+    上游给的类型对不对得上）。"""
+    templates = d["result_templates"]
+    fields = [
+        (ref, f)
+        for ref in sorted(templates)
+        for f, v in sorted(_result(templates[ref]).items())
+        if is_expr(v)
+    ]
+    if CONTEXT not in d and not fields:
+        return None
+    _bad(
+        role != SEARCH_INFO,
+        "查询 → 原值不写上下文、不写算式：它只定调哪个能力、入参从哪来；要算的放到原值 → 事实以后的表",
+        path + (("." + CONTEXT) if CONTEXT in d else ".result_templates"),
+    )
+    groups = _expr_scope_groups(role, types)
+    entries, ctx = [], {}
+    if CONTEXT in d:
+        items = d[CONTEXT]
+        _bad(
+            type(items) is list and len(items) > 0,
+            "context = 上下文条目列表（1–%d 条，按次序算）；没有上下文就不写这一格" % MAX_CONTEXT,
+            path + "." + CONTEXT,
+        )
+        need(
+            len(items) <= MAX_CONTEXT,
+            "EXPR_TOO_LARGE",
+            "一个决策至多 %d 条上下文（写了 %d 条）" % (MAX_CONTEXT, len(items)),
+            path + "." + CONTEXT,
+        )
+        for k, e in enumerate(items):
+            q = "%s.%s[%d]" % (path, CONTEXT, k)
+            _bad(
+                type(e) is dict
+                and set(e) == set(CONTEXT_KEYS)
+                and id_ok(e["name"])
+                and type(e["type"]) is str
+                and e["type"] in feel_expr.TYPES,
+                "上下文条目 = {name: 名（同号的字符规则）, expr: 算式, type: %s}"
+                % " / ".join(feel_expr.TYPES),
+                q,
+            )
+            need(
+                e["name"] not in ctx,
+                "CONTEXT_NAME_DUPLICATE",
+                "上下文条目名 %s 重复：一个决策里每条上下文的名不同" % e["name"][:64],
+                q + ".name",
+            )
+            x = _parse(e[EXPR], groups, ctx, q + "." + EXPR)
+            need(
+                x.type is None or x.type == e["type"],
+                "EXPR_TYPE_MISMATCH",
+                "上下文 %s 声明的类型是 %s，算式算出的是 %s" % (e["name"][:64], e["type"], x.type),
+                q + "." + EXPR,
+            )
+            ctx[e["name"]] = e["type"]
+            entries.append((e["name"], e["type"], x))
+    keyed = role in KEYED
+    banned = set(NO_EXPR_FIELDS) | (
+        {KEYED[role]} if keyed else set(declarations.CONCLUSION_KEYS.get(role, ()))
+    )
+    results = {}
+    for ref, f in fields:
+        q = _template_path(path, ref, f)
+        _bad(
+            f not in banned,
+            "result.%s 不写算式：%s" % (f, "、".join(sorted(banned)))
+            + " 这几格写字面量（是哪个结论由规则定，动作、缺口、话术不是算出来的）",
+            q,
+        )
+        lit = _result(templates[ref])
+        x = _parse(lit[f][EXPR], groups, ctx, q + "." + EXPR)
+        need(
+            x.type != "duration",
+            "EXPR_TYPE_MISMATCH",
+            'result.%s 的算式算出的是时长：结论里不写时长，除成数（例：(a - b) / duration("PT1S") 是秒数）'
+            % f,
+            q + "." + EXPR,
+        )
+        if keyed and f == "value":
+            ident = lit.get(KEYED[role])
+            spec = d[IDS].get(ident) if type(ident) is str and type(d[IDS]) is dict else None
+            if type(spec) is dict and type(spec.get("type")) is str:
+                need(
+                    spec["type"] not in JSON_TYPES
+                    and (x.type is None or spec["type"] in EXPR_FITS[x.type]),
+                    "EXPR_TYPE_MISMATCH",
+                    "号 %s 的类型是 %s，算式算出的是 %s"
+                    % (ident[:64], spec["type"], x.type or "未知"),
+                    q + "." + EXPR,
+                )
+        results[(ref, f)] = x
+    return {"context": entries, "results": results}
+
+
+def _expr_outputs(plan, role, outputs, strict=False, path="decision"):
+    """结论格的算式对着声明的输出（按号判的表的 value 对着 ids，见 expr_plan）：一个结论的表求值时不读声明，所以这里核死——
+    整数、有取值清单、JSON 类型的输出不写算式（求值时核不了是不是整数、在不在清单里）；能看出来的类型要对得上；strict（存表时
+    读到上游定义以后）：类型要看得出来（只读了 request / calc 的号、类型不知道的，不收）。"""
+    for (ref, f), x in sorted(plan["results"].items()):
+        if role in KEYED and f == "value":
+            continue
+        spec = outputs.get(f)
+        if spec is None:
+            continue  # declarations._standard 已经说了「result.<格> 没声明」
+        q = _template_path(path, ref, f) + "." + EXPR
+        need(
+            spec["type"] not in JSON_TYPES + ("integer",) and "values" not in spec,
+            "EXPR_TYPE_MISMATCH",
+            "result.%s 声明的是 %s%s：这种输出不写算式（求值时不读声明，核不了算出来的是不是整数、在不在取值清单里）；"
+            "要算的数声明成 number，要整数在算式里写 floor / ceiling / round half up(n, 0)"
+            % (f, spec["type"], "（有取值清单）" if "values" in spec else ""),
+            q,
+        )
+        need(
+            x.type is None or spec["type"] in EXPR_FITS[x.type],
+            "EXPR_TYPE_MISMATCH",
+            "result.%s 声明的类型是 %s，算式算出的是 %s" % (f, spec["type"], x.type),
+            q,
+        )
+        need(
+            not strict or x.type is not None,
+            "EXPR_TYPE_MISMATCH",
+            "result.%s 的算式看不出类型（读的号上游没有类型，例如 request / calc 的号）：一个结论的表求值时不读声明，"
+            "类型要在存表时对上" % f,
+            q,
+        )
+
+
+DATETIME_HINT = (
+    "求值时插件只读这一张表、不读能力表与上游表，组里的号不带上游登记的类型、照原值读（时刻原值就是 YYYY-MM-DD HH:MM:SS "
+    "的字符串）：上游登成 datetime 的号做时刻运算、和时刻比，写 date and time(<组>.<号>)，存表时与求值时才是同一个算法"
+)
+
+
+def _typed_plan(d, role, types):
+    """存表时带上游定义再核一遍。求值时算式按开放范围解析（feel_expr：类型不知道的号照 JSON 值读，字符串不当时刻），所以这里
+    把上游登成 datetime 的号当字符串核，存表收下的算式和求值时是同一种读法；对不上、而这些号不定类型就对得上时，是它们当了时刻，
+    说清要写 date and time(…)。"""
+
+    def datetimes_as(typ):
+        return {
+            p: (
+                {i: (typ if t == "datetime" else t) for i, t in v.items()}
+                if isinstance(v, dict)
+                else v
+            )
+            for p, v in (types or {}).items()
+        }
+
+    run = datetimes_as("string")
+    try:
+        return expr_plan(d, role, types=run)
+    except RouteTableError as exc:
+        if exc.code != "EXPR_TYPE_MISMATCH" or run == types:
+            raise
+        try:
+            expr_plan(d, role, types=datetimes_as(None))
+        except RouteTableError:
+            raise exc from None
+        raise RouteTableError(exc.code, exc.message + "；" + DATETIME_HINT, exc.path) from None
+
+
+def expr_refs(plan):
+    """[(组, 号)]：上下文与结论算式读到的输入（不含 ctx 引用），按出现先后、不重复。"""
+    out = []
+    for x in [x for _, _, x in plan["context"]] + list(plan["results"].values()):
+        for ref in x.refs:
+            if ref[0] != feel_expr.CTX and ref not in out:
+                out.append(ref)
+    return out
+
+
 def _decision(d, role, scene, seg, path):
     keyed = role in KEYED
     want = set(BASE_KEYS) | ({IDS} if keyed else set())
     want |= {PASSTHROUGH} if role == INFO_FACT else set()
     _bad(type(d) is dict, "decision 必须是对象", path)
     _bad(
-        set(d) == want,
+        set(d) - {CONTEXT} == want,  # 2.0.108：context 可选
         "decision = "
         + " / ".join(
             BASE_KEYS + ((IDS,) if keyed else ()) + ((PASSTHROUGH,) if role == INFO_FACT else ())
@@ -493,6 +806,8 @@ def _decision(d, role, scene, seg, path):
             "v2 的结果模板 = state + data {result: {literal: 对象}, note: {literal: 一句话}} + actions: []",
             p,
         )
+    plan = expr_plan(d, role, path)
+    ctx = {name: typ for name, typ, _ in plan["context"]} if plan else None
     rules = d["rules"]
     _bad(
         type(rules) is list
@@ -527,7 +842,7 @@ def _decision(d, role, scene, seg, path):
         )
         for k, w in enumerate(rows):
             for j, c in enumerate(w):
-                _condition(c, params, "%s.rows[%d][%d]" % (p, k, j))
+                _condition(c, params, "%s.rows[%d][%d]" % (p, k, j), ctx)
     _bad(d["on_no_match"] == "RESULT_TEMPLATE", "on_no_match 只能是 RESULT_TEMPLATE", path)
     empty = d["empty_template_ref"]
     _bad(type(empty) is str and empty in templates, "empty_template_ref 要是已登记的模板", path)
@@ -568,7 +883,8 @@ def _keyed_templates(d, role, path):
             q + "." + key,
         )
         _bad(
-            typed(result["value"], ids[result[key]]),
+            is_expr(result["value"])  # 算式的类型由 expr_plan 对 ids 核
+            or typed(result["value"], ids[result[key]]),
             "规则 %s 给号 %s 的值和 ids 里的类型或取值对不上" % (r["rule_id"], result[key][:64]),
             q + ".value",
         )
@@ -752,19 +1068,25 @@ def model_view(d):
 
 def referenced(d, role):
     """{输入: {号: {部分}}}（组与按号读的表）与 {输入: {部分}}（整表读的现实表）：条件路径引用到的；原值 → 事实的直通
-    原值也算读了原值组。读哪些号由条件路径得出，不另写清单。"""
+    原值也算读了原值组；上下文与结论算式读的号（2.0.108）也算读了它的组（部分记 value）。读哪些号由条件路径与算式得出，
+    不另写清单。"""
     keyed, whole = {}, {}
     params = d["parameters"]
     for r in d["rules"]:
         for row in r["rows"]:
             for c in row:
                 p, ident, part = path_parts(c["path"], params)
+                if p == CONTEXT:
+                    continue  # 上下文条目不是输入：它读的号在下面由算式算进来
                 if ident is None:
                     whole.setdefault(p, set()).add(part)
                 else:
                     keyed.setdefault(p, {}).setdefault(ident, set()).add(part)
     for ident in d.get(PASSTHROUGH, []):
         keyed.setdefault(INFO, {}).setdefault(ident, set()).add("value")
+    plan = expr_plan(d, role)
+    for p, ident in expr_refs(plan) if plan else ():
+        keyed.setdefault(p, {}).setdefault(ident, set()).add("value")
     return keyed, whole
 
 
@@ -818,6 +1140,27 @@ def _declare(ok, message, path):
     need(ok, "TABLE_DECLARATION_INVALID", message, path)
 
 
+def _declared_context(value, entries, path):
+    """declare.context = {上下文条目名: {name: 中文名}}（2.0.108，同 ids 的分法：中文名不进决策本体、不进摘要）。
+    中文名可写可不写（标准没说必填），不写不标黄（协调 11-26 03:59：标准没写的不加）。"""
+    names = [e["name"] for e in entries]
+    _declare(
+        type(value) is dict and set(value) <= set(names),
+        "context = 决策本体里上下文条目的名 → {name: 中文名}（只写决策本体里有的条目）",
+        path,
+    )
+    out = {}
+    for k in sorted(value):
+        v, q = value[k], path + "." + str(k)[:64]
+        _declare(type(v) is dict and set(v) == {"name"}, "上下文条目的中文名 = {name}", q)
+        out[k] = {
+            "name": declarations._text(
+                v["name"], 40, "上下文条目的中文名", q[len("declare") :] + ".name"
+            )
+        }
+    return out
+
+
 def check_declaration(declare, clean):
     try:
         return _check_declaration(declare, clean)
@@ -837,6 +1180,7 @@ def _check_declaration(declare, clean):
     keyed = role in KEYED
     allowed = set(DECLARE_KEYS) | ({"ids"} if keyed else set())
     allowed |= {"capability_table"} if role == SEARCH_INFO else set()
+    allowed |= {CONTEXT} if CONTEXT in d else set()  # 2.0.108：上下文条目的中文名
     _declare(
         type(declare) is dict and set(declare) <= allowed,
         "v2 的 declare 只能有 " + " / ".join(sorted(allowed)),
@@ -943,6 +1287,8 @@ def _check_declaration(declare, clean):
             "declare.capability_table",
         )
         out["capability_table"] = dict(pin)
+    if CONTEXT in declare:
+        out[CONTEXT] = _declared_context(declare[CONTEXT], d[CONTEXT], "declare." + CONTEXT)
     try:
         _standard_checks(out, d, role)
     except RouteTableError as exc:
@@ -995,8 +1341,13 @@ def _standard_checks(out, d, role):
     )
     declarations._business_keys(role, model)
     declarations._one_rule_per_conclusion(role, model, out["rows"], first)
+    plan = expr_plan(d, role)
     for ref, t in model["result_templates"].items():
         p = ".templates." + str(ref)[:64]
+        if plan and any(r == ref for r, _ in plan["results"]):
+            # 2.0.108：算式格先当 null 过 v1 的模板检查（null 和任何声明的类型对得上），类型由 _expr_outputs 对着声明核
+            lit = {f: (None if is_expr(v) else v) for f, v in _result(t).items()}
+            t = dict(t, data=dict(t["data"], result={"literal": lit}))
         view = out
         if role in KEYED and ref != model["empty_template_ref"]:
             key, result = KEYED[role], _result(t)
@@ -1007,6 +1358,8 @@ def _standard_checks(out, d, role):
                 outputs["value"] = dict(spec, name="value")
             view = dict(out, outputs=outputs)
         declarations._standard(view, t, p)
+    if plan:
+        _expr_outputs(plan, role, out["outputs"])
     if role in KEYED:
         # 0.5.42: a number's default is checked as a rule's template giving it is (its state's gap, a feature is no
         # FAIL, the result keys declared), at the path where it is written
@@ -1464,7 +1817,11 @@ def cross_check(tables, clean):
         _search_against(clean, catalog)
         _json_typed_ops(clean, {INFO: catalog_infos(catalog)})
     else:
-        check_reads(tables, clean, missed)
+        types = check_reads(tables, clean, missed)
+        if expr_plan(clean["decision"], role) is not None:
+            # 2.0.108：上游的定义读到了，算式带着号与类型再核一遍（号在上游定义里由 check_reads 先核过，同条件）
+            plan = _typed_plan(clean["decision"], role, types)
+            _expr_outputs(plan, role, clean["declare"].get("outputs") or {}, strict=True)
     check_readers(tables, clean, missed)
     return unchecked_warnings(missed)
 
@@ -1486,6 +1843,8 @@ def request_ids_read(d, role):
             src = binding_source(v)
             if src is not None and src[0] == REQUEST:
                 out.add(src[1])
+    plan = expr_plan(d, role)  # 2.0.108：上下文与结论算式读的 request.<号> 也是读
+    out |= {ident for p, ident in (expr_refs(plan) if plan else ()) if p == REQUEST}
     return out
 
 
@@ -1912,7 +2271,12 @@ def _whole(raw, from_table, p):
 def _cond_state(c, keyed, whole):
     path = c["path"]
     p = path[1]
-    if p in whole:
+    if path[0] == CONTEXT:  # 2.0.108：上下文条目同按号取的号（质量不是已知时问值判不了）
+        rec, part = keyed[CONTEXT][p], path[2]
+        if part != "quality" and rec["quality"] != "KNOWN":
+            return "UNKNOWN"
+        actual = rec[part]
+    elif p in whole:
         rec, part = whole[p], path[2]
         if part == "quality":
             actual = rec["quality"]
@@ -1951,10 +2315,126 @@ def _key_gap(code, ident):
     return {"code": code, "owner": "AUTHOR", "kind": "RULE", "field_id": ident}
 
 
-def judge_keys(d, role, matched, keyed_inputs):
-    """按号判（顶层规则四）：每个定义了的号一条结论；直通原值照原值。matched = [(规则, 判定)]。"""
+# ── 求值：上下文与结论算式（DMN 2.0.108 §二「算式与上下文」） ─────────────────────────────────
+
+_PLANS = {}
+MAX_PLANS = 64
+
+
+def _plan(d, role, source):
+    """这张表的 expr_plan，按内容摘要记住（同 decision_sha256：同一个内容摘要就是同一个决策）。"""
+    content = (source or {}).get("content_sha256")
+    if type(content) is str and content in _PLANS:
+        return _PLANS[content]
+    plan = expr_plan(d, role)
+    if type(content) is str:
+        if len(_PLANS) >= MAX_PLANS:
+            _PLANS.pop(next(iter(_PLANS)))
+        _PLANS[content] = plan
+    return plan
+
+
+def _calc_gap(code):
+    """算式判不了的缺口（顶层规则四）：输入没拿到、读不出归系统，除以零、超位、类型对不上归写表人。"""
+    return {"code": code, "owner": CALC_GAP_OWNER.get(code, "AUTHOR"), "kind": "CALC"}
+
+
+def _calc_item(name, x, res):
+    """One result.context item, the standard's writing (2.0.108 :432): {name, expr, inputs, value, quality, gap?}."""
+    item = {
+        "name": name,
+        "expr": x.text,
+        "inputs": copy.deepcopy(res["inputs"]),
+        "value": res["value"],
+        "quality": res["quality"],
+    }
+    if res["quality"] != "KNOWN":
+        item["gap"] = _calc_gap(res["gap"]["code"])
+    return item
+
+
+def _lookup(keyed, ctx_recs):
+    """feel_expr 的取值：组里的号照条件按号取读到的（value、quality），ctx.<名> 照前面条目算出的。"""
+
+    def lookup(ref):
+        group, ident = ref
+        rec = ctx_recs.get(ident) if group == feel_expr.CTX else keyed.get(group, {}).get(ident)
+        return (rec["value"], rec["quality"]) if rec is not None else None
+
+    return lookup
+
+
+def _context_values(plan, keyed):
+    """在规则之前按次序算上下文：([回执项], {名: {value, quality}})。引用判不了的条目的跟着判不了（feel_expr：引用的号不是
+    已知即判不了）；没被引用的不受影响。"""
+    items, recs = [], {}
+    lookup = _lookup(keyed, recs)
+    for name, _, x in plan["context"]:
+        res = feel_expr.evaluate(x, lookup)
+        recs[name] = {"value": res["value"], "quality": res["quality"]}
+        items.append(_calc_item(name, x, res))
+    return items, recs
+
+
+def _result_values(plan, d, role, hits, keyed, ctx_recs, items):
+    """命中的模板里的算式（命中后算，读输入与全部上下文），算出的值写进命中的 result（回执的 decision / decisions /
+    conclusions 照算出的值）。返回 {规则号: {格: 结果}}（按号判的表给 judge_keys）；回执项追加到 items：
+    名 result.<格>（按号判的表 result.<号>.<格>）。一个结论的表有一格判不了 → 整个决策
+    BLOCKED INDETERMINATE_MATCH（同命中前有规则判不了）；按号判的表只这个号判不了（judge_keys）。"""
+    keyed_role = role in KEYED
+    lookup = _lookup(keyed, ctx_recs)
+    templates = d["result_templates"]
+    computed = {}
+    refs = {r["rule_id"]: r["output_template_ref"] for r in d["rules"]}
+    for h in hits:
+        ref = refs[h["rule_id"]] if h["rule_id"] is not None else d["empty_template_ref"]
+        fields = [f for r, f in sorted(plan["results"]) if r == ref]
+        if not fields:
+            continue
+        result = h["data"]["result"]
+        ident = _result(templates[ref]).get(KEYED[role]) if keyed_role else None
+        for f in fields:
+            x = plan["results"][(ref, f)]
+            res = feel_expr.evaluate(x, lookup)
+            if keyed_role and f == "value" and res["quality"] == "KNOWN":
+                if not typed(
+                    res["value"], d[IDS][ident]
+                ):  # 求值时核号的类型、取值（ids 在决策本体里）
+                    res = dict(
+                        res,
+                        value=None,
+                        quality="UNKNOWN",
+                        gap={"code": "EXPR_TYPE_MISMATCH", "kind": "CALC"},
+                    )
+            name = "result.%s.%s" % (ident, f) if keyed_role else "result." + f
+            items.append(_calc_item(name, x, res))
+            computed.setdefault(h["rule_id"], {})[f] = res
+            result[f] = res["value"]
+            if res["quality"] != "KNOWN" and not keyed_role:
+                raise RouteTableError(
+                    "INDETERMINATE_MATCH",
+                    "结论 result.%s 的算式判不了（%s）：一个结论的表，结论里的算式判不了，整个决策判不了"
+                    % (f, res["gap"]["code"]),
+                    _template_path("decision", ref, f) + "." + EXPR,
+                )
+    return computed
+
+
+def judge_keys(d, role, matched, keyed_inputs, computed=None):
+    """按号判（顶层规则四）：每个定义了的号一条结论；直通原值照原值。matched = [(规则, 判定)]。computed（2.0.108）：
+    {规则号: {格: 算式的结果}}，成立的规则模板里算过的算式；value 写算式的照算出的值比、照算出的值给；这条规则有算式判不了，
+    这个号就判不了（filled = CALC，缺口 kind = CALC），同号别的规则已经给出不同的值时照旧是矛盾。"""
     key = KEYED[role]
     templates = d["result_templates"]
+    computed = computed or {}
+
+    def value_of(r, t):
+        v = _result(t)["value"]
+        return computed[r["rule_id"]]["value"]["value"] if is_expr(v) else v
+
+    def failed(r):
+        return [x for x in computed.get(r["rule_id"], {}).values() if x["quality"] != "KNOWN"]
+
     by_id = {}
     for rule, state in matched:
         result = _result(templates[rule["output_template_ref"]])
@@ -1966,9 +2446,13 @@ def judge_keys(d, role, matched, keyed_inputs):
         rows = by_id.get(ident, [])
         hits = [(r, t) for r, s, t in rows if s == "TRUE"]
         unknown = [r["rule_id"] for r, s, _ in rows if s == "UNKNOWN"]
+        calc = [r for r, _ in hits if failed(r)] if computed else []
+        calc_ids = {r["rule_id"] for r in calc}
         firsts, distinct = [], set()
         for r, t in hits:  # 一遍走完：按（state, 值）的可哈希键去重（同 json_table.equal）
-            mark = (t["state"], value_key(_result(t)["value"]))
+            if r["rule_id"] in calc_ids:
+                continue
+            mark = (t["state"], value_key(value_of(r, t)))
             if mark not in distinct:
                 distinct.add(mark)
                 firsts.append((r, t))
@@ -1980,6 +2464,16 @@ def judge_keys(d, role, matched, keyed_inputs):
                 "rule_id": None,
                 "filled": "CONFLICT",
                 "rule_ids": [r["rule_id"] for r, _ in hits],
+            }
+        elif calc:
+            keys[ident] = {
+                "quality": "UNKNOWN",
+                "state": None,
+                "value": None,
+                "rule_id": None,
+                "filled": "CALC",
+                "rule_ids": [r["rule_id"] for r in calc],
+                "gap": dict(_calc_gap(failed(calc[0])[0]["gap"]["code"]), field_id=ident),
             }
         elif unknown:
             keys[ident] = {
@@ -2019,7 +2513,7 @@ def judge_keys(d, role, matched, keyed_inputs):
             one = {
                 "quality": "KNOWN",
                 "state": t["state"],
-                "value": copy.deepcopy(result["value"]),
+                "value": copy.deepcopy(value_of(rule, t)),
                 "rule_id": rule["rule_id"],
             }
             if len(hits) > 1:
@@ -2092,9 +2586,14 @@ def evaluate(clean, inputs, source=None):
             {i: r["quality"] for i, r in keyed[p].items()} if p in keyed else whole[p]["quality"]
         )
     policy = d["hit_policy"]
+    plan = _plan(d, role, source)
+    calcs, ctx_recs = [], {}
+    if plan:
+        calcs, ctx_recs = _context_values(plan, keyed)
+    reads_ctx = dict(keyed, **{CONTEXT: ctx_recs}) if ctx_recs else keyed
     trace, matched, selected, unknown, rows_held = [], [], [], False, {}
     for rule in d["rules"]:
-        state, per = rule_match(rule, keyed, whole)
+        state, per = rule_match(rule, reads_ctx, whole)
         entry = {"rule_id": rule["rule_id"], "match": state}
         if role in KEYED:
             entry["key"] = _result(d["result_templates"][rule["output_template_ref"]])[KEYED[role]]
@@ -2118,6 +2617,9 @@ def evaluate(clean, inputs, source=None):
     if policy == "UNIQUE" and len(selected) > 1:
         raise RouteTableError("UNIQUE_HIT_CONFLICT", "多条规则同时成立", "")
     hits = [_hit(d, r) for r in selected] or [_hit(d, None)]
+    computed = {}
+    if plan:
+        computed = _result_values(plan, d, role, hits, keyed, ctx_recs, calcs)
     source = source or {}
     part = {
         "schema": CONCLUSIONS_SCHEMA,
@@ -2128,7 +2630,7 @@ def evaluate(clean, inputs, source=None):
         "keyed": role in KEYED,
     }
     if role in KEYED:
-        part["keys"] = judge_keys(d, role, matched, keyed)
+        part["keys"] = judge_keys(d, role, matched, keyed, computed)
     else:
         part["decision"] = _short(hits[0])
         if policy == "COLLECT":
@@ -2152,6 +2654,10 @@ def evaluate(clean, inputs, source=None):
     if chained:
         out["chained_parameters"] = chained
     out["ignored_parameters"] = extra
+    if plan:
+        out[CONTEXT] = (
+            calcs  # 2.0.108：每条上下文、每个算过的结论格（没有上下文、没有算式的表不加这一格）
+        )
     out["inputs_digest"] = digest(
         {
             p: {i: {"quality": r["quality"], "value": r["value"]} for i, r in recs.items()}

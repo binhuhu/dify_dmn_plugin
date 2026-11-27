@@ -2132,8 +2132,21 @@ def _standard_hit(model, rule):
     }
 
 
-def evaluate_decision_table(doc, inputs, sources=None):
-    """Evaluate using the hashed model's from_table constraints; legacy sources cannot override them."""
+def _model_sha256(model, memo=None):
+    """The receipt's model_sha256 (RFC 8785). memo (DMN 2.0.107, evaluate_stored_many): one batch's {id(model): (model,
+    digest)} - the same validated model is hashed once for all its items, not once per item (an item's evaluation never
+    changes the model; the batch tests check it)."""
+    if memo is None:
+        return hashlib.sha256(rfc8785.dumps(model)).hexdigest()
+    hit = memo.get(id(model))
+    if hit is None or hit[0] is not model:
+        hit = memo[id(model)] = (model, hashlib.sha256(rfc8785.dumps(model)).hexdigest())
+    return hit[1]
+
+
+def evaluate_decision_table(doc, inputs, sources=None, memo=None):
+    """Evaluate using the hashed model's from_table constraints; legacy sources cannot override them. memo: see
+    _model_sha256."""
     model = doc["model"]
     missing, undeclared = _modes(
         inputs, {"parameters", "missing", "undeclared"}, "parameters + missing + undeclared"
@@ -2184,7 +2197,7 @@ def evaluate_decision_table(doc, inputs, sources=None):
     out = {
         "model_ref": doc["model_ref"],
         "model_version": model["version"],
-        "model_sha256": hashlib.sha256(rfc8785.dumps(model)).hexdigest(),
+        "model_sha256": _model_sha256(model, memo),
         "hit_policy": policy,
         "selected_rule_ids": [r["rule_id"] for r in selected],
         "matched": selected != [],
@@ -2206,7 +2219,7 @@ def evaluate_decision_table(doc, inputs, sources=None):
     return out
 
 
-def evaluate_decision_set(doc, inputs, sources=None, source=None):
+def evaluate_decision_set(doc, inputs, sources=None, source=None, memo=None):
     """0.5.15 决策集求值: each model asked for carries its own call status (SUCCEEDED with its result, or BLOCKED / FAILED
     with an error and no state); only table- or input-level problems raise (the whole call fails). sources (0.5.19):
     model key → {table parameter → the table its receipt must come from}, from each model's hashed contract; a receipt from
@@ -2301,7 +2314,7 @@ def evaluate_decision_set(doc, inputs, sources=None, source=None):
             }
         try:
             result = evaluate_decision_table(
-                entry, {"parameters": mine, "missing": missing, "undeclared": "IGNORE"}
+                entry, {"parameters": mine, "missing": missing, "undeclared": "IGNORE"}, memo=memo
             )
             models[key] = {"status": "SUCCEEDED", "result": result, "error": None}
         except RouteTableError as exc:
@@ -2427,9 +2440,62 @@ def evaluate_stored(
 
     The evaluate_stored_table tool. load(table) -> stored doc or None; load_version(table, n) -> that stored version
     or None (needed for a pin); find_content(table, sha) (0.5.20) -> the version a content pin finds or None (default:
-    the last versions of load's head). Never raises: errors are in the envelope."""
+    the last versions of load's head). Never raises: errors are in the envelope.
+
+    DMN 2.0.107 (一次求值多个输入): one evaluation is a batch of one - this is evaluate_stored_many with a single input,
+    the one implementation both tools run."""
+    return evaluate_stored_many(
+        table,
+        fmt,
+        [inputs],
+        load,
+        version=version,
+        content_sha256=content_sha256,
+        load_version=load_version,
+        find_content=find_content,
+        kind=kind,
+    )[0]
+
+
+def _refused(out, exc):
+    """The envelope a RouteTableError leaves (as 0.5.20: the source already written stays)."""
+    out.update(
+        status="BLOCKED" if exc.code in BLOCKING else "FAILED",
+        result=None,
+        error={"code": exc.code, "message": exc.message, "path": exc.path},
+    )
+    return out
+
+
+def evaluate_stored_many(
+    table,
+    fmt,
+    inputs_list,
+    load,
+    version=None,
+    content_sha256=None,
+    load_version=None,
+    find_content=None,
+    kind=SOURCE_STORAGE,
+    each=None,
+):
+    """DMN 2.0.107 (一次求值多个输入): one table, one format, one pin, several inputs; the envelopes in input order, each
+    character for character the one evaluate_stored gives for that input alone against the same stored version.
+
+    The steps run in the order one evaluation always ran them, so an item meets the same refusal first:
+      1. checks that do not depend on the input (format, empty name, name rules, pin) - a refusal is every item's;
+      2. each item's input read - a refusal is that item's only;
+      3. one read of the table (only when an item passed step 2) and the table-level checks (missing, corrupt, format,
+         validate, source, content pin) - a refusal is every remaining item's, as each separate call would have met it;
+      4. each item's evaluation - a refusal is that item's only.
+    Each item has its own envelope and source; all read the one validated table, which no evaluation changes. Like
+    evaluate_stored this never raises a RouteTableError; any other exception (a plugin bug) propagates.
+
+    each (the batch tool's receipt line, DMN 2.0.107 §八; 11-26 review): each(i, envelope) is called in step 4 as soon
+    as item i's envelope is final, in input order; an exception it raises ends the call there and propagates (the
+    items after it are not evaluated). The single tool passes none."""
     table = delivery_name(table)
-    out = {
+    base = {
         "schema_version": RESULT_SCHEMA,
         "status": "FAILED",
         "table": _echo(table),
@@ -2438,6 +2504,8 @@ def evaluate_stored(
         "result": None,
         "error": None,
     }
+    outs = [dict(base) for _ in inputs_list]
+    # step 1
     try:
         _need(
             type(fmt) is str and fmt in FORMATS,
@@ -2446,8 +2514,9 @@ def evaluate_stored(
             "format",
         )
         if table in (None, ""):
-            out["status"] = "NOT_REQUESTED"
-            return out
+            for out in outs:
+                out["status"] = "NOT_REQUESTED"
+            return outs
         _need(table_name(table), "ROUTE_TABLE_INVALID", "表名格式不对", "table")
         _need(
             fmt != FORMAT_SCENE_TOPIC or storage_name(table) in SCENE_TOPIC_TABLES,
@@ -2465,20 +2534,33 @@ def evaluate_stored(
             "table",
         )
         pin = _pin(version, content_sha256)
-        if isinstance(inputs, str) and not inputs.strip():
-            inputs = {}
-        inputs = _input_object(inputs, "inputs_json", strict=False)
+    except RouteTableError as exc:
+        return [_refused(out, exc) for out in outs]
+    # step 2
+    pending = []
+    for i, raw in enumerate(inputs_list):
+        try:
+            if isinstance(raw, str) and not raw.strip():
+                raw = {}
+            pending.append((i, _input_object(raw, "inputs_json", strict=False)))
+        except RouteTableError as exc:
+            _refused(outs[i], exc)
+    if not pending:
+        return outs
+    # step 3
+    try:
         doc = _pinned(table, pin, load, load_version, find_content) if pin else _read(load, table)
         if doc is None:
-            out.update(
-                status="NOT_FOUND",
-                error={
-                    "code": "STORED_TABLE_MISSING",
-                    "message": "插件里还没有表 " + table,
-                    "path": "table",
-                },
-            )
-            return out
+            for i, _ in pending:
+                outs[i].update(
+                    status="NOT_FOUND",
+                    error={
+                        "code": "STORED_TABLE_MISSING",
+                        "message": "插件里还没有表 " + table,
+                        "path": "table",
+                    },
+                )
+            return outs
         # 0.5.21: scoped to the new format; the others keep 0.5.20's path unchanged
         _need(
             fmt not in (FORMAT_SCENE_TOPIC, FORMAT_CAPABILITY, FORMAT_DECISION_V2)
@@ -2496,7 +2578,7 @@ def evaluate_stored(
         )
         clean = validate(doc, validate_declaration=False)
         stored = kind == SOURCE_STORAGE
-        out["source"] = {
+        source = {
             "kind": kind,
             "table": table,
             "version": doc.get("version") if stored else None,
@@ -2505,10 +2587,13 @@ def evaluate_stored(
         }
         # 0.5.20: a standard name before its first store says alias_of (as 0.5.19); an old name read after it gets the
         # standard name's table: source.table is the standard name, read_as the old name
-        out["source"].update(read_names(table, doc.get("table")))
+        source.update(read_names(table, doc.get("table")))
         if pin:
-            out["source"]["pin"] = dict(pin)
-            got = out["source"]["content_sha256"]
+            source["pin"] = dict(pin)
+        for i, _ in pending:
+            outs[i]["source"] = copy.deepcopy(source)
+        if pin:
+            got = source["content_sha256"]
             if "content_sha256" in pin and got != pin["content_sha256"]:
                 _fail(
                     "STORED_TABLE_VERSION_MISSING",
@@ -2516,15 +2601,35 @@ def evaluate_stored(
                     % (table, doc.get("version"), got[:12], pin["content_sha256"][:12]),
                     "content_sha256",
                 )
+    except RouteTableError as exc:
+        for i, _ in pending:
+            _refused(outs[i], exc)
+        return outs
+    # step 4: every item reads the one validated table (an evaluation never changes it; the batch tests check every
+    # format); its model is hashed once for the batch. A result may hold objects of that table (a v1 template's literals,
+    # a supplement row's items), so with several items each keeps its own copy: no receipt shares an object with another
+    memo = {}
+    for i, inputs in pending:
+        _evaluate_one(outs[i], fmt, clean, inputs, stored, memo)
+        if len(pending) > 1 and outs[i]["result"] is not None:
+            outs[i]["result"] = copy.deepcopy(outs[i]["result"])
+        if each is not None:
+            each(i, outs[i])
+    return outs
+
+
+def _evaluate_one(out, fmt, clean, inputs, stored, memo):
+    """Step 4 of evaluate_stored_many for one item: the format's evaluation into that item's envelope."""
+    try:
         if fmt == FORMAT_DECISION:
             # 0.5.19: the receipt sources come from the model (from_table), never from the declaration
-            out["result"] = evaluate_decision_table(clean, inputs, model_sources(clean["model"]))
+            out["result"] = evaluate_decision_table(clean, inputs, model_sources(clean["model"]), memo=memo)
         elif fmt == FORMAT_DECISION_SET:
             sources = {key: model_sources(m["model"]) for key, m in clean["models"].items()}
             # a set read from storage hands its own source to the models that read one another; a trial has none
             # (0.5.42: its siblings are read as before a source existed, not refused as a trial's receipt)
             out["result"] = evaluate_decision_set(
-                clean, inputs, sources, out["source"] if stored else None
+                clean, inputs, sources, out["source"] if stored else None, memo=memo
             )
         elif fmt in (FORMAT_SUPPLEMENT, FORMAT_SUPPLEMENT_V2):
             sid = inputs.get("scene_id")
@@ -2561,13 +2666,8 @@ def evaluate_stored(
                         "path": "resource_id",
                     },
                 )
-                return out
+                return
             out["result"] = dict(target, resource_id=rid)
         out["status"] = "SUCCEEDED"
     except RouteTableError as exc:
-        out.update(
-            status="BLOCKED" if exc.code in BLOCKING else "FAILED",
-            result=None,
-            error={"code": exc.code, "message": exc.message, "path": exc.path},
-        )
-    return out
+        _refused(out, exc)

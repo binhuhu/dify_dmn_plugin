@@ -25,11 +25,11 @@ LIST_FILE = Path(__file__).with_name("request_keys_v5.json")
 LIST_NAME = "场景方案调用.v5.request_keys.json"
 LIST_SHA256 = "2eef92b505f94dcb0925893766cfdb83244a70ae2a5dc9952dcebe83ca35775c"
 SOURCE = (
-    "服务方案仓 00_governance/contracts/chain-io/schema/场景方案调用.v5.request_keys.json @ 2bc0c90f2"
-    "（分支 claude/solution-request-standard-20261120，清单最后改在 33eb06de6；合同 v5 二次重钉候选，含 §21「补充」，"
-    "正本由 Brian 提交）"
+    "服务方案仓 00_governance/contracts/chain-io/schema/场景方案调用.v5.request_keys.json @ b8b3ea59e"
+    "（主树；清单最后改在 ccef12c1e「场景方案调用 v5 重钉」，含 §21「补充」；冻结锁最后改在 b8b3ea59e）"
 )
-LOCK_SHA256 = "78793ce2fc28da5409376d02050d821cfe1d2020028645cbc5cb5cc0682f0cfa"  # schema/vectors/v5/freeze.lock.json 的 lock_sha256
+# schema/vectors/v5/freeze.lock.json 的 lock_sha256（主树 b8b3ea59e 起；ccef12c1e 时是 78793ce2…，清单内容没变）
+LOCK_SHA256 = "187ae706ad60e4250582fb4e83bbb8a16298c423142e709fc9c86f2a8c701c3f"
 CONTRACT = "场景方案调用/v5"
 GROUP, RELATION, KEY = "<关联组>", "<关系>", "<键>"
 MAX_LENGTH = 128

@@ -133,6 +133,35 @@ def same_strict(a, b):
     return is_scene_id(a) and is_scene_id(b) and canonical(a) == canonical(b)
 
 
+# 0.5.47 (DMN 2.0.101 §二, 协调 11-25): a new business mode's segment followed by a role segment (HY_P_05_01_01) is no scene
+# id (a new mode has no role segment), and EMBEDDED_PATTERN / _LEAF_IN_TEXT would read its P_… tail as a mobility id. Until the
+# grammar is fixed (with SCENE_ID_GRAMMAR, in the re-minting window) a save that carries such a string anywhere is refused.
+# A valid new-mode id (HY_01_02) is taken as before.
+MODE_ROLE_PATTERN = "(?<![A-Za-z0-9])(HY|JR|NY|LL)_[PDH]_[0-9]{2}"
+MODE_ROLE_SPELLING = "SCENE_ID_MODE_ROLE_SPELLING"
+_MODE_ROLE_RE = _re.compile(MODE_ROLE_PATTERN)
+
+
+def mode_role_spelling(x, path=""):
+    """The first (path, string) in x — keys and values, depth first — that has a new mode's segment followed by a role
+    segment; None when there is none."""
+    if isinstance(x, str):
+        return (path, x) if _MODE_ROLE_RE.search(x) else None
+    if isinstance(x, dict):
+        for k, v in x.items():
+            at = "%s.%s" % (path, k) if path else str(k)
+            hit = mode_role_spelling(k, at) if isinstance(k, str) else None
+            hit = hit or mode_role_spelling(v, at)
+            if hit:
+                return hit
+    elif isinstance(x, list):
+        for i, v in enumerate(x):
+            hit = mode_role_spelling(v, "%s[%d]" % (path, i))
+            if hit:
+                return hit
+    return None
+
+
 def is_scene_id(x, levels=None, roles=None):
     """levels within [1, 2, 3], roles within ['P', 'D', 'H']; None = no limit, [] = nothing passes."""
     p = parse(x)
