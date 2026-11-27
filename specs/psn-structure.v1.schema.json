@@ -81,6 +81,9 @@
         },
         "gates_pending_number": {
           "$ref": "#/$defs/pending_gates"
+        },
+        "node_types": {
+          "$ref": "#/$defs/node_types"
         }
       },
       "required": [
@@ -156,6 +159,9 @@
         },
         "gates_pending_number": {
           "$ref": "#/$defs/pending_gates"
+        },
+        "node_types": {
+          "$ref": "#/$defs/node_types"
         }
       },
       "required": [
@@ -532,6 +538,18 @@
             "EVENT"
           ]
         },
+        "type": {
+          "enum": [
+            "READ",
+            "DECIDE",
+            "UNDERSTAND",
+            "ACT",
+            "EVENT",
+            "WAIT",
+            "CALL",
+            "CONTROL"
+          ]
+        },
         "order": {
           "type": "integer",
           "minimum": 0
@@ -677,6 +695,215 @@
         "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,63}$"
       },
       "uniqueItems": true
+    },
+    "node_types": {
+      "description": "DMN 2.0.108 §一「流程节点类型」的登记写法（插件定；协调 11-26 F3：照一份评审过的在用登记写法）。labels 是八类与类名，逐字照标准；control_values 是分支闸还认哪些控制值；code_stock 与 type_stock 是存量（只减不增，psn check --live 锚现网图）。",
+      "type": "object",
+      "properties": {
+        "means": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "basis": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "labels": {
+          "const": {
+            "READ": "读",
+            "DECIDE": "判",
+            "UNDERSTAND": "理解",
+            "ACT": "动",
+            "EVENT": "事件",
+            "WAIT": "等人",
+            "CALL": "调用",
+            "CONTROL": "控制"
+          }
+        },
+        "control_values": {
+          "type": "object",
+          "properties": {
+            "means": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2000
+            },
+            "operators": {
+              "type": "array",
+              "items": {
+                "enum": [
+                  "is",
+                  "=",
+                  "is not",
+                  "≠"
+                ]
+              },
+              "minItems": 1,
+              "uniqueItems": true
+            },
+            "values": {
+              "type": "array",
+              "maxItems": 64,
+              "items": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "key": {
+                        "type": "string",
+                        "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,63}$"
+                      },
+                      "from": {
+                        "const": "ROUND_ITEM"
+                      }
+                    },
+                    "required": [
+                      "key",
+                      "from"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "key": {
+                        "type": "string",
+                        "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,63}$"
+                      },
+                      "from_node": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 200
+                      }
+                    },
+                    "required": [
+                      "key",
+                      "from_node"
+                    ],
+                    "additionalProperties": false
+                  }
+                ]
+              }
+            }
+          },
+          "required": [
+            "values"
+          ],
+          "additionalProperties": false
+        },
+        "code_stock": {
+          "type": "object",
+          "properties": {
+            "means": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2000
+            },
+            "max": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "nodes": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "node_key": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,63}$"
+                  },
+                  "move_to": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 2000
+                  }
+                },
+                "required": [
+                  "node_key",
+                  "move_to"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": [
+            "max",
+            "nodes"
+          ],
+          "additionalProperties": false
+        },
+        "type_stock": {
+          "type": "object",
+          "properties": {
+            "means": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2000
+            },
+            "nodes": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "node_key": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,63}$"
+                  },
+                  "code": {
+                    "enum": [
+                      "NODE_TYPE_MISSING",
+                      "NODE_TYPE_TITLE_MISMATCH",
+                      "NODE_TYPE_MISMATCH"
+                    ]
+                  },
+                  "reason": {
+                    "enum": [
+                      "DECIDE_OUTSIDE_PLUGIN",
+                      "READ_OUTSIDE_CAPABILITY",
+                      "ACT_OUTSIDE_DISPOSAL",
+                      "UNDERSTAND_OFF_CATALOG",
+                      "CONTROL_BUSINESS_TEST"
+                    ]
+                  },
+                  "move_to": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 2000
+                  }
+                },
+                "required": [
+                  "node_key",
+                  "code"
+                ],
+                "additionalProperties": false,
+                "allOf": [
+                  {
+                    "if": {
+                      "required": [
+                        "reason"
+                      ]
+                    },
+                    "then": {
+                      "properties": {
+                        "code": {
+                          "const": "NODE_TYPE_MISMATCH"
+                        }
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          },
+          "required": [
+            "nodes"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
     }
   }
 }
