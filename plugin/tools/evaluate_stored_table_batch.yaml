@@ -1,0 +1,100 @@
+identity:
+  name: evaluate_stored_table_batch
+  author: hu8627
+  label:
+    en_US: evaluate_stored_table_batch
+    zh_Hans: 读存储表 · 一次多个输入
+description:
+  human:
+    en_US: Read one table kept in this plugin's tool storage for several inputs in one call (DMN 2.0.107 §七) - the same tables,
+      formats and pins as evaluate_stored_table. Item i of item_result_jsons is, character for character, the result_json
+      evaluate_stored_table gives for (table, format, version, content_sha256, inputs_list_json[i]) against the same stored
+      version. The table is read once and one version answers every item; a failing item does not affect the others (each
+      has its own status); status speaks for the list only. At most 256 items, the list at most 1 MiB, the item receipts
+      at most 4 MiB together.
+    zh_Hans: 一次读插件工具存储里的一张表、求多个输入（DMN 2.0.107 §七）：表、格式和钉版本与 evaluate_stored_table 相同。item_result_jsons 第 i 项与 evaluate_stored_table 对同一存储版本、用同样的 table / format / version / content_sha256 和 inputs_list_json 第 i 项给的 result_json 逐字相同。这一次只读一次表、所有项用同一版；一项失败不连坐别的项（每项各带 status）；status 只说这张列表本身。一次至多 256 项，列表至多 1 MiB，各项回执合计至多 4 MiB。
+  llm: Read or evaluate one stored table of this plugin for a list of inputs in one call; item i of item_result_jsons equals evaluate_stored_table's result_json for input i; status is for the list only.
+parameters:
+- name: table
+  type: string
+  required: false
+  form: llm
+  label:
+    en_US: table
+    zh_Hans: 表名
+  human_description:
+    en_US: Stored table name (p2.<app_id>, target.<name> or target.<object>.<judgment>, triage.<name> or triage.<object>.<judgment>, solution.<search.fact|fact.feature|feature.reality|reality.strategy>.<scene_id>[.<solution>][.<part>] (since 0.5.30 <solution> is the first segment of the owning app id, 8 lower-case hex digits), handle.<object>.<judgment> (delivery's handle workflow), <task type>.<workflow>.<object>.<judgment> for the other task types (task type monitoring | quality | annotation | iteration | evaluation | rollout; workflow trigger | triage | solution | handle; <task type>.triage.<object>.resource is their resource routing), triage.supplement.requirements, triage.dispatch.resource, target.scene.topic (scene-topic/v1), target.capability.catalog (capability-catalog/v1; the old name platform.capability.catalog is read-only); the old names target.scene_entity, triage.acceptance, supplement.requirements, dispatch.resource are read-only aliases during the transition; a delivery name under target. / triage. / solution. / handle. may also be written in full as support.<name>, the same table). Empty = not requested.
+    zh_Hans: 存储表名（p2.<方案应用编号>、target.<名称> 或 target.<对象>.<判断>、triage.<名称> 或 triage.<对象>.<判断>、solution.<search.fact|fact.feature|feature.reality|reality.strategy>.<场景号>[.<方案段>][.<分片>]（0.5.30：方案段 = 方案应用编号的第一段，8 位小写十六进制）、handle.<对象>.<判断>（交付的处理流程）、<任务类型>.<流程>.<对象>.<判断>（其余任务类型 monitoring / quality / annotation / iteration / evaluation / rollout，流程 trigger / triage / solution / handle；<任务类型>.triage.<对象>.resource 是资源去向）、triage.supplement.requirements、triage.dispatch.resource、target.scene.topic（scene-topic/v1）、target.capability.catalog（capability-catalog/v1；旧名 platform.capability.catalog 只读）；旧名 target.scene_entity、triage.acceptance、supplement.requirements、dispatch.resource 是过渡期只读别名；交付在 target. / triage. / solution. / handle. 下的名字也可写全名 support.<名字>，是同一张表）；空 = 本次不读。
+  llm_description: Stored table name; empty means not requested.
+- name: format
+  type: string
+  required: true
+  form: form
+  label:
+    en_US: format
+    zh_Hans: 表格式
+  human_description:
+    en_US: decision-table/v1 | decision-set/v1 | supplement-requirements/v1 | supplement-requirements/v2 | resource-targets/v1 | scene-topic/v1 | capability-catalog/v1 (fixed in the workflow).
+    zh_Hans: decision-table/v1 / decision-set/v1 / supplement-requirements/v1 | supplement-requirements/v2 / resource-targets/v1 / scene-topic/v1 / capability-catalog/v1（在流程里固定）。
+  llm_description: The table format, fixed by the workflow.
+- name: inputs_list_json
+  type: any
+  required: false
+  form: llm
+  label:
+    en_US: inputs_list_json
+    zh_Hans: inputs_list_json
+  human_description:
+    en_US: A list (or a JSON string of a list); each item is exactly what evaluate_stored_table's inputs_json takes for this
+      format (an empty item = {}). Items are evaluated in order and answered in order; a duplicate item is evaluated again.
+      At most 256 items, the list at most 1 MiB (UTF-8), the item receipts at most 4 MiB together; over a line the whole
+      list is FAILED (STORED_TABLE_BATCH_TOO_MANY / STORED_TABLE_BATCH_TOO_LARGE). Empty or absent = NOT_REQUESTED.
+    zh_Hans: 列表（或列表的 JSON 字符串）；每一项就是 evaluate_stored_table 的 inputs_json 对这种格式收的那份（空项 = {}）。按次序求值、按次序回；重复的项照样再求一次。一次至多 256 项，列表至多 1 MiB（UTF-8），各项回执合计至多 4 MiB；超线整张列表 FAILED（STORED_TABLE_BATCH_TOO_MANY / STORED_TABLE_BATCH_TOO_LARGE）。空或不填 = NOT_REQUESTED。
+  llm_description: List of inputs, each as evaluate_stored_table's inputs_json; list or JSON string of a list.
+- name: version
+  type: string
+  required: false
+  form: form
+  label:
+    en_US: version
+    zh_Hans: 钉的版本
+  human_description:
+    en_US: Optional. Read exactly this stored version (positive integer); missing = FAILED STORED_TABLE_VERSION_MISSING, never the latest. Empty = latest. A published solution workflow pins its tables.
+    zh_Hans: 可选。只读存储里的这一版（正整数）；不在 = FAILED STORED_TABLE_VERSION_MISSING，不回退最新版。空 = 读最新版。已发布的方案流程要钉版本。
+  llm_description: Optional stored version to pin; empty means latest.
+- name: content_sha256
+  type: string
+  required: false
+  form: form
+  label:
+    en_US: content_sha256
+    zh_Hans: 钉的内容摘要
+  human_description:
+    en_US: Optional. The pinned version's content_sha256 (64 lowercase hex); with version it must match that version, alone it picks the newest of the last 50 versions with this digest.
+    zh_Hans: 可选。钉的那一版的 content_sha256（64 位小写十六进制）；和 version 一起写就要对得上那一版，单独写就取最近 50 版里摘要相同的最新一版。
+  llm_description: Optional content digest to pin; empty means not pinned.
+output_schema:
+  type: object
+  properties:
+    results:
+      type: object
+    status:
+      type: string
+      enum:
+      - SUCCEEDED
+      - NOT_REQUESTED
+      - FAILED
+    result_json:
+      type: string
+    item_result_jsons:
+      type: array
+      items:
+        type: string
+  required:
+  - results
+  - status
+  - result_json
+  - item_result_jsons
+extra:
+  python:
+    source: tools/evaluate_stored_table_batch.py
